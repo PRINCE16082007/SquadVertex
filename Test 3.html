@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-time YouTube Subscriber Count</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://apis.google.com/js/api.js"></script>
+</head>
+<body>
+  <h1>Techno Gamer - Subscriber Count: <span id="subscriber-count">Loading...</span></h1>
+
+  <script>
+    // Supabase Initialization
+    const supabase = supabase.createClient('https://your-project-url.supabase.co', 'your-anon-key');
+
+    // YouTube API Key and Channel ID
+    const YOUTUBE_API_KEY = 'AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA';
+    const YOUTUBE_CHANNEL_ID = 'UCX8pnu3DYUnx8qy8V_c6oHg';
+
+    // Function to fetch subscriber count
+    async function fetchSubscriberCount() {
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${YOUTUBE_CHANNEL_ID}&key=${YOUTUBE_API_KEY}`);
+      const data = await res.json();
+      const subscriberCount = data.items[0].statistics.subscriberCount;
+
+      // Update the displayed subscriber count
+      document.getElementById('subscriber-count').textContent = subscriberCount;
+
+      // Insert the subscriber count into Supabase table
+      const { data, error } = await supabase
+        .from('youtube_channels')
+        .upsert([
+          {
+            channel_id: YOUTUBE_CHANNEL_ID,
+            subscriber_count: subscriberCount,
+            updated_at: new Date().toISOString()
+          }
+        ]);
+      
+      if (error) {
+        console.error('Error updating Supabase:', error);
+      }
+    }
+
+    // Real-time subscription to listen for updates
+    function listenForRealTimeUpdates() {
+      const channel = supabase
+        .from('youtube_channels')
+        .on('INSERT', (payload) => {
+          // Whenever new data is inserted or updated, update the displayed subscriber count
+          document.getElementById('subscriber-count').textContent = payload.new.subscriber_count;
+        })
+        .subscribe();
+    }
+
+    // Initial fetch
+    fetchSubscriberCount();
+
+    // Start listening for real-time updates
+    listenForRealTimeUpdates();
+
+    // Update every 30 minutes (optional, depending on your needs)
+    setInterval(fetchSubscriberCount, 1800000); // 30 minutes in milliseconds
+  </script>
+</body>
+</html>
