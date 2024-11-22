@@ -1,3 +1,8 @@
+// Import Firebase SDK
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-auth.js";
+
 // Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyAtT20-GOkXizhwI1Pg2xHDmKfDooKUEv4",
