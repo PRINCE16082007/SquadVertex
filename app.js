@@ -1,11 +1,11 @@
 // Firebase Config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAtT20-GOkXizhwI1Pg2xHDmKfDooKUEv4",
+  authDomain: "trapmelon.firebaseapp.com",
+  projectId: "trapmelon",
+  storageBucket: "trapmelon.firebasestorage.app",
+  messagingSenderId: "49468693256",
+  appId: "1:49468693256:web:2151592223e6c0119f2abd"
 };
 
 // Initialize Firebase
