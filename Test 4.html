@@ -4,41 +4,34 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Firebase Login Test</title>
-  <!-- Firebase App and Firestore -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+  <!-- Firebase App (Required for Initialization) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background-color: #f4f4f4;
-    }
-    h1 {
-      color: #333;
+      text-align: center;
+      padding: 20px;
     }
     form {
-      background: #fff;
+      margin-top: 20px;
+      display: inline-block;
+      text-align: left;
+      border: 1px solid #ccc;
       padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      background: #f9f9f9;
     }
-    input {
+    input, button {
       display: block;
       margin-bottom: 10px;
+      padding: 10px;
       width: 100%;
-      padding: 8px;
       font-size: 16px;
     }
     button {
-      padding: 10px 15px;
-      font-size: 16px;
       background: #4CAF50;
-      color: #fff;
+      color: white;
       border: none;
       border-radius: 4px;
       cursor: pointer;
@@ -47,19 +40,19 @@
       background: #45a049;
     }
     #status {
-      margin-top: 15px;
-      color: #333;
+      margin-top: 20px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
   <h1>Firebase Login Test</h1>
+  <p id="status">Initializing Firebase...</p>
   <form onsubmit="event.preventDefault(); checkLogin();">
     <input type="email" id="email" placeholder="Enter your Gmail" required />
     <input type="password" id="password" placeholder="Enter unified password" required />
     <button type="submit">Login</button>
   </form>
-  <p id="status">Initializing Firebase...</p>
 
   <script>
     // Firebase configuration
@@ -73,50 +66,49 @@
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
     };
 
-    // Initialize Firebase
-    let db;
     try {
+      // Initialize Firebase
       const app = firebase.initializeApp(firebaseConfig);
-      db = firebase.firestore(app);
+      console.log("Firebase initialized successfully:", app);
       document.getElementById("status").innerText = "Firebase initialized successfully!";
+      const db = firebase.firestore(app);
+
+      // Function to validate email and unified password
+      async function checkLogin() {
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value.trim();
+        const status = document.getElementById("status");
+
+        try {
+          // Get unified password from Firestore
+          const passwordDoc = await db.collection("authUsers").doc("unifiedPassword").get();
+          if (!passwordDoc.exists) {
+            status.innerText = "Unified password not set in the database.";
+            return;
+          }
+          const unifiedPassword = passwordDoc.data().password;
+
+          if (password !== unifiedPassword) {
+            status.innerText = "Invalid unified password.";
+            return;
+          }
+
+          // Check if email exists in Firestore
+          const emailDoc = await db.collection("authUsers").doc(email).get();
+          if (emailDoc.exists) {
+            status.innerText = "Access granted! Welcome.";
+            // Redirect to restricted page or perform an action
+          } else {
+            status.innerText = "Email not found in the allowed list.";
+          }
+        } catch (error) {
+          console.error("Login error:", error);
+          status.innerText = "An error occurred. Please try again.";
+        }
+      }
     } catch (error) {
       console.error("Firebase initialization failed:", error);
       document.getElementById("status").innerText = `Error: ${error.message}`;
-    }
-
-    // Validate user login
-    async function checkLogin() {
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
-      const status = document.getElementById("status");
-
-      try {
-        // Fetch unified password
-        const unifiedPasswordDoc = await db.collection("authUsers").doc("unifiedPassword").get();
-        if (!unifiedPasswordDoc.exists) {
-          status.innerText = "Unified password is not set in the database.";
-          return;
-        }
-
-        const unifiedPassword = unifiedPasswordDoc.data().password;
-
-        if (password !== unifiedPassword) {
-          status.innerText = "Invalid unified password.";
-          return;
-        }
-
-        // Check if email is allowed
-        const userDoc = await db.collection("authUsers").doc(email).get();
-        if (userDoc.exists) {
-          status.innerText = "Access granted! Redirecting...";
-          // Perform redirection or restricted page actions
-        } else {
-          status.innerText = "Email not found in the allowed list.";
-        }
-      } catch (error) {
-        console.error("Error during login:", error);
-        status.innerText = "An error occurred. Please try again.";
-      }
     }
   </script>
 </body>
