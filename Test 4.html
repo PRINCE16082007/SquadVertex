@@ -80,46 +80,52 @@
     }
 
     async function checkLogin() {
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
-      const status = document.getElementById("status");
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const status = document.getElementById("status");
 
-      if (!db) {
-        status.innerText = "Firestore not initialized.";
-        return;
-      }
+  if (!db) {
+    status.innerText = "Firestore not initialized.";
+    return;
+  }
 
-      try {
-        // Get the unified password
-        const passwordDoc = await db.collection("authUsers").doc("unifiedPassword").get();
-        if (!passwordDoc.exists) {
-          status.innerText = "Unified password not found in the database.";
-          return;
-        }
+  try {
+    console.log("Fetching unified password...");
+    const passwordDoc = await db.collection("authUsers").doc("unifiedPassword").get();
 
-        const unifiedPassword = passwordDoc.data().password;
-        if (password !== unifiedPassword) {
-          status.innerText = "Invalid unified password.";
-          return;
-        }
-
-        // Check if email exists
-        const emailDoc = await db.collection("authUsers").doc(email).get();
-        if (emailDoc.exists) {
-          status.innerText = "Access granted! Redirecting...";
-          console.log("Redirect to restricted page");
-          // Simulate a redirection
-          setTimeout(() => {
-            window.location.href = "restricted-page.html"; // Replace with your restricted page URL
-          }, 2000);
-        } else {
-          status.innerText = "Email not found in the allowed list.";
-        }
-      } catch (error) {
-        console.error("Error during login:", error);
-        status.innerText = "An error occurred. Please check the console for details.";
-      }
+    if (!passwordDoc.exists) {
+      status.innerText = "Unified password not found.";
+      console.error("Unified password document missing in Firestore.");
+      return;
     }
+
+    const unifiedPassword = passwordDoc.data().password;
+    console.log("Unified Password from Firestore:", unifiedPassword);
+
+    if (password !== unifiedPassword) {
+      status.innerText = "Invalid unified password.";
+      console.error("Unified password mismatch.");
+      return;
+    }
+
+    console.log("Fetching email document...");
+    const emailDoc = await db.collection("authUsers").doc(email).get();
+
+    if (emailDoc.exists) {
+      status.innerText = "Access granted! Redirecting...";
+      console.log("Email found. Redirecting...");
+      setTimeout(() => {
+        window.location.href = "restricted-page.html"; // Replace with your restricted page URL
+      }, 2000);
+    } else {
+      status.innerText = "Email not found in the allowed list.";
+      console.error("Email document not found in Firestore.");
+    }
+  } catch (error) {
+    console.error("Error during login:", error);
+    status.innerText = "An error occurred. Please check the console for details.";
+  }
+}
   </script>
 </body>
 </html>
