@@ -10,6 +10,7 @@
     import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
 
     let app, db;
+    let firebaseInitialized = false;
 
     // Firebase configuration
     const firebaseConfig = {
@@ -25,12 +26,17 @@
       // Initialize Firebase
       app = initializeApp(firebaseConfig);
       db = getFirestore(app);
-      console.log("Firebase initialized successfully.");
+      firebaseInitialized = true;
+      console.log("✅ Firebase initialized successfully.");
     } catch (error) {
-      console.error("Firebase initialization failed:", error.message);
+      console.error("❌ Firebase initialization failed:", error.message);
     }
 
-    // Check if user has already voted (localStorage)
+    if (!firebaseInitialized) {
+      alert("Firebase initialization failed. Check console for details.");
+    }
+
+    // Check if user has already voted
     function hasVoted() {
       return localStorage.getItem("voted") === "true";
     }
@@ -57,11 +63,11 @@
     // Submit vote
     async function submitVote(voteOption) {
       try {
-        if (!db) throw new Error("Firebase is not initialized.");
+        if (!firebaseInitialized) throw new Error("Firebase is not initialized.");
 
         if (hasVoted()) {
           alert("You have already voted!");
-          console.warn("Attempt to vote again by user.");
+          console.warn("Double voting attempt detected.");
           return;
         }
 
@@ -73,17 +79,17 @@
 
         if (docSnap.exists()) {
           alert("You have already voted!");
-          console.warn(`Double vote attempt detected for user ID: ${userId}`);
+          console.warn(`Double voting attempt for user ID: ${userId}`);
         } else {
           // Submit the vote
           await setDoc(docRef, { voteOption: voteOption, timestamp: new Date() });
           markAsVoted();
-          console.log("Vote submitted successfully:", { userId, voteOption });
+          console.log("✅ Vote submitted successfully:", { userId, voteOption });
           alert("Vote submitted successfully!");
         }
       } catch (error) {
-        console.error("Vote submission failed:", error.message);
-        alert("An error occurred while submitting your vote. Please try again.");
+        console.error("❌ Vote submission failed:", error.message);
+        alert("An error occurred while submitting your vote. Check the console for details.");
       }
     }
 
