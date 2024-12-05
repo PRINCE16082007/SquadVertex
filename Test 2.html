@@ -5,59 +5,92 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SquadVertex Voting</title>
   <script type="module">
-    // Firebase initialization
+    // Import Firebase modules
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
     import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
 
+    let app, db;
+
+    // Firebase configuration
     const firebaseConfig = {
-     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
-      databaseURL: "https://squadvertex2007-default-rtdb.firebaseio.com/",
       projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.firebasestorage.app",
+      storageBucket: "squadvertex2007.appspot.com",
       messagingSenderId: "168905083514",
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-};
+    };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    try {
+      // Initialize Firebase
+      app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      console.log("Firebase initialized successfully.");
+    } catch (error) {
+      console.error("Firebase initialization failed:", error.message);
+    }
 
-    // Check if user already voted
+    // Check if user has already voted (localStorage)
     function hasVoted() {
       return localStorage.getItem("voted") === "true";
+    }
+
+    // Generate or retrieve user ID
+    function getUserId() {
+      let userId = localStorage.getItem("userId");
+      if (!userId) {
+        userId = `user_${Date.now()}`;
+        localStorage.setItem("userId", userId);
+        console.log("New user ID generated:", userId);
+      } else {
+        console.log("Existing user ID found:", userId);
+      }
+      return userId;
     }
 
     // Mark user as voted
     function markAsVoted() {
       localStorage.setItem("voted", "true");
+      console.log("User marked as voted.");
     }
 
     // Submit vote
     async function submitVote(voteOption) {
-      if (hasVoted()) {
-        alert("You have already voted!");
-        return;
-      }
+      try {
+        if (!db) throw new Error("Firebase is not initialized.");
 
-      // Generate a random unique ID for this user (UUID or similar)
-      const userId = localStorage.getItem("userId") || `user_${Date.now()}`;
-      localStorage.setItem("userId", userId);
+        if (hasVoted()) {
+          alert("You have already voted!");
+          console.warn("Attempt to vote again by user.");
+          return;
+        }
 
-      const docRef = doc(db, "votes", userId);
-      const docSnap = await getDoc(docRef);
+        const userId = getUserId();
 
-      if (docSnap.exists()) {
-        alert("You have already voted!");
-      } else {
-        await setDoc(docRef, { voteOption: voteOption, timestamp: new Date() });
-        markAsVoted();
-        alert("Vote submitted successfully!");
+        // Check if the user has already submitted a vote
+        const docRef = doc(db, "votes", userId);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          alert("You have already voted!");
+          console.warn(`Double vote attempt detected for user ID: ${userId}`);
+        } else {
+          // Submit the vote
+          await setDoc(docRef, { voteOption: voteOption, timestamp: new Date() });
+          markAsVoted();
+          console.log("Vote submitted successfully:", { userId, voteOption });
+          alert("Vote submitted successfully!");
+        }
+      } catch (error) {
+        console.error("Vote submission failed:", error.message);
+        alert("An error occurred while submitting your vote. Please try again.");
       }
     }
   </script>
 </head>
 <body>
   <h1>Vote for Your Favorite Option</h1>
+  <p>Click on an option below to cast your vote.</p>
   <div>
     <button onclick="submitVote('Option A')">Vote for Option A</button>
     <button onclick="submitVote('Option B')">Vote for Option B</button>
