@@ -287,97 +287,134 @@ footer p {
     line-height: 1.5;
 }</style>
 <script type="module">
-    // Import Firebase modules
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
-    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+  // Import Firebase modules
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
 
-    let app, db;
-    let firebaseInitialized = false;
+  let app, db;
+  let firebaseInitialized = false;
 
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
+  // Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+  };
+
+  try {
+    // Initialize Firebase
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    firebaseInitialized = true;
+    console.log("✅ Firebase initialized successfully.");
+  } catch (error) {
+    console.error("❌ Firebase initialization failed:", error.message);
+  }
+
+  if (!firebaseInitialized) {
+    alert("Firebase initialization failed. Check console for details.");
+  }
+
+  // Common utility functions
+  function hasVoted() {
+    return localStorage.getItem("voted") === "true";
+  }
+
+  function getUserId() {
+    let userId = localStorage.getItem("userId");
+    if (!userId) {
+      userId = `user_${Date.now()}`;
+      localStorage.setItem("userId", userId);
+      console.log("New user ID generated:", userId);
+    } else {
+      console.log("Existing user ID found:", userId);
+    }
+    return userId;
+  }
+
+  function markAsVoted() {
+    localStorage.setItem("voted", "true");
+    console.log("User marked as voted.");
+  }
+
+  async function getUserIP() {
+    const response = await fetch("https://api.ipify.org?format=json");
+    const data = await response.json();
+    return data.ip;
+  }
+
+  // Weekly Contest Voting
+  async function submitWeeklyVote(voteOption) {
+    try {
+      if (!firebaseInitialized) throw new Error("Firebase is not initialized.");
+
+      if (hasVoted()) {
+        alert("You have already voted!");
+        console.warn("Double voting attempt detected.");
+        return;
+      }
+
+      const userId = getUserId();
+      const docRef = doc(db, "votes", userId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        alert("You have already voted!");
+        console.warn(`Double voting attempt for user ID: ${userId}`);
+      } else {
+        await setDoc(docRef, { voteOption: voteOption, timestamp: new Date() });
+        markAsVoted();
+        console.log("✅ Weekly vote submitted successfully:", { userId, voteOption });
+        alert("Weekly vote submitted successfully!");
+      }
+    } catch (error) {
+      console.error("❌ Weekly vote submission failed:", error.message);
+      alert("An error occurred while submitting your weekly vote. Check the console for details.");
+    }
+  }
+
+  // Monthly Contest Voting
+  async function submitMonthlyVote() {
+    const replayId = document.getElementById("replay-id").value.trim();
+    if (!replayId) {
+      alert("Please enter a valid Replay ID!");
+      return;
+    }
+
+    const ip = await getUserIP();
+    const replayRef = doc(db, "replay_votes", replayId);
 
     try {
-      // Initialize Firebase
-      app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-      firebaseInitialized = true;
-      console.log("✅ Firebase initialized successfully.");
-    } catch (error) {
-      console.error("❌ Firebase initialization failed:", error.message);
-    }
+      const replaySnap = await getDoc(replayRef);
+      if (replaySnap.exists()) {
+        const replayData = replaySnap.data();
 
-    if (!firebaseInitialized) {
-      alert("Firebase initialization failed. Check console for details.");
-    }
-
-    // Check if user has already voted
-    function hasVoted() {
-      return localStorage.getItem("voted") === "true";
-    }
-
-    // Generate or retrieve user ID
-    function getUserId() {
-      let userId = localStorage.getItem("userId");
-      if (!userId) {
-        userId = `user_${Date.now()}`;
-        localStorage.setItem("userId", userId);
-        console.log("New user ID generated:", userId);
-      } else {
-        console.log("Existing user ID found:", userId);
-      }
-      return userId;
-    }
-
-    // Mark user as voted
-    function markAsVoted() {
-      localStorage.setItem("voted", "true");
-      console.log("User marked as voted.");
-    }
-
-    // Submit vote
-    async function submitVote(voteOption) {
-      try {
-        if (!firebaseInitialized) throw new Error("Firebase is not initialized.");
-
-        if (hasVoted()) {
-          alert("You have already voted!");
-          console.warn("Double voting attempt detected.");
-          return;
-        }
-
-        const userId = getUserId();
-
-        // Check if the user has already submitted a vote
-        const docRef = doc(db, "votes", userId);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          alert("You have already voted!");
-          console.warn(`Double voting attempt for user ID: ${userId}`);
+        if (replayData.ip_addresses.includes(ip)) {
+          alert("You have already voted for this replay!");
         } else {
-          // Submit the vote
-          await setDoc(docRef, { voteOption: voteOption, timestamp: new Date() });
-          markAsVoted();
-          console.log("✅ Vote submitted successfully:", { userId, voteOption });
-          alert("Vote submitted successfully!");
+          await updateDoc(replayRef, {
+            total_votes: (replayData.total_votes || 0) + 1,
+            ip_addresses: arrayUnion(ip),
+          });
+          alert("Vote successfully cast for the monthly contest!");
         }
-      } catch (error) {
-        console.error("❌ Vote submission failed:", error.message);
-        alert("An error occurred while submitting your vote. Check the console for details.");
+      } else {
+        alert("Invalid Replay ID!");
       }
+    } catch (error) {
+      console.error("❌ Monthly vote casting failed:", error.message);
+      alert("An error occurred while casting your monthly vote. Please try again later.");
     }
+  }
 
-    // Attach submitVote to the global window object
-    window.submitVote = submitVote;
-  </script></head> 
+  // Attach functions to the global window object
+  window.submitWeeklyVote = submitWeeklyVote;
+  window.submitMonthlyVote = submitMonthlyVote;
+</script>
+</head> 
  <body> 
   <header> 
    <h1>Trapmelon's Replay Portal</h1> 
@@ -395,7 +432,7 @@ footer p {
         <p><strong>Epic Comeback</strong></p>
         <p>A thrilling comeback from a 1v5 situation!</p>
     </div>
-    <button class="vote-button" onclick="submitVote('A')">Vote</button>
+    <button class="vote-button" onclick="submitWeeklyVote('A')">Vote</button>
 </div>
 
 <div class="replay-option">
@@ -406,7 +443,7 @@ footer p {
         <p><strong>Top-Scoring Battle</strong></p>
         <p>Most points scored in a single battle!</p>
     </div>
-    <button class="vote-button" onclick="submitVote('B')">Vote</button>
+    <button class="vote-button" onclick="submitWeeklyVote('B')">Vote</button>
 </div>
 
 <div class="replay-option">
@@ -417,7 +454,7 @@ footer p {
         <p><strong>Tank Mastery Showcase</strong></p>
         <p>Exceptional display of tank skills and strategy.</p>
     </div>
-    <button class="vote-button" onclick="submitVote('C')">Vote</button>
+    <button class="vote-button" onclick="submitWeeklyVote('C')">Vote</button>
 </div>
 
 <div class="replay-option">
@@ -428,7 +465,7 @@ footer p {
         <p><strong>Legendary Sniper</strong></p>
         <p>Perfect accuracy throughout the game.</p>
     </div>
-    <button class="vote-button" onclick="submitVote('D')">Vote</button>
+    <button class="vote-button" onclick="submitWeeklyVote('D')">Vote</button>
 </div>
    <p>Poll results are announced every Sunday. Winning replay will have a special short made on Monday!</p> 
   </section> 
@@ -438,7 +475,7 @@ footer p {
 
     <label for="replay-id">Replay ID:</label> 
     <input type="text" id="replay-id" name="replay-id" placeholder="Enter Replay ID"> 
-    <button class="submit-button" onclick="submitVote()">Vote</button> 
+    <button class="submit-button" onclick="submitMonthlyVote()">Vote</button> 
 
     <p>Each short has a unique ID in the YouTube description. Enter it here to cast your vote!</p> 
   </section> 
