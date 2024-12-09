@@ -36,74 +36,64 @@
       alert("Firebase initialization failed. Check console for details.");
     }
 
-    // Check if user has already voted
-    function hasVoted() {
-      return localStorage.getItem("voted") === "true";
+  // Firebase Initialization (already configured)
+  import { getFirestore, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+  const db = getFirestore();
+
+  // Function to fetch User IP
+  async function getUserIP() {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+    return data.ip;
+  }
+
+  // Submit Vote Function
+  async function submitVote() {
+    const replayId = document.getElementById("replay-id").value.trim();
+    if (!replayId) {
+      alert("Please enter a valid Replay ID!");
+      return;
     }
 
-    // Generate or retrieve user ID
-    function getUserId() {
-      let userId = localStorage.getItem("userId");
-      if (!userId) {
-        userId = `user_${Date.now()}`;
-        localStorage.setItem("userId", userId);
-        console.log("New user ID generated:", userId);
-      } else {
-        console.log("Existing user ID found:", userId);
-      }
-      return userId;
-    }
+    const ip = await getUserIP();
+    const replayRef = doc(db, "replay_votes", replayId);
 
-    // Mark user as voted
-    function markAsVoted() {
-      localStorage.setItem("voted", "true");
-      console.log("User marked as voted.");
-    }
+    try {
+      const replaySnap = await getDoc(replayRef);
+      if (replaySnap.exists()) {
+        const replayData = replaySnap.data();
 
-    // Submit vote
-    async function submitVote(voteOption) {
-      try {
-        if (!firebaseInitialized) throw new Error("Firebase is not initialized.");
-
-        if (hasVoted()) {
-          alert("You have already voted!");
-          console.warn("Double voting attempt detected.");
-          return;
-        }
-
-        const userId = getUserId();
-
-        // Check if the user has already submitted a vote
-        const docRef = doc(db, "votes", userId);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          alert("You have already voted!");
-          console.warn(`Double voting attempt for user ID: ${userId}`);
+        // Check if IP already voted
+        if (replayData.ip_addresses.includes(ip)) {
+          alert("You have already voted for this replay!");
         } else {
-          // Submit the vote
-          await setDoc(docRef, { voteOption: voteOption, timestamp: new Date() });
-          markAsVoted();
-          console.log("✅ Vote submitted successfully:", { userId, voteOption });
-          alert("Vote submitted successfully!");
+          // Update total_votes and add IP to ip_addresses
+          await updateDoc(replayRef, {
+            total_votes: (replayData.total_votes || 0) + 1,
+            ip_addresses: arrayUnion(ip)
+          });
+          alert("Vote successfully cast!");
         }
-      } catch (error) {
-        console.error("❌ Vote submission failed:", error.message);
-        alert("An error occurred while submitting your vote. Check the console for details.");
+      } else {
+        alert("Invalid Replay ID!");
       }
+    } catch (error) {
+      console.error("Error casting vote:", error);
+      alert("An error occurred while casting your vote. Please try again later.");
     }
-
-    // Attach submitVote to the global window object
-    window.submitVote = submitVote;
-  </script>
+  }
+</script>
 </head>
 <body>
-  <h1>Vote for Your Favorite Option</h1>
-  <p>Click on an option below to cast your vote.</p>
-  <div>
-    <button onclick="submitVote('Option A')">Vote for Option A</button>
-    <button onclick="submitVote('Option B')">Vote for Option B</button>
-    <button onclick="submitVote('Option C')">Vote for Option C</button>
-  </div>
+  <section id="monthly-contest"> 
+  <h3>Monthly Replay Contest</h3> 
+  <p>Vote for your favorite replay by entering its unique ID:</p> 
+
+  <label for="replay-id">Replay ID:</label> 
+  <input type="text" id="replay-id" name="replay-id" placeholder="Enter Replay ID"> 
+  <button class="submit-button" onclick="submitVote()">Vote</button> 
+
+  <p>Each short has a unique ID in the YouTube description. Enter it here to cast your vote!</p> 
+</section> 
 </body>
 </html>
