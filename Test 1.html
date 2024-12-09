@@ -3,198 +3,64 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gmail Authorization</title>
-  <!-- Firebase App (Required for Initialization) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <meta http-equiv="Content-Security-Policy" content="frame-ancestors 'self' https://www.squadvertex.great-site.net;">
+  <title>Secure Video Playback</title>
   <style>
     body {
       margin: 0;
-      font-family: 'Orbitron', sans-serif;
-      background: radial-gradient(circle, #0f0f0f, #1a1a1a);
-      height: 100vh;
+      padding: 0;
       display: flex;
       justify-content: center;
       align-items: center;
-      color: white;
+      min-height: 100vh;
+      background-color: #101010;
+      color: #fff;
+      font-family: Arial, sans-serif;
     }
-    .auth-container {
-      text-align: center;
-      padding: 50px;
-      border-radius: 15px;
-      box-shadow: 0 0 30px rgba(0, 255, 255, 0.5), inset 0 0 20px cyan;
-      width: 500px;
-      background: rgba(0, 0, 0, 0.7);
+    .video-container {
       position: relative;
-      animation: glow 2s infinite alternate;
-    }
-    @keyframes glow {
-      from {
-        box-shadow: 0 0 30px rgba(0, 255, 255, 0.5), inset 0 0 20px cyan;
-      }
-      to {
-        box-shadow: 0 0 30px rgba(0, 0, 255, 0.5), inset 0 0 20px blue;
-      }
-    }
-    .auth-container h1 {
-      font-size: 34px;
-      margin-bottom: 20px;
-      color: cyan;
-    }
-    .auth-container p {
-      font-size: 16px;
-      color: #aaa;
-      margin-bottom: 40px;
-    }
-    .auth-container input {
-      padding: 12px;
-      font-size: 16px;
-      margin-bottom: 30px;
-      border: 2px solid cyan;
+      width: 640px;
+      height: 360px;
+      overflow: hidden;
+      border: 2px solid #00ffcc; /* Futuristic turquoise */
       border-radius: 10px;
-      background-color: black;
-      color: cyan;
-      outline: none;
-      width: 80%;
-      box-shadow: 0 0 10px cyan;
     }
-    .auth-container input:focus {
-      box-shadow: 0 0 15px blue;
-    }
-    .auth-container button {
-      padding: 12px 30px;
-      font-size: 16px;
-      background-color: cyan;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: background-color 0.5s;
-      box-shadow: 0 0 15px cyan;
-    }
-    .auth-container button:hover {
-      background-color: blue;
-      box-shadow: 0 0 20px blue;
-    }
-    .error-message {
-      color: red;
-      margin-top: 20px;
-      font-size: 14px;
-    }
-    .background-effects {
-      position: absolute;
-      top: 0;
-      left: 0;
+    iframe {
       width: 100%;
       height: 100%;
-      z-index: -1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      border: none;
     }
-    .background-effects div {
-      width: 150px;
-      height: 150px;
-      background: rgba(0, 255, 255, 0.1);
-      border-radius: 50%;
-      animation: float 5s infinite ease-in-out;
+    .watermark {
       position: absolute;
-    }
-    .background-effects div:nth-child(1) {
-      top: 10%;
-      left: 15%;
-      animation-duration: 4s;
-    }
-    .background-effects div:nth-child(2) {
-      top: 70%;
-      right: 20%;
-      animation-duration: 6s;
-    }
-    .background-effects div:nth-child(3) {
-      bottom: 20%;
-      left: 50%;
-      animation-duration: 7s;
-    }
-    @keyframes float {
-      0% { transform: translateY(0px); }
-      50% { transform: translateY(-20px); }
-      100% { transform: translateY(0px); }
+      bottom: 10px;
+      right: 10px;
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.7);
+      pointer-events: none;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px;
+      border-radius: 5px;
     }
   </style>
 </head>
 <body>
-  <div class="auth-container">
-    <h1>Gmail Authorization</h1>
-    <p>Enter your Gmail and password to access the restricted area.</p>
-    <input type="email" id="email" placeholder="Enter your Gmail">
-    <br>
-    <input type="password" id="password" placeholder="Enter the password">
-    <br>
-    <button onclick="checkLogin()">Submit</button>
-    <p id="status" class="error-message"></p>
-  </div>
-
-  <div class="background-effects">
-    <div></div>
-    <div></div>
-    <div></div>
+  <div class="video-container">
+    <iframe id="videoFrame" allow="autoplay"></iframe>
+    <div class="watermark">© SquadVertex</div>
   </div>
 
   <script>
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      databaseURL: "https://squadvertex2007-default-rtdb.firebaseio.com/",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.firebasestorage.app",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
-
-    let db;
-
-    try {
-      const app = firebase.initializeApp(firebaseConfig);
-      db = firebase.firestore(app);
-    } catch (error) {
-      console.error("Firebase initialization failed:", error);
-      document.getElementById("status").innerText = `Error: ${error.message}`;
+    // Check if the video is being accessed from the correct domain
+    const allowedReferrer = "https://www.squadvertex.great-site.net";
+    if (document.referrer !== allowedReferrer) {
+      document.body.innerHTML = "Unauthorized Access";
     }
 
-    async function checkLogin() {
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
-      const status = document.getElementById("status");
-
-      if (!db) {
-        status.innerText = "Firestore not initialized.";
-        return;
-      }
-
-      try {
-        const passwordDoc = await db.collection("authUsers").doc("unifiedPassword").get();
-        const emailDoc = await db.collection("authUsers").doc("email").get();
-
-        if (!passwordDoc.exists || !emailDoc.exists) {
-          status.innerText = "Access denied.";
-          return;
-        }
-
-        const unifiedPassword = passwordDoc.data().password;
-        if (password !== unifiedPassword) {
-          status.innerText = "Invalid password.";
-          return;
-        }
-
-        status.innerText = "Access granted! Redirecting...";
-        setTimeout(() => {
-          window.location.href = "restricted-page.html";
-        }, 2000);
-      } catch (error) {
-        console.error("Error during login:", error);
-        status.innerText = "An error occurred. Please try again.";
-      }
-    }
+    // Secure embed link
+    const videoId = "1DXlqg_5OVyyvfKk419ZkMfWYcclf08Ot";
+    const videoUrl = `https://drive.google.com/file/d/${videoId}/preview`;
+    document.getElementById("videoFrame").src = videoUrl;
   </script>
 </body>
 </html>
