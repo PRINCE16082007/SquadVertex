@@ -285,7 +285,99 @@ footer p {
     max-width: 90%;
     margin: 0 auto;
     line-height: 1.5;
-}</style></head> 
+}</style>
+<script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+
+    let app, db;
+    let firebaseInitialized = false;
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+    };
+
+    try {
+      // Initialize Firebase
+      app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      firebaseInitialized = true;
+      console.log("✅ Firebase initialized successfully.");
+    } catch (error) {
+      console.error("❌ Firebase initialization failed:", error.message);
+    }
+
+    if (!firebaseInitialized) {
+      alert("Firebase initialization failed. Check console for details.");
+    }
+
+    // Check if user has already voted
+    function hasVoted() {
+      return localStorage.getItem("voted") === "true";
+    }
+
+    // Generate or retrieve user ID
+    function getUserId() {
+      let userId = localStorage.getItem("userId");
+      if (!userId) {
+        userId = `user_${Date.now()}`;
+        localStorage.setItem("userId", userId);
+        console.log("New user ID generated:", userId);
+      } else {
+        console.log("Existing user ID found:", userId);
+      }
+      return userId;
+    }
+
+    // Mark user as voted
+    function markAsVoted() {
+      localStorage.setItem("voted", "true");
+      console.log("User marked as voted.");
+    }
+
+    // Submit vote
+    async function submitVote(voteOption) {
+      try {
+        if (!firebaseInitialized) throw new Error("Firebase is not initialized.");
+
+        if (hasVoted()) {
+          alert("You have already voted!");
+          console.warn("Double voting attempt detected.");
+          return;
+        }
+
+        const userId = getUserId();
+
+        // Check if the user has already submitted a vote
+        const docRef = doc(db, "votes", userId);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          alert("You have already voted!");
+          console.warn(`Double voting attempt for user ID: ${userId}`);
+        } else {
+          // Submit the vote
+          await setDoc(docRef, { voteOption: voteOption, timestamp: new Date() });
+          markAsVoted();
+          console.log("✅ Vote submitted successfully:", { userId, voteOption });
+          alert("Vote submitted successfully!");
+        }
+      } catch (error) {
+        console.error("❌ Vote submission failed:", error.message);
+        alert("An error occurred while submitting your vote. Check the console for details.");
+      }
+    }
+
+    // Attach submitVote to the global window object
+    window.submitVote = submitVote;
+  </script></head> 
  <body> 
   <header> 
    <h1>Trapmelon's Replay Portal</h1> 
