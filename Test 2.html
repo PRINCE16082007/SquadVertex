@@ -36,63 +36,155 @@
       alert("Firebase initialization failed. Check console for details.");
     }
 
-    // Function to fetch User IP
-    async function getUserIP() {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      return data.ip;
-    }
+    // Show specific upload section
+        function showUploadSection(option) {
+            document.getElementById("uploadFileSection").classList.add("hidden");
+            document.getElementById("linkToFileSection").classList.add("hidden");
+            document.getElementById("submitViaEmailSection").style.display = "none";
 
-    // Submit Vote Function
-    async function submitVote() {
-      const replayId = document.getElementById("replay-id").value.trim();
-      if (!replayId) {
-        alert("Please enter a valid Replay ID!");
-        return;
-      }
-
-      const ip = await getUserIP();
-      const replayRef = doc(db, "replay_votes", replayId);
-
-      try {
-        const replaySnap = await getDoc(replayRef);
-        if (replaySnap.exists()) {
-          const replayData = replaySnap.data();
-
-          // Check if IP already voted
-          if (replayData.ip_addresses.includes(ip)) {
-            alert("You have already voted for this replay!");
-          } else {
-            // Update total_votes and add IP to ip_addresses
-            await updateDoc(replayRef, {
-              total_votes: (replayData.total_votes || 0) + 1,
-              ip_addresses: arrayUnion(ip)
-            });
-            alert("Vote successfully cast!");
-          }
-        } else {
-          alert("Invalid Replay ID!");
+            if (option === "uploadFile") {
+                document.getElementById("uploadFileSection").classList.remove("hidden");
+            } else if (option === "linkToFile") {
+                document.getElementById("linkToFileSection").classList.remove("hidden");
+            } else if (option === "submitViaEmail") {
+                document.getElementById("submitViaEmailSection").style.display = "block";
+            }
         }
-      } catch (error) {
-        console.error("Error casting vote:", error);
-        alert("An error occurred while casting your vote. Please try again later.");
-      }
-    }
 
-    // Expose submitVote to global scope
-    window.submitVote = submitVote;
-  </script>
+        // Cloudinary upload configuration
+        const cloudinaryURL = "https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/upload";
+        const uploadPreset = "YOUR_UPLOAD_PRESET";
+
+        async function handleFileUpload(event) {
+            const fileInput = document.getElementById("fileInput");
+            const file = fileInput.files[0];
+            if (!file) {
+                alert("Please select a file to upload.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("upload_preset", uploadPreset);
+
+            try {
+                const response = await fetch(cloudinaryURL, {
+                    method: "POST",
+                    body: formData,
+                });
+                const data = await response.json();
+                alert("File uploaded successfully!");
+                saveMetadataToFirestore(data.secure_url);
+            } catch (error) {
+                console.error("Error uploading file:", error);
+                alert("Failed to upload the file!");
+            }
+        }
+
+        async function saveMetadataToFirestore(fileURL) {
+            const playerName = document.getElementById("playerName").value;
+            const tankName = document.getElementById("tankName").value;
+            const nation = document.getElementById("nation").value;
+            const tankTier = document.getElementById("tankTier").value;
+            const map = document.getElementById("map").value;
+            const totalDamage = document.getElementById("totalDamage").value;
+            const battleSituation = document.getElementById("battleSituation").value;
+            const battleType = document.getElementById("battleType").value;
+            const month = document.getElementById("month").value;
+
+            const replayID = `${playerName}_${Date.now()}`;
+
+            const metadata = {
+                replayID: replayID,
+                playerName: playerName,
+                tankName: tankName,
+                nation: nation,
+                tankTier: parseInt(tankTier),
+                map: map,
+                totalDamage: parseInt(totalDamage),
+                battleSituation: battleSituation,
+                battleType: battleType,
+                month: month,
+                fileURL: fileURL,
+                timestamp: new Date().toISOString(),
+            };
+
+            try {
+                await db.collection("replays").doc(replayID).set(metadata);
+                alert("Metadata saved successfully!");
+            } catch (error) {
+                console.error("Error saving metadata:", error);
+                alert("Failed to save metadata!");
+            }
+        }
+    </script>
+    <style>
+        .hidden {
+            display: none;
+        }
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .form-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .dropbox {
+            border: 2px dashed #aaa;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-  <section id="monthly-contest"> 
-    <h3>Monthly Replay Contest</h3> 
-    <p>Vote for your favorite replay by entering its unique ID:</p> 
-
-    <label for="replay-id">Replay ID:</label> 
-    <input type="text" id="replay-id" name="replay-id" placeholder="Enter Replay ID"> 
-    <button class="submit-button" onclick="submitVote()">Vote</button> 
-
-    <p>Each short has a unique ID in the YouTube description. Enter it here to cast your vote!</p> 
-  </section> 
+    <div class="form-container">
+        <div class="form-header">
+            <h1>Trapmelon Replay Submissions</h1>
+            <p>Submit your World of Tanks Blitz replay for a chance to be featured!</p>
+        </div>
+        <form>
+            <div class="form-group">
+                <label for="playerName">Player Name</label>
+                <input type="text" id="playerName" required>
+            </div>
+            <!-- Other form inputs remain unchanged -->
+            <div class="form-group">
+                <label>How would you like to upload your replay?</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="uploadOption" value="uploadFile" onclick="showUploadSection('uploadFile')" required> Upload Replay File</label>
+                    <label><input type="radio" name="uploadOption" value="linkToFile" onclick="showUploadSection('linkToFile')"> Link to Replay File</label>
+                    <label><input type="radio" name="uploadOption" value="submitViaEmail" onclick="showUploadSection('submitViaEmail')"> Submit via Email</label>
+                </div>
+            </div>
+            <div id="uploadFileSection" class="form-group hidden">
+                <label for="fileInput">Upload Replay File</label>
+                <div class="dropbox">Drag & Drop or Click to Upload</div>
+                <input type="file" id="fileInput" onchange="handleFileUpload()">
+            </div>
+            <!-- Link and email sections unchanged -->
+            <button type="submit">Submit Replay</button>
+        </form>
+        <div class="footer">
+            <p>Powered by SquadVertex - Bringing together the World of Tanks Blitz community.</p>
+        </div>
+    </div>
 </body>
 </html>
