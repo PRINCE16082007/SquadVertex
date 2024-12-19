@@ -141,60 +141,67 @@
 
   <script>
     // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      databaseURL: "https://squadvertex2007-default-rtdb.firebaseio.com/",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.firebasestorage.app",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
+const firebaseConfig = {
+  apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+  authDomain: "squadvertex2007.firebaseapp.com",
+  databaseURL: "https://squadvertex2007-default-rtdb.firebaseio.com/",
+  projectId: "squadvertex2007",
+  storageBucket: "squadvertex2007.firebasestorage.app",
+  messagingSenderId: "168905083514",
+  appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+};
 
-    let db;
+let db;
 
-    try {
-      const app = firebase.initializeApp(firebaseConfig);
-      db = firebase.firestore(app);
-    } catch (error) {
-      console.error("Firebase initialization failed:", error);
-      document.getElementById("status").innerText = `Error: ${error.message}`;
+try {
+  const app = firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore(app);
+} catch (error) {
+  console.error("Firebase initialization failed:", error);
+  document.getElementById("status").innerText = `Error: ${error.message}`;
+}
+
+async function checkLogin() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const status = document.getElementById("status");
+
+  if (!db) {
+    status.innerText = "Firestore not initialized.";
+    return;
+  }
+
+  try {
+    // Fetch documents from the 'authUsers' collection
+    const passwordDoc = await db.collection("authUsers").doc("authPassword").get();
+    const emailDoc = await db.collection("authUsers").doc("authGmail").get();
+
+    // Check if documents exist
+    if (!passwordDoc.exists || !emailDoc.exists) {
+      status.innerText = "Access denied. Documents not found.";
+      return;
     }
 
-    async function checkLogin() {
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
-      const status = document.getElementById("status");
+    // Get data from documents
+    const savedPassword = passwordDoc.data().apassword; // Field: apassword
+    const savedEmail = emailDoc.data().aemail; // Field: aemail
 
-      if (!db) {
-        status.innerText = "Firestore not initialized.";
-        return;
-      }
-
-      try {
-        const passwordDoc = await db.collection("authUsers").doc("unifiedPassword").get();
-        const emailDoc = await db.collection("authUsers").doc("email").get();
-
-        if (!passwordDoc.exists || !emailDoc.exists) {
-          status.innerText = "Access denied.";
-          return;
-        }
-
-        const unifiedPassword = passwordDoc.data().password;
-        if (password !== unifiedPassword) {
-          status.innerText = "Invalid password.";
-          return;
-        }
-
-        status.innerText = "Access granted! Redirecting...";
-        setTimeout(() => {
-          window.location.href = "Restricted Page.html";
-        }, 2000);
-      } catch (error) {
-        console.error("Error during login:", error);
-        status.innerText = "An error occurred. Please try again.";
-      }
+    // Validate email and password
+    if (password !== savedPassword || email !== savedEmail) {
+      status.innerText = "Invalid email or password.";
+      return;
     }
+
+    // Successful login
+    status.innerText = "Access granted! Redirecting...";
+    setTimeout(() => {
+      window.location.href = "Restricted Page.html";
+    }, 2000);
+  } catch (error) {
+    console.error("Error during login:", error);
+    status.innerText = "An error occurred. Please try again.";
+  }
+}
   </script>
 </body>
 </html>
