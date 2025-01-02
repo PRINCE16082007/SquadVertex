@@ -454,7 +454,7 @@
 <script type="module">
   // Import Firebase modules
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
-  import { getFirestore, doc, getDoc, updateDoc, arrayUnion, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, updateDoc, setDoc, arrayRemove, arrayUnion, onSnapshot } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
 
   let app, db;
   let firebaseInitialized = false;
@@ -495,7 +495,7 @@
     }
   }
 
-  // Update user reaction (like or dislike)
+  // Update user reaction (like or dislike with toggle)
   async function updateReaction(channelId, action) {
     if (!firebaseInitialized) return alert("Firebase is not initialized!");
 
@@ -506,40 +506,64 @@
 
       if (channelSnap.exists()) {
         const channelData = channelSnap.data();
-        const currentIPs = channelData.ip_addresses || [];
+        const currentReactions = channelData.ip_addresses || [];
 
         // Check if user has already reacted
-        if (currentIPs.includes(ip)) {
-          alert("You have already reacted to this channel!");
-          return;
+        const userReaction = currentReactions.find((entry) => entry.ip === ip);
+
+        if (userReaction) {
+          if (userReaction.action === action) {
+            alert(`You have already ${action}d this channel!`);
+            return;
+          }
+
+          // Toggle reaction
+          const updates = {
+            ip_addresses: arrayRemove(userReaction),
+          };
+
+          if (userReaction.action === "like") {
+            updates.likes = (channelData.likes || 0) - 1;
+            updates.dislikes = (channelData.dislikes || 0) + 1;
+          } else {
+            updates.likes = (channelData.likes || 0) + 1;
+            updates.dislikes = (channelData.dislikes || 0) - 1;
+          }
+
+          await updateDoc(channelRef, updates);
+          await updateDoc(channelRef, {
+            ip_addresses: arrayUnion({ ip, action }),
+          });
+
+          alert(`Channel ${action}d successfully!`);
+        } else {
+          // New reaction
+          const updates = {
+            ip_addresses: arrayUnion({ ip, action }),
+          };
+
+          if (action === "like") {
+            updates.likes = (channelData.likes || 0) + 1;
+          } else {
+            updates.dislikes = (channelData.dislikes || 0) + 1;
+          }
+
+          await updateDoc(channelRef, updates);
+          alert(`Channel ${action}d successfully!`);
         }
-
-        const updates = {
-          ip_addresses: arrayUnion(ip),
-        };
-
-        // Update likes or dislikes
-        if (action === "like") {
-          updates.likes = (channelData.likes || 0) + 1;
-        } else if (action === "dislike") {
-          updates.dislikes = (channelData.dislikes || 0) + 1;
-        }
-
-        await updateDoc(channelRef, updates);
-        alert(`Channel ${action === "like" ? "liked" : "disliked"} successfully!`);
-        console.log(`✅ ${action} added for channel ID:`, channelId);
       } else {
-        // Create a new document if it doesn't exist
+        // New document if it doesn't exist
         const newData = {
           likes: action === "like" ? 1 : 0,
           dislikes: action === "dislike" ? 1 : 0,
-          ip_addresses: [ip],
+          ip_addresses: [{ ip, action }],
         };
 
         await setDoc(channelRef, newData);
-        alert(`Channel ${action === "like" ? "liked" : "disliked"} successfully!`);
-        console.log(`✅ New channel ID ${channelId} initialized with ${action}.`);
+        alert(`Channel ${action}d successfully!`);
       }
+
+      console.log(`✅ ${action} added for channel ID:`, channelId);
     } catch (error) {
       console.error(`❌ ${action} action failed:`, error.message);
       alert(`An error occurred while trying to ${action} the channel. Try again later.`);
