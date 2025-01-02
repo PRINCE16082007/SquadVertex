@@ -451,6 +451,124 @@
     }
 
     </style>
+<script type="module">
+  // Import Firebase modules
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
+  import { getFirestore, doc, getDoc, updateDoc, arrayUnion, setDoc } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+
+  let app, db;
+  let firebaseInitialized = false;
+
+  // Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+  };
+
+  try {
+    // Initialize Firebase
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    firebaseInitialized = true;
+    console.log("✅ Firebase initialized successfully.");
+  } catch (error) {
+    console.error("❌ Firebase initialization failed:", error.message);
+  }
+
+  if (!firebaseInitialized) {
+    alert("Firebase initialization failed. Check console for details.");
+  }
+
+  // Utility to get user IP
+  async function getUserIP() {
+    try {
+      const response = await fetch("https://api.ipify.org?format=json");
+      const data = await response.json();
+      return data.ip;
+    } catch (error) {
+      console.error("❌ Failed to fetch user IP:", error.message);
+      throw new Error("IP fetch failed.");
+    }
+  }
+
+  // Like functionality for channel cards
+  async function likeChannel(channelId) {
+    if (!firebaseInitialized) return alert("Firebase is not initialized!");
+
+    try {
+      const ip = await getUserIP();
+      const channelRef = doc(db, "channelCards", channelId);
+      const channelSnap = await getDoc(channelRef);
+
+      if (channelSnap.exists()) {
+        const channelData = channelSnap.data();
+
+        if (channelData.ip_addresses && channelData.ip_addresses.includes(ip)) {
+          alert("You have already liked this channel!");
+          return;
+        }
+
+        await updateDoc(channelRef, {
+          likes: (channelData.likes || 0) + 1,
+          ip_addresses: arrayUnion(ip),
+        });
+        alert("Channel liked successfully!");
+        console.log("✅ Like added for channel ID:", channelId);
+      } else {
+        // Create a new document if it doesn't exist
+        await setDoc(channelRef, { likes: 1, shares: 0, ip_addresses: [ip] });
+        alert("Channel liked successfully!");
+        console.log("✅ Like added for new channel ID:", channelId);
+      }
+    } catch (error) {
+      console.error("❌ Like action failed:", error.message);
+      alert("An error occurred while liking the channel. Try again later.");
+    }
+  }
+
+  // Share functionality for channel cards
+  async function shareChannel(channelId) {
+    if (!firebaseInitialized) return alert("Firebase is not initialized!");
+
+    try {
+      const ip = await getUserIP();
+      const channelRef = doc(db, "channelCards", channelId);
+      const channelSnap = await getDoc(channelRef);
+
+      if (channelSnap.exists()) {
+        const channelData = channelSnap.data();
+
+        if (channelData.ip_addresses && channelData.ip_addresses.includes(ip)) {
+          alert("You have already shared this channel!");
+          return;
+        }
+
+        await updateDoc(channelRef, {
+          shares: (channelData.shares || 0) + 1,
+          ip_addresses: arrayUnion(ip),
+        });
+        alert("Channel shared successfully!");
+        console.log("✅ Share added for channel ID:", channelId);
+      } else {
+        // Create a new document if it doesn't exist
+        await setDoc(channelRef, { likes: 0, shares: 1, ip_addresses: [ip] });
+        alert("Channel shared successfully!");
+        console.log("✅ Share added for new channel ID:", channelId);
+      }
+    } catch (error) {
+      console.error("❌ Share action failed:", error.message);
+      alert("An error occurred while sharing the channel. Try again later.");
+    }
+  }
+
+  // Attach functions to global window object
+  window.likeChannel = likeChannel;
+  window.shareChannel = shareChannel;
+</script>
 </head>
 <body>
     <div id="termsModal" class="modal">
@@ -491,10 +609,8 @@
                     <!-- VIP Badge will be added here -->
     <div class="vip-badge">VIP</div>
                     <a href="https://youtube.com/@trapmelon?si=mWbEINaPoj1rSWYg" class="visit-channel">Visit Channel</a>
-  <p>Likes: <span id="likes-UCgDyT-iJGYJjPIAuJAAU9Bg">0</span></p>
-<p>Shares: <span id="shares-UCgDyT-iJGYJjPIAuJAAU9Bg">0</span></p>
-<button onclick="handleLike('UCgDyT-iJGYJjPIAuJAAU9Bg')">Like</button>
-<button onclick="handleShare('UCgDyT-iJGYJjPIAuJAAU9Bg')">Share</button>
+  <button onclick="likeChannel('channel1')">👍 Like</button>
+  <button onclick="shareChannel('channel1')">🔗 Share</button>
    <button id="lockedButton"class="right-side-button" role="button" disabled>🔒 CustomPortal</button>
        <!-- Countdown Timer -->
     <div id="timer">Feature unlocks in: <span id="countdown">10h 0m 0s</span></div>
