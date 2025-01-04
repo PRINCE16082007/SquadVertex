@@ -450,124 +450,189 @@
       color: #555;
     }
 
-.vote-buttons {
-    margin: 10px 0;
+.reaction-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  font-family: Arial, sans-serif;
 }
 
-.vote-btn {
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    cursor: pointer;
-    font-size: 16px;
-    margin: 5px;
+.likes-display {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
 }
 
-.vote-btn:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
+.reaction-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #606060;
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.reaction-btn:hover {
+  background: #e8e8e8;
+}
+
+.reaction-btn.active {
+  color: #065fd4; /* Active color (blue for like, red for dislike) */
+}
+
+.like-btn.active {
+  background: #e0f2fe; /* Light blue for active like */
+}
+
+.dislike-btn.active {
+  background: #fde0e0; /* Light red for active dislike */
 }
     </style>
 
 
-<script>
+<script type="module">
+  // Import Firebase modules
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
+  import { getFirestore, doc, getDoc, updateDoc, setDoc, arrayRemove, arrayUnion, onSnapshot } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+
+  let app, db;
+  let firebaseInitialized = false;
+
   // Firebase configuration
-const firebaseConfig = {
+  const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
     authDomain: "squadvertex2007.firebaseapp.com",
     projectId: "squadvertex2007",
     storageBucket: "squadvertex2007.appspot.com",
     messagingSenderId: "168905083514",
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-};
+  };
 
-// Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore(app);
+  try {
+    // Initialize Firebase
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    firebaseInitialized = true;
+    console.log("✅ Firebase initialized successfully.");
+  } catch (error) {
+    console.error("❌ Firebase initialization failed:", error.message);
+  }
 
-// Referencing the channel card document in Firestore
-const channelCardRef = db.collection('channelCards').doc('your_document_id_here'); // Replace with your document ID
+  if (!firebaseInitialized) {
+    alert("Firebase initialization failed. Check console for details.");
+  }
 
-const likeButton = document.getElementById('likeButton');
-const dislikeButton = document.getElementById('dislikeButton');
-const likeCountDisplay = document.getElementById('likeCount');
+  // Utility to get user IP
+  async function getUserIP() {
+    try {
+      const response = await fetch("https://api.ipify.org?format=json");
+      const data = await response.json();
+      return data.ip;
+    } catch (error) {
+      console.error("❌ Failed to fetch user IP:", error.message);
+      throw new Error("IP fetch failed.");
+    }
+  }
 
-let currentAction = null; // Keeps track of current button action (like or dislike)
+  // Update user reaction (like or dislike with toggle)
+  async function updateReaction(channelId, action) {
+    if (!firebaseInitialized) return alert("Firebase is not initialized!");
 
-function updateUI(likeCount) {
-    likeCountDisplay.textContent = `Likes: ${likeCount}`;
-}
+    try {
+      const ip = await getUserIP();
+      const channelRef = doc(db, "channelCards", channelId);
+      const channelSnap = await getDoc(channelRef);
 
-async function getLikes() {
-    const doc = await channelCardRef.get();
-    if (doc.exists) {
+      if (channelSnap.exists()) {
+        const channelData = channelSnap.data();
+        const currentReactions = channelData.ip_addresses || [];
+
+        // Check if user has already reacted
+        const userReaction = currentReactions.find((entry) => entry.ip === ip);
+
+        if (userReaction) {
+          if (userReaction.action === action) {
+            alert(`You have already ${action}d this channel!`);
+            return;
+          }
+
+          // Toggle reaction
+          const updates = {
+            ip_addresses: arrayRemove(userReaction),
+          };
+
+          if (userReaction.action === "like") {
+            updates.likes = (channelData.likes || 0) - 1;
+            updates.dislikes = (channelData.dislikes || 0) + 1;
+          } else {
+            updates.likes = (channelData.likes || 0) + 1;
+            updates.dislikes = (channelData.dislikes || 0) - 1;
+          }
+
+          await updateDoc(channelRef, updates);
+          await updateDoc(channelRef, {
+            ip_addresses: arrayUnion({ ip, action }),
+          });
+
+          alert(`Channel ${action}d successfully!`);
+        } else {
+          // New reaction
+          const updates = {
+            ip_addresses: arrayUnion({ ip, action }),
+          };
+
+          if (action === "like") {
+            updates.likes = (channelData.likes || 0) + 1;
+          } else {
+            updates.dislikes = (channelData.dislikes || 0) + 1;
+          }
+
+          await updateDoc(channelRef, updates);
+          alert(`Channel ${action}d successfully!`);
+        }
+      } else {
+        // New document if it doesn't exist
+        const newData = {
+          likes: action === "like" ? 1 : 0,
+          dislikes: action === "dislike" ? 1 : 0,
+          ip_addresses: [{ ip, action }],
+        };
+
+        await setDoc(channelRef, newData);
+        alert(`Channel ${action}d successfully!`);
+      }
+
+      console.log(`✅ ${action} added for channel ID:`, channelId);
+    } catch (error) {
+      console.error(`❌ ${action} action failed:`, error.message);
+      alert(`An error occurred while trying to ${action} the channel. Try again later.`);
+    }
+  }
+
+  // Real-time listener for likes
+  function setupRealTimeListener(channelId, likesElementId) {
+    const channelRef = doc(db, "channelCards", channelId);
+    onSnapshot(channelRef, (doc) => {
+      if (doc.exists()) {
         const data = doc.data();
-        updateUI(data.likes || 0);
-    }
-}
+        document.getElementById(likesElementId).innerText = data.likes || 0;
+      }
+    });
+  }
 
-async function updateVote(action) {
-    const ip = 'user_ip'; // Replace with the user's IP address dynamically
-    const existingActionDoc = await channelCardRef.collection('ip_addresses').doc(ip).get();
+  // Real-time setup for channels (Add your channel IDs and element IDs here)
+  setupRealTimeListener("channel1", "likesCount1");
 
-    if (existingActionDoc.exists) {
-        const existingAction = existingActionDoc.data().action;
-
-        if (existingAction === action) return; // If same action, don't change
-
-        // Update the action (like -> dislike or dislike -> like)
-        await channelCardRef.update({
-            [action]: firebase.firestore.FieldValue.increment(1),
-            [existingAction]: firebase.firestore.FieldValue.increment(-1),
-        });
-
-        await channelCardRef.collection('ip_addresses').doc(ip).update({
-            action: action,
-        });
-    } else {
-        // New vote
-        await channelCardRef.update({
-            [action]: firebase.firestore.FieldValue.increment(1),
-        });
-
-        await channelCardRef.collection('ip_addresses').doc(ip).set({
-            action: action,
-        });
-    }
-
-    // Get updated likes count
-    getLikes();
-}
-
-// Like button click handler
-likeButton.addEventListener('click', () => {
-    if (currentAction === 'dislike') {
-        dislikeButton.disabled = false;
-        currentAction = 'like';
-        updateVote('likes');
-    } else if (currentAction !== 'like') {
-        currentAction = 'like';
-        likeButton.disabled = true;
-        updateVote('likes');
-    }
-});
-
-// Dislike button click handler
-dislikeButton.addEventListener('click', () => {
-    if (currentAction === 'like') {
-        likeButton.disabled = false;
-        currentAction = 'dislike';
-        updateVote('dislikes');
-    } else if (currentAction !== 'dislike') {
-        currentAction = 'dislike';
-        dislikeButton.disabled = true;
-        updateVote('dislikes');
-    }
-});
-
-// Fetch initial like count on page load
-getLikes();
+  // Attach functions to global window object
+  window.updateReaction = updateReaction;
 </script>
 </head>
 <body>
@@ -609,12 +674,11 @@ getLikes();
                     <!-- VIP Badge will be added here -->
     <div class="vip-badge">VIP</div>
                     <a href="https://youtube.com/@trapmelon?si=mWbEINaPoj1rSWYg" class="visit-channel">Visit Channel</a>
-  <div class="vote-buttons">
-            <button id="likeButton" class="vote-btn">Like</button>
-            <button id="dislikeButton" class="vote-btn">Dislike</button>
-        </div>
-        <p id="likeCount">Likes: 0</p>
-    </div>
+  <div class="reaction-container">
+  <p class="likes-display">Likes: <span id="likesCount1">0</span></p>
+  <button class="reaction-btn like-btn" onclick="updateReaction('channel1', 'like')">👍 Like</button>
+  <button class="reaction-btn dislike-btn" onclick="updateReaction('channel1', 'dislike')">👎 Dislike</button>
+</div>
    <button id="lockedButton"class="right-side-button" role="button" disabled>🔒 CustomPortal</button>
        <!-- Countdown Timer -->
     <div id="timer">Feature unlocks in: <span id="countdown">10h 0m 0s</span></div>
