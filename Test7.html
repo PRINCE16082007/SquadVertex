@@ -484,6 +484,52 @@
     alert("Firebase initialization failed. Check console for details.");
   }
 
+ // Google Sign-In and modal functionality
+  async function showTermsModal() {
+    const modal = document.querySelector('.modal');
+    const checkbox = document.getElementById('accept-terms');
+    const signupButton = document.getElementById('signup-button');
+
+    modal.style.display = 'flex';
+
+    checkbox.addEventListener('change', () => {
+      signupButton.disabled = !checkbox.checked;
+    });
+
+    signupButton.addEventListener('click', async () => {
+      try {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        // Store user data in Firestore
+        await setDoc(doc(db, "users", user.uid), {
+          uid: user.uid,
+          email: user.email,
+          acceptedTerms: true,
+        });
+
+        alert("Sign-up successful and terms accepted!");
+        modal.style.display = 'none';
+      } catch (error) {
+        console.error("❌ Google Sign-In failed:", error.message);
+        alert("Sign-up failed. Try again.");
+      }
+    });
+  }
+
+  // Check if user has signed up
+  async function checkUserSignup(uid) {
+    if (!firebaseInitialized) return false;
+
+    try {
+      const userDoc = await getDoc(doc(db, "users", uid));
+      return userDoc.exists();
+    } catch (error) {
+      console.error("❌ Failed to fetch user data:", error.message);
+      return false;
+    }
+  }
   // Utility to get user IP
   async function getUserIP() {
     try {
