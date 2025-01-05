@@ -1,131 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Firebase Login Test</title>
-  <!-- Firebase App (Required for Initialization) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
-    }
-    form {
-      margin-top: 20px;
-      display: inline-block;
-      text-align: left;
-      border: 1px solid #ccc;
-      padding: 20px;
-      border-radius: 8px;
-      background: #f9f9f9;
-    }
-    input, button {
-      display: block;
-      margin-bottom: 10px;
-      padding: 10px;
-      width: 100%;
-      font-size: 16px;
-    }
-    button {
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #45a049;
-    }
-    #status {
-      margin-top: 20px;
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SquadVertex - User Authentication</title>
+    <script type="module">
+        // Importing Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+            authDomain: "squadvertex2007.firebaseapp.com",
+            projectId: "squadvertex2007",
+            storageBucket: "squadvertex2007.appspot.com",
+            messagingSenderId: "168905083514",
+            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Create user with email and password
+        document.getElementById('signup-button').addEventListener('click', async () => {
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const termsAccepted = document.getElementById('terms-checkbox').checked;
+
+            if (!termsAccepted) {
+                alert("You must accept the Terms and Conditions to sign up.");
+                return;
+            }
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Store whether the user accepted the terms and conditions
+                await setDoc(doc(db, "users", user.uid), {
+                    termsAccepted: true,
+                    email: email,
+                });
+
+                alert("Sign Up Successful!");
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        });
+
+        // Sign in with email and password
+        document.getElementById('signin-button').addEventListener('click', async () => {
+            const email = document.getElementById('signin-email').value;
+            const password = document.getElementById('signin-password').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                alert("Sign In Successful!");
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        });
+
+        // Sign out the user
+        document.getElementById('signout-button').addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                alert("Signed Out Successfully!");
+                document.getElementById('user-status').innerText = "You have been signed out.";
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        });
+
+        // Listen for Auth State changes
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("User signed in: ", user.email);
+                document.getElementById('user-status').innerText = `Welcome ${user.email}`;
+            } else {
+                console.log("No user is signed in");
+                document.getElementById('user-status').innerText = "Please Sign In";
+            }
+        });
+    </script>
 </head>
 <body>
-  <h1>Firebase Login Test</h1>
-  <p id="status">Initializing Firebase...</p>
-  <form onsubmit="event.preventDefault(); checkLogin();">
-    <input type="email" id="email" placeholder="Enter your Gmail" required />
-    <input type="password" id="password" placeholder="Enter unified password" required />
-    <button type="submit">Login</button>
-  </form>
+    <h1>SquadVertex</h1>
 
-  <script>
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      databaseURL: "https://squadvertex2007-default-rtdb.firebaseio.com/",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.firebasestorage.app",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
+    <div id="signup-section">
+        <h3>Sign Up</h3>
+        <input type="email" id="signup-email" placeholder="Email" required>
+        <input type="password" id="signup-password" placeholder="Password" required>
+        <div>
+            <input type="checkbox" id="terms-checkbox">
+            <label for="terms-checkbox">I accept the <a href="terms-and-conditions.html" target="_blank">Terms and Conditions</a></label>
+        </div>
+        <button id="signup-button">Sign Up</button>
+    </div>
 
-    let db;
+    <div id="signin-section">
+        <h3>Sign In</h3>
+        <input type="email" id="signin-email" placeholder="Email" required>
+        <input type="password" id="signin-password" placeholder="Password" required>
+        <button id="signin-button">Sign In</button>
+    </div>
 
-    try {
-      // Initialize Firebase
-      const app = firebase.initializeApp(firebaseConfig);
-      console.log("Firebase initialized successfully:", app);
-      document.getElementById("status").innerText = "Firebase initialized successfully!";
-      db = firebase.firestore(app);
-    } catch (error) {
-      console.error("Firebase initialization failed:", error);
-      document.getElementById("status").innerText = `Error: ${error.message}`;
-    }
+    <button id="signout-button">Sign Out</button>
 
-    async function checkLogin() {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
-  const status = document.getElementById("status");
+    <p id="user-status">Please Sign In</p>
 
-  if (!db) {
-    status.innerText = "Firestore not initialized.";
-    return;
-  }
-
-  try {
-    console.log("Fetching unified password...");
-    const passwordDoc = await db.collection("authUsers").doc("unifiedPassword").get();
-
-    if (!passwordDoc.exists) {
-      status.innerText = "Unified password not found.";
-      console.error("Unified password document missing in Firestore.");
-      return;
-    }
-
-    const unifiedPassword = passwordDoc.data().password;
-    console.log("Unified Password from Firestore:", unifiedPassword);
-
-    if (password !== unifiedPassword) {
-      status.innerText = "Invalid unified password.";
-      console.error("Unified password mismatch.");
-      return;
-    }
-
-    console.log("Fetching email document...");
-    const emailDoc = await db.collection("authUsers").doc("email").get();
-
-    if (emailDoc.exists) {
-      status.innerText = "Access granted! Redirecting...";
-      console.log("Email found. Redirecting...");
-      setTimeout(() => {
-        window.location.href = "restricted-page.html"; // Replace with your restricted page URL
-      }, 2000);
-    } else {
-      status.innerText = "Email not found in the allowed list.";
-      console.error("Email document not found in Firestore.");
-    }
-  } catch (error) {
-    console.error("Error during login:", error);
-    status.innerText = "An error occurred. Please check the console for details.";
-  }
-}
-  </script>
 </body>
 </html>
