@@ -3,61 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SquadVertex - User Authentication</title>
+    <title>SquadVertex - Sign In</title>
     <style>
-        /* Add some basic styling */
-        body {
-            font-family: Arial, sans-serif;
+        /* General Reset */
+        * {
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+        }
+        .container {
+            width: 400px;
+            background: rgba(0, 0, 0, 0.8);
             padding: 20px;
-            background-color: #f4f4f4;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            position: relative;
         }
-
-        #signup-section, #signin-section {
-            display: none;
-        }
-
-        #toggle-buttons {
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             margin-bottom: 20px;
         }
-
-        .form-container {
+        .logo img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        .form-title {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .form {
             display: flex;
             flex-direction: column;
-            width: 300px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
-
-        .form-container input, .form-container button {
-            margin-bottom: 10px;
+        .form input {
+            margin: 10px 0;
             padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            border: none;
+            border-radius: 5px;
+            outline: none;
+            font-size: 1rem;
         }
-
-        .form-container button {
-            background-color: #007bff;
+        .btn {
+            margin: 10px 0;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: #4caf50;
             color: white;
+            font-size: 1rem;
             cursor: pointer;
         }
-
-        .form-container button:hover {
-            background-color: #0056b3;
+        .btn:hover {
+            background: #45a049;
         }
-        
-        #toggle-signup-phone, #toggle-signup-email {
-            display: none;
+        .google-signin {
+            background: #db4437;
+        }
+        .google-signin:hover {
+            background: #c33c2f;
+        }
+        .toggle-btn {
+            color: #4caf50;
+            font-size: 0.9rem;
+            text-align: center;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .toggle-btn:hover {
+            text-decoration: underline;
         }
     </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="your-logo.png" alt="SquadVertex Logo">
+            <h1>SquadVertex</h1>
+        </div>
+        <div class="form-title" id="form-title">Create an Account</div>
+        <form id="signup-form" class="form">
+            <input type="email" id="email" placeholder="Email Address">
+            <input type="password" id="password" placeholder="Password">
+            <input type="text" id="phone" placeholder="Phone Number (optional)">
+            <button type="button" class="btn" onclick="handleSignup()">Sign Up</button>
+            <button type="button" class="btn google-signin" onclick="handleGoogleSignup()">Sign Up with Google</button>
+        </form>
+        <p class="toggle-btn" onclick="toggleForm()">Already have an account? Log in</p>
+    </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-auth.js";
-        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+        // Firebase Config
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -70,139 +126,79 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        // Toggle between Email and Phone forms
-        function toggleForms() {
-            const emailForm = document.getElementById('signup-email');
-            const phoneForm = document.getElementById('signup-phone');
-            const emailSection = document.getElementById('toggle-signup-email');
-            const phoneSection = document.getElementById('toggle-signup-phone');
-            if (emailForm.style.display === "none") {
-                emailForm.style.display = "block";
-                phoneForm.style.display = "none";
-            } else {
-                emailForm.style.display = "none";
-                phoneForm.style.display = "block";
-            }
+        // Toggle Form
+        let isLogin = false;
+        function toggleForm() {
+            const formTitle = document.getElementById("form-title");
+            const signupForm = document.getElementById("signup-form");
+            isLogin = !isLogin;
+            formTitle.innerText = isLogin ? "Log In to Your Account" : "Create an Account";
+            signupForm.innerHTML = isLogin
+                ? `
+                  <input type="email" id="email" placeholder="Email Address">
+                  <input type="password" id="password" placeholder="Password">
+                  <button type="button" class="btn" onclick="handleLogin()">Log In</button>
+                  <button type="button" class="btn google-signin" onclick="handleGoogleLogin()">Log In with Google</button>
+                `
+                : `
+                  <input type="email" id="email" placeholder="Email Address">
+                  <input type="password" id="password" placeholder="Password">
+                  <input type="text" id="phone" placeholder="Phone Number (optional)">
+                  <button type="button" class="btn" onclick="handleSignup()">Sign Up</button>
+                  <button type="button" class="btn google-signin" onclick="handleGoogleSignup()">Sign Up with Google</button>
+                `;
         }
 
-        // Google sign in
-        document.getElementById('google-signin').addEventListener('click', async () => {
-            try {
-                const result = await signInWithPopup(auth, provider);
-                const user = result.user;
-                alert("Google Sign-In Successful!");
-            } catch (error) {
-                alert("Error: " + error.message);
-            }
-        });
-
-        // Sign up with email and password
-        document.getElementById('signup-button').addEventListener('click', async () => {
-            const email = document.getElementById('signup-email').value;
-            const password = document.getElementById('signup-password').value;
-            const termsAccepted = document.getElementById('terms-checkbox').checked;
-
-            if (!termsAccepted) {
-                alert("You must accept the Terms and Conditions to sign up.");
-                return;
-            }
+        // Handle Signup
+        async function handleSignup() {
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
 
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-
-                // Store whether the user accepted the terms and conditions
-                await setDoc(doc(db, "users", user.uid), {
-                    termsAccepted: true,
-                    email: email,
-                });
-
-                alert("Sign Up Successful!");
+                alert("Account created successfully!");
+                console.log("User:", userCredential.user);
             } catch (error) {
-                alert("Error: " + error.message);
+                alert(error.message);
             }
-        });
+        }
 
-        // Sign in with email and password
-        document.getElementById('signin-button').addEventListener('click', async () => {
-            const email = document.getElementById('signin-email').value;
-            const password = document.getElementById('signin-password').value;
+        // Handle Login
+        async function handleLogin() {
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+
             try {
-                await signInWithEmailAndPassword(auth, email, password);
-                alert("Sign In Successful!");
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                alert("Logged in successfully!");
+                console.log("User:", userCredential.user);
             } catch (error) {
-                alert("Error: " + error.message);
+                alert(error.message);
             }
-        });
+        }
 
-        // Sign out the user
-        document.getElementById('signout-button').addEventListener('click', async () => {
+        // Handle Google Signup/Login
+        async function handleGoogleSignup() {
             try {
-                await signOut(auth);
-                alert("Signed Out Successfully!");
-                document.getElementById('user-status').innerText = "You have been signed out.";
+                const result = await signInWithPopup(auth, provider);
+                alert("Signed up with Google successfully!");
+                console.log("User:", result.user);
             } catch (error) {
-                alert("Error: " + error.message);
+                alert(error.message);
             }
-        });
+        }
 
-        // Listen for Auth State changes
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                console.log("User signed in: ", user.email);
-                document.getElementById('user-status').innerText = `Welcome ${user.email}`;
-            } else {
-                console.log("No user is signed in");
-                document.getElementById('user-status').innerText = "Please Sign In";
+        async function handleGoogleLogin() {
+            try {
+                const result = await signInWithPopup(auth, provider);
+                alert("Logged in with Google successfully!");
+                console.log("User:", result.user);
+            } catch (error) {
+                alert(error.message);
             }
-        });
+        }
     </script>
-</head>
-<body>
-    <h1>SquadVertex</h1>
-
-    <!-- Toggle buttons to switch between Email and Phone -->
-    <div id="toggle-buttons">
-        <button onclick="toggleForms()">Toggle to Phone/Email</button>
-    </div>
-
-    <!-- Sign Up Section -->
-    <div id="signup-section" class="form-container">
-        <h3>Sign Up</h3>
-        <div id="toggle-signup-email">
-            <input type="email" id="signup-email" placeholder="Email" required>
-            <input type="password" id="signup-password" placeholder="Password" required>
-        </div>
-        <div id="toggle-signup-phone" style="display: none;">
-            <input type="tel" id="signup-phone" placeholder="Phone Number" required>
-        </div>
-        <div>
-            <input type="checkbox" id="terms-checkbox">
-            <label for="terms-checkbox">I accept the <a href="terms-and-conditions.html" target="_blank">Terms and Conditions</a></label>
-        </div>
-        <button id="signup-button">Sign Up</button>
-    </div>
-
-    <!-- Sign In Section -->
-    <div id="signin-section" class="form-container">
-        <h3>Sign In</h3>
-        <input type="email" id="signin-email" placeholder="Email" required>
-        <input type="password" id="signin-password" placeholder="Password" required>
-        <button id="signin-button">Sign In</button>
-    </div>
-
-    <!-- Google Sign-In Option -->
-    <div>
-        <button id="google-signin">Sign In with Google</button>
-    </div>
-
-    <!-- Sign Out -->
-    <button id="signout-button">Sign Out</button>
-
-    <p id="user-status">Please Sign In</p>
-
 </body>
 </html>
