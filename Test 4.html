@@ -26,7 +26,6 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            position: relative;
         }
         .logo {
             display: flex;
@@ -54,28 +53,25 @@
             display: flex;
             flex-direction: column;
         }
-        .form input {
+        .form input, .form select {
             margin: 10px 0;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
             font-size: 1rem;
         }
-        .checkbox-container {
-            display: flex;
-            align-items: center;
-            margin: 10px 0;
-            font-size: 0.9rem;
+        .password-wrapper {
+            position: relative;
         }
-        .checkbox-container input {
-            margin-right: 10px;
+        .password-wrapper input {
+            width: 100%;
         }
-        .terms-link {
-            color: #007bff;
-            text-decoration: none;
-        }
-        .terms-link:hover {
-            text-decoration: underline;
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
         }
         .btn {
             margin: 10px 0;
@@ -90,22 +86,6 @@
         .btn:hover {
             background: #0056b3;
         }
-        .google-signin {
-            background: #db4437;
-        }
-        .google-signin:hover {
-            background: #c33c2f;
-        }
-        .toggle-btn {
-            color: #007bff;
-            font-size: 0.9rem;
-            text-align: center;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        .toggle-btn:hover {
-            text-decoration: underline;
-        }
     </style>
 </head>
 <body>
@@ -114,25 +94,29 @@
             <img src="your-logo.png" alt="SquadVertex Logo">
             <h1>SquadVertex</h1>
         </div>
-        <div class="form-title" id="form-title">Create an Account</div>
+        <div class="form-title">Sign Up</div>
         <form id="auth-form" class="form">
             <input type="email" id="email" placeholder="Email Address">
-            <input type="password" id="password" placeholder="Password">
-            <input type="text" id="phone" placeholder="Phone Number (optional)">
-            <div class="checkbox-container">
-                <input type="checkbox" id="terms">
-                <label for="terms">I accept the <a href="#" class="terms-link" id="terms-link">terms and conditions</a>.</label>
+            <div class="password-wrapper">
+                <input type="password" id="password" placeholder="Password">
+                <span class="toggle-password" onclick="togglePassword()">👁️</span>
             </div>
-            <button type="button" class="btn" onclick="window.handleSignup()">Sign Up</button>
-            <button type="button" class="btn google-signin" onclick="window.handleGoogleSignup()">Sign Up with Google</button>
+            <div>
+                <select id="country-code">
+                    <option value="+91">+91</option>
+                    <option value="+1">+1</option>
+                    <!-- Add more country codes -->
+                </select>
+                <input type="text" id="phone" placeholder="Phone Number">
+            </div>
+            <button type="button" class="btn" onclick="signup()">Sign Up</button>
+            <div id="recaptcha-container"></div>
         </form>
-        <p class="toggle-btn" onclick="window.toggleForm()">Already have an account? Log in</p>
     </div>
 
     <script type="module">
-        // Firebase Configuration
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -145,85 +129,46 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
 
-        let isLogin = false;
+        // reCAPTCHA setup
+        window.recaptchaVerifier = new RecaptchaVerifier('recaptcha-container', {
+            size: 'invisible',
+        }, auth);
 
-        window.toggleForm = function () {
-            const formTitle = document.getElementById("form-title");
-            const authForm = document.getElementById("auth-form");
-            isLogin = !isLogin;
-            formTitle.innerText = isLogin ? "Log In to Your Account" : "Create an Account";
-            authForm.innerHTML = isLogin
-                ? `
-                  <input type="email" id="email" placeholder="Email Address">
-                  <input type="password" id="password" placeholder="Password">
-                  <button type="button" class="btn" onclick="window.handleLogin()">Log In</button>
-                  <button type="button" class="btn google-signin" onclick="window.handleGoogleLogin()">Log In with Google</button>
-                `
-                : `
-                  <input type="email" id="email" placeholder="Email Address">
-                  <input type="password" id="password" placeholder="Password">
-                  <input type="text" id="phone" placeholder="Phone Number (optional)">
-                  <div class="checkbox-container">
-                      <input type="checkbox" id="terms">
-                      <label for="terms">I accept the <a href="#" class="terms-link" id="terms-link">terms and conditions</a>.</label>
-                  </div>
-                  <button type="button" class="btn" onclick="window.handleSignup()">Sign Up</button>
-                  <button type="button" class="btn google-signin" onclick="window.handleGoogleSignup()">Sign Up with Google</button>
-                `;
-        };
+        window.signup = async function () {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const phone = document.getElementById('phone').value;
+            const countryCode = document.getElementById('country-code').value;
 
-        window.handleSignup = async function () {
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-            const terms = document.getElementById("terms")?.checked;
-
-            if (!terms) {
-                alert("You must accept the terms and conditions.");
-                return;
-            }
-
-            try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                alert("Account created successfully!");
-                console.log("User:", userCredential.user);
-            } catch (error) {
-                alert(error.message);
+            if (email && password) {
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    alert('Sign-up successful with email!');
+                    console.log(userCredential.user);
+                } catch (error) {
+                    alert(error.message);
+                }
+            } else if (phone) {
+                const phoneNumber = countryCode + phone;
+                try {
+                    const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+                    const otp = prompt('Enter OTP sent to your phone:');
+                    const result = await confirmationResult.confirm(otp);
+                    alert('Sign-up successful with phone!');
+                    console.log(result.user);
+                } catch (error) {
+                    alert(error.message);
+                }
+            } else {
+                alert('Please fill in all required fields.');
             }
         };
 
-        window.handleLogin = async function () {
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-
-            try {
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                alert("Logged in successfully!");
-                console.log("User:", userCredential.user);
-            } catch (error) {
-                alert(error.message);
-            }
-        };
-
-        window.handleGoogleSignup = async function () {
-            try {
-                const result = await signInWithPopup(auth, provider);
-                alert("Signed up with Google successfully!");
-                console.log("User:", result.user);
-            } catch (error) {
-                alert(error.message);
-            }
-        };
-
-        window.handleGoogleLogin = async function () {
-            try {
-                const result = await signInWithPopup(auth, provider);
-                alert("Logged in with Google successfully!");
-                console.log("User:", result.user);
-            } catch (error) {
-                alert(error.message);
-            }
+        window.togglePassword = function () {
+            const passwordField = document.getElementById('password');
+            const type = passwordField.type === 'password' ? 'text' : 'password';
+            passwordField.type = type;
         };
     </script>
 </body>
