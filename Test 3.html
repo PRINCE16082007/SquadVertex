@@ -451,3 +451,423 @@
 }
 
     </style>
+
+<script type="module">
+  // Import Firebase modules
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
+  import { getFirestore, doc, getDoc, updateDoc, setDoc, arrayRemove, arrayUnion, onSnapshot } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+
+  let app, db;
+  let firebaseInitialized = false;
+
+  // Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+  };
+
+  try {
+    // Initialize Firebase
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    firebaseInitialized = true;
+    console.log("✅ Firebase initialized successfully.");
+  } catch (error) {
+    console.error("❌ Firebase initialization failed:", error.message);
+  }
+
+  if (!firebaseInitialized) {
+    alert("Firebase initialization failed. Check console for details.");
+  }
+
+  // Utility to get user IP
+  async function getUserIP() {
+    try {
+      const response = await fetch("https://api.ipify.org?format=json");
+      const data = await response.json();
+      return data.ip;
+    } catch (error) {
+      console.error("❌ Failed to fetch user IP:", error.message);
+      throw new Error("IP fetch failed.");
+    }
+  }
+
+  // Update user reaction (like or dislike with toggle)
+  async function updateReaction(channelId, action) {
+    if (!firebaseInitialized) return alert("Firebase is not initialized!");
+
+    try {
+      const ip = await getUserIP();
+      const channelRef = doc(db, "channelCards", channelId);
+      const channelSnap = await getDoc(channelRef);
+
+      if (channelSnap.exists()) {
+        const channelData = channelSnap.data();
+        const currentReactions = channelData.ip_addresses || [];
+
+        // Check if user has already reacted
+        const userReaction = currentReactions.find((entry) => entry.ip === ip);
+
+        if (userReaction) {
+          if (userReaction.action === action) {
+            alert(`You have already ${action}d this channel!`);
+            return;
+          }
+
+          // Toggle reaction
+          const updates = {
+            ip_addresses: arrayRemove(userReaction),
+          };
+
+          if (userReaction.action === "like") {
+            updates.likes = (channelData.likes || 0) - 1;
+            updates.dislikes = (channelData.dislikes || 0) + 1;
+          } else {
+            updates.likes = (channelData.likes || 0) + 1;
+            updates.dislikes = (channelData.dislikes || 0) - 1;
+          }
+
+          await updateDoc(channelRef, updates);
+          await updateDoc(channelRef, {
+            ip_addresses: arrayUnion({ ip, action }),
+          });
+
+          alert(`Channel ${action}d successfully!`);
+        } else {
+          // New reaction
+          const updates = {
+            ip_addresses: arrayUnion({ ip, action }),
+          };
+
+          if (action === "like") {
+            updates.likes = (channelData.likes || 0) + 1;
+          } else {
+            updates.dislikes = (channelData.dislikes || 0) + 1;
+          }
+
+          await updateDoc(channelRef, updates);
+          alert(`Channel ${action}d successfully!`);
+        }
+      } else {
+        // New document if it doesn't exist
+        const newData = {
+          likes: action === "like" ? 1 : 0,
+          dislikes: action === "dislike" ? 1 : 0,
+          ip_addresses: [{ ip, action }],
+        };
+
+        await setDoc(channelRef, newData);
+        alert(`Channel ${action}d successfully!`);
+      }
+
+      console.log(`✅ ${action} added for channel ID:`, channelId);
+    } catch (error) {
+      console.error(`❌ ${action} action failed:`, error.message);
+      alert(`An error occurred while trying to ${action} the channel. Try again later.`);
+    }
+  }
+
+  // Real-time listener for likes
+  function setupRealTimeListener(channelId, likesElementId) {
+    const channelRef = doc(db, "channelCards", channelId);
+    onSnapshot(channelRef, (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        document.getElementById(likesElementId).innerText = data.likes || 0;
+      }
+    });
+  }
+
+  const channels = [
+  { id: "channel1", elementId: "likesCount1" },
+  { id: "channel2", elementId: "likesCount2" },
+  { id: "channel3", elementId: "likesCount3" },
+  { id: "channel4", elementId: "likesCount4" },
+  { id: "channel5", elementId: "likesCount5" },
+  { id: "channel6", elementId: "likesCount6" },
+  //{ id: "channel7", elementId: "likesCount7" },
+  // Add more channels here
+];
+
+channels.forEach(({ id, elementId }) => {
+  setupRealTimeListener(id, elementId);
+});
+
+  // Attach functions to global window object
+  window.updateReaction = updateReaction;
+
+// Array of background images
+const backgroundImages = [
+    'https://dl.dropboxusercontent.com/s/yzmdvelkzexiqp83xxnxv/b0d30dac-96da-11ef-b8c7-0242ac11000f-1.jpeg?rlkey=eng64l2lwdvq83r7tw7jgajgr&st=1qh8obmq', // Replace with your first image URL
+    'https://dl.dropboxusercontent.com/s/aoqatrzscriqt952zg2yb/cristiano-ronaldo-real-madrid-wallpaper-preview.jpg?rlkey=px1ynkxxlafgeno0zrh6fi5c4&st=yalnx6q2', // Replace with your second image URL
+    'https://dl.dropboxusercontent.com/s/v3wu7c6a2vxvn8gcvk7o1/cristiano-ronaldo-4k-wallpaper-preview-2.jpg?rlkey=gg3m06o0452m5vof7ad4us1ht&st=vcyejpyc',  // Replace with your third image URL
+    'https://dl.dropboxusercontent.com/s/j0s3wb4h5ulpxz80p422u/cristiano-ronaldo-black-and-white-wallpaper-preview-2.jpg?rlkey=e25hvhb7pma99lz8jbt1fyig1&st=gyvcxnuw',  // Replace with your fourth image URL
+    'https://dl.dropboxusercontent.com/s/8de1hq2klb5olsrm6ln7y/soccer-cristiano-ronaldo-wallpaper-preview-2.jpg?rlkey=wktwgf1b54zj24iq21644knnr&st=3ibem9mx',  // Replace with your fifth image URL
+   // 'image6.jpg'  // Replace with your sixth image URL
+];
+
+// Assign background images dynamically using IDs
+backgroundImages.forEach((image, index) => {
+    const channelItem = document.getElementById(`channel-bg-${index + 1}`);
+    if (channelItem) {
+        channelItem.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${image})`;
+    }
+});
+</script>
+
+</head>
+<body>
+    <div id="termsModal" class="modal">
+    <div class="modal-content">
+        <h2>Terms and Conditions</h2>
+        <p>By using this website, you agree to our <a href="terms and conditions.html" style="color: cyan;">Terms and Conditions</a>.</p>
+        <label>
+            <input type="checkbox" id="acceptTerms"> I accept the terms and conditions
+        </label>
+        <button id="acceptButton" disabled>Continue</button>
+    </div>
+</div>
+    <div class="welcome">
+    <!-- Content removed, but styling remains -->
+    </div>
+
+    <div class="travel-points">
+        <div class="travel-point" onclick="location.href='Authorization.html'">Restricted Area</div>
+        <div class="travel-point" onclick="location.href='trending.html'">Trending</div>
+        <div class="travel-point" onclick="location.href='Auth Developer.html'">🔒 Developers Only</div>
+        <div class="travel-point" onclick="location.href='channels.html'">Channels</div>
+        <div class="travel-point" onclick="location.href='fanmade content.html'">Fanmade Content</div>
+        <div class="travel-point" onclick="location.href='members.html'">Members</div>
+        <div class="travel-point" onclick="location.href='about us.html'">About Us</div>
+        <div class="travel-point" onclick="location.href='contact us.html'">Contact Us</div>
+    </div>
+
+    <!-- Channel Section with Enhanced Gradient and Layout Adjustments -->
+    <div class="channel-section">
+        <h2>Channels</h2>
+        <div class="channel-list">
+            <div class="channel-item" id="channel-bg-1">
+                <img src="https://dl.dropboxusercontent.com/s/37j3k83987641h70t17o0/Screenshot_20241022-200852?rlkey=xkal24dwto2vopavv1anfzncv" alt="Trapmelon">
+                <div class="channel-info">
+                    <h3>Trapmelon</h3>
+                    <p class="subscriber-count" id="channel1-subscriber">Subscribers: Loading...</p>
+                    <p class="video-count" id="channel1-videos">Videos: Loading...</p>
+                    <!-- VIP Badge will be added here -->
+    <div class="vip-badge">VIP</div>
+                    <a href="https://youtube.com/@trapmelon?si=mWbEINaPoj1rSWYg" class="visit-channel">Visit Channel</a>
+<div class="reaction-container">
+  <button class="reaction-btn like-btn" onclick="updateReaction('channel1', 'like')">👍<span id="likesCount1">0</span></button>
+  <button class="reaction-btn dislike-btn" onclick="updateReaction('channel1', 'dislike')">👎</button>
+</div>
+<button class="test-button" id="lockedButton" disabled>🔒 CustomPortal</button>
+ <div class="countdown-timer" id="timer">
+            <span id="countdown"></span>
+        </div>
+                </div>
+            </div>
+            <div class="channel-item" id="channel-bg-2">
+                <img src="https://dl.dropboxusercontent.com/scl/fi/9bvaocvoe5bz0u7ob59l0/Screenshot_20240830-105305.png?rlkey=43dpdd89krd7211kfykczbd4o" alt="Primeftbl7">
+                <div class="channel-info">
+                    <h3>Primeftbl7</h3>
+                    <p class="subscriber-count" id="channel2-subscriber">Subscribers: Loading...</p>
+                    <p class="video-count" id="channel2-videos">Videos: Loading...</p>
+                    <a href="https://youtube.com/@official_prime7?si=RaORsDGZap6Cibb_" class="visit-channel">Visit Channel</a>
+<div class="reaction-container">
+  <button class="reaction-btn like-btn" onclick="updateReaction('channel2', 'like')">👍<span id="likesCount2">0</span></button>
+  <button class="reaction-btn dislike-btn" onclick="updateReaction('channel2', 'dislike')">👎</button>
+</div>
+                </div>
+            </div>
+
+<div class="channel-item" id="channel-bg-3">
+                <img src="https://dl.dropboxusercontent.com/s/s7tid2bsjowt9hevnwing/Screenshot_20241103-105353?rlkey=nkfk5k06net7c97cr9t2hpe6d" alt="LeoaccM">
+                <div class="channel-info">
+                    <h3>LeoaccM</h3>
+                    <p class="subscriber-count" id="channel3-subscriber">Subscribers: Loading...</p>
+                    <p class="video-count" id="channel3-videos">Videos: Loading...</p>
+                    <a href="https://youtube.com/@leoaccm?si=spxTETbIcianjr-9" class="visit-channel">Visit Channel</a>
+<div class="reaction-container">
+  <button class="reaction-btn like-btn" onclick="updateReaction('channel3', 'like')">👍<span id="likesCount3">0</span></button>
+  <button class="reaction-btn dislike-btn" onclick="updateReaction('channel3', 'dislike')">👎</button>
+</div>
+                </div>
+            </div>
+<div class="channel-item" id="channel-bg-4">
+                <img src="https://dl.dropboxusercontent.com/scl/fi/fh5vk93e0ntlko7tvfpkv/Screenshot_20240928-081328.png?rlkey=zm3q6aou9zkr46t3xwcmlyhqw&st=bqf9a1sw&dl=0" alt="Santos Aveiro">
+                <div class="channel-info">
+                    <h3>Santos Aveiro</h3>
+                    <p class="subscriber-count" id="channel4-subscriber">Subscribers: Loading...</p>
+                    <p class="video-count" id="channel4-videos">Videos: Loading...</p>
+                    <a href="https://youtube.com/@santosaveiro7?si=hb2gUxOvM20loXbX" class="visit-channel">Visit Channel</a>
+<div class="reaction-container">
+  <button class="reaction-btn like-btn" onclick="updateReaction('channel4', 'like')">👍<span id="likesCount4">0</span></button>
+  <button class="reaction-btn dislike-btn" onclick="updateReaction('channel4', 'dislike')">👎</button>
+</div>
+<!--<a href="santos aveiro.html" class="redirect-button">CustomPortal</a>-->
+                </div>
+            </div>
+
+<div class="channel-item" id="channel-bg-5">
+                <img src="https://dl.dropboxusercontent.com/s/4w1yai8216ibisnsw7v8k/Screenshot_20241016-151609?rlkey=cq9b1t7d6139uvp3330pf11ze" alt="PrimeEditz7">
+                <div class="channel-info">
+                    <h3>PrimeEditz7</h3>
+                    <p class="subscriber-count" id="channel5-subscriber">Subscribers: Loading...</p>
+                    <p class="video-count" id="channel5-videos">Videos: Loading...</p>
+                    <a href="https://youtube.com/@primeeditor77?si=WpgS-0UMfGqxBu0C" class="visit-channel">Visit Channel</a>
+<div class="reaction-container">
+  <button class="reaction-btn like-btn" onclick="updateReaction('channel5', 'like')">👍<span id="likesCount5">0</span></button>
+  <button class="reaction-btn dislike-btn" onclick="updateReaction('channel5', 'dislike')">👎</button>
+</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Section -->
+    <div class="video-section">
+        <h2>Trending Videos</h2>
+        <div class="video-slider">
+            <div class="video-space">
+            <iframe src="https://www.youtube.com/embed/ik4fdQ54jxQ" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+            <div class="video-space"><iframe src="https://www.youtube.com/embed/vjOO37XRgxc" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+            <div class="video-space"><iframe src="https://www.youtube.com/embed/7zIQ8Ahsybs" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+            <div class="video-space"><iframe src="https://www.youtube.com/embed/NIWnDxrzQSI" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+            <div class="video-space"></div>
+            <div class="video-space"></div>
+            <div class="video-space"></div>
+            <div class="video-space"></div>
+            <div class="video-space"></div>
+            <div class="video-space"></div>
+        </div>
+    </div>
+
+    <!-- Footer with Apache License -->
+    <footer>
+        © 2024 SquadVertex. Licensed under the Apache License 2.0.
+    </footer>
+    <script>
+    const API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA"; // Replace with your actual API key
+const channelIDs = [
+    { id: "UCgDyT-iJGYJjPIAuJAAU9Bg", subscriberElementId: "channel1-subscriber", videoElementId: "channel1-videos" },
+    { id: "UCCWSA89tFicJ6s7OsAQ-uCg", subscriberElementId: "channel2-subscriber", videoElementId: "channel2-videos" },
+    { id: "UCS2jKOBdhKnmalWE0tVfJiQ", subscriberElementId: "channel3-subscriber", videoElementId: "channel3-videos" },
+    //{ id: "Add Santos Aveiro ID here", subscriberElementId: "channel4-subscriber", videoElementId: "channel4-videos" },
+    { id: "UC3EyOdrKtUezxyd5N2ECaoA", subscriberElementId: "channel5-subscriber", videoElementId: "channel5-videos" },
+    // Add more channels here if needed
+];
+
+async function fetchCounts() {
+    for (const channel of channelIDs) {
+        // Fetch Subscriber Count
+        const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channel.id}&key=${API_KEY}`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Network response was not ok");
+            const data = await response.json();
+
+            // Extract and display subscriber count
+            const subscribers = data.items[0]?.statistics?.subscriberCount || "Unavailable";
+            document.getElementById(channel.subscriberElementId).innerText = `Subscribers: ${subscribers}`;
+
+            // Extract and display video count
+            const videos = data.items[0]?.statistics?.videoCount || "Unavailable";
+            document.getElementById(channel.videoElementId).innerText = `Videos: ${videos}`;
+        } catch (error) {
+            console.error("Error fetching counts:", error);
+            document.getElementById(channel.subscriberElementId).innerText = "Subscribers: Error";
+            document.getElementById(channel.videoElementId).innerText = "Videos: Error";
+        }
+    }
+}
+
+// Run both onload functions properly
+window.onload = () => {
+    fetchCounts(); // Fetch YouTube subscriber and video data
+    // Modal terms logic
+    const modal = document.getElementById("termsModal");
+    const acceptButton = document.getElementById("acceptButton");
+    const acceptTerms = document.getElementById("acceptTerms");
+
+    if (modal && !localStorage.getItem("termsAccepted")) {
+        modal.style.display = "flex"; // Flex for centering the modal
+    }
+
+    if (acceptTerms && acceptButton) {
+        acceptTerms.addEventListener("change", function () {
+            acceptButton.disabled = !this.checked;
+        });
+
+        acceptButton.addEventListener("click", function () {
+            localStorage.setItem("termsAccepted", "true");
+            if (modal) modal.style.display = "none";
+        });
+    }
+};
+
+
+
+// Set target unlock date and time
+const unlockDate = new Date("2025-12-25T00:00:00").getTime(); // Example: 19th Dec 2024 at midnight
+const timerSpan = document.getElementById("countdown");
+const button = document.getElementById("lockedButton");
+const timerDiv = document.getElementById("timer");
+
+function updateTimer() {
+  const now = new Date().getTime();
+  const timeRemaining = unlockDate - now;
+
+  if (timeRemaining > 0) {
+    const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+    const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+
+    timerSpan.textContent = `${hours}h ${minutes}m ${seconds}s`;
+  } else {
+    clearInterval(interval);
+    button.disabled = false; // Enable the button
+    button.textContent = "🔓 CustomPortal";
+    timerDiv.textContent = "The feature is now available.";
+  }
+}
+
+// Update timer every second
+const interval = setInterval(updateTimer, 1000);
+updateTimer(); // Call immediately to avoid delay
+
+
+
+const videoSlider = document.getElementById('video-slider');
+
+// Enable drag-to-scroll for desktop
+let isDown = false;
+let startX;
+let scrollLeft;
+
+videoSlider.addEventListener('mousedown', (e) => {
+    isDown = true;
+    videoSlider.classList.add('active');
+    startX = e.pageX - videoSlider.offsetLeft;
+    scrollLeft = videoSlider.scrollLeft;
+});
+videoSlider.addEventListener('mouseleave', () => {
+    isDown = false;
+    videoSlider.classList.remove('active');
+});
+videoSlider.addEventListener('mouseup', () => {
+    isDown = false;
+    videoSlider.classList.remove('active');
+});
+videoSlider.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - videoSlider.offsetLeft;
+    const walk = (x - startX) * 3; // Adjust scroll speed
+    videoSlider.scrollLeft = scrollLeft - walk;
+});
+</script>
+
+</body></html>
