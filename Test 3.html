@@ -18,66 +18,66 @@
             overflow-x: hidden;
         }
         /* Modal Styling */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            justify-content: center;
-            align-items: center;
-        }
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: center;
+}
 
-        .modal-content {
-            background-color: #111;
-            color: white;
-            padding: 30px;
-            border-radius: 10px;
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
-        }
+.modal-content {
+    background-color: #111;
+    color: white;
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+}
 
-        /* Button styling */
-        button {
-            background-color: #00C851;
-            color: white;
-            padding: 10px 25px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
+/* Button styling */
+button {
+    background-color: #00C851;
+    color: white;
+    padding: 10px 25px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
 
-        button:disabled {
-            background-color: grey;
-            cursor: not-allowed;
-        }
+button:disabled {
+    background-color: grey;
+    cursor: not-allowed;
+}
 
-        /* Checkbox Styling */
-        label {
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
+/* Checkbox Styling */
+label {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
 
-        input[type="checkbox"] {
-            margin-right: 10px;
-            transform: scale(1.5);
-        }
+input[type="checkbox"] {
+    margin-right: 10px;
+    transform: scale(1.5);
+}
 
-        /* Responsive Design for Modal */
-        @media (max-width: 768px) {
-            .modal-content {
-                padding: 20px;
-            }
-        }
+/* Responsive Design for Modal */
+@media (max-width: 768px) {
+    .modal-content {
+        padding: 20px;
+    }
+}
         .welcome {
     text-align: center;
     font-size: 48px;
@@ -467,73 +467,68 @@
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
   };
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
+  // Initialize Firebase (Add your Firebase configuration here)
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    databaseURL: "YOUR_DATABASE_URL",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
 
-  // DOM Elements
-  const modal = document.getElementById("termsModal");
-  const mainContent = document.getElementById("mainContent");
-  const googleSignInButton = document.getElementById("googleSignIn");
-  const acceptTermsCheckbox = document.getElementById("acceptTerms");
+const authModal = document.getElementById("authModal");
+const acceptTerms = document.getElementById("acceptTerms");
+const signUpButton = document.getElementById("signUpButton");
 
-  // Function to handle modal display based on sign-in state
-  const showTermsModal = async () => {
-    const user = auth.currentUser;
+// Show modal if user is not signed up
+async function checkSignUpStatus() {
+    const user = firebase.auth().currentUser;
     if (user) {
-      // Check if user has accepted the terms (stored in Firestore)
-      const userDocRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userDocRef);
-      if (userSnap.exists() && userSnap.data().termsAccepted) {
-        modal.style.display = "none"; // If terms accepted, hide modal
-        mainContent.style.display = "block";
-      } else {
-        modal.style.display = "flex"; // Show modal if terms not accepted
-        mainContent.style.display = "none";
-      }
-    } else {
-      modal.style.display = "flex"; // Show modal if not signed in
-      mainContent.style.display = "none";
+        const userRef = firebase.database().ref("users/" + user.uid);
+        const snapshot = await userRef.once("value");
+        if (snapshot.exists() && snapshot.val().termsAccepted) {
+            console.log("User already signed up and accepted terms.");
+            return; // User is signed up and terms are accepted
+        }
     }
-  };
+    authModal.style.display = "flex"; // Show modal
+}
 
-  // Show the modal on page load or after sign-in
-  window.onload = showTermsModal;
+// Enable or disable the sign-up button based on terms acceptance
+acceptTerms.addEventListener("change", () => {
+    signUpButton.disabled = !acceptTerms.checked;
+});
 
-  // Enable/Disable the Google Sign-In button based on terms acceptance
-  acceptTermsCheckbox.addEventListener("change", () => {
-    googleSignInButton.disabled = !acceptTermsCheckbox.checked;
-  });
-
-  // Handle Google Sign-In
-  googleSignInButton.addEventListener("click", async () => {
-    if (!acceptTermsCheckbox.checked) {
-      alert("Please accept the terms and conditions to proceed.");
-      return;
-    }
-
-    const provider = new GoogleAuthProvider();
+// Handle Google Sign-Up
+signUpButton.addEventListener("click", async () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+        const result = await firebase.auth().signInWithPopup(provider);
+        const user = result.user;
 
-      // Update the Firestore to mark terms as accepted
-      const userDocRef = doc(db, "users", user.uid);
-      await setDoc(userDocRef, {
-        termsAccepted: true, // Mark terms as accepted
-      }, { merge: true });
-
-      // Hide the modal and show main content
-      modal.style.display = "none";
-      mainContent.style.display = "block";
-
-      alert(`Welcome, ${user.displayName}!`);
+        // Save user details and terms acceptance to Firebase Database
+        if (user) {
+            const userRef = firebase.database().ref("users/" + user.uid);
+            await userRef.set({
+                email: user.email,
+                name: user.displayName,
+                termsAccepted: true,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+            alert("Sign-up successful!");
+            authModal.style.display = "none";
+        }
     } catch (error) {
-      alert("Google Sign-In failed. Please try again.");
-      console.error(error);
+        console.error("Error during sign-up:", error);
+        alert("Sign-up failed. Please try again.");
     }
-  });
+});
+
+// Run on page load
+window.onload = checkSignUpStatus;
 
   // Real-time listener for likes
   function setupRealTimeListener(channelId, likesElementId) {
@@ -668,22 +663,16 @@ backgroundImages.forEach((image, index) => {
 
 </head>
 <body>
-    <div id="termsModal" class="modal">
-        <div class="modal-content">
-            <h2>Terms and Conditions</h2>
-            <p>
-                By using this website, you agree to our
-                <a href="terms and conditions.html" style="color: cyan;">Terms and Conditions</a>.
-            </p>
-            <label>
-                <input type="checkbox" id="acceptTerms"> I accept the terms and conditions
-            </label>
-            <button id="googleSignIn" disabled>
-                <img src="google-icon.png" alt="Google" style="width: 20px; margin-right: 10px;">
-                Sign In with Google
-            </button>
-        </div>
+    <div class="modal" id="authModal">
+    <div class="modal-content">
+        <h2>Terms & Conditions</h2>
+        <p>Please accept our terms and conditions to proceed with Google Sign-Up.</p>
+        <label>
+            <input type="checkbox" id="acceptTerms"> I agree to the terms and conditions.
+        </label>
+        <button id="signUpButton" disabled>Sign Up with Google</button>
     </div>
+</div>
     <div class="welcome">
     <!-- Content removed, but styling remains -->
     </div>
