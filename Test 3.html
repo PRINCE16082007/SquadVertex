@@ -457,9 +457,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
   import { getFirestore, doc, getDoc, updateDoc, setDoc, arrayRemove, arrayUnion, onSnapshot, getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
 
-  let app, db;
-  let firebaseInitialized = false;
-
   // Firebase configuration
   const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -470,61 +467,100 @@
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
   };
 
-// Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
 
-        // DOM Elements
-        const modal = document.getElementById("termsModal");
-        const mainContent = document.getElementById("mainContent");
-        const googleSignInButton = document.getElementById("googleSignIn");
-        const acceptTermsCheckbox = document.getElementById("acceptTerms");
+  // DOM Elements
+  const modal = document.getElementById("termsModal");
+  const mainContent = document.getElementById("mainContent");
+  const googleSignInButton = document.getElementById("googleSignIn");
+  const acceptTermsCheckbox = document.getElementById("acceptTerms");
 
-        // Show the modal on page load
-        window.onload = () => {
-            modal.style.display = "flex"; // Show modal by default
-        };
+  // Function to handle modal display based on sign-in state
+  const showTermsModal = async () => {
+    const user = auth.currentUser;
+    if (user) {
+      // Check if user has accepted the terms (stored in Firestore)
+      const userDocRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userDocRef);
+      if (userSnap.exists() && userSnap.data().termsAccepted) {
+        modal.style.display = "none"; // If terms accepted, hide modal
+        mainContent.style.display = "block";
+      } else {
+        modal.style.display = "flex"; // Show modal if terms not accepted
+        mainContent.style.display = "none";
+      }
+    } else {
+      modal.style.display = "flex"; // Show modal if not signed in
+      mainContent.style.display = "none";
+    }
+  };
 
-        // Enable/Disable the Google Sign-In button based on terms acceptance
-        acceptTermsCheckbox.addEventListener("change", () => {
-            googleSignInButton.disabled = !acceptTermsCheckbox.checked;
-        });
+  // Show the modal on page load or after sign-in
+  window.onload = showTermsModal;
 
-        // Handle Google Sign-In
-        googleSignInButton.addEventListener("click", async () => {
-            if (!acceptTermsCheckbox.checked) {
-                alert("Please accept the terms and conditions to proceed.");
-                return;
-            }
+  // Enable/Disable the Google Sign-In button based on terms acceptance
+  acceptTermsCheckbox.addEventListener("change", () => {
+    googleSignInButton.disabled = !acceptTermsCheckbox.checked;
+  });
 
-            const provider = new GoogleAuthProvider();
-            try {
-                const result = await signInWithPopup(auth, provider);
-                const user = result.user;
+  // Handle Google Sign-In
+  googleSignInButton.addEventListener("click", async () => {
+    if (!acceptTermsCheckbox.checked) {
+      alert("Please accept the terms and conditions to proceed.");
+      return;
+    }
 
-                // Hide the modal and show main content
-                modal.style.display = "none";
-                mainContent.style.display = "block";
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
 
-                alert(`Welcome, ${user.displayName}!`);
-            } catch (error) {
-                alert("Google Sign-In failed. Please try again.");
-                console.error(error);
-            }
-        });
-  try {
-    // Initialize Firebase
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    firebaseInitialized = true;
-    console.log("✅ Firebase initialized successfully.");
-  } catch (error) {
-    console.error("❌ Firebase initialization failed:", error.message);
+      // Update the Firestore to mark terms as accepted
+      const userDocRef = doc(db, "users", user.uid);
+      await setDoc(userDocRef, {
+        termsAccepted: true, // Mark terms as accepted
+      }, { merge: true });
+
+      // Hide the modal and show main content
+      modal.style.display = "none";
+      mainContent.style.display = "block";
+
+      alert(`Welcome, ${user.displayName}!`);
+    } catch (error) {
+      alert("Google Sign-In failed. Please try again.");
+      console.error(error);
+    }
+  });
+
+  // Real-time listener for likes
+  function setupRealTimeListener(channelId, likesElementId) {
+    const channelRef = doc(db, "channelCards", channelId);
+    onSnapshot(channelRef, (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        document.getElementById(likesElementId).innerText = data.likes || 0;
+      }
+    });
   }
 
-  if (!firebaseInitialized) {
-    alert("Firebase initialization failed. Check console for details.");
-  }
+  const channels = [
+    { id: "channel1", elementId: "likesCount1" },
+    { id: "channel2", elementId: "likesCount2" },
+    { id: "channel3", elementId: "likesCount3" },
+    { id: "channel4", elementId: "likesCount4" },
+    { id: "channel5", elementId: "likesCount5" },
+    { id: "channel6", elementId: "likesCount6" },
+  ];
+
+  channels.forEach(({ id, elementId }) => {
+    setupRealTimeListener(id, elementId);
+  });
+
+  // Attach functions to global window object
+  window.updateReaction = updateReaction;
 
   // Utility to get user IP
   async function getUserIP() {
@@ -540,8 +576,6 @@
 
   // Update user reaction (like or dislike with toggle)
   async function updateReaction(channelId, action) {
-    if (!firebaseInitialized) return alert("Firebase is not initialized!");
-
     try {
       const ip = await getUserIP();
       const channelRef = doc(db, "channelCards", channelId);
@@ -612,35 +646,6 @@
       alert(`An error occurred while trying to ${action} the channel. Try again later.`);
     }
   }
-
-  // Real-time listener for likes
-  function setupRealTimeListener(channelId, likesElementId) {
-    const channelRef = doc(db, "channelCards", channelId);
-    onSnapshot(channelRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        document.getElementById(likesElementId).innerText = data.likes || 0;
-      }
-    });
-  }
-
-  const channels = [
-  { id: "channel1", elementId: "likesCount1" },
-  { id: "channel2", elementId: "likesCount2" },
-  { id: "channel3", elementId: "likesCount3" },
-  { id: "channel4", elementId: "likesCount4" },
-  { id: "channel5", elementId: "likesCount5" },
-  { id: "channel6", elementId: "likesCount6" },
-  //{ id: "channel7", elementId: "likesCount7" },
-  // Add more channels here
-];
-
-channels.forEach(({ id, elementId }) => {
-  setupRealTimeListener(id, elementId);
-});
-
-  // Attach functions to global window object
-  window.updateReaction = updateReaction;
 
 // Array of background images
 const backgroundImages = [
