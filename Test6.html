@@ -454,130 +454,141 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
-import { getFirestore, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
-import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-auth.js";
+  import { getFirestore, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-auth.js";
 
-// Firebase initialization
-const firebaseConfig = {
-  apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-  authDomain: "squadvertex2007.firebaseapp.com",
-  projectId: "squadvertex2007",
-  storageBucket: "squadvertex2007.appspot.com",
-  messagingSenderId: "168905083514",
-  appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-};
+  // Firebase initialization
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+  };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
-const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+  const db = getFirestore(app);
 
-// DOM elements
-const overlay = document.getElementById("termsModal");
-const modal = document.getElementById("modal-content");
-const termsCheckbox = document.getElementById("terms");
-const googleSignInButton = document.getElementById("googleSignIn");
+  // DOM elements
+  const overlay = document.getElementById("termsModal");
+  const modal = document.getElementById("modal-content");
+  const termsCheckbox = document.getElementById("terms");
+  const googleSignInButton = document.getElementById("googleSignIn");
 
-// Show modal and overlay if user is not signed in
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log("User signed in:", user);
-    overlay.style.display = "none";
-    modal.style.display = "none";
-  } else {
-    overlay.style.display = "block";
-    modal.style.display = "block";
-  }
-});
-
-// Enable the button only if terms are accepted
-termsCheckbox.addEventListener("change", () => {
-  googleSignInButton.disabled = !termsCheckbox.checked;
-});
-
-// Google sign-in
-googleSignInButton.addEventListener("click", async () => {
-  try {
-    const result = await signInWithPopup(auth, provider);
-    const user = result.user;
-    console.log("User signed up:", user);
-    alert("Sign-up successful!");
-    overlay.style.display = "none";
-    modal.style.display = "none";
-  } catch (error) {
-    console.error("Sign-up failed:", error.message);
-    alert("Sign-up failed. Check console for details.");
-  }
-});
-
-const uid = user.uid;
-  const docRef = doc(db, "reactions", channelId);
-
-  try {
-    const docSnap = await getDoc(docRef);
-    const data = docSnap.exists() ? docSnap.data() : { likes: [], dislikes: [] };
-
-    if (reactionType === "like") {
-      // Remove from dislikes if present
-      if (data.dislikes.includes(uid)) {
-        await updateDoc(docRef, { dislikes: arrayRemove(uid) });
-      }
-
-      // Toggle like
-      if (data.likes.includes(uid)) {
-        await updateDoc(docRef, { likes: arrayRemove(uid) });
-      } else {
-        await updateDoc(docRef, { likes: arrayUnion(uid) });
-      }
-    } else if (reactionType === "dislike") {
-      // Remove from likes if present
-      if (data.likes.includes(uid)) {
-        await updateDoc(docRef, { likes: arrayRemove(uid) });
-      }
-
-      // Toggle dislike
-      if (data.dislikes.includes(uid)) {
-        await updateDoc(docRef, { dislikes: arrayRemove(uid) });
-      } else {
-        await updateDoc(docRef, { dislikes: arrayUnion(uid) });
-      }
-    }
-
-    // Refresh UI
-    updateUI(channelId);
-  } catch (error) {
-    console.error("Error updating reaction:", error.message);
-  }
-}
-
-// Fetch and update the UI
-async function updateUI(channelId) {
-  const docRef = doc(db, "reactions", channelId);
-
-  try {
-    const docSnap = await getDoc(docRef);
-    const data = docSnap.exists() ? docSnap.data() : { likes: [], dislikes: [] };
-
-    document.getElementById("likesCount1").textContent = data.likes.length;
-    document.getElementById("dislikesCount1").textContent = data.dislikes.length;
-
-    const user = auth.currentUser;
+  // Show modal and overlay if user is not signed in
+  onAuthStateChanged(auth, (user) => {
     if (user) {
-      const uid = user.uid;
-      document.querySelector(".like-btn").classList.toggle("active", data.likes.includes(uid));
-      document.querySelector(".dislike-btn").classList.toggle("active", data.dislikes.includes(uid));
+      console.log("User signed in:", user);
+      overlay.style.display = "none";
+      modal.style.display = "none";
+      updateUI("channel1"); // Initialize UI update after user is signed in
+    } else {
+      overlay.style.display = "block";
+      modal.style.display = "block";
     }
-  } catch (error) {
-    console.error("Error fetching reaction data:", error.message);
-  }
-}
+  });
 
-// On Auth State Change
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    updateUI("channel1");
+  // Enable the button only if terms are accepted
+  termsCheckbox.addEventListener("change", () => {
+    googleSignInButton.disabled = !termsCheckbox.checked;
+  });
+
+  // Google sign-in
+  googleSignInButton.addEventListener("click", async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      console.log("User signed up:", user);
+      alert("Sign-up successful!");
+      overlay.style.display = "none";
+      modal.style.display = "none";
+      updateUI("channel1"); // Refresh UI after sign-in
+    } catch (error) {
+      console.error("Sign-up failed:", error.message);
+      alert("Sign-up failed. Check console for details.");
+    }
+  });
+
+  // Update reaction
+  async function updateReaction(channelId, reactionType) {
+    const user = auth.currentUser;
+    if (!user) {
+      alert("You need to sign in first to react!");
+      return;
+    }
+
+    const uid = user.uid;
+    const docRef = doc(db, "reactions", channelId);
+
+    try {
+      const docSnap = await getDoc(docRef);
+      const data = docSnap.exists() ? docSnap.data() : { likes: [], dislikes: [] };
+
+      if (reactionType === "like") {
+        // Remove from dislikes if present
+        if (data.dislikes.includes(uid)) {
+          await updateDoc(docRef, { dislikes: arrayRemove(uid) });
+        }
+
+        // Toggle like
+        if (data.likes.includes(uid)) {
+          await updateDoc(docRef, { likes: arrayRemove(uid) });
+        } else {
+          await updateDoc(docRef, { likes: arrayUnion(uid) });
+        }
+      } else if (reactionType === "dislike") {
+        // Remove from likes if present
+        if (data.likes.includes(uid)) {
+          await updateDoc(docRef, { likes: arrayRemove(uid) });
+        }
+
+        // Toggle dislike
+        if (data.dislikes.includes(uid)) {
+          await updateDoc(docRef, { dislikes: arrayRemove(uid) });
+        } else {
+          await updateDoc(docRef, { dislikes: arrayUnion(uid) });
+        }
+      }
+
+      // Refresh UI
+      updateUI(channelId);
+    } catch (error) {
+      console.error("Error updating reaction:", error.message);
+    }
   }
-});
+
+  // Fetch and update the UI
+  async function updateUI(channelId) {
+    const docRef = doc(db, "reactions", channelId);
+
+    try {
+      const docSnap = await getDoc(docRef);
+      const data = docSnap.exists() ? docSnap.data() : { likes: [], dislikes: [] };
+
+      document.getElementById("likesCount1").textContent = data.likes.length;
+      document.getElementById("dislikesCount1").textContent = data.dislikes.length;
+
+      const user = auth.currentUser;
+      if (user) {
+        const uid = user.uid;
+        document.querySelector(".like-btn").classList.toggle("active", data.likes.includes(uid));
+        document.querySelector(".dislike-btn").classList.toggle("active", data.dislikes.includes(uid));
+      }
+    } catch (error) {
+      console.error("Error fetching reaction data:", error.message);
+    }
+  }
+
+  // Automatically update the UI on auth state change
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      updateUI("channel1");
+    }
+  });
+
   // Array of background images
   const backgroundImages = [
     'https://dl.dropboxusercontent.com/s/yzmdvelkzexiqp83xxnxv/b0d30dac-96da-11ef-b8c7-0242ac11000f-1.jpeg?rlkey=eng64l2lwdvq83r7tw7jgajgr&st=1qh8obmq',
