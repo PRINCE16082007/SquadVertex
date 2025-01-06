@@ -454,7 +454,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
-  import { getFirestore, doc, getDoc, updateDoc, arrayUnion, arrayRemove, setDoc } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, updateDoc, arrayUnion, arrayRemove, increment } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
   import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-auth.js";
 
   // Firebase initialization
@@ -468,118 +468,65 @@
   };
 
   const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
-  const db = getFirestore(app);
 
-  // DOM elements
-  const overlay = document.getElementById("termsModal");
-  const modal = document.getElementById("modal-content");
-  const termsCheckbox = document.getElementById("terms");
-  const googleSignInButton = document.getElementById("googleSignIn");
+  // Array to manage multiple reaction containers
+  const reactionContainers = [
+    { channelId: "channel1", likesCountId: "likesCount1" },
+    { channelId: "channel2", likesCountId: "likesCount2" },
+    { channelId: "channel3", likesCountId: "likesCount3" },
+    // Add more containers as needed
+  ];
 
-  // Show modal and overlay if user is not signed in
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      console.log("User signed in:", user);
-      overlay.style.display = "none";
-      modal.style.display = "none";
-      updateUI("channel1"); // Initialize UI update after user is signed in
-    } else {
-      overlay.style.display = "block";
-      modal.style.display = "block";
-    }
-  });
-
-  // Enable the button only if terms are accepted
-  termsCheckbox.addEventListener("change", () => {
-    googleSignInButton.disabled = !termsCheckbox.checked;
-  });
-
-  // Google sign-in
-  googleSignInButton.addEventListener("click", async () => {
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      console.log("User signed up:", user);
-      alert("Sign-up successful!");
-      overlay.style.display = "none";
-      modal.style.display = "none";
-      updateUI("channel1"); // Refresh UI after sign-in
-    } catch (error) {
-      console.error("Sign-up failed:", error.message);
-      alert("Sign-up failed. Check console for details.");
-    }
-  });
-
-  // Update reaction
+  // Update Reaction Function
   async function updateReaction(channelId, reactionType) {
     const user = auth.currentUser;
     if (!user) {
-      alert("You need to sign in first to react!");
+      alert("Please sign in to interact.");
       return;
     }
 
     const uid = user.uid;
     const docRef = doc(db, "reactions", channelId);
-    const uidDocRef = doc(db, "reactions", "uid");
 
     try {
       const docSnap = await getDoc(docRef);
-      const uidDocSnap = await getDoc(uidDocRef);
+      const data = docSnap.exists() ? docSnap.data() : { likes: 0, dislikes: 0, uidArray: [] };
 
-      // Initialize data if document does not exist
-      if (!docSnap.exists()) {
-        await setDoc(docRef, { likes: 0, dislikes: 0 });
-      }
-      if (!uidDocSnap.exists()) {
-        await setDoc(uidDocRef, { actions: [] });
-      }
-
-      const data = docSnap.data();
-      const uidData = uidDocSnap.data().actions || [];
-
-      let newAction = { action: reactionType, uid };
-
-      // Update reactions
       if (reactionType === "like") {
-        if (uidData.some((item) => item.uid === uid && item.action === "like")) {
-          // Unlike if already liked
-          await updateDoc(docRef, { likes: data.likes - 1 });
-          uidData.splice(uidData.findIndex((item) => item.uid === uid && item.action === "like"), 1);
+        // Check if user has already liked
+        if (data.uidArray && data.uidArray.find((entry) => entry.uid === uid && entry.action === "like")) {
+          // Remove the like
+          await updateDoc(docRef, {
+            likes: increment(-1),
+            uidArray: arrayRemove({ uid, action: "like" }),
+          });
         } else {
-          // Add like
-          await updateDoc(docRef, { likes: data.likes + 1 });
-          uidData.push(newAction);
-          // Remove from dislikes if previously disliked
-          const dislikeIndex = uidData.findIndex((item) => item.uid === uid && item.action === "dislike");
-          if (dislikeIndex !== -1) {
-            await updateDoc(docRef, { dislikes: data.dislikes - 1 });
-            uidData.splice(dislikeIndex, 1);
-          }
+          // Add the like
+          await updateDoc(docRef, {
+            likes: increment(1),
+            uidArray: arrayUnion({ uid, action: "like" }),
+          });
         }
       } else if (reactionType === "dislike") {
-        if (uidData.some((item) => item.uid === uid && item.action === "dislike")) {
-          // Undo dislike
-          await updateDoc(docRef, { dislikes: data.dislikes - 1 });
-          uidData.splice(uidData.findIndex((item) => item.uid === uid && item.action === "dislike"), 1);
+        // Check if user has already disliked
+        if (data.uidArray && data.uidArray.find((entry) => entry.uid === uid && entry.action === "dislike")) {
+          // Remove the dislike
+          await updateDoc(docRef, {
+            dislikes: increment(-1),
+            uidArray: arrayRemove({ uid, action: "dislike" }),
+          });
         } else {
-          // Add dislike
-          await updateDoc(docRef, { dislikes: data.dislikes + 1 });
-          uidData.push(newAction);
-          // Remove from likes if previously liked
-          const likeIndex = uidData.findIndex((item) => item.uid === uid && item.action === "like");
-          if (likeIndex !== -1) {
-            await updateDoc(docRef, { likes: data.likes - 1 });
-            uidData.splice(likeIndex, 1);
-          }
+          // Add the dislike
+          await updateDoc(docRef, {
+            dislikes: increment(1),
+            uidArray: arrayUnion({ uid, action: "dislike" }),
+          });
         }
       }
-
-      // Update uid document with new action array
-      await updateDoc(uidDocRef, { actions: uidData });
-
-      // Refresh UI
+      // Update the UI after interaction
       updateUI(channelId);
     } catch (error) {
       console.error("Error updating reaction:", error.message);
@@ -592,19 +539,66 @@
 
     try {
       const docSnap = await getDoc(docRef);
-      const data = docSnap.exists() ? docSnap.data() : { likes: 0, dislikes: 0 };
+      const data = docSnap.exists() ? docSnap.data() : { likes: 0 };
 
-      document.getElementById("likesCount1").textContent = data.likes;
-      document.getElementById("dislikesCount1").textContent = data.dislikes;
+      // Update likes count only
+      const container = reactionContainers.find((container) => container.channelId === channelId);
+      if (container) {
+        document.getElementById(container.likesCountId).textContent = data.likes;
+      }
     } catch (error) {
       console.error("Error fetching reaction data:", error.message);
     }
   }
 
-  // Automatically update the UI on auth state change
+  // Initialize all reaction containers
+  async function initializeReactions() {
+    reactionContainers.forEach((container) => {
+      updateUI(container.channelId);
+    });
+  }
+
+  // Authentication Handling
   onAuthStateChanged(auth, (user) => {
     if (user) {
-      updateUI("channel1");
+      console.log("User signed in:", user);
+      initializeReactions(); // Initialize reactions after user is authenticated
+    } else {
+      console.log("User not signed in");
+    }
+  });
+
+  // Google Sign-In Modal Logic
+  const overlay = document.getElementById("termsModal");
+  const modal = document.getElementById("modal-content");
+  const termsCheckbox = document.getElementById("terms");
+  const googleSignInButton = document.getElementById("googleSignIn");
+
+  termsCheckbox.addEventListener("change", () => {
+    googleSignInButton.disabled = !termsCheckbox.checked;
+  });
+
+  googleSignInButton.addEventListener("click", async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      console.log("User signed in:", user);
+      alert("Sign-up successful!");
+      overlay.style.display = "none";
+      modal.style.display = "none";
+    } catch (error) {
+      console.error("Sign-up failed:", error.message);
+      alert("Sign-up failed. Check console for details.");
+    }
+  });
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      overlay.style.display = "none";
+      modal.style.display = "none";
+    } else {
+      overlay.style.display = "block";
+      modal.style.display = "block";
     }
   });
 
