@@ -453,14 +453,11 @@
     </style>
 
 <script type="module">
-  // Import Firebase modules
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
-  import { getFirestore, doc, getDoc, updateDoc, setDoc, arrayRemove, arrayUnion, onSnapshot } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-auth.js";
 
-  let app, db;
-  let firebaseInitialized = false;
-
-  // Firebase configuration
+  // Firebase initialization
   const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
     authDomain: "squadvertex2007.firebaseapp.com",
@@ -470,47 +467,40 @@
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
   };
 
-  try {
-    // Initialize Firebase
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    firebaseInitialized = true;
-    console.log("✅ Firebase initialized successfully.");
-  } catch (error) {
-    console.error("❌ Firebase initialization failed:", error.message);
-  }
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
 
-  if (!firebaseInitialized) {
-    alert("Firebase initialization failed. Check console for details.");
-  }
-
-  // Utility to get user IP
-  async function getUserIP() {
-    try {
-      const response = await fetch("https://api.ipify.org?format=json");
-      const data = await response.json();
-      return data.ip;
-    } catch (error) {
-      console.error("❌ Failed to fetch user IP:", error.message);
-      throw new Error("IP fetch failed.");
-    }
-  }
+  // Channel configuration
+  const channels = [
+    { id: "channel1", elementId: "likesCount1" },
+    { id: "channel2", elementId: "likesCount2" },
+    { id: "channel3", elementId: "likesCount3" },
+    { id: "channel4", elementId: "likesCount4" },
+    { id: "channel5", elementId: "likesCount5" },
+    { id: "channel6", elementId: "likesCount6" },
+  ];
 
   // Update user reaction (like or dislike with toggle)
   async function updateReaction(channelId, action) {
-    if (!firebaseInitialized) return alert("Firebase is not initialized!");
+    const user = auth.currentUser;
+    if (!user) {
+      alert("Please sign in to interact.");
+      return;
+    }
 
     try {
-      const ip = await getUserIP();
       const channelRef = doc(db, "channelCards", channelId);
       const channelSnap = await getDoc(channelRef);
 
       if (channelSnap.exists()) {
         const channelData = channelSnap.data();
-        const currentReactions = channelData.ip_addresses || [];
+        const currentReactions = channelData.uidArray || [];
+        const uid = user.uid;
 
         // Check if user has already reacted
-        const userReaction = currentReactions.find((entry) => entry.ip === ip);
+        const userReaction = currentReactions.find((entry) => entry.uid === uid);
 
         if (userReaction) {
           if (userReaction.action === action) {
@@ -519,9 +509,7 @@
           }
 
           // Toggle reaction
-          const updates = {
-            ip_addresses: arrayRemove(userReaction),
-          };
+          const updates = { uidArray: arrayRemove(userReaction) };
 
           if (userReaction.action === "like") {
             updates.likes = (channelData.likes || 0) - 1;
@@ -533,14 +521,14 @@
 
           await updateDoc(channelRef, updates);
           await updateDoc(channelRef, {
-            ip_addresses: arrayUnion({ ip, action }),
+            uidArray: arrayUnion({ uid, action }),
           });
 
           alert(`Channel ${action}d successfully!`);
         } else {
           // New reaction
           const updates = {
-            ip_addresses: arrayUnion({ ip, action }),
+            uidArray: arrayUnion({ uid, action }),
           };
 
           if (action === "like") {
@@ -557,7 +545,7 @@
         const newData = {
           likes: action === "like" ? 1 : 0,
           dislikes: action === "dislike" ? 1 : 0,
-          ip_addresses: [{ ip, action }],
+          uidArray: [{ uid: user.uid, action }],
         };
 
         await setDoc(channelRef, newData);
@@ -582,41 +570,138 @@
     });
   }
 
-  const channels = [
-  { id: "channel1", elementId: "likesCount1" },
-  { id: "channel2", elementId: "likesCount2" },
-  { id: "channel3", elementId: "likesCount3" },
-  { id: "channel4", elementId: "likesCount4" },
-  { id: "channel5", elementId: "likesCount5" },
-  { id: "channel6", elementId: "likesCount6" },
-  //{ id: "channel7", elementId: "likesCount7" },
-  // Add more channels here
+  // Initialize listeners for all channels
+  function initializeListeners() {
+    channels.forEach(({ id, elementId }) => {
+      setupRealTimeListener(id, elementId);
+    });
+  }
+
+  // Authentication Handling
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      console.log("User signed in:", user);
+      initializeListeners(); // Initialize reactions after user is authenticated
+    } else {
+      console.log("User not signed in");
+    }
+  });
+
+  // Google Sign-In Modal Logic
+  const overlay = document.getElementById("termsModal");
+  const modal = document.getElementById("modal-content");
+  const termsCheckbox = document.getElementById("terms");
+  const googleSignInButton = document.getElementById("googleSignIn");
+
+  termsCheckbox.addEventListener("change", () => {
+    googleSignInButton.disabled = !termsCheckbox.checked;
+  });
+
+  googleSignInButton.addEventListener("click", async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      console.log("User signed in:", user);
+      alert("Sign-up successful!");
+      overlay.style.display = "none";
+      modal.style.display = "none";
+    } catch (error) {
+      console.error("Sign-up failed:", error.message);
+      alert("Sign-up failed. Check console for details.");
+    }
+  });
+
+const API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA"; // Replace with your actual API key
+const channelIDs = [
+    { id: "UCgDyT-iJGYJjPIAuJAAU9Bg", subscriberElementId: "channel1-subscriber", videoElementId: "channel1-videos" },
+    { id: "UCCWSA89tFicJ6s7OsAQ-uCg", subscriberElementId: "channel2-subscriber", videoElementId: "channel2-videos" },
+    { id: "UCS2jKOBdhKnmalWE0tVfJiQ", subscriberElementId: "channel3-subscriber", videoElementId: "channel3-videos" },
+    // { id: "Add Santos Aveiro ID here", subscriberElementId: "channel4-subscriber", videoElementId: "channel4-videos" },
+    { id: "UC3EyOdrKtUezxyd5N2ECaoA", subscriberElementId: "channel5-subscriber", videoElementId: "channel5-videos" },
+    // Add more channels here if needed
 ];
 
-channels.forEach(({ id, elementId }) => {
-  setupRealTimeListener(id, elementId);
-});
+async function fetchCounts() {
+    for (const channel of channelIDs) {
+        const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channel.id}&key=${API_KEY}`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Network response was not ok");
+            const data = await response.json();
+
+            // Ensure data exists and contains statistics
+            if (data.items && data.items.length > 0 && data.items[0].statistics) {
+                const statistics = data.items[0].statistics;
+
+                const subscribers = statistics.subscriberCount || "Unavailable";
+                const videos = statistics.videoCount || "Unavailable";
+
+                // Display results
+                document.getElementById(channel.subscriberElementId).innerText = `Subscribers: ${subscribers}`;
+                document.getElementById(channel.videoElementId).innerText = `Videos: ${videos}`;
+            } else {
+                throw new Error("Invalid data structure");
+            }
+        } catch (error) {
+            console.error("Error fetching counts:", error);
+            document.getElementById(channel.subscriberElementId).innerText = "Subscribers: Error";
+            document.getElementById(channel.videoElementId).innerText = "Videos: Error";
+        }
+    }
+}
+
+
+  // Optimized Modal Display Logic (No delay & no reappearance for signed-in users)
+  window.onload = () => {
+    const overlay = document.getElementById("termsModal");
+    const modal = document.getElementById("modal-content");
+    fetchCounts(); // Fetch YouTube subscriber and video data
+
+    if (!auth.currentUser) {
+      // If no user is signed in, show modal instantly
+      overlay.style.display = "block";
+      modal.style.display = "block";
+    } else {
+      // If user is signed in, ensure modal is hidden
+      overlay.style.display = "none";
+      modal.style.display = "none";
+    }
+  };
+
+  onAuthStateChanged(auth, (user) => {
+    const overlay = document.getElementById("termsModal");
+    const modal = document.getElementById("modal-content");
+
+    if (user) {
+      overlay.style.display = "none";
+      modal.style.display = "none";
+    } else {
+      overlay.style.display = "block";
+      modal.style.display = "block";
+    }
+  });
 
   // Attach functions to global window object
   window.updateReaction = updateReaction;
 
-// Array of background images
-const backgroundImages = [
-    'https://dl.dropboxusercontent.com/s/yzmdvelkzexiqp83xxnxv/b0d30dac-96da-11ef-b8c7-0242ac11000f-1.jpeg?rlkey=eng64l2lwdvq83r7tw7jgajgr&st=1qh8obmq', // Replace with your first image URL
-    'https://dl.dropboxusercontent.com/s/aoqatrzscriqt952zg2yb/cristiano-ronaldo-real-madrid-wallpaper-preview.jpg?rlkey=px1ynkxxlafgeno0zrh6fi5c4&st=yalnx6q2', // Replace with your second image URL
-    'https://dl.dropboxusercontent.com/s/v3wu7c6a2vxvn8gcvk7o1/cristiano-ronaldo-4k-wallpaper-preview-2.jpg?rlkey=gg3m06o0452m5vof7ad4us1ht&st=vcyejpyc',  // Replace with your third image URL
-    'https://dl.dropboxusercontent.com/s/j0s3wb4h5ulpxz80p422u/cristiano-ronaldo-black-and-white-wallpaper-preview-2.jpg?rlkey=e25hvhb7pma99lz8jbt1fyig1&st=gyvcxnuw',  // Replace with your fourth image URL
-    'https://dl.dropboxusercontent.com/s/8de1hq2klb5olsrm6ln7y/soccer-cristiano-ronaldo-wallpaper-preview-2.jpg?rlkey=wktwgf1b54zj24iq21644knnr&st=3ibem9mx',  // Replace with your fifth image URL
-   // 'image6.jpg'  // Replace with your sixth image URL
-];
 
-// Assign background images dynamically using IDs
-backgroundImages.forEach((image, index) => {
+  // Array of background images
+  const backgroundImages = [
+    'https://dl.dropboxusercontent.com/s/yzmdvelkzexiqp83xxnxv/b0d30dac-96da-11ef-b8c7-0242ac11000f-1.jpeg?rlkey=eng64l2lwdvq83r7tw7jgajgr&st=1qh8obmq',
+    'https://dl.dropboxusercontent.com/s/aoqatrzscriqt952zg2yb/cristiano-ronaldo-real-madrid-wallpaper-preview.jpg?rlkey=px1ynkxxlafgeno0zrh6fi5c4&st=yalnx6q2',
+    'https://dl.dropboxusercontent.com/s/v3wu7c6a2vxvn8gcvk7o1/cristiano-ronaldo-4k-wallpaper-preview-2.jpg?rlkey=gg3m06o0452m5vof7ad4us1ht&st=vcyejpyc',
+    'https://dl.dropboxusercontent.com/s/j0s3wb4h5ulpxz80p422u/cristiano-ronaldo-black-and-white-wallpaper-preview-2.jpg?rlkey=e25hvhb7pma99lz8jbt1fyig1&st=gyvcxnuw',
+    'https://dl.dropboxusercontent.com/s/8de1hq2klb5olsrm6ln7y/soccer-cristiano-ronaldo-wallpaper-preview-2.jpg?rlkey=wktwgf1b54zj24iq21644knnr&st=3ibem9mx',
+  ];
+
+  // Assign background images dynamically using IDs
+  backgroundImages.forEach((image, index) => {
     const channelItem = document.getElementById(`channel-bg-${index + 1}`);
     if (channelItem) {
-        channelItem.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${image})`;
+      channelItem.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${image})`;
     }
-});
+  });
 </script>
 
 </head>
