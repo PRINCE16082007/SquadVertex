@@ -17,67 +17,39 @@
             color: white;
             overflow-x: hidden;
         }
-        /* Modal Styling */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            background-color: #111;
-            color: white;
-            padding: 30px;
-            border-radius: 10px;
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
-        }
-
-        /* Button styling */
-        button {
-            background-color: #00C851;
-            color: white;
-            padding: 10px 25px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        button:disabled {
-            background-color: grey;
-            cursor: not-allowed;
-        }
-
-        /* Checkbox Styling */
-        label {
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-
-        input[type="checkbox"] {
-            margin-right: 10px;
-            transform: scale(1.5);
-        }
-
-        /* Responsive Design for Modal */
-        @media (max-width: 768px) {
-            .modal-content {
-                padding: 20px;
-            }
-        }
+        #modal {
+      display: none; /* Hidden by default */
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+      width: 300px;
+      text-align: center;
+    }
+    #modal h2 {
+      margin: 0 0 20px 0;
+    }
+    #modal button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: not-allowed; /* Disabled by default */
+    }
+    #modal input[type="checkbox"] {
+      margin-top: 20px;
+    }
+    #modal input[type="checkbox"]:checked + button {
+      cursor: pointer;
+      background: #34a853;
+    }
         .welcome {
     text-align: center;
     font-size: 48px;
@@ -453,198 +425,55 @@
     </style>
 
 <script type="module">
-  // Import Firebase modules
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-app.js";
-  import { getFirestore, doc, getDoc, updateDoc, setDoc, arrayRemove, arrayUnion, onSnapshot } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.17.2/firebase-auth.js";
 
-  let app, db;
-  let firebaseInitialized = false;
+// Firebase initialization
+const firebaseConfig = {
+  apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+  authDomain: "squadvertex2007.firebaseapp.com",
+  projectId: "squadvertex2007",
+  storageBucket: "squadvertex2007.appspot.com",
+  messagingSenderId: "168905083514",
+  appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+};
 
-  // Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-  };
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 
+// DOM elements
+const modal = document.getElementById("modal");
+const termsCheckbox = document.getElementById("terms");
+const googleSignInButton = document.getElementById("googleSignIn");
+
+// Show modal if user is not signed in
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    console.log("User signed in:", user);
+  } else {
+    modal.style.display = "block";
+  }
+});
+
+// Enable the button only if terms are accepted
+termsCheckbox.addEventListener("change", () => {
+  googleSignInButton.disabled = !termsCheckbox.checked;
+});
+
+// Google sign-in
+googleSignInButton.addEventListener("click", async () => {
   try {
-    // Initialize Firebase
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    firebaseInitialized = true;
-    console.log("✅ Firebase initialized successfully.");
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+    console.log("User signed up:", user);
+    alert("Sign-up successful!");
+    modal.style.display = "none";
   } catch (error) {
-    console.error("❌ Firebase initialization failed:", error.message);
+    console.error("Sign-up failed:", error.message);
+    alert("Sign-up failed. Check console for details.");
   }
-
-  if (!firebaseInitialized) {
-    alert("Firebase initialization failed. Check console for details.");
-  }
-
- // Google Sign-In and modal functionality
-  async function showTermsModal() {
-    const modal = document.querySelector('.modal');
-    const checkbox = document.getElementById('accept-terms');
-    const signupButton = document.getElementById('signup-button');
-
-    modal.style.display = 'flex';
-
-    checkbox.addEventListener('change', () => {
-      signupButton.disabled = !checkbox.checked;
-    });
-
-    signupButton.addEventListener('click', async () => {
-      try {
-        const provider = new GoogleAuthProvider();
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
-
-        // Store user data in Firestore
-        await setDoc(doc(db, "users", user.uid), {
-          uid: user.uid,
-          email: user.email,
-          acceptedTerms: true,
-        });
-
-        alert("Sign-up successful and terms accepted!");
-        modal.style.display = 'none';
-      } catch (error) {
-        console.error("❌ Google Sign-In failed:", error.message);
-        alert("Sign-up failed. Try again.");
-      }
-    });
-  }
-
-  // Check if user has signed up
-  async function checkUserSignup(uid) {
-    if (!firebaseInitialized) return false;
-
-    try {
-      const userDoc = await getDoc(doc(db, "users", uid));
-      return userDoc.exists();
-    } catch (error) {
-      console.error("❌ Failed to fetch user data:", error.message);
-      return false;
-    }
-  }
-  // Utility to get user IP
-  async function getUserIP() {
-    try {
-      const response = await fetch("https://api.ipify.org?format=json");
-      const data = await response.json();
-      return data.ip;
-    } catch (error) {
-      console.error("❌ Failed to fetch user IP:", error.message);
-      throw new Error("IP fetch failed.");
-    }
-  }
-
-  // Update user reaction (like or dislike with toggle)
-  async function updateReaction(channelId, action) {
-    if (!firebaseInitialized) return alert("Firebase is not initialized!");
-
-    try {
-      const ip = await getUserIP();
-      const channelRef = doc(db, "channelCards", channelId);
-      const channelSnap = await getDoc(channelRef);
-
-      if (channelSnap.exists()) {
-        const channelData = channelSnap.data();
-        const currentReactions = channelData.ip_addresses || [];
-
-        // Check if user has already reacted
-        const userReaction = currentReactions.find((entry) => entry.ip === ip);
-
-        if (userReaction) {
-          if (userReaction.action === action) {
-            alert(`You have already ${action}d this channel!`);
-            return;
-          }
-
-          // Toggle reaction
-          const updates = {
-            ip_addresses: arrayRemove(userReaction),
-          };
-
-          if (userReaction.action === "like") {
-            updates.likes = (channelData.likes || 0) - 1;
-            updates.dislikes = (channelData.dislikes || 0) + 1;
-          } else {
-            updates.likes = (channelData.likes || 0) + 1;
-            updates.dislikes = (channelData.dislikes || 0) - 1;
-          }
-
-          await updateDoc(channelRef, updates);
-          await updateDoc(channelRef, {
-            ip_addresses: arrayUnion({ ip, action }),
-          });
-
-          alert(`Channel ${action}d successfully!`);
-        } else {
-          // New reaction
-          const updates = {
-            ip_addresses: arrayUnion({ ip, action }),
-          };
-
-          if (action === "like") {
-            updates.likes = (channelData.likes || 0) + 1;
-          } else {
-            updates.dislikes = (channelData.dislikes || 0) + 1;
-          }
-
-          await updateDoc(channelRef, updates);
-          alert(`Channel ${action}d successfully!`);
-        }
-      } else {
-        // New document if it doesn't exist
-        const newData = {
-          likes: action === "like" ? 1 : 0,
-          dislikes: action === "dislike" ? 1 : 0,
-          ip_addresses: [{ ip, action }],
-        };
-
-        await setDoc(channelRef, newData);
-        alert(`Channel ${action}d successfully!`);
-      }
-
-      console.log(`✅ ${action} added for channel ID:`, channelId);
-    } catch (error) {
-      console.error(`❌ ${action} action failed:`, error.message);
-      alert(`An error occurred while trying to ${action} the channel. Try again later.`);
-    }
-  }
-
-  // Real-time listener for likes
-  function setupRealTimeListener(channelId, likesElementId) {
-    const channelRef = doc(db, "channelCards", channelId);
-    onSnapshot(channelRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        document.getElementById(likesElementId).innerText = data.likes || 0;
-      }
-    });
-  }
-
-  const channels = [
-    { id: "channel1", elementId: "likesCount1" },
-    { id: "channel2", elementId: "likesCount2" },
-    { id: "channel3", elementId: "likesCount3" },
-    { id: "channel4", elementId: "likesCount4" },
-    { id: "channel5", elementId: "likesCount5" },
-    { id: "channel6", elementId: "likesCount6" },
-    // { id: "channel7", elementId: "likesCount7" }, // Add more channels here if needed
-  ];
-
-  channels.forEach(({ id, elementId }) => {
-    setupRealTimeListener(id, elementId);
-  });
-
-  // Attach functions to global window object
-  window.updateReaction = updateReaction;
-
+});
   // Array of background images
   const backgroundImages = [
     'https://dl.dropboxusercontent.com/s/yzmdvelkzexiqp83xxnxv/b0d30dac-96da-11ef-b8c7-0242ac11000f-1.jpeg?rlkey=eng64l2lwdvq83r7tw7jgajgr&st=1qh8obmq',
@@ -665,16 +494,14 @@
 
 </head>
 <body>
-    <div class="modal" id="authModal">
-    <div class="modal-content">
-        <h2>Terms & Conditions</h2>
-        <p>Please accept our terms and conditions to proceed with Google Sign-Up.</p>
-        <label>
-            <input type="checkbox" id="acceptTerms"> I agree to the terms and conditions.
-        </label>
-        <button id="signUpButton" disabled>Sign Up with Google</button>
-    </div>
-</div>
+     <div id="modal">
+    <h2>Sign Up</h2>
+    <p>
+      <input type="checkbox" id="terms" />
+      <label for="terms">I accept the terms and conditions</label>
+    </p>
+    <button id="googleSignIn" disabled>Sign Up with Google</button>
+  </div>
     <div class="welcome">
     <!-- Content removed, but styling remains -->
     </div>
