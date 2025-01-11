@@ -504,119 +504,137 @@
     </footer>
 
         <script>
+        // Firebase Backend URL
+        const firebaseURL = "https://squadvertex2007-default-rtdb.firebaseio.com/channels.json";
 
+        // YouTube API Key and Base URL
+        const apiKey = "YOUR_YOUTUBE_API_KEY";
+        const youtubeBaseURL = "https://www.googleapis.com/youtube/v3/channels";
 
-
-const videoSlider = document.getElementById('video-slider');
-
-// Enable drag-to-scroll for desktop
-let isDown = false;
-let startX;
-let scrollLeft;
-
-videoSlider.addEventListener('mousedown', (e) => {
-    isDown = true;
-    videoSlider.classList.add('active');
-    startX = e.pageX - videoSlider.offsetLeft;
-    scrollLeft = videoSlider.scrollLeft;
-});
-videoSlider.addEventListener('mouseleave', () => {
-    isDown = false;
-    videoSlider.classList.remove('active');
-});
-videoSlider.addEventListener('mouseup', () => {
-    isDown = false;
-    videoSlider.classList.remove('active');
-});
-videoSlider.addEventListener('mousemove', (e) => {
-    if (!isDown) return;
-    e.preventDefault();
-    const x = e.pageX - videoSlider.offsetLeft;
-    const walk = (x - startX) * 3; // Adjust scroll speed
-    videoSlider.scrollLeft = scrollLeft - walk;
-});
-
-    
-        // Fetch channel IDs from backend
-        async function fetchChannelIds() {
+        // Function to fetch channel data from Firebase
+        async function fetchChannelData() {
             try {
-                const response = await fetch("https://squadvertex2007.firebaseio.com/channels.json"); // Replace with your backend endpoint
-                if (!response.ok) throw new Error("Failed to fetch channel IDs");
-                return await response.json(); // Backend should return an array of channel IDs
+                const response = await fetch(firebaseURL);
+                if (!response.ok) {
+                    throw new Error("Failed to fetch data from Firebase");
+                }
+
+                // Fetch document IDs and data
+                const data = await response.json();
+                return Object.entries(data); // Returns an array of [documentID, fields] pairs
             } catch (error) {
-                console.error("Error fetching channel IDs:", error);
+                console.error("Error fetching channel data:", error);
                 return [];
             }
         }
 
-        // Fetch channel data from YouTube API
-        async function fetchChannelData(channelId) {
-            const apiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA"; // Replace with your API key
-            const apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${apiKey}`;
+        // Function to fetch YouTube data
+        async function fetchYouTubeData(channelId) {
             try {
-                const response = await fetch(apiUrl);
-                const data = await response.json();
-                if (data.items.length > 0) {
-                    const channel = data.items[0];
-                    return {
-                        id: channelId,
-                        title: channel.snippet.title,
-                        logo: channel.snippet.thumbnails.default.url,
-                        subscribers: channel.statistics.subscriberCount,
-                        videos: channel.statistics.videoCount,
-                    };
-                } else {
-                    throw new Error("Channel not found");
+                const response = await fetch(`${youtubeBaseURL}?part=statistics&id=${channelId}&key=${apiKey}`);
+                if (!response.ok) {
+                    throw new Error("Failed to fetch YouTube data");
                 }
+
+                const data = await response.json();
+                if (data.items && data.items.length > 0) {
+                    const stats = data.items[0].statistics;
+                    return {
+                        subscribers: stats.subscriberCount,
+                        videos: stats.videoCount
+                    };
+                }
+                return { subscribers: "N/A", videos: "N/A" };
             } catch (error) {
                 console.error(`Error fetching data for channel ID ${channelId}:`, error);
-                return null;
+                return { subscribers: "N/A", videos: "N/A" };
             }
         }
 
-        // Create HTML for a channel card
-        function createChannelCard(channel) {
-            return `
-                <div class="channel-item" id="channel-bg-${channel.id}">
-                    <img src="${channel.logo}" alt="${channel.title}">
+        // Function to render channel cards dynamically
+        async function renderChannels() {
+            const channelListDiv = document.getElementById("channel-list");
+            const channels = await fetchChannelData();
+
+            for (const [channelId, channelData] of channels) {
+                const { vip, portal, bg } = channelData;
+                const portalFile = portal?.file || "#";
+                const portalTime = portal?.time || null;
+                const isVIP = vip === true;
+
+                // Fetch YouTube data
+                const { subscribers, videos } = await fetchYouTubeData(channelId);
+
+                // Create channel card
+                const channelCard = document.createElement("div");
+                channelCard.className = "channel-item";
+                channelCard.id = `channel-bg-${channelId}`;
+                channelCard.style.backgroundImage = `url(${bg})`;
+
+                // Build inner HTML
+                channelCard.innerHTML = `
+                    <img src="https://via.placeholder.com/80" alt="Channel Image">
                     <div class="channel-info">
-                        <h3>${channel.title}</h3>
-                        <p class="subscriber-count">Subscribers: ${channel.subscribers}</p>
-                        <p class="video-count">Videos: ${channel.videos}</p>
+                        <h3>${channelId}</h3>
+                        <p class="subscriber-count">Subscribers: ${subscribers}</p>
+                        <p class="video-count">Videos: ${videos}</p>
+                        ${isVIP ? '<div class="vip-badge">VIP</div>' : ""}
+                        <a href="https://youtube.com/@${channelId}" class="visit-channel" target="_blank">Visit Channel</a>
                         <div class="reaction-container">
-                            <button class="reaction-btn like-btn" onclick="updateReaction('${channel.id}', 'like')">👍 <span id="likesCount-${channel.id}">0</span></button>
-                            <button class="reaction-btn dislike-btn" onclick="updateReaction('${channel.id}', 'dislike')">👎</button>
+                            <button class="reaction-btn like-btn">👍 <span id="likesCount-${channelId}">0</span></button>
+                            <button class="reaction-btn dislike-btn">👎</button>
+                        </div>
+                        <button class="test-button" ${
+                            portalTime ? "" : "disabled"
+                        } onclick="redirectToPortal('${portalFile}')">
+                            🔒 CustomPortal
+                        </button>
+                        <div class="countdown-timer" id="timer-${channelId}">
+                            ${portalTime ? `<span id="countdown-${channelId}"></span>` : "N/A"}
                         </div>
                     </div>
-                </div>
-            `;
-        }
+                `;
 
-        // Update reaction counts
-        function updateReaction(channelId, reactionType) {
-            const likesCountEl = document.getElementById(`likesCount-${channelId}`);
-            if (reactionType === "like") {
-                likesCountEl.textContent = parseInt(likesCountEl.textContent) + 1;
-            }
-            // Add logic for dislikes if needed
-        }
+                // Append channel card to the list
+                channelListDiv.appendChild(channelCard);
 
-        // Initialize and fetch data for all channels
-        async function initialize() {
-            const channelContainer = document.getElementById("channel-container");
-            const channelIds = await fetchChannelIds();
-            const promises = channelIds.map(fetchChannelData);
-
-            const channelDataList = await Promise.all(promises);
-            channelDataList.forEach(channelData => {
-                if (channelData) {
-                    channelContainer.innerHTML += createChannelCard(channelData);
+                // Start countdown if portalTime is provided
+                if (portalTime) {
+                    startCountdown(new Date(portalTime), `countdown-${channelId}`);
                 }
-            });
+            }
         }
 
-        // Start initialization
-        initialize();
+        // Function to redirect to CustomPortal
+        function redirectToPortal(portalFile) {
+            window.location.href = portalFile;
+        }
+
+        // Function to start countdown timer
+        function startCountdown(targetDate, countdownId) {
+            const countdownEl = document.getElementById(countdownId);
+
+            const interval = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = targetDate - now;
+
+                if (distance <= 0) {
+                    clearInterval(interval);
+                    countdownEl.textContent = "Expired";
+                    return;
+                }
+
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                countdownEl.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+            }, 1000);
+        }
+
+        // Initialize the app
+        renderChannels();
     </script>
 
 </body></html>
