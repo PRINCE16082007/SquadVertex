@@ -3,28 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Channel Data Fetch</title>
+    <title>Channel List</title>
     <style>
-        /* Styling for Channel Cards */
-        .channel-item {
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        #channel-list {
             display: flex;
-            align-items: center;
-            background: #f0f0f0;
+            flex-wrap: wrap;
+            gap: 20px;
             padding: 20px;
-            margin: 20px 0;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .channel-item {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            width: 300px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
         .channel-item img {
-            border-radius: 50%;
-            width: 80px;
-            height: 80px;
-            margin-right: 20px;
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
         }
 
         .channel-info {
-            flex-grow: 1;
+            padding: 15px;
+        }
+
+        .channel-info h3 {
+            margin: 0 0 10px;
+        }
+
+        .channel-info p {
+            margin: 5px 0;
+        }
+
+        .visit-channel,
+        .test-button {
+            display: inline-block;
+            margin: 10px 0;
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: #fff;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .visit-channel:hover,
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+
+        .vip-badge {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: gold;
+            color: #000;
+            border-radius: 5px;
+            font-weight: bold;
         }
 
         .reaction-container {
@@ -32,67 +79,40 @@
         }
 
         .reaction-btn {
-            margin-right: 10px;
             padding: 5px 10px;
             border: none;
+            background-color: #eee;
+            margin-right: 10px;
             border-radius: 5px;
             cursor: pointer;
         }
 
-        .like-btn {
-            background-color: #4caf50;
-            color: white;
-        }
-
-        .dislike-btn {
-            background-color: #f44336;
-            color: white;
-        }
-
-        .vip-badge {
-            background-color: gold;
-            color: black;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-weight: bold;
-            display: inline-block;
-            margin-top: 10px;
-        }
-
-        .test-button {
-            margin-top: 10px;
-            cursor: not-allowed;
+        .reaction-btn:hover {
+            background-color: #ddd;
         }
 
         .countdown-timer {
             margin-top: 10px;
-            color: #555;
+            font-size: 0.9em;
+            color: #333;
         }
     </style>
 </head>
 <body>
-       <div id="channel-list">
-     <div id="channel-container" class="channel-item">
-            </div>
-        </div>
+    <div id="channel-list"></div>
 
-            <script>
-        // Firebase Backend URL
+    <script>
         const firebaseURL = "https://squadvertex2007-default-rtdb.firebaseio.com/channels.json";
-
-        // YouTube API Key and Base URL
         const apiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
         const youtubeBaseURL = "https://www.googleapis.com/youtube/v3/channels";
 
-        // Function to fetch channel data from Firebase
+        // Fetch channel data from Firebase
         async function fetchChannelData() {
             try {
                 const response = await fetch(firebaseURL);
                 if (!response.ok) {
                     throw new Error("Failed to fetch data from Firebase");
                 }
-
-                // Fetch document IDs and data
                 const data = await response.json();
                 return Object.entries(data); // Returns an array of [documentID, fields] pairs
             } catch (error) {
@@ -101,92 +121,31 @@
             }
         }
 
-        // Function to fetch YouTube data
+        // Fetch YouTube data
         async function fetchYouTubeData(channelId) {
             try {
                 const response = await fetch(`${youtubeBaseURL}?part=statistics&id=${channelId}&key=${apiKey}`);
                 if (!response.ok) {
                     throw new Error("Failed to fetch YouTube data");
                 }
-
                 const data = await response.json();
                 if (data.items && data.items.length > 0) {
                     const stats = data.items[0].statistics;
                     return {
                         subscribers: stats.subscriberCount,
-                        videos: stats.videoCount
+                        videos: stats.videoCount,
                     };
                 }
                 return { subscribers: "N/A", videos: "N/A" };
             } catch (error) {
-                console.error(`Error fetching data for channel ID ${channelId}:`, error);
+                console.error(`Error fetching YouTube data for channel ${channelId}:`, error);
                 return { subscribers: "N/A", videos: "N/A" };
             }
         }
 
-        // Function to render channel cards dynamically
-        async function renderChannels() {
-            const channelListDiv = document.getElementById("channel-list");
-            const channels = await fetchChannelData();
-
-            for (const [channelId, channelData] of channels) {
-                const { vip, portal, bg } = channelData;
-                const portalFile = portal?.file || "#";
-                const portalTime = portal?.time || null;
-                const isVIP = vip === true;
-
-                // Fetch YouTube data
-                const { subscribers, videos } = await fetchYouTubeData(channelId);
-
-                // Create channel card
-                const channelCard = document.createElement("div");
-                channelCard.className = "channel-item";
-                channelCard.id = `channel-bg-${channelId}`;
-                channelCard.style.backgroundImage = `url(${bg})`;
-
-                // Build inner HTML
-                channelCard.innerHTML = `
-                    <img src="https://via.placeholder.com/80" alt="Channel Image">
-                    <div class="channel-info">
-                        <h3>${channelId}</h3>
-                        <p class="subscriber-count">Subscribers: ${subscribers}</p>
-                        <p class="video-count">Videos: ${videos}</p>
-                        ${isVIP ? '<div class="vip-badge">VIP</div>' : ""}
-                        <a href="https://youtube.com/@${channelId}" class="visit-channel" target="_blank">Visit Channel</a>
-                        <div class="reaction-container">
-                            <button class="reaction-btn like-btn">👍 <span id="likesCount-${channelId}">0</span></button>
-                            <button class="reaction-btn dislike-btn">👎</button>
-                        </div>
-                        <button class="test-button" ${
-                            portalTime ? "" : "disabled"
-                        } onclick="redirectToPortal('${portalFile}')">
-                            🔒 CustomPortal
-                        </button>
-                        <div class="countdown-timer" id="timer-${channelId}">
-                            ${portalTime ? `<span id="countdown-${channelId}"></span>` : "N/A"}
-                        </div>
-                    </div>
-                `;
-
-                // Append channel card to the list
-                channelListDiv.appendChild(channelCard);
-
-                // Start countdown if portalTime is provided
-                if (portalTime) {
-                    startCountdown(new Date(portalTime), `countdown-${channelId}`);
-                }
-            }
-        }
-
-        // Function to redirect to CustomPortal
-        function redirectToPortal(portalFile) {
-            window.location.href = portalFile;
-        }
-
-        // Function to start countdown timer
+        // Start countdown timer
         function startCountdown(targetDate, countdownId) {
             const countdownEl = document.getElementById(countdownId);
-
             const interval = setInterval(() => {
                 const now = new Date().getTime();
                 const distance = targetDate - now;
@@ -199,14 +158,62 @@
 
                 const days = Math.floor(distance / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                const minutes = Math.floor((distance % (1000 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % 1000) / 1000);
 
                 countdownEl.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s`;
             }, 1000);
         }
 
-        // Initialize the app
+        // Render channels
+        async function renderChannels() {
+            const channelListDiv = document.getElementById("channel-list");
+            const channels = await fetchChannelData();
+
+            for (const [channelId, channelData] of channels) {
+                const { vip, portal, bg } = channelData;
+                const portalFile = portal?.file || "#";
+                const portalTime = portal?.time || null;
+
+                const { subscribers, videos } = await fetchYouTubeData(channelId);
+
+                const channelCard = document.createElement("div");
+                channelCard.className = "channel-item";
+                channelCard.style.backgroundImage = `url(${bg})`;
+
+                channelCard.innerHTML = `
+                    <img src="https://via.placeholder.com/150" alt="Channel Background">
+                    <div class="channel-info">
+                        <h3>${channelId}</h3>
+                        <p>Subscribers: ${subscribers}</p>
+                        <p>Videos: ${videos}</p>
+                        ${vip ? '<div class="vip-badge">VIP</div>' : ""}
+                        <a href="https://youtube.com/@${channelId}" class="visit-channel" target="_blank">Visit Channel</a>
+                        <button class="test-button" ${
+                            portalTime ? "" : "disabled"
+                        } onclick="redirectToPortal('${portalFile}')">🔒 CustomPortal</button>
+                        ${
+                            portalTime
+                                ? `<div class="countdown-timer" id="timer-${channelId}"></div>`
+                                : '<div class="countdown-timer">N/A</div>'
+                        }
+                    </div>
+                `;
+
+                channelListDiv.appendChild(channelCard);
+
+                if (portalTime) {
+                    startCountdown(new Date(portalTime), `timer-${channelId}`);
+                }
+            }
+        }
+
+        // Redirect to portal
+        function redirectToPortal(portalFile) {
+            window.location.href = portalFile;
+        }
+
+        // Initialize
         renderChannels();
     </script>
 </body>
