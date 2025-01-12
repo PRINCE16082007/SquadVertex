@@ -1,1 +1,238 @@
-hi
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Channel Cards</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore.js"></script>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f9;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.channel-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+}
+
+.channel-item {
+    width: 300px;
+    padding: 15px;
+    background-size: cover;
+    background-position: center;
+    border-radius: 10px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.channel-item img {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    margin-bottom: 10px;
+    border: 3px solid #fff;
+}
+
+.channel-info h3 {
+    font-size: 20px;
+    margin: 10px 0;
+}
+
+.channel-info p {
+    margin: 5px 0;
+}
+
+.vip-badge {
+    background-color: gold;
+    color: black;
+    font-weight: bold;
+    padding: 5px 10px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+}
+
+.visit-channel {
+    text-decoration: none;
+    color: white;
+    background-color: #007bff;
+    padding: 10px 20px;
+    border-radius: 5px;
+    margin-top: 10px;
+    display: inline-block;
+}
+
+.reaction-container {
+    margin-top: 10px;
+}
+
+.reaction-btn {
+    border: none;
+    background-color: transparent;
+    font-size: 20px;
+    cursor: pointer;
+    margin: 0 5px;
+}
+
+.reaction-btn span {
+    font-size: 16px;
+}
+
+.test-button {
+    margin-top: 15px;
+    padding: 10px 15px;
+    font-size: 14px;
+    background-color: #ccc;
+    border: none;
+    border-radius: 5px;
+    cursor: not-allowed;
+}
+
+.test-button:enabled {
+    background-color: #28a745;
+    cursor: pointer;
+}
+
+.countdown-timer {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #ff5733;
+}
+</style> 
+</head>
+<body>
+    <div class="channel-list">
+        <!-- Channel Cards Will Be Dynamically Rendered Here -->
+    </div>
+    <script>
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "YOUR_FIREBASE_API_KEY",
+    authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
+    projectId: "YOUR_FIREBASE_PROJECT_ID",
+    storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_FIREBASE_SENDER_ID",
+    appId: "YOUR_FIREBASE_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.firestore();
+
+// YouTube API Key
+const YT_API_KEY = "YOUR_YOUTUBE_API_KEY";
+
+// Function to Fetch YouTube Data
+async function fetchYouTubeData(channelId) {
+    const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${channelId}&key=${YT_API_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.items && data.items.length > 0) {
+        const { title } = data.items[0].snippet;
+        const { subscriberCount, videoCount } = data.items[0].statistics;
+        return { title, subscriberCount, videoCount };
+    }
+    return null;
+}
+
+// Render Channel Cards
+async function renderChannels() {
+    const channelList = document.querySelector('.channel-list');
+    const snapshot = await db.collection('channels').get();
+
+    snapshot.forEach(async (doc) => {
+        const channelData = doc.data();
+        const { id, vip, portal, bg } = channelData;
+
+        // Fetch YouTube Data
+        const ytData = await fetchYouTubeData(id);
+
+        if (ytData) {
+            const { title, subscriberCount, videoCount } = ytData;
+
+            // Create Channel Card
+            const channelItem = document.createElement('div');
+            channelItem.className = 'channel-item';
+            channelItem.id = `channel-bg-${doc.id}`;
+            channelItem.style.backgroundImage = `url('${bg}')`;
+
+            channelItem.innerHTML = `
+                <img src="https://img.youtube.com/vi/${id}/hqdefault.jpg" alt="${title}">
+                <div class="channel-info">
+                    <h3>${title}</h3>
+                    <p class="subscriber-count">Subscribers: ${subscriberCount}</p>
+                    <p class="video-count">Videos: ${videoCount}</p>
+                    ${vip ? '<div class="vip-badge">VIP</div>' : ''}
+                    <a href="https://www.youtube.com/channel/${id}" class="visit-channel">Visit Channel</a>
+                    <div class="reaction-container">
+                        <button class="reaction-btn like-btn" onclick="updateReaction('${doc.id}', 'like')">👍<span id="likesCount${doc.id}">0</span></button>
+                        <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.id}', 'dislike')">👎</button>
+                    </div>
+                    <button class="test-button" id="lockedButton${doc.id}" disabled>🔒 CustomPortal</button>
+                    <div class="countdown-timer" id="timer${doc.id}">
+                        <span id="countdown${doc.id}"></span>
+                    </div>
+                </div>
+            `;
+
+            // Handle Portal Unlock Timer
+            const portalButton = channelItem.querySelector(`#lockedButton${doc.id}`);
+            const timerElement = channelItem.querySelector(`#countdown${doc.id}`);
+            if (portal) {
+                const unlockTime = portal.timer.toDate();
+                const interval = setInterval(() => {
+                    const now = new Date();
+                    const timeLeft = unlockTime - now;
+
+                    if (timeLeft > 0) {
+                        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                        timerElement.innerHTML = `${hours}h ${minutes}m ${seconds}s`;
+                    } else {
+                        clearInterval(interval);
+                        portalButton.disabled = false;
+                        portalButton.innerHTML = '✅ CustomPortal';
+                        portalButton.onclick = () => {
+                            window.location.href = portal.file;
+                        };
+                    }
+                }, 1000);
+            }
+
+            channelList.appendChild(channelItem);
+        }
+    });
+}
+
+// Function to Update Reaction Counts
+function updateReaction(channelId, type) {
+    const reactionCount = document.getElementById(`likesCount${channelId}`);
+    let currentCount = parseInt(reactionCount.textContent) || 0;
+    if (type === 'like') {
+        reactionCount.textContent = currentCount + 1;
+    }
+    // Add logic for dislikes if needed
+}
+
+// Initialize Rendering
+renderChannels();
+</script>
+</body>
+</html>
