@@ -1,1 +1,184 @@
-hi
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Channel Data Fetch</title>
+    <style>
+        /* Styling for Channel Cards */
+        .channel-item {
+            display: flex;
+            align-items: center;
+            background: #f0f0f0;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .channel-item img {
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            margin-right: 20px;
+        }
+
+        .channel-info {
+            flex-grow: 1;
+        }
+
+        .reaction-container {
+            margin-top: 10px;
+        }
+
+        .reaction-btn {
+            margin-right: 10px;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .like-btn {
+            background-color: #4caf50;
+            color: white;
+        }
+
+        .dislike-btn {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .vip-badge {
+            background-color: gold;
+            color: black;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .test-button {
+            margin-top: 10px;
+            cursor: not-allowed;
+        }
+
+        .countdown-timer {
+            margin-top: 10px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="channel-container">
+        <!-- Dynamic channel cards will be rendered here -->
+    </div>
+
+    <script>
+        // YouTube API Key (replace with your own key)
+        const apiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+
+        // Sample Firestore Data (to simulate fetching document IDs)
+        const firestoreData = [
+            { channelId: "UC_aXah4WASB8YujZZCZ-QyA", vip: true },
+            { channelId: "UC29ju8bIPH5as8OGnQzwJyA", vip: false }
+        ];
+
+        // Fetch Channel Data from YouTube API
+        async function fetchChannelData(channelId) {
+            const apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${apiKey}`;
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+
+            if (data.items && data.items.length > 0) {
+                const channel = data.items[0];
+                return {
+                    title: channel.snippet.title,
+                    logo: channel.snippet.thumbnails.default.url,
+                    subscribers: channel.statistics.subscriberCount,
+                    videos: channel.statistics.videoCount,
+                    link: `https://youtube.com/channel/${channelId}`
+                };
+            } else {
+                throw new Error("Channel not found");
+            }
+        }
+
+        // Update HTML Content Dynamically
+        async function updateChannelContent() {
+            const container = document.getElementById("channel-container");
+
+            for (const doc of firestoreData) {
+                try {
+                    const channelData = await fetchChannelData(doc.channelId);
+
+                    const vipBadge = doc.vip
+                        ? `<div class="vip-badge">VIP</div>`
+                        : "";
+
+                    const channelHTML = `
+                        <div class="channel-item">
+                            <img src="${channelData.logo}" alt="${channelData.title}">
+                            <div class="channel-info">
+                                <h3>${channelData.title}</h3>
+                                <p class="subscriber-count">Subscribers: ${channelData.subscribers}</p>
+                                <p class="video-count">Videos: ${channelData.videos}</p>
+                                ${vipBadge}
+                                <a href="${channelData.link}" class="visit-channel" target="_blank">Visit Channel</a>
+                                <div class="reaction-container">
+                                    <button class="reaction-btn like-btn" onclick="updateReaction('${doc.channelId}', 'like')">👍 <span id="likes-${doc.channelId}">0</span></button>
+                                    <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.channelId}', 'dislike')">👎</button>
+                                </div>
+                                <button class="test-button" disabled>🔒 CustomPortal</button>
+                                <div class="countdown-timer">
+                                    <span id="countdown-${doc.channelId}"></span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    container.innerHTML += channelHTML;
+
+                    // Start countdown for each channel
+                    startCountdown(doc.channelId, 5 * 60 * 1000); // 5 minutes
+                } catch (error) {
+                    console.error(`Error fetching data for channel ${doc.channelId}:`, error);
+                }
+            }
+        }
+
+        // Reaction Button Functionality
+        function updateReaction(channelId, reactionType) {
+            const likesCountEl = document.getElementById(`likes-${channelId}`);
+            if (reactionType === "like") {
+                likesCountEl.textContent = parseInt(likesCountEl.textContent) + 1;
+            }
+            // Add logic for dislikes if needed
+        }
+
+        // Countdown Timer
+        function startCountdown(channelId, duration) {
+            const targetDate = new Date().getTime() + duration;
+            const countdownEl = document.getElementById(`countdown-${channelId}`);
+
+            const interval = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = targetDate - now;
+
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                countdownEl.textContent = `${minutes}:${seconds}`;
+
+                if (distance < 0) {
+                    clearInterval(interval);
+                    countdownEl.textContent = "Expired";
+                }
+            }, 1000);
+        }
+
+        // Initialize Content Update
+        updateChannelContent();
+    </script>
+</body>
+</html>
