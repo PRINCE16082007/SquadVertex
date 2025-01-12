@@ -122,21 +122,27 @@ body {
         <!-- Channel Cards Will Be Dynamically Rendered Here -->
     </div>
     <script>
-  // Firebase initialization
-  const firebaseConfig = {
+  // YouTube API Key
+const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+
+// Firebase Initialization
+const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
     authDomain: "squadvertex2007.firebaseapp.com",
     projectId: "squadvertex2007",
     storageBucket: "squadvertex2007.appspot.com",
     messagingSenderId: "168905083514",
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-  };
+};
 firebase.initializeApp(firebaseConfig);
-
 const db = firebase.firestore();
 
-// YouTube API Key
-const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+// Hardcoded Channel IDs
+const channels = [
+    { id: "UC2z-DiZeJbITQdsMDgOEVLQ", vip: true }, // Replace with actual channel ID and VIP status
+    { id: "UCBR8-60-B28hp2BmDPdntcQ", vip: false },
+    { id: "UCVHFbqXqoYvEWM1Ddxl0QDg", vip: true },
+];
 
 // Function to Fetch YouTube Data
 async function fetchYouTubeData(channelId) {
@@ -154,11 +160,9 @@ async function fetchYouTubeData(channelId) {
 // Render Channel Cards
 async function renderChannels() {
     const channelList = document.querySelector('.channel-list');
-    const snapshot = await db.collection('channels').get();
 
-    snapshot.forEach(async (doc) => {
-        const channelData = doc.data();
-        const { id, vip, portal, bg } = channelData;
+    for (const channel of channels) {
+        const { id, vip } = channel;
 
         // Fetch YouTube Data
         const ytData = await fetchYouTubeData(id);
@@ -166,11 +170,15 @@ async function renderChannels() {
         if (ytData) {
             const { title, subscriberCount, videoCount } = ytData;
 
+            // Fetch Firebase Data
+            const snapshot = await db.collection('channels').doc(id).get();
+            const portalData = snapshot.exists ? snapshot.data().portal : null;
+
             // Create Channel Card
             const channelItem = document.createElement('div');
             channelItem.className = 'channel-item';
-            channelItem.id = `channel-bg-${doc.id}`;
-            channelItem.style.backgroundImage = `url('${bg}')`;
+            channelItem.id = `channel-bg-${id}`;
+            channelItem.style.backgroundImage = `url('${snapshot.exists ? snapshot.data().bg : "default-bg.jpg"}')`;
 
             channelItem.innerHTML = `
                 <img src="https://img.youtube.com/vi/${id}/hqdefault.jpg" alt="${title}">
@@ -181,21 +189,21 @@ async function renderChannels() {
                     ${vip ? '<div class="vip-badge">VIP</div>' : ''}
                     <a href="https://www.youtube.com/channel/${id}" class="visit-channel">Visit Channel</a>
                     <div class="reaction-container">
-                        <button class="reaction-btn like-btn" onclick="updateReaction('${doc.id}', 'like')">👍<span id="likesCount${doc.id}">0</span></button>
-                        <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.id}', 'dislike')">👎</button>
+                        <button class="reaction-btn like-btn" onclick="updateReaction('${id}', 'like')">👍<span id="likesCount${id}">0</span></button>
+                        <button class="reaction-btn dislike-btn" onclick="updateReaction('${id}', 'dislike')">👎</button>
                     </div>
-                    <button class="test-button" id="lockedButton${doc.id}" disabled>🔒 CustomPortal</button>
-                    <div class="countdown-timer" id="timer${doc.id}">
-                        <span id="countdown${doc.id}"></span>
+                    <button class="test-button" id="lockedButton${id}" disabled>🔒 CustomPortal</button>
+                    <div class="countdown-timer" id="timer${id}">
+                        <span id="countdown${id}"></span>
                     </div>
                 </div>
             `;
 
             // Handle Portal Unlock Timer
-            const portalButton = channelItem.querySelector(`#lockedButton${doc.id}`);
-            const timerElement = channelItem.querySelector(`#countdown${doc.id}`);
-            if (portal) {
-                const unlockTime = portal.timer.toDate();
+            const portalButton = channelItem.querySelector(`#lockedButton${id}`);
+            const timerElement = channelItem.querySelector(`#countdown${id}`);
+            if (portalData) {
+                const unlockTime = portalData.timer.toDate();
                 const interval = setInterval(() => {
                     const now = new Date();
                     const timeLeft = unlockTime - now;
@@ -210,7 +218,7 @@ async function renderChannels() {
                         portalButton.disabled = false;
                         portalButton.innerHTML = '✅ CustomPortal';
                         portalButton.onclick = () => {
-                            window.location.href = portal.file;
+                            window.location.href = portalData.file;
                         };
                     }
                 }, 1000);
@@ -218,7 +226,7 @@ async function renderChannels() {
 
             channelList.appendChild(channelItem);
         }
-    });
+    }
 }
 
 // Function to Update Reaction Counts
