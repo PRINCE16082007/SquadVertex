@@ -224,11 +224,26 @@
     <!-- Dynamic channel cards will be rendered here -->
 </div>
 
-<script>
-    // YouTube API Key
-    const apiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+<script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore.js";
 
-    // Sample Firestore Data (simulating fetched data)
+    // Firebase configuration (replace with your own config)
+    const firebaseConfig = {
+        apiKey: "YOUR_FIREBASE_API_KEY",
+        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_PROJECT_ID.appspot.com",
+        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+        appId: "YOUR_APP_ID"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Hardcoded Channel Data
     const firestoreData = [
         { channelId: "UCCWSA89tFicJ6s7OsAQ-uCg", vip: true },
         { channelId: "UC29ju8bIPH5as8OGnQzwJyA", vip: false }
@@ -236,7 +251,9 @@
 
     // Fetch Channel Data from YouTube API
     async function fetchChannelData(channelId) {
+        const apiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA"; // Replace with your API key
         const apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${apiKey}`;
+
         try {
             const response = await fetch(apiUrl);
             const data = await response.json();
@@ -260,15 +277,36 @@
         }
     }
 
+    // Fetch Portal Data from Firebase
+    async function fetchPortalData(channelDocId) {
+        try {
+            const docRef = doc(db, "channels", channelDocId);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                return docSnap.data().portal;
+            } else {
+                console.error(`No portal data found for document: ${channelDocId}`);
+                return null;
+            }
+        } catch (error) {
+            console.error(`Error fetching portal data for document ${channelDocId}:`, error);
+            return null;
+        }
+    }
+
     // Update HTML Content Dynamically
     async function updateChannelContent() {
         const container = document.getElementById("channel-container");
 
-        for (const doc of firestoreData) {
+        for (const [index, doc] of firestoreData.entries()) {
             try {
                 const channelData = await fetchChannelData(doc.channelId);
+                const portalData = await fetchPortalData(`channel${index + 1}`); // Assumes "channel1", "channel2"...
 
-                if (channelData) {
+                if (channelData && portalData) {
+                    const { timer, file } = portalData;
+
                     const channelCard = document.createElement("div");
                     channelCard.className = "channel-item";
 
@@ -288,7 +326,7 @@
                                 <button class="reaction-btn like-btn" onclick="updateReaction('${doc.channelId}', 'like')">👍 <span id="likes-${doc.channelId}">0</span></button>
                                 <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.channelId}', 'dislike')">👎</button>
                             </div>
-                            <button class="test-button" disabled>🔒 CustomPortal</button>
+                            <button id="portal-${doc.channelId}" class="portal-button" disabled>🔒 CustomPortal</button>
                             <div class="countdown-timer">
                                 <span id="countdown-${doc.channelId}"></span>
                             </div>
@@ -297,8 +335,8 @@
 
                     container.appendChild(channelCard);
 
-                    // Start countdown for each channel
-                    startCountdown(doc.channelId, 5 * 60 * 1000); // 5 minutes
+                    // Start countdown
+                    startCountdown(doc.channelId, timer, `portal-${doc.channelId}`, file);
                 }
             } catch (error) {
                 console.error(`Error processing channel ${doc.channelId}:`, error);
@@ -306,19 +344,11 @@
         }
     }
 
-    // Reaction Button Functionality
-    function updateReaction(channelId, reactionType) {
-        const likesCountEl = document.getElementById(`likes-${channelId}`);
-        if (reactionType === "like") {
-            likesCountEl.textContent = parseInt(likesCountEl.textContent) + 1;
-        }
-        // Add logic for dislikes if needed
-    }
-
-    // Countdown Timer
-    function startCountdown(channelId, duration) {
+    // Countdown Timer with Redirect
+    function startCountdown(channelId, duration, buttonId, file) {
         const targetDate = new Date().getTime() + duration;
         const countdownEl = document.getElementById(`countdown-${channelId}`);
+        const portalButton = document.getElementById(buttonId);
 
         const interval = setInterval(() => {
             const now = new Date().getTime();
@@ -330,9 +360,20 @@
                 countdownEl.textContent = `${minutes}:${seconds}`;
             } else {
                 clearInterval(interval);
-                countdownEl.textContent = "Expired";
+                countdownEl.textContent = "Ready!";
+                portalButton.disabled = false;
+                portalButton.textContent = "🚪 Open Portal";
+                portalButton.onclick = () => window.location.href = file;
             }
         }, 1000);
+    }
+
+    // Reaction Button Functionality
+    function updateReaction(channelId, reactionType) {
+        const likesCountEl = document.getElementById(`likes-${channelId}`);
+        if (reactionType === "like") {
+            likesCountEl.textContent = parseInt(likesCountEl.textContent) + 1;
+        }
     }
 
     // Initialize Content Update
