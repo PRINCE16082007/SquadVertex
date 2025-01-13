@@ -72,22 +72,23 @@
 </head>
 <body>
     <div id="channel-container">
-        <!-- Dynamic channel cards will be rendered here -->
-    </div>
+    <!-- Dynamic channel cards will be rendered here -->
+</div>
 
-    <script>
-        // YouTube API Key (replace with your own key)
-        const apiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+<script>
+    // YouTube API Key
+    const apiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
 
-        // Sample Firestore Data (to simulate fetching document IDs)
-        const firestoreData = [
-            { channelId: "UC_aXah4WASB8YujZZCZ-QyA", vip: true },
-            { channelId: "UC29ju8bIPH5as8OGnQzwJyA", vip: false }
-        ];
+    // Sample Firestore Data (simulating fetched data)
+    const firestoreData = [
+        { channelId: "UC_aXah4WASB8YujZZCZ-QyA", vip: true },
+        { channelId: "UC29ju8bIPH5as8OGnQzwJyA", vip: false }
+    ];
 
-        // Fetch Channel Data from YouTube API
-        async function fetchChannelData(channelId) {
-            const apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${apiKey}`;
+    // Fetch Channel Data from YouTube API
+    async function fetchChannelData(channelId) {
+        const apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${apiKey}`;
+        try {
             const response = await fetch(apiUrl);
             const data = await response.json();
 
@@ -101,84 +102,92 @@
                     link: `https://youtube.com/channel/${channelId}`
                 };
             } else {
-                throw new Error("Channel not found");
+                console.error(`Channel data not found for ID: ${channelId}`);
+                return null;
             }
+        } catch (error) {
+            console.error(`Error fetching data for channel ${channelId}:`, error);
+            return null;
         }
+    }
 
-        // Update HTML Content Dynamically
-        async function updateChannelContent() {
-            const container = document.getElementById("channel-container");
+    // Update HTML Content Dynamically
+    async function updateChannelContent() {
+        const container = document.getElementById("channel-container");
 
-            for (const doc of firestoreData) {
-                try {
-                    const channelData = await fetchChannelData(doc.channelId);
+        for (const doc of firestoreData) {
+            try {
+                const channelData = await fetchChannelData(doc.channelId);
+
+                if (channelData) {
+                    const channelCard = document.createElement("div");
+                    channelCard.className = "channel-item";
 
                     const vipBadge = doc.vip
                         ? `<div class="vip-badge">VIP</div>`
                         : "";
 
-                    const channelHTML = `
-                        <div class="channel-item">
-                            <img src="${channelData.logo}" alt="${channelData.title}">
-                            <div class="channel-info">
-                                <h3>${channelData.title}</h3>
-                                <p class="subscriber-count">Subscribers: ${channelData.subscribers}</p>
-                                <p class="video-count">Videos: ${channelData.videos}</p>
-                                ${vipBadge}
-                                <a href="${channelData.link}" class="visit-channel" target="_blank">Visit Channel</a>
-                                <div class="reaction-container">
-                                    <button class="reaction-btn like-btn" onclick="updateReaction('${doc.channelId}', 'like')">👍 <span id="likes-${doc.channelId}">0</span></button>
-                                    <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.channelId}', 'dislike')">👎</button>
-                                </div>
-                                <button class="test-button" disabled>🔒 CustomPortal</button>
-                                <div class="countdown-timer">
-                                    <span id="countdown-${doc.channelId}"></span>
-                                </div>
+                    channelCard.innerHTML = `
+                        <img src="${channelData.logo}" alt="${channelData.title}">
+                        <div class="channel-info">
+                            <h3>${channelData.title}</h3>
+                            <p class="subscriber-count">Subscribers: ${channelData.subscribers}</p>
+                            <p class="video-count">Videos: ${channelData.videos}</p>
+                            ${vipBadge}
+                            <a href="${channelData.link}" class="visit-channel" target="_blank">Visit Channel</a>
+                            <div class="reaction-container">
+                                <button class="reaction-btn like-btn" onclick="updateReaction('${doc.channelId}', 'like')">👍 <span id="likes-${doc.channelId}">0</span></button>
+                                <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.channelId}', 'dislike')">👎</button>
+                            </div>
+                            <button class="test-button" disabled>🔒 CustomPortal</button>
+                            <div class="countdown-timer">
+                                <span id="countdown-${doc.channelId}"></span>
                             </div>
                         </div>
                     `;
-                    container.innerHTML += channelHTML;
+
+                    container.appendChild(channelCard);
 
                     // Start countdown for each channel
                     startCountdown(doc.channelId, 5 * 60 * 1000); // 5 minutes
-                } catch (error) {
-                    console.error(`Error fetching data for channel ${doc.channelId}:`, error);
                 }
+            } catch (error) {
+                console.error(`Error processing channel ${doc.channelId}:`, error);
             }
         }
+    }
 
-        // Reaction Button Functionality
-        function updateReaction(channelId, reactionType) {
-            const likesCountEl = document.getElementById(`likes-${channelId}`);
-            if (reactionType === "like") {
-                likesCountEl.textContent = parseInt(likesCountEl.textContent) + 1;
-            }
-            // Add logic for dislikes if needed
+    // Reaction Button Functionality
+    function updateReaction(channelId, reactionType) {
+        const likesCountEl = document.getElementById(`likes-${channelId}`);
+        if (reactionType === "like") {
+            likesCountEl.textContent = parseInt(likesCountEl.textContent) + 1;
         }
+        // Add logic for dislikes if needed
+    }
 
-        // Countdown Timer
-        function startCountdown(channelId, duration) {
-            const targetDate = new Date().getTime() + duration;
-            const countdownEl = document.getElementById(`countdown-${channelId}`);
+    // Countdown Timer
+    function startCountdown(channelId, duration) {
+        const targetDate = new Date().getTime() + duration;
+        const countdownEl = document.getElementById(`countdown-${channelId}`);
 
-            const interval = setInterval(() => {
-                const now = new Date().getTime();
-                const distance = targetDate - now;
+        const interval = setInterval(() => {
+            const now = new Date().getTime();
+            const distance = targetDate - now;
 
+            if (distance > 0) {
                 const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
                 countdownEl.textContent = `${minutes}:${seconds}`;
+            } else {
+                clearInterval(interval);
+                countdownEl.textContent = "Expired";
+            }
+        }, 1000);
+    }
 
-                if (distance < 0) {
-                    clearInterval(interval);
-                    countdownEl.textContent = "Expired";
-                }
-            }, 1000);
-        }
-
-        // Initialize Content Update
-        updateChannelContent();
-    </script>
+    // Initialize Content Update
+    updateChannelContent();
+</script>
 </body>
 </html>
