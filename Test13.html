@@ -3,66 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Product List</title>
+    <title>Firebase Product Showcase</title>
     <style>
         body {
             font-family: Arial, sans-serif;
+            background: #f9f9f9;
             margin: 0;
             padding: 0;
-            background: #f4f4f9;
         }
         .product-card {
             border: 1px solid #ddd;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin: 16px;
             padding: 16px;
-            text-align: center;
-            background: white;
+            margin: 16px;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         .product-card img {
             max-width: 100%;
-            height: auto;
-            border-radius: 4px;
+            border-radius: 8px;
         }
         .error-popup {
             position: fixed;
-            top: 50%;
+            top: 20px;
             left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 0, 0, 0.8);
+            transform: translateX(-50%);
+            background: rgba(255, 0, 0, 0.9);
             color: white;
-            padding: 20px;
+            padding: 16px;
             border-radius: 8px;
-            text-align: center;
             z-index: 9999;
             font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <h1>Product Showcase</h1>
+    <h1>Firebase Product Showcase</h1>
     <div id="product-list"></div>
     <div id="error-popup" class="error-popup" style="display: none;"></div>
 
     <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js"></script>
     <script>
-        // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
             authDomain: "squadvertex2007.firebaseapp.com",
             projectId: "squadvertex2007",
             storageBucket: "squadvertex2007.firebasestorage.app",
-            messagingSenderId: "your-messaging-sender-id",
-            appId: "168905083514"
+            messagingSenderId: "168905083514",
+            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
         };
 
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore(app);
+        let db;
 
-        // Fetch Products and Handle Errors
+        try {
+            const app = firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore(app);
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            showError(`Firebase Initialization Error: ${error.message}`);
+        }
+
         const productList = document.getElementById('product-list');
         const errorPopup = document.getElementById('error-popup');
 
@@ -71,46 +72,43 @@
             errorPopup.style.display = 'block';
             setTimeout(() => {
                 errorPopup.style.display = 'none';
-            }, 5000); // Hide after 5 seconds
+            }, 5000);
         }
 
-        function renderProducts() {
-            console.log("Fetching products...");
-            db.collection("products").orderBy("createdAt", "desc").get()
-                .then((querySnapshot) => {
-                    if (querySnapshot.empty) {
-                        console.warn("No products found!");
-                        productList.innerHTML = "<p>No products available. Please add some products.</p>";
-                        showError("No products found in the database!");
-                        return;
-                    }
-                    productList.innerHTML = ""; // Clear previous content
-                    querySnapshot.forEach((doc) => {
-                        const product = doc.data();
-                        console.log("Product data: ", product);
-                        productList.innerHTML += `
-                            <div class="product-card">
-                                <img src="${product.imageUrl}" alt="${product.name}">
-                                <h3>${product.name}</h3>
-                                <p>${product.description}</p>
-                                <p class="price">$${product.price}</p>
-                            </div>
-                        `;
-                    });
-                })
-                .catch((error) => {
-                    console.error("Error fetching products: ", error);
-                    showError("Error fetching products: " + error.message);
+        async function fetchProducts() {
+            if (!db) {
+                showError("Firestore is not initialized.");
+                return;
+            }
+
+            try {
+                const querySnapshot = await db.collection("products").orderBy("createdAt", "desc").get();
+
+                if (querySnapshot.empty) {
+                    showError("No products found.");
+                    productList.innerHTML = "<p>No products available.</p>";
+                    return;
+                }
+
+                productList.innerHTML = "";
+                querySnapshot.forEach(doc => {
+                    const product = doc.data();
+                    productList.innerHTML += `
+                        <div class="product-card">
+                            <img src="${product.imageUrl || 'https://via.placeholder.com/150'}" alt="${product.name}">
+                            <h3>${product.name}</h3>
+                            <p>${product.description}</p>
+                            <p><strong>Price:</strong> $${product.price}</p>
+                        </div>
+                    `;
                 });
+            } catch (error) {
+                console.error("Error fetching products:", error);
+                showError(`Error fetching products: ${error.message}`);
+            }
         }
 
-        // Initial Call
-        try {
-            renderProducts();
-        } catch (error) {
-            console.error("Unexpected Error: ", error);
-            showError("Unexpected Error: " + error.message);
-        }
+        fetchProducts();
     </script>
 </body>
 </html>
