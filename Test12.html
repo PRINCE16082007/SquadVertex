@@ -3,244 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Channel Cards</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore.js"></script>
-<style>
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f9;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
-    min-height: 100vh;
-}
-
-.channel-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    justify-content: center;
-}
-
-.channel-item {
-    width: 300px;
-    padding: 15px;
-    background-size: cover;
-    background-position: center;
-    border-radius: 10px;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-
-.channel-item img {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    margin-bottom: 10px;
-    border: 3px solid #fff;
-}
-
-.channel-info h3 {
-    font-size: 20px;
-    margin: 10px 0;
-}
-
-.channel-info p {
-    margin: 5px 0;
-}
-
-.vip-badge {
-    background-color: gold;
-    color: black;
-    font-weight: bold;
-    padding: 5px 10px;
-    border-radius: 20px;
-    margin-bottom: 10px;
-}
-
-.visit-channel {
-    text-decoration: none;
-    color: white;
-    background-color: #007bff;
-    padding: 10px 20px;
-    border-radius: 5px;
-    margin-top: 10px;
-    display: inline-block;
-}
-
-.reaction-container {
-    margin-top: 10px;
-}
-
-.reaction-btn {
-    border: none;
-    background-color: transparent;
-    font-size: 20px;
-    cursor: pointer;
-    margin: 0 5px;
-}
-
-.reaction-btn span {
-    font-size: 16px;
-}
-
-.test-button {
-    margin-top: 15px;
-    padding: 10px 15px;
-    font-size: 14px;
-    background-color: #ccc;
-    border: none;
-    border-radius: 5px;
-    cursor: not-allowed;
-}
-
-.test-button:enabled {
-    background-color: #28a745;
-    cursor: pointer;
-}
-
-.countdown-timer {
-    margin-top: 10px;
-    font-size: 14px;
-    color: #ff5733;
-}
-</style> 
+    <title>SquadVertex Store</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js"></script>
+    <style>
+        /* Same styles as before */
+        body { font-family: Arial, sans-serif; background: linear-gradient(to right, #0f2027, #203a43, #2c5364); color: white; margin: 0; }
+        .products { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 20px; }
+        .product-card { background: #1b2838; padding: 15px; width: 250px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); text-align: center; }
+        .product-card img { width: 100%; border-radius: 10px; }
+        .product-card h3 { font-size: 1.5rem; margin: 10px 0; }
+        .product-card p { font-size: 1rem; color: #b0bec5; }
+        .product-card .price { color: #00d9ff; font-size: 1.2rem; margin: 10px 0; }
+    </style>
 </head>
 <body>
-    <div class="channel-list">
-        <!-- Channel Cards Will Be Dynamically Rendered Here -->
-    </div>
+    <header>
+        <h1>SquadVertex Store</h1>
+    </header>
+    <div class="products" id="product-list"></div>
+
     <script>
-  // YouTube API Key
-const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "your-api-key",
+            authDomain: "your-auth-domain",
+            projectId: "your-project-id",
+            storageBucket: "your-storage-bucket",
+            messagingSenderId: "your-messaging-sender-id",
+            appId: "your-app-id"
+        };
 
-// Firebase Initialization
-const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(app);
 
-// Hardcoded Channel IDs
-const channels = [
-    { id: "UCCWSA89tFicJ6s7OsAQ-uCg", vip: true }, // Replace with actual channel ID and VIP status
-    { id: "UCBR8-60-B28hp2BmDPdntcQ", vip: false },
-    { id: "UCVHFbqXqoYvEWM1Ddxl0QDg", vip: true },
-];
+        // Fetch and Render Products
+        const productList = document.getElementById('product-list');
 
-// Function to Fetch YouTube Data
-async function fetchYouTubeData(channelId) {
-    const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${channelId}&key=${YT_API_KEY}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    if (data.items && data.items.length > 0) {
-        const { title } = data.items[0].snippet;
-        const { subscriberCount, videoCount } = data.items[0].statistics;
-        return { title, subscriberCount, videoCount };
-    }
-    return null;
-}
-
-// Render Channel Cards
-async function renderChannels() {
-    const channelList = document.querySelector('.channel-list');
-
-    for (const channel of channels) {
-        const { id, vip } = channel;
-
-        // Fetch YouTube Data
-        const ytData = await fetchYouTubeData(id);
-
-        if (ytData) {
-            const { title, subscriberCount, videoCount } = ytData;
-
-            // Fetch Firebase Data
-            const snapshot = await db.collection('channels').doc(id).get();
-            const portalData = snapshot.exists ? snapshot.data().portal : null;
-
-            // Create Channel Card
-            const channelItem = document.createElement('div');
-            channelItem.className = 'channel-item';
-            channelItem.id = `channel-bg-${id}`;
-            channelItem.style.backgroundImage = `url('${snapshot.exists ? snapshot.data().bg : "default-bg.jpg"}')`;
-
-            channelItem.innerHTML = `
-                <img src="https://img.youtube.com/vi/${id}/hqdefault.jpg" alt="${title}">
-                <div class="channel-info">
-                    <h3>${title}</h3>
-                    <p class="subscriber-count">Subscribers: ${subscriberCount}</p>
-                    <p class="video-count">Videos: ${videoCount}</p>
-                    ${vip ? '<div class="vip-badge">VIP</div>' : ''}
-                    <a href="https://www.youtube.com/channel/${id}" class="visit-channel">Visit Channel</a>
-                    <div class="reaction-container">
-                        <button class="reaction-btn like-btn" onclick="updateReaction('${id}', 'like')">👍<span id="likesCount${id}">0</span></button>
-                        <button class="reaction-btn dislike-btn" onclick="updateReaction('${id}', 'dislike')">👎</button>
-                    </div>
-                    <button class="test-button" id="lockedButton${id}" disabled>🔒 CustomPortal</button>
-                    <div class="countdown-timer" id="timer${id}">
-                        <span id="countdown${id}"></span>
-                    </div>
-                </div>
-            `;
-
-            // Handle Portal Unlock Timer
-            const portalButton = channelItem.querySelector(`#lockedButton${id}`);
-            const timerElement = channelItem.querySelector(`#countdown${id}`);
-            if (portalData) {
-                const unlockTime = portalData.timer.toDate();
-                const interval = setInterval(() => {
-                    const now = new Date();
-                    const timeLeft = unlockTime - now;
-
-                    if (timeLeft > 0) {
-                        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-                        timerElement.innerHTML = `${hours}h ${minutes}m ${seconds}s`;
-                    } else {
-                        clearInterval(interval);
-                        portalButton.disabled = false;
-                        portalButton.innerHTML = '✅ CustomPortal';
-                        portalButton.onclick = () => {
-                            window.location.href = portalData.file;
-                        };
-                    }
-                }, 1000);
-            }
-
-            channelList.appendChild(channelItem);
+        function renderProducts() {
+            db.collection("products").orderBy("createdAt", "desc").get()
+                .then((querySnapshot) => {
+                    productList.innerHTML = ""; // Clear previous data
+                    querySnapshot.forEach((doc) => {
+                        const product = doc.data();
+                        productList.innerHTML += `
+                            <div class="product-card">
+                                <img src="${product.imageUrl}" alt="${product.name}">
+                                <h3>${product.name}</h3>
+                                <p>${product.description}</p>
+                                <p class="price">$${product.price}</p>
+                            </div>
+                        `;
+                    });
+                })
+                .catch((error) => console.error("Error fetching products: ", error));
         }
-    }
-}
 
-// Function to Update Reaction Counts
-function updateReaction(channelId, type) {
-    const reactionCount = document.getElementById(`likesCount${channelId}`);
-    let currentCount = parseInt(reactionCount.textContent) || 0;
-    if (type === 'like') {
-        reactionCount.textContent = currentCount + 1;
-    }
-    // Add logic for dislikes if needed
-}
-
-// Initialize Rendering
-renderChannels();
-</script>
+        // Initial Call
+        renderProducts();
+    </script>
 </body>
 </html>
