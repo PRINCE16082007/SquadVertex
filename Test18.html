@@ -482,15 +482,22 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // YouTube API key
+        const youtubeApiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+
         // Function to fetch data and dynamically render channels
         async function fetchChannels() {
             const channelList = document.getElementById('channelList');
             
             try {
                 const querySnapshot = await getDocs(collection(db, "channels"));
-                querySnapshot.forEach((doc) => {
+                querySnapshot.forEach(async (doc) => {
                     const channelData = doc.data();
                     const channelId = channelData.id;  // Fetching the channelId field
+                    
+                    // Fetching YouTube data using YouTube API
+                    const ytData = await fetchYouTubeChannelData(channelId);
+                    
                     const channelItem = document.createElement('div');
                     channelItem.classList.add('channel-item');
                     channelItem.id = `channel-bg-${doc.id}`;
@@ -501,9 +508,10 @@
                     // Adding channel info, VIP Badge, and Visit Channel link dynamically
                     channelItem.innerHTML = `
                         <div class="channel-info">
-                            <h3>${doc.id}</h3>
-                            <p class="subscriber-count" id="channel-subscriber-${doc.id}">Subscribers: Loading...</p>
-                            <p class="video-count" id="channel-videos-${doc.id}">Videos: Loading...</p>
+                            <img src="${ytData.logo}" alt="${ytData.name}" class="channel-logo">
+                            <h3>${ytData.name}</h3>
+                            <p class="subscriber-count" id="channel-subscriber-${doc.id}">Subscribers: ${ytData.subscriberCount}</p>
+                            <p class="video-count" id="channel-videos-${doc.id}">Videos: ${ytData.videoCount}</p>
                             <div class="vip-badge" style="display: ${channelData.vip ? 'block' : 'none'};">VIP</div>
                             <a href="https://youtube.com/@${channelId}" class="visit-channel">Visit Channel</a>
                             <div class="reaction-container">
@@ -541,6 +549,21 @@
             } catch (error) {
                 console.error("Error fetching data:", error);
             }
+        }
+
+        // Function to fetch YouTube Channel Data
+        async function fetchYouTubeChannelData(channelId) {
+            const ytApiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${youtubeApiKey}`;
+            const response = await fetch(ytApiUrl);
+            const data = await response.json();
+            const channel = data.items[0];
+
+            return {
+                logo: channel.snippet.thumbnails.high.url,
+                name: channel.snippet.title,
+                subscriberCount: channel.statistics.subscriberCount,
+                videoCount: channel.statistics.videoCount
+            };
         }
 
         // Call the function to fetch and display data
