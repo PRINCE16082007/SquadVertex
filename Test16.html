@@ -1,1 +1,92 @@
-hi
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Access</title>
+</head>
+<body>
+  <h1>Developers Only</h1>
+  <input type="password" id="password" placeholder="Enter Password" required>
+  <button id="loginButton">Login</button>
+  <p id="status"></p>
+
+  <script type="module">
+    // Firebase configuration
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Function to handle login
+    async function checkLogin() {
+      const enteredPassword = document.getElementById("password").value.trim();
+      const status = document.getElementById("status");
+
+      try {
+        // Fetch the master password from Firestore
+        const passwordDocRef = doc(db, "auth", "masterPassword");
+        const passwordDoc = await getDoc(passwordDocRef);
+
+        if (!passwordDoc.exists()) {
+          status.innerText = "Access denied. Password not set.";
+          console.error("Document 'masterPassword' not found.");
+          return;
+        }
+
+        const savedPassword = passwordDoc.data().password;
+        if (!savedPassword) {
+          status.innerText = "Access denied. Password not set.";
+          console.error("'password' field is missing in the document.");
+          return;
+        }
+
+        if (enteredPassword !== savedPassword) {
+          status.innerText = "Invalid password.";
+          return;
+        }
+
+        // Fetch the redirect URL from Firestore
+        const pageDocRef = doc(db, "pages", "page1");
+        const pageDoc = await getDoc(pageDocRef);
+
+        if (!pageDoc.exists()) {
+          status.innerText = "Access granted, but redirect page not found.";
+          console.error("Document 'page1' not found in 'pages' collection.");
+          return;
+        }
+
+        const redirectURL = pageDoc.data().url;
+        if (!redirectURL) {
+          status.innerText = "Access granted, but no URL found.";
+          console.error("'url' field is missing in the document.");
+          return;
+        }
+
+        // Redirect to the fetched URL
+        status.innerText = "Access granted! Redirecting...";
+        setTimeout(() => {
+          window.location.href = redirectURL;
+        }, 2000);
+
+      } catch (error) {
+        console.error("Error during login:", error);
+        status.innerText = "An error occurred. Please try again.";
+      }
+    }
+
+    // Expose the function to the global scope
+    window.checkLogin = checkLogin;
+
+    // Attach event listener to the login button
+    document.getElementById("loginButton").addEventListener("click", checkLogin);
+  </script>
+</body>
+</html>
