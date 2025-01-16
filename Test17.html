@@ -1,10 +1,86 @@
-<!doctype html>
-<html lang="en"> 
- <head> 
-  <meta charset="UTF-8"> 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-  <title>SquadVertex Dashboard</title> 
- </head> 
- <body> <!-- Header --> 
- </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Access</title>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js"></script>
+</head>
+<body>
+  <h1>Developers Only</h1>
+  <input type="password" id="password" placeholder="Enter Password" required>
+  <button onclick="checkLogin()">Login</button>
+  <p id="status"></p>
+
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore(app);
+
+    // Check login function
+    async function checkLogin() {
+      const enteredPassword = document.getElementById("password").value.trim();
+      const status = document.getElementById("status");
+
+      try {
+        // Fetch the master password from Firestore
+        const passwordDocRef = db.collection("auth").doc("masterPassword");
+        const passwordDoc = await passwordDocRef.get();
+
+        if (!passwordDoc.exists) {
+          status.innerText = "Access denied. Password not set.";
+          console.error("Document 'masterPassword' not found.");
+          return;
+        }
+
+        const savedPassword = passwordDoc.data().password;
+        if (!savedPassword) {
+          status.innerText = "Access denied. Password not set.";
+          console.error("'password' field is missing in the document.");
+          return;
+        }
+
+        if (enteredPassword !== savedPassword) {
+          status.innerText = "Invalid password.";
+          return;
+        }
+
+        // Fetch the redirect URL from Firestore
+        const pageDocRef = db.collection("pages").doc("page1");
+        const pageDoc = await pageDocRef.get();
+
+        if (!pageDoc.exists) {
+          status.innerText = "Access granted, but redirect page not found.";
+          console.error("Document 'page1' not found in 'pages' collection.");
+          return;
+        }
+
+        const redirectURL = pageDoc.data().url;
+        if (!redirectURL) {
+          status.innerText = "Access granted, but no URL found.";
+          console.error("'url' field is missing in the document.");
+          return;
+        }
+
+        // Redirect to the fetched URL
+        status.innerText = "Access granted! Redirecting...";
+        setTimeout(() => {
+          window.location.href = redirectURL;
+        }, 2000);
+
+      } catch (error) {
+        console.error("Error during login:", error);
+        status.innerText = "An error occurred. Please try again.";
+      }
+    }
+  </script>
+</body>
 </html>
