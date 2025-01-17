@@ -8,212 +8,7 @@
     <meta name="description" content="SquadVertex offers top-notch YouTube-related services, including channel optimization, video editing, and growth strategies. Join us to enhance your digital presence and take your channel to the next level.">
 <meta property="og:image" content="https://dl.dropboxusercontent.com/s/fkq02zrhmtjo8q0j66pj4/Screenshot_20240901-172502.png?rlkey=256r98hep0tclyuznt3yjqdj1&st=hd7k6q0v" />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
- 
- </head> 
- <body>
-    <h1>Firebase Channels</h1>
-    <div class="channel-list" id="channelList">
-        <!-- Dynamically populated channel items will appear here -->
-    </div>
-
-    <!-- Firebase SDK -->
- <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-app.js';
-    import { getFirestore, collection, getDocs, doc, updateDoc, arrayUnion, arrayRemove, setDoc, onSnapshot, getDoc } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js';
-    import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-auth.js';
-
-    const firebaseConfig = {
-        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-        authDomain: "squadvertex2007.firebaseapp.com",
-        projectId: "squadvertex2007",
-        storageBucket: "squadvertex2007.appspot.com",
-        messagingSenderId: "168905083514",
-        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const youtubeApiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
-
-    async function fetchChannels() {
-        const channelList = document.getElementById('channelList');
-
-        try {
-            const querySnapshot = await getDocs(collection(db, "channels"));
-            querySnapshot.forEach(async (doc) => {
-                const channelData = doc.data();
-                const channelId = channelData.id;
-
-                const ytData = await fetchYouTubeChannelData(channelId);
-
-                const channelItem = document.createElement('div');
-                channelItem.classList.add('channel-item');
-                channelItem.id = `channel-bg-${doc.id}`;
-                channelItem.style.backgroundImage = `url('${channelData.bg}')`;
-
-                channelItem.innerHTML = `
-                    <div class="channel-info">
-                        <div class="channel-logo-wrapper">
-                            <img src="${ytData.logo}" alt="${ytData.name}" class="channel-logo">
-                        </div>
-                        <div class="channel-details">
-                            <h3>${ytData.name}</h3>
-                            <p class="subscriber-count">Subscribers: ${ytData.subscriberCount}</p>
-                            <p class="video-count">Videos: ${ytData.videoCount}</p>
-                            <div class="vip-badge" style="display: ${channelData.vip ? 'block' : 'none'};">VIP</div>
-                            <a href="https://youtube.com/channel/${channelId}" class="visit-channel" target="_blank">Visit Channel</a>
-                            <div class="reaction-container">
-                                <button class="reaction-btn like-btn" onclick="updateReaction('${doc.id}', 'like')">👍<span id="likesCount-${doc.id}">0</span></button>
-                                <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.id}', 'dislike')">👎</button>
-                            </div>
-                            <button class="test-button" id="lockedButton-${doc.id}" disabled>🔒 CustomPortal</button>
-                            <div class="countdown-timer" id="countdown-${doc.id}"></div>
-                        </div>
-                    </div>
-                `;
-
-                channelList.appendChild(channelItem);
-
-                setupRealTimeListener(doc.id, `likesCount-${doc.id}`);
-
-                if (channelData.portal && channelData.portal.timer) {
-                    initializeCountdownTimer(doc.id, channelData.portal.timer.seconds, channelData.portal.file);
-                }
-            });
-        } catch (error) {
-            console.error("Error fetching data:", error);
-        }
-    }
-
-    function initializeCountdownTimer(docId, timerSeconds, portalUrl) {
-        const portalTimer = new Date(timerSeconds * 1000);
-        const timerElement = document.getElementById(`countdown-${docId}`);
-        const buttonElement = document.getElementById(`lockedButton-${docId}`);
-
-        const countdownInterval = setInterval(() => {
-            const now = new Date();
-            const remainingTime = portalTimer - now;
-
-            if (remainingTime <= 0) {
-                clearInterval(countdownInterval);
-                timerElement.innerText = "Portal Unlocked";
-                buttonElement.innerText = "🔓 CustomPortal";
-                buttonElement.disabled = false;
-                buttonElement.onclick = () => {
-                    window.open(portalUrl, "_blank");
-                };
-            } else {
-                const minutes = Math.floor(remainingTime / 60000);
-                const seconds = Math.floor((remainingTime % 60000) / 1000);
-                timerElement.innerText = `${minutes}m ${seconds}s`;
-            }
-        }, 1000);
-    }
-
-    window.updateReaction = async function (channelId, action) {
-        const user = auth.currentUser;
-        if (!user) {
-            alert("Please sign in to interact.");
-            return;
-        }
-
-        try {
-            const channelRef = doc(db, "channels", channelId);
-            const channelSnap = await getDoc(channelRef);
-
-            if (channelSnap.exists()) {
-                const channelData = channelSnap.data();
-                const currentReactions = channelData.uidArray || [];
-                const uid = user.uid;
-
-                // Check if user has already reacted
-                const userReaction = currentReactions.find((entry) => entry.uid === uid);
-
-                if (userReaction) {
-                    if (userReaction.action === action) {
-                        alert(`You have already ${action}d this channel!`);
-                        return;
-                    }
-
-                    // Toggle reaction
-                    const updates = { uidArray: arrayRemove(userReaction) };
-
-                    if (userReaction.action === "like") {
-                        updates.likes = (channelData.likes || 0) - 1;
-                        updates.dislikes = (channelData.dislikes || 0) + 1;
-                    } else {
-                        updates.likes = (channelData.likes || 0) + 1;
-                        updates.dislikes = (channelData.dislikes || 0) - 1;
-                    }
-
-                    await updateDoc(channelRef, updates);
-                    await updateDoc(channelRef, {
-                        uidArray: arrayUnion({ uid, action }),
-                    });
-
-                    alert(`Channel ${action}d successfully!`);
-                } else {
-                    // New reaction
-                    const updates = {
-                        uidArray: arrayUnion({ uid, action }),
-                    };
-
-                    if (action === "like") {
-                        updates.likes = (channelData.likes || 0) + 1;
-                    } else {
-                        updates.dislikes = (channelData.dislikes || 0) + 1;
-                    }
-
-                    await updateDoc(channelRef, updates);
-                    alert(`Channel ${action}d successfully!`);
-                }
-            } else {
-                // New document if it doesn't exist
-                const newData = {
-                    likes: action === "like" ? 1 : 0,
-                    dislikes: action === "dislike" ? 1 : 0,
-                    uidArray: [{ uid: user.uid, action }],
-                };
-
-                await setDoc(channelRef, newData);
-                alert(`Channel ${action}d successfully!`);
-            }
-
-            console.log(`✅ ${action} added for channel ID:`, channelId);
-        } catch (error) {
-            console.error(`❌ ${action} action failed:`, error.message);
-            alert(`An error occurred while trying to ${action} the channel. Try again later.`);
-        }
-    };
-
-    function setupRealTimeListener(channelId, likesElementId) {
-        const channelRef = doc(db, "channels", channelId);
-        onSnapshot(channelRef, (doc) => {
-            if (doc.exists()) {
-                const data = doc.data();
-                document.getElementById(likesElementId).innerText = data.likes || 0;
-            }
-        });
-    }
-
-    async function fetchYouTubeChannelData(channelId) {
-        const ytApiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${youtubeApiKey}`;
-        const response = await fetch(ytApiUrl);
-        const data = await response.json();
-        const channel = data.items[0];
-
-        return {
-            logo: channel.snippet.thumbnails.high.url,
-            name: channel.snippet.title,
-            subscriberCount: channel.statistics.subscriberCount,
-            videoCount: channel.statistics.videoCount,
-        };
-    }
-
-    fetchChannels();
-</script>
-   <style>
+    <style>
         body {
             margin: 0;
             font-family: 'Orbitron', sans-serif;
@@ -660,5 +455,210 @@
 }
 
     </style>
+ </head> 
+ <body>
+    <h1>Firebase Channels</h1>
+    <div class="channel-list" id="channelList">
+        <!-- Dynamically populated channel items will appear here -->
+    </div>
+
+    <!-- Firebase SDK -->
+ <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-app.js';
+    import { getFirestore, collection, getDocs, doc, updateDoc, arrayUnion, arrayRemove, setDoc, onSnapshot, getDoc } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js';
+    import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-auth.js';
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+        authDomain: "squadvertex2007.firebaseapp.com",
+        projectId: "squadvertex2007",
+        storageBucket: "squadvertex2007.appspot.com",
+        messagingSenderId: "168905083514",
+        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const youtubeApiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+
+    async function fetchChannels() {
+        const channelList = document.getElementById('channelList');
+
+        try {
+            const querySnapshot = await getDocs(collection(db, "channels"));
+            querySnapshot.forEach(async (doc) => {
+                const channelData = doc.data();
+                const channelId = channelData.id;
+
+                const ytData = await fetchYouTubeChannelData(channelId);
+
+                const channelItem = document.createElement('div');
+                channelItem.classList.add('channel-item');
+                channelItem.id = `channel-bg-${doc.id}`;
+                channelItem.style.backgroundImage = `url('${channelData.bg}')`;
+
+                channelItem.innerHTML = `
+                    <div class="channel-info">
+                        <div class="channel-logo-wrapper">
+                            <img src="${ytData.logo}" alt="${ytData.name}" class="channel-logo">
+                        </div>
+                        <div class="channel-details">
+                            <h3>${ytData.name}</h3>
+                            <p class="subscriber-count">Subscribers: ${ytData.subscriberCount}</p>
+                            <p class="video-count">Videos: ${ytData.videoCount}</p>
+                            <div class="vip-badge" style="display: ${channelData.vip ? 'block' : 'none'};">VIP</div>
+                            <a href="https://youtube.com/channel/${channelId}" class="visit-channel" target="_blank">Visit Channel</a>
+                            <div class="reaction-container">
+                                <button class="reaction-btn like-btn" onclick="updateReaction('${doc.id}', 'like')">👍<span id="likesCount-${doc.id}">0</span></button>
+                                <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.id}', 'dislike')">👎</button>
+                            </div>
+                            <button class="test-button" id="lockedButton-${doc.id}" disabled>🔒 CustomPortal</button>
+                            <div class="countdown-timer" id="countdown-${doc.id}"></div>
+                        </div>
+                    </div>
+                `;
+
+                channelList.appendChild(channelItem);
+
+                setupRealTimeListener(doc.id, `likesCount-${doc.id}`);
+
+                if (channelData.portal && channelData.portal.timer) {
+                    initializeCountdownTimer(doc.id, channelData.portal.timer.seconds, channelData.portal.file);
+                }
+            });
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    }
+
+    function initializeCountdownTimer(docId, timerSeconds, portalUrl) {
+        const portalTimer = new Date(timerSeconds * 1000);
+        const timerElement = document.getElementById(`countdown-${docId}`);
+        const buttonElement = document.getElementById(`lockedButton-${docId}`);
+
+        const countdownInterval = setInterval(() => {
+            const now = new Date();
+            const remainingTime = portalTimer - now;
+
+            if (remainingTime <= 0) {
+                clearInterval(countdownInterval);
+                timerElement.innerText = "Portal Unlocked";
+                buttonElement.innerText = "🔓 CustomPortal";
+                buttonElement.disabled = false;
+                buttonElement.onclick = () => {
+                    window.open(portalUrl, "_blank");
+                };
+            } else {
+                const minutes = Math.floor(remainingTime / 60000);
+                const seconds = Math.floor((remainingTime % 60000) / 1000);
+                timerElement.innerText = `${minutes}m ${seconds}s`;
+            }
+        }, 1000);
+    }
+
+    window.updateReaction = async function (channelId, action) {
+        const user = auth.currentUser;
+        if (!user) {
+            alert("Please sign in to interact.");
+            return;
+        }
+
+        try {
+            const channelRef = doc(db, "channels", channelId);
+            const channelSnap = await getDoc(channelRef);
+
+            if (channelSnap.exists()) {
+                const channelData = channelSnap.data();
+                const currentReactions = channelData.uidArray || [];
+                const uid = user.uid;
+
+                // Check if user has already reacted
+                const userReaction = currentReactions.find((entry) => entry.uid === uid);
+
+                if (userReaction) {
+                    if (userReaction.action === action) {
+                        alert(`You have already ${action}d this channel!`);
+                        return;
+                    }
+
+                    // Toggle reaction
+                    const updates = { uidArray: arrayRemove(userReaction) };
+
+                    if (userReaction.action === "like") {
+                        updates.likes = (channelData.likes || 0) - 1;
+                        updates.dislikes = (channelData.dislikes || 0) + 1;
+                    } else {
+                        updates.likes = (channelData.likes || 0) + 1;
+                        updates.dislikes = (channelData.dislikes || 0) - 1;
+                    }
+
+                    await updateDoc(channelRef, updates);
+                    await updateDoc(channelRef, {
+                        uidArray: arrayUnion({ uid, action }),
+                    });
+
+                    alert(`Channel ${action}d successfully!`);
+                } else {
+                    // New reaction
+                    const updates = {
+                        uidArray: arrayUnion({ uid, action }),
+                    };
+
+                    if (action === "like") {
+                        updates.likes = (channelData.likes || 0) + 1;
+                    } else {
+                        updates.dislikes = (channelData.dislikes || 0) + 1;
+                    }
+
+                    await updateDoc(channelRef, updates);
+                    alert(`Channel ${action}d successfully!`);
+                }
+            } else {
+                // New document if it doesn't exist
+                const newData = {
+                    likes: action === "like" ? 1 : 0,
+                    dislikes: action === "dislike" ? 1 : 0,
+                    uidArray: [{ uid: user.uid, action }],
+                };
+
+                await setDoc(channelRef, newData);
+                alert(`Channel ${action}d successfully!`);
+            }
+
+            console.log(`✅ ${action} added for channel ID:`, channelId);
+        } catch (error) {
+            console.error(`❌ ${action} action failed:`, error.message);
+            alert(`An error occurred while trying to ${action} the channel. Try again later.`);
+        }
+    };
+
+    function setupRealTimeListener(channelId, likesElementId) {
+        const channelRef = doc(db, "channels", channelId);
+        onSnapshot(channelRef, (doc) => {
+            if (doc.exists()) {
+                const data = doc.data();
+                document.getElementById(likesElementId).innerText = data.likes || 0;
+            }
+        });
+    }
+
+    async function fetchYouTubeChannelData(channelId) {
+        const ytApiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${youtubeApiKey}`;
+        const response = await fetch(ytApiUrl);
+        const data = await response.json();
+        const channel = data.items[0];
+
+        return {
+            logo: channel.snippet.thumbnails.high.url,
+            name: channel.snippet.title,
+            subscriberCount: channel.statistics.subscriberCount,
+            videoCount: channel.statistics.videoCount,
+        };
+    }
+
+    fetchChannels();
+</script>
+
 </body>
 </html>
