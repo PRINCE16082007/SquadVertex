@@ -464,9 +464,9 @@
 
     <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.19.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from "https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.19.1/firebase-auth.js";
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-app.js';
+        import { getFirestore, collection, getDocs } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-auth.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -480,105 +480,83 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
+        const youtubeApiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
 
         async function fetchChannels() {
             const channelList = document.getElementById('channelList');
 
             try {
                 const querySnapshot = await getDocs(collection(db, "channels"));
-                querySnapshot.forEach((doc) => {
+                querySnapshot.forEach(async (doc) => {
                     const channelData = doc.data();
-                    const channelId = doc.id;
+                    const channelId = channelData.id;
 
-                    // Create channel item dynamically
+                    const ytData = await fetchYouTubeChannelData(channelId);
+
                     const channelItem = document.createElement('div');
                     channelItem.classList.add('channel-item');
+                    channelItem.id = `channel-bg-${doc.id}`;
+
+                    channelItem.style.backgroundImage = `url('${channelData.bg}')`;
 
                     channelItem.innerHTML = `
                         <div class="channel-info">
-                            <h3>${channelData.name}</h3>
-                            <p>Subscribers: ${channelData.subscriberCount}</p>
-                            <p>Videos: ${channelData.videoCount}</p>
-                            <div class="reaction-container">
-                                <button class="reaction-btn like-btn" onclick="updateReaction('${channelId}', 'like')">👍 <span id="likesCount-${channelId}">${channelData.likes || 0}</span></button>
-                                <button class="reaction-btn dislike-btn" onclick="updateReaction('${channelId}', 'dislike')">👎 <span id="dislikesCount-${channelId}">${channelData.dislikes || 0}</span></button>
+                            <div class="channel-logo-wrapper">
+                                <img src="${ytData.logo}" alt="${ytData.name}" class="channel-logo">
+                            </div>
+                            <div class="channel-details">
+                                <h3>${ytData.name}</h3>
+                                <p class="subscriber-count" id="channel-subscriber-${doc.id}">Subscribers: ${ytData.subscriberCount}</p>
+                                <p class="video-count" id="channel-videos-${doc.id}">Videos: ${ytData.videoCount}</p>
+                                <div class="vip-badge" style="display: ${channelData.vip ? 'block' : 'none'};">VIP</div>
+                                <a href="https://youtube.com/channel/${channelId}" class="visit-channel" target="_blank">Visit Channel</a>
+                                <div class="reaction-container">
+                                    <button class="reaction-btn like-btn" onclick="updateReaction('${doc.id}', 'like')">👍<span id="likesCount-${doc.id}">0</span></button>
+                                    <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.id}', 'dislike')">👎</button>
+                                </div>
+                                <button class="vote-button" id="voteButton-${doc.id}" disabled>🔒 Vote</button>
                             </div>
                         </div>
                     `;
 
                     channelList.appendChild(channelItem);
 
-                    // Set up real-time listeners
-                    setupRealTimeListener(channelId);
+                    handleAuthState(doc.id);
                 });
             } catch (error) {
-                console.error("Error fetching channels:", error);
+                console.error("Error fetching data:", error);
             }
         }
 
-        async function updateReaction(channelId, action) {
-            const user = auth.currentUser;
-            if (!user) {
-                alert("Please sign in to interact.");
-                return;
-            }
+        async function fetchYouTubeChannelData(channelId) {
+            const ytApiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${youtubeApiKey}`;
+            const response = await fetch(ytApiUrl);
+            const data = await response.json();
+            const channel = data.items[0];
 
-            try {
-                const channelRef = doc(db, "channels", channelId);
-                const channelSnap = await getDoc(channelRef);
-
-                if (channelSnap.exists()) {
-                    const channelData = channelSnap.data();
-                    const uidArray = channelData.uidArray || [];
-                    const existingReaction = uidArray.find((entry) => entry.uid === user.uid);
-
-                    if (existingReaction && existingReaction.action === action) {
-                        alert(`You have already ${action}d this channel.`);
-                        return;
-                    }
-
-                    const updates = {};
-                    if (existingReaction) {
-                        updates.uidArray = arrayRemove(existingReaction);
-                        if (existingReaction.action === "like") updates.likes = (channelData.likes || 0) - 1;
-                        if (existingReaction.action === "dislike") updates.dislikes = (channelData.dislikes || 0) - 1;
-                    }
-
-                    if (action === "like") updates.likes = (channelData.likes || 0) + 1;
-                    if (action === "dislike") updates.dislikes = (channelData.dislikes || 0) + 1;
-
-                    updates.uidArray = arrayUnion({ uid: user.uid, action });
-
-                    await updateDoc(channelRef, updates);
-                    alert(`${action.charAt(0).toUpperCase() + action.slice(1)} added successfully.`);
-                }
-            } catch (error) {
-                console.error(`Error updating reaction for channel ${channelId}:`, error);
-            }
+            return {
+                logo: channel.snippet.thumbnails.high.url,
+                name: channel.snippet.title,
+                subscriberCount: channel.statistics.subscriberCount,
+                videoCount: channel.statistics.videoCount
+            };
         }
 
-        function setupRealTimeListener(channelId) {
-            const channelRef = doc(db, "channels", channelId);
-            onSnapshot(channelRef, (doc) => {
-                if (doc.exists()) {
-                    const data = doc.data();
-                    document.getElementById(`likesCount-${channelId}`).innerText = data.likes || 0;
-                    document.getElementById(`dislikesCount-${channelId}`).innerText = data.dislikes || 0;
+        function handleAuthState(channelId) {
+            const voteButton = document.getElementById(`voteButton-${channelId}`);
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    voteButton.disabled = false;
+                    voteButton.innerText = "Vote Now";
+                } else {
+                    voteButton.disabled = true;
+                    voteButton.innerText = "🔒 Please Sign Up";
                 }
             });
         }
 
         fetchChannels();
-
-        // Handle Authentication
-        onAuthStateChanged(auth, (user) => {
-            if (!user) {
-                signInWithPopup(auth, provider)
-                    .then((result) => console.log("Signed in as:", result.user.displayName))
-                    .catch((error) => console.error("Authentication error:", error));
-            }
-        });
     </script>
 
     <style>
@@ -588,16 +566,35 @@
             gap: 20px;
         }
         .channel-item {
-            padding: 15px;
-            background: #f4f4f4;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            overflow: hidden;
         }
-        .reaction-container {
+        .channel-logo-wrapper {
+            flex: 0 0 100px;
+            margin-right: 20px;
+        }
+        .channel-logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+        }
+        .channel-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .visit-channel {
             margin-top: 10px;
+            color: #007BFF;
+            text-decoration: none;
         }
-        .reaction-btn {
-            margin-right: 10px;
+        .visit-channel:hover {
+            text-decoration: underline;
         }
     </style>
 </body>
