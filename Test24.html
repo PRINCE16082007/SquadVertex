@@ -511,7 +511,7 @@
                             <a href="https://youtube.com/channel/${channelId}" class="visit-channel" target="_blank">Visit Channel</a>
                             <div class="reaction-container">
                                 <button class="reaction-btn like-btn" onclick="updateReaction('${doc.id}', 'like')">👍<span id="likesCount-${doc.id}">0</span></button>
-                                <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.id}', 'dislike')">👎<span id="dislikesCount-${doc.id}">0</span></button>
+                                <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.id}', 'dislike')">👎</button>
                             </div>
                             <button class="test-button" id="lockedButton-${doc.id}" disabled>🔒 CustomPortal</button>
                             <div class="countdown-timer" id="countdown-${doc.id}"></div>
@@ -521,7 +521,7 @@
 
                 channelList.appendChild(channelItem);
 
-                setupRealTimeListener(doc.id, `likesCount-${doc.id}`, `dislikesCount-${doc.id}`);
+                setupRealTimeListener(doc.id, `likesCount-${doc.id}`);
 
                 if (channelData.portal && channelData.portal.timer) {
                     initializeCountdownTimer(doc.id, channelData.portal.timer.seconds, channelData.portal.file);
@@ -572,27 +572,32 @@
                 const channelData = channelSnap.data();
                 const uid = user.uid;
 
-                let updates = {};
-                const userReaction = (channelData.uidArray || []).find((entry) => entry.uid === uid);
+                const uidArray = channelData.uidArray || [];
+                const userReaction = uidArray.find((entry) => entry.uid === uid);
 
+                let updates = {};
                 if (userReaction) {
                     if (userReaction.action === action) {
                         alert(`You have already ${action}d this channel!`);
                         return;
+                    } else {
+                        // Remove previous reaction
+                        updates.uidArray = arrayRemove(userReaction);
+                        if (userReaction.action === "like") {
+                            updates.likes = (channelData.likes || 0) - 1;
+                        } else if (userReaction.action === "dislike") {
+                            updates.dislikes = (channelData.dislikes || 0) - 1;
+                        }
                     }
-                    
-                    // Decrement the previous action count
-                    updates[userReaction.action === "like" ? "likes" : "dislikes"] = 
-                        (channelData[userReaction.action === "like" ? "likes" : "dislikes"] || 0) - 1;
-
-                    updates.uidArray = arrayRemove(userReaction);
                 }
 
-                // Increment the current action count
-                updates[action === "like" ? "likes" : "dislikes"] = 
-                    (channelData[action === "like" ? "likes" : "dislikes"] || 0) + 1;
-
-                updates.uidArray = arrayUnion({ uid, action });
+                // Add new reaction
+                updates.uidArray = updates.uidArray || arrayUnion({ uid, action });
+                if (action === "like") {
+                    updates.likes = (channelData.likes || 0) + 1;
+                } else if (action === "dislike") {
+                    updates.dislikes = (channelData.dislikes || 0) + 1;
+                }
 
                 await updateDoc(channelRef, updates);
                 alert(`Channel ${action}d successfully!`);
@@ -605,13 +610,12 @@
         }
     };
 
-    function setupRealTimeListener(channelId, likesElementId, dislikesElementId) {
+    function setupRealTimeListener(channelId, likesElementId) {
         const channelRef = doc(db, "channels", channelId);
         onSnapshot(channelRef, (doc) => {
             if (doc.exists()) {
                 const data = doc.data();
                 document.getElementById(likesElementId).innerText = data.likes || 0;
-                document.getElementById(dislikesElementId).innerText = data.dislikes || 0;
             }
         });
     }
