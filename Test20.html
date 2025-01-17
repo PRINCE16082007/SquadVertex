@@ -457,235 +457,151 @@
     </style>
 </head>
 <body>
-    <h1>Firebase Channels</h1>
-    <div class="channel-list" id="channelList">
-        <!-- Dynamically populated channel items will appear here -->
+  <!-- CustomPortal Button -->
+  <button id="customPortalBtn" class="btn">Go to CustomPortal</button>
+
+  <!-- Channel Cards Section -->
+  <div id="channelCards">
+    <div class="channel-item" id="channel1">
+      <h3>Channel 1</h3>
+      <button onclick="handleReaction('channel1', 'like')">Like</button>
+      <button onclick="handleReaction('channel1', 'dislike')">Dislike</button>
+      <p>Likes: <span id="channel1Likes">0</span></p>
+      <p>Dislikes: <span id="channel1Dislikes">0</span></p>
     </div>
+    <div class="channel-item" id="channel2">
+      <h3>Channel 2</h3>
+      <button onclick="handleReaction('channel2', 'like')">Like</button>
+      <button onclick="handleReaction('channel2', 'dislike')">Dislike</button>
+      <p>Likes: <span id="channel2Likes">0</span></p>
+      <p>Dislikes: <span id="channel2Dislikes">0</span></p>
+    </div>
+  </div>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-app.js';
-        import { getFirestore, collection, getDocs, doc, updateDoc, arrayUnion, arrayRemove, setDoc, onSnapshot, getDoc } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js';
-        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-auth.js';
+  <script>
+    // Firebase Config (Use your actual Firebase configuration)
+    const firebaseConfig = {
+      apiKey: "your-api-key",
+      authDomain: "your-auth-domain",
+      projectId: "your-project-id",
+      storageBucket: "your-storage-bucket",
+      messagingSenderId: "your-sender-id",
+      appId: "your-app-id",
+    };
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-            authDomain: "squadvertex2007.firebaseapp.com",
-            projectId: "squadvertex2007",
-            storageBucket: "squadvertex2007.appspot.com",
-            messagingSenderId: "168905083514",
-            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-        };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+    // Function to handle reactions
+    async function handleReaction(channelId, action) {
+      const user = auth.currentUser;
+      if (!user) {
+        alert("Please sign in to interact.");
+        return;
+      }
 
-        const youtubeApiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+      try {
+        const channelRef = db.collection("channels").doc(channelId);
+        const channelSnap = await channelRef.get();
 
-        async function fetchChannels() {
-            const channelList = document.getElementById('channelList');
+        if (channelSnap.exists) {
+          const channelData = channelSnap.data();
+          const uidArray = channelData.uidArray || [];
+          const uid = user.uid;
 
-            try {
-                const querySnapshot = await getDocs(collection(db, "channels"));
-                querySnapshot.forEach(async (doc) => {
-                    const channelData = doc.data();
-                    const channelId = channelData.id;
+          const userReaction = uidArray.find((entry) => entry.uid === uid);
 
-                    const ytData = await fetchYouTubeChannelData(channelId);
-
-                    const channelItem = document.createElement('div');
-                    channelItem.classList.add('channel-item');
-                    channelItem.id = `channel-bg-${doc.id}`;
-
-                    channelItem.style.backgroundImage = `url('${channelData.bg}')`;
-
-                    channelItem.innerHTML = `
-                        <div class="channel-info">
-                            <div class="channel-logo-wrapper">
-                                <img src="${ytData.logo}" alt="${ytData.name}" class="channel-logo">
-                            </div>
-                            <div class="channel-details">
-                                <h3>${ytData.name}</h3>
-                                <p class="subscriber-count">Subscribers: ${ytData.subscriberCount}</p>
-                                <p class="video-count">Videos: ${ytData.videoCount}</p>
-                                <div class="vip-badge" style="display: ${channelData.vip ? 'block' : 'none'};">VIP</div>
-                                <a href="https://youtube.com/channel/${channelId}" class="visit-channel" target="_blank">Visit Channel</a>
-                                <div class="reaction-container">
-                                    <button class="reaction-btn like-btn" onclick="updateReaction('${doc.id}', 'like')">👍<span id="likesCount-${doc.id}">0</span></button>
-                                    <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.id}', 'dislike')">👎</button>
-                                </div>
-                                <div class="countdown-timer" id="timer-${doc.id}">
-                                    <span id="countdown-${doc.id}"></span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-
-                    channelList.appendChild(channelItem);
-
-                    // Initialize real-time likes listener
-                    setupRealTimeListener(doc.id, `likesCount-${doc.id}`);
-
-                    if (channelData.portal && channelData.portal.timer) {
-                        const portalTimer = new Date(channelData.portal.timer.seconds * 1000);
-                        const timerElement = document.getElementById(`countdown-${doc.id}`);
-                        const countdownInterval = setInterval(function () {
-                            const now = new Date();
-                            const remainingTime = portalTimer - now;
-                            if (remainingTime <= 0) {
-                                clearInterval(countdownInterval);
-                                timerElement.innerText = "Portal Unlocked";
-                            } else {
-                                const minutes = Math.floor(remainingTime / 60000);
-                                const seconds = Math.floor((remainingTime % 60000) / 1000);
-                                timerElement.innerText = `${minutes}m ${seconds}s`;
-                            }
-                        }, 1000);
-                    }
-                });
-            } catch (error) {
-                console.error("Error fetching data:", error);
+          if (userReaction) {
+            if (userReaction.action === action) {
+              alert(`You have already ${action}d this channel!`);
+              return;
             }
-        }
 
-        async function fetchYouTubeChannelData(channelId) {
-            const ytApiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${youtubeApiKey}`;
-            const response = await fetch(ytApiUrl);
-            const data = await response.json();
-            const channel = data.items[0];
-
-            return {
-                logo: channel.snippet.thumbnails.high.url,
-                name: channel.snippet.title,
-                subscriberCount: channel.statistics.subscriberCount,
-                videoCount: channel.statistics.videoCount
+            const updates = {
+              uidArray: firebase.firestore.FieldValue.arrayRemove(userReaction),
+              likes: channelData.likes || 0,
+              dislikes: channelData.dislikes || 0,
             };
-        }
 
-        // Update user reaction (like or dislike with toggle)
-        async function updateReaction(channelId, action) {
-            const user = auth.currentUser;
-            if (!user) {
-                alert("Please sign in to interact.");
-                return;
+            if (userReaction.action === "like") {
+              updates.likes -= 1;
+              updates.dislikes += 1;
+            } else {
+              updates.likes += 1;
+              updates.dislikes -= 1;
             }
 
-            try {
-                const channelRef = doc(db, "channels", channelId);
-                const channelSnap = await getDoc(channelRef);
-
-                if (channelSnap.exists()) {
-                    const channelData = channelSnap.data();
-                    const currentReactions = channelData.uidArray || [];
-                    const uid = user.uid;
-
-                    const userReaction = currentReactions.find((entry) => entry.uid === uid);
-
-                    if (userReaction) {
-                        if (userReaction.action === action) {
-                            alert(`You have already ${action}d this channel!`);
-                            return;
-                        }
-
-                        const updates = { uidArray: arrayRemove(userReaction) };
-
-                        if (userReaction.action === "like") {
-                            updates.likes = (channelData.likes || 0) - 1;
-                            updates.dislikes = (channelData.dislikes || 0) + 1;
-                        } else {
-                            updates.likes = (channelData.likes || 0) + 1;
-                            updates.dislikes = (channelData.dislikes || 0) - 1;
-                        }
-
-                        await updateDoc(channelRef, updates);
-                        await updateDoc(channelRef, {
-                            uidArray: arrayUnion({ uid, action }),
-                        });
-
-                        alert(`Channel ${action}d successfully!`);
-                    } else {
-                        const updates = {
-                            uidArray: arrayUnion({ uid, action }),
-                        };
-
-                        if (action === "like") {
-                            updates.likes = (channelData.likes || 0) + 1;
-                        } else {
-                            updates.dislikes = (channelData.dislikes || 0) + 1;
-                        }
-
-                        await updateDoc(channelRef, updates);
-                        alert(`Channel ${action}d successfully!`);
-                    }
-                } else {
-                    const newData = {
-                        likes: action === "like" ? 1 : 0,
-                        dislikes: action === "dislike" ? 1 : 0,
-                        uidArray: [{ uid: user.uid, action }],
-                    };
-
-                    await setDoc(channelRef, newData);
-                    alert(`Channel ${action}d successfully!`);
-                }
-
-                console.log(`✅ ${action} added for channel ID:`, channelId);
-            } catch (error) {
-                console.error(`❌ ${action} action failed:`, error.message);
-                alert(`An error occurred while trying to ${action} the channel. Try again later.`);
-            }
-        }
-
-        function setupRealTimeListener(channelId, likesElementId) {
-            const channelRef = doc(db, "channels", channelId);
-            onSnapshot(channelRef, (doc) => {
-                if (doc.exists()) {
-                    const data = doc.data();
-                    document.getElementById(likesElementId).innerText = data.likes || 0;
-                }
+            await channelRef.update(updates);
+            await channelRef.update({
+              uidArray: firebase.firestore.FieldValue.arrayUnion({ uid, action }),
             });
-        }
 
-        fetchChannels();
-    </script>
+            alert(`Channel ${action}d successfully!`);
+          } else {
+            const updates = {
+              uidArray: firebase.firestore.FieldValue.arrayUnion({ uid, action }),
+              likes: channelData.likes || 0,
+              dislikes: channelData.dislikes || 0,
+            };
 
-    <style>
-        .channel-list {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+            if (action === "like") {
+              updates.likes += 1;
+            } else {
+              updates.dislikes += 1;
+            }
+
+            await channelRef.update(updates);
+            alert(`Channel ${action}d successfully!`);
+          }
+        } else {
+          await channelRef.set({
+            likes: action === "like" ? 1 : 0,
+            dislikes: action === "dislike" ? 1 : 0,
+            uidArray: [{ uid: user.uid, action }],
+          });
+
+          alert(`Channel ${action}d successfully!`);
         }
-        .channel-item {
-            display: flex;
-            align-items: center;
-            padding: 20px;
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: 10px;
-            overflow: hidden;
+      } catch (error) {
+        console.error(`Error updating reaction: ${error.message}`);
+        alert("Something went wrong. Please try again.");
+      }
+    }
+
+    // Real-time likes and dislikes listener
+    function setupRealTimeListener(channelId, likesElementId, dislikesElementId) {
+      const channelRef = db.collection("channels").doc(channelId);
+      channelRef.onSnapshot((doc) => {
+        if (doc.exists) {
+          const data = doc.data();
+          document.getElementById(likesElementId).innerText = data.likes || 0;
+          document.getElementById(dislikesElementId).innerText = data.dislikes || 0;
         }
-        .channel-logo-wrapper {
-            flex: 0 0 100px;
-            margin-right: 20px;
-        }
-        .channel-logo {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-        }
-        .channel-details {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        .visit-channel {
-            margin-top: 10px;
-            color: #007BFF;
-            text-decoration: none;
-        }
-        .visit-channel:hover {
-            text-decoration: underline;
-        }
-    </style>
+      });
+    }
+
+    // Initialize Real-time Listeners
+    function initializeListeners() {
+      setupRealTimeListener("channel1", "channel1Likes", "channel1Dislikes");
+      setupRealTimeListener("channel2", "channel2Likes", "channel2Dislikes");
+    }
+
+    // Auth State Change Listener
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        console.log("User signed in:", user.email);
+        initializeListeners();
+      } else {
+        console.log("No user signed in.");
+      }
+    });
+
+    // CustomPortal Button Click Handler
+    document.getElementById("customPortalBtn").addEventListener("click", () => {
+      alert("Sign up or log in to access CustomPortal.");
+    });
+  </script>
 </body>
 </html>
