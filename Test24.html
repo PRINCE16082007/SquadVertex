@@ -557,7 +557,7 @@
         }, 1000);
     }
 
-    window.updateReaction = async function(channelId, action) {
+    window.updateReaction = async function (channelId, action) {
         const user = auth.currentUser;
         if (!user) {
             alert("Please sign in to interact.");
@@ -570,43 +570,66 @@
 
             if (channelSnap.exists()) {
                 const channelData = channelSnap.data();
+                const currentReactions = channelData.uidArray || [];
                 const uid = user.uid;
 
-                const uidArray = channelData.uidArray || [];
-                const userReaction = uidArray.find((entry) => entry.uid === uid);
+                // Check if user has already reacted
+                const userReaction = currentReactions.find((entry) => entry.uid === uid);
 
-                let updates = {};
                 if (userReaction) {
                     if (userReaction.action === action) {
                         alert(`You have already ${action}d this channel!`);
                         return;
-                    } else {
-                        // Remove previous reaction
-                        updates.uidArray = arrayRemove(userReaction);
-                        if (userReaction.action === "like") {
-                            updates.likes = (channelData.likes || 0) - 1;
-                        } else if (userReaction.action === "dislike") {
-                            updates.dislikes = (channelData.dislikes || 0) - 1;
-                        }
                     }
-                }
 
-                // Add new reaction
-                updates.uidArray = updates.uidArray || arrayUnion({ uid, action });
-                if (action === "like") {
-                    updates.likes = (channelData.likes || 0) + 1;
-                } else if (action === "dislike") {
-                    updates.dislikes = (channelData.dislikes || 0) + 1;
-                }
+                    // Toggle reaction
+                    const updates = { uidArray: arrayRemove(userReaction) };
 
-                await updateDoc(channelRef, updates);
-                alert(`Channel ${action}d successfully!`);
+                    if (userReaction.action === "like") {
+                        updates.likes = (channelData.likes || 0) - 1;
+                        updates.dislikes = (channelData.dislikes || 0) + 1;
+                    } else {
+                        updates.likes = (channelData.likes || 0) + 1;
+                        updates.dislikes = (channelData.dislikes || 0) - 1;
+                    }
+
+                    await updateDoc(channelRef, updates);
+                    await updateDoc(channelRef, {
+                        uidArray: arrayUnion({ uid, action }),
+                    });
+
+                    alert(`Channel ${action}d successfully!`);
+                } else {
+                    // New reaction
+                    const updates = {
+                        uidArray: arrayUnion({ uid, action }),
+                    };
+
+                    if (action === "like") {
+                        updates.likes = (channelData.likes || 0) + 1;
+                    } else {
+                        updates.dislikes = (channelData.dislikes || 0) + 1;
+                    }
+
+                    await updateDoc(channelRef, updates);
+                    alert(`Channel ${action}d successfully!`);
+                }
             } else {
-                console.error("Channel document does not exist.");
+                // New document if it doesn't exist
+                const newData = {
+                    likes: action === "like" ? 1 : 0,
+                    dislikes: action === "dislike" ? 1 : 0,
+                    uidArray: [{ uid: user.uid, action }],
+                };
+
+                await setDoc(channelRef, newData);
+                alert(`Channel ${action}d successfully!`);
             }
+
+            console.log(`✅ ${action} added for channel ID:`, channelId);
         } catch (error) {
-            console.error(`Error updating reaction:`, error);
-            alert(`Error: Could not update ${action}`);
+            console.error(`❌ ${action} action failed:`, error.message);
+            alert(`An error occurred while trying to ${action} the channel. Try again later.`);
         }
     };
 
