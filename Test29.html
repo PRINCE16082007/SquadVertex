@@ -4,13 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Channel Data Entry</title>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background-color: #1a1a1a; color: white; }
         .container { max-width: 500px; margin: auto; padding: 20px; background: #2a2a2a; border-radius: 8px; }
         label { display: block; margin-top: 10px; }
-        input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; background: #333; color: white; border: none; border-radius: 4px; }
+        input, select { width: 100%; padding: 8px; margin-top: 5px; background: #333; color: white; border: none; border-radius: 4px; }
         button { width: 100%; padding: 10px; background: #007bff; border: none; color: white; cursor: pointer; margin-top: 10px; }
         button:hover { background: #0056b3; }
     </style>
@@ -19,6 +17,10 @@
 
     <div class="container">
         <h2>Channel Data Entry</h2>
+        
+        <label>SVX Number:</label>
+        <input type="number" id="svxNumber" placeholder="Enter SVX Number">
+
         <label>Channel ID:</label>
         <input type="text" id="channelId" placeholder="Enter Channel ID">
 
@@ -46,8 +48,14 @@
         <button onclick="addChannel()">Add Channel</button>
     </div>
 
-    <script>
-        // Firebase Config
+    <!-- ✅ Firebase SDK (Using Module) -->
+    <script type="module">
+        // ✅ Import Firebase
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-app.js';
+        import { getFirestore, collection, getDoc, setDoc, doc } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js';
+        import { getAuth } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-auth.js';
+
+        // ✅ Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
             authDomain: "squadvertex2007.firebaseapp.com",
@@ -57,11 +65,14 @@
             appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
         };
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+        // ✅ Initialize Firebase & Firestore
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
 
-        function addChannel() {
+        // ✅ Function to Add Channel
+        window.addChannel = async function() {
+            let svxNumber = document.getElementById("svxNumber").value.trim();
             let channelId = document.getElementById("channelId").value.trim();
             let badges = document.getElementById("badges").value;
             let bg = document.getElementById("bg").value;
@@ -70,22 +81,33 @@
             let portalFile = document.getElementById("portalFile").value;
             let portalTimerInput = document.getElementById("portalTimer").value;
 
-            if (!channelId) {
-                alert("Channel ID is required!");
+            if (!svxNumber || !channelId) {
+                alert("SVX Number and Channel ID are required!");
                 return;
             }
 
-            // Convert datetime-local input to timestamp (ms)
-            let portalTimer = portalTimerInput ? Date.parse(portalTimerInput) : Date.now();
+            let documentId = `channel${svxNumber}`;
+
+            // ✅ Check if document already exists
+            let docRef = doc(db, "channels", documentId);
+            let docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                alert("Error: A channel with this SVX number already exists!");
+                return;
+            }
+
+            // ✅ Convert Date & Time to Timestamp (ms)
+            let portalTimer = portalTimerInput ? new Date(portalTimerInput).getTime() : Date.now();
 
             let channelData = {
+                svxNumber: parseInt(svxNumber),
                 badges: badges,
                 bg: bg,
                 displayOrder: displayOrder,
-                likes: 0,  // Default value
-                dislikes: 0, // Default value
+                likes: 0,  
+                dislikes: 0,
                 id: channelId,
-                uidArray: [], // Auto-generated empty array
+                uidArray: [],
                 portal: {
                     file: portalFile,
                     timer: portalTimer
@@ -93,14 +115,10 @@
                 vip: vip
             };
 
-            db.collection("channels").doc(channelId).set(channelData)
-                .then(() => {
-                    alert("Channel added successfully!");
-                })
-                .catch((error) => {
-                    alert("Error: " + error);
-                });
-        }
+            // ✅ Store in Firestore
+            await setDoc(docRef, channelData);
+            alert("Channel added successfully!");
+        };
     </script>
 
 </body>
