@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SquadVertex - Add Channel</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background-color: #1a1a1a; 
+            color: white;
+            text-align: center;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: auto; 
+            padding: 20px; 
+            background: #2a2a2a; 
+            border-radius: 8px; 
+            border: 2px solid rgba(0, 255, 0, 0.6);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.8);
+        }
+        h2 { color: #00ff00; }
+        p { font-size: 15px; opacity: 0.8; }
+        label { display: block; margin-top: 10px; font-size: 16px; text-align: left; }
+        input, select { 
+            width: 100%; 
+            padding: 12px; 
+            margin-top: 5px; 
+            background: #333; 
+            color: white; 
+            border: none; 
+            border-radius: 4px;
+            font-size: 15px;
+        }
+        button { 
+            width: 100%; 
+            padding: 12px; 
+            background: #00ff00; 
+            border: none; 
+            color: black; 
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer; 
+            margin-top: 15px;
+        }
+        button:hover { background: #009900; }
+
+        /* ✅ Popup Styles */
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #222;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            width: 500px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.9);
+        }
+        .popup h2 { color: #00ff00; font-size: 22px; }
+        .popup p { font-size: 17px; }
+        .popup button {
+            background: #00ff00;
+            color: black;
+            margin-top: 15px;
+            padding: 10px 20px;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* ✅ Footer */
+        footer {
+            margin-top: 50px;
+            padding: 15px;
+            background: #111;
+            color: #aaa;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🔥 SquadVertex Channel Manager 🔥</h1>
+    <p>Manage your channels with the best platform, created by **Prince**.</p>
+
+    <div class="container">
+        <h2>📌 Add New Channel</h2>
+
+        <label>SVX Number:</label>
+        <input type="number" id="svxNumber" placeholder="Enter SVX Number (e.g., 17)">
+
+        <label>Channel ID:</label>
+        <input type="text" id="channelId" placeholder="YouTube Channel ID">
+
+        <label>Badges URL:</label>
+        <input type="text" id="badges" placeholder="Badge Image URL (optional)">
+
+        <label>Background Image URL:</label>
+        <input type="text" id="bg" placeholder="Channel Background Image URL">
+
+        <label>Display Order:</label>
+        <input type="number" id="displayOrder" placeholder="Enter display order (1,2,3...)">
+
+        <label>VIP Status:</label>
+        <select id="vip">
+            <option value="false">False</option>
+            <option value="true">True</option>
+        </select>
+
+        <label>Portal File URL:</label>
+        <input type="text" id="portalFile" placeholder="Portal File (optional)">
+
+        <label>Portal Timer (Date & Time):</label>
+        <input type="datetime-local" id="portalTimer">
+
+        <button onclick="addChannel()">🚀 Add Channel</button>
+    </div>
+
+    <!-- ✅ Success Popup -->
+    <div class="popup" id="successPopup">
+        <h2>🎉 Success!</h2>
+        <p>The channel has been successfully added to the SquadVertex database! 🚀</p>
+        <p><b>Developed & Managed by: Prince</b></p>
+        <button onclick="closePopup()">Next ➡️</button>
+    </div>
+
+    <footer>
+        © 2024-2025 SquadVertex. All rights reserved.
+    </footer>
+
+    <!-- ✅ Firebase SDK (Using Module) -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-app.js';
+        import { getFirestore, collection, getDoc, setDoc, doc } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-firestore.js';
+        import { getAuth } from 'https://www.gstatic.com/firebasejs/9.19.1/firebase-auth.js';
+
+        // ✅ Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+            authDomain: "squadvertex2007.firebaseapp.com",
+            projectId: "squadvertex2007",
+            storageBucket: "squadvertex2007.appspot.com",
+            messagingSenderId: "168905083514",
+            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // ✅ Function to Add Channel
+        window.addChannel = async function() {
+            let svxNumber = document.getElementById("svxNumber").value.trim();
+            let channelId = document.getElementById("channelId").value.trim();
+            let badges = document.getElementById("badges").value;
+            let bg = document.getElementById("bg").value;
+            let displayOrder = parseInt(document.getElementById("displayOrder").value) || 0;
+            let vip = document.getElementById("vip").value === "true";
+            let portalFile = document.getElementById("portalFile").value;
+            let portalTimerInput = document.getElementById("portalTimer").value;
+
+            if (!svxNumber || !channelId) {
+                alert("❌ SVX Number and Channel ID are required!");
+                return;
+            }
+
+            let documentId = `channel${svxNumber}`;
+            let docRef = doc(db, "channels", documentId);
+            let docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                alert("⚠️ Error: A channel with this SVX number already exists!");
+                return;
+            }
+
+            let portalTimer = portalTimerInput ? new Date(portalTimerInput).getTime() : Date.now();
+
+            let channelData = {
+                svxNumber: parseInt(svxNumber),
+                badges: badges,
+                bg: bg,
+                displayOrder: displayOrder,
+                likes: 0,
+                dislikes: 0,
+                id: channelId,
+                uidArray: [],  
+                portal: { file: portalFile, timer: portalTimer },
+                vip: vip
+            };
+
+            await setDoc(docRef, channelData);
+            document.getElementById("successPopup").style.display = "block";
+        };
+
+        // ✅ Close Popup and Refresh Page
+        window.closePopup = function() {
+            location.reload();
+        };
+    </script>
+
+</body>
+</html>
