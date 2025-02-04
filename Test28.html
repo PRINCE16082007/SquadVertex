@@ -786,44 +786,61 @@ footer {
     // Attach the function to the global window object
     window.toggleHiddenButtons = toggleHiddenButtons;
     async function fetchChannels() {
-        const channelList = document.getElementById('channelList');
+    const channelList = document.getElementById('channelList');
 
-        try {
+    try {
         const querySnapshot = await getDocs(collection(db, "channels")); 
-            querySnapshot.forEach(async (doc) => {
-                const channelData = doc.data();
-                const channelId = channelData.id;
+        
+        // Pehle documents ko ek array mein collect karo
+        const channelsArray = [];
+        querySnapshot.forEach(doc => {
+            channelsArray.push(doc);
+        });
+        
+        // Ab channelsArray ko displayOrder field ke hisaab se sort karo
+        channelsArray.sort((a, b) => {
+            return a.data().displayOrder - b.data().displayOrder;
+        });
 
-                const ytData = await fetchYouTubeChannelData(channelId);
+        // Sorted array ke hisaab se channels render karo
+        channelsArray.forEach(async (doc) => {
+            const channelData = doc.data();
+            const channelId = channelData.id;
 
-                const channelItem = document.createElement('div');
-                channelItem.classList.add('channel-item');
-                channelItem.id = `channel-bg-${doc.id}`;
-                channelItem.style.backgroundImage = `url('${channelData.bg}')`;
+            const ytData = await fetchYouTubeChannelData(channelId);
 
-                channelItem.innerHTML = `
-                    <div class="channel-info">
-                        <div class="channel-logo-wrapper">
-                            <img src="${ytData.logo}" alt="${ytData.name}" class="channel-logo">
-                        </div>
-                        <div class="channel-details">
-                            <h3>${ytData.name}</h3>
-                            <p class="subscriber-count">Subscribers: ${ytData.subscriberCount}</p>
-                            <p class="video-count">Videos: ${ytData.videoCount}</p>
-                            <div class="vip-badge" style="display: ${channelData.vip ? 'block' : 'none'};">VIP</div>
-                            <a href="https://youtube.com/channel/${channelId}" class="visit-channel" target="_blank">Visit Channel</a>
-                            <div class="reaction-container">
-                                <button class="reaction-btn like-btn" onclick="updateReaction('${doc.id}', 'like')">👍<span id="likesCount-${doc.id}">0</span></button>
-                                <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.id}', 'dislike')">👎</button>
-                            </div>
-                            <button class="test-button" id="lockedButton-${doc.id}" disabled>🔒 CustomPortal</button>
-                            <div class="countdown-timer" id="countdown-${doc.id}"></div>
-                        </div>
+            const channelItem = document.createElement('div');
+            channelItem.classList.add('channel-item');
+            channelItem.id = `channel-bg-${doc.id}`;
+            channelItem.style.backgroundImage = `url('${channelData.bg}')`;
+
+            channelItem.innerHTML = `
+                <div class="channel-info">
+                    <div class="channel-logo-wrapper">
+                        <img src="${ytData.logo}" alt="${ytData.name}" class="channel-logo">
                     </div>
-                `;
+                    <div class="channel-details">
+                        <h3>${ytData.name}</h3>
+                        <p class="subscriber-count">Subscribers: ${ytData.subscriberCount}</p>
+                        <p class="video-count">Videos: ${ytData.videoCount}</p>
+                        <div class="vip-badge" style="display: ${channelData.vip ? 'block' : 'none'};">VIP</div>
+                        <a href="https://youtube.com/channel/${channelId}" class="visit-channel" target="_blank">Visit Channel</a>
+                        <div class="reaction-container">
+                            <button class="reaction-btn like-btn" onclick="updateReaction('${doc.id}', 'like')">👍<span id="likesCount-${doc.id}">0</span></button>
+                            <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.id}', 'dislike')">👎</button>
+                        </div>
+                        <button class="test-button" id="lockedButton-${doc.id}" disabled>🔒 CustomPortal</button>
+                        <div class="countdown-timer" id="countdown-${doc.id}"></div>
+                    </div>
+                </div>
+            `;
 
-                channelList.appendChild(channelItem);
-
+            channelList.appendChild(channelItem);
+        });
+    } catch (error) {
+        console.error("Error fetching channels:", error);
+    }
+}
                 setupRealTimeListener(doc.id, `likesCount-${doc.id}`);
 
                 if (channelData.portal && channelData.portal.timer) {
