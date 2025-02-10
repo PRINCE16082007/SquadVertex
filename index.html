@@ -656,6 +656,61 @@ footer {
   }
 }
     </style> 
+<script>
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    showInstallPopup(); // Custom popup function call
+});
+
+function showInstallPopup() {
+    let installBanner = document.createElement("div");
+    installBanner.innerHTML = `
+        <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+                    background: rgba(0, 0, 0, 0.8); color: white; padding: 10px 20px;
+                    border-radius: 10px; text-align: center; z-index: 1000;">
+            Install SquadVertex App?
+            <button id="install-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; 
+                color: white; border: none; cursor: pointer;">Install</button>
+            <button id="close-btn" style="margin-left: 5px; padding: 5px 10px; background: #dc3545; 
+                color: white; border: none; cursor: pointer;">No</button>
+        </div>
+    `;
+    document.body.appendChild(installBanner);
+
+    document.getElementById("install-btn").addEventListener("click", () => {
+        installBanner.remove();
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(choice => {
+                if (choice.outcome === "accepted") {
+                    console.log("User installed the app");
+                }
+                deferredPrompt = null;
+            });
+        }
+    });
+
+    document.getElementById("close-btn").addEventListener("click", () => {
+        installBanner.remove();
+        localStorage.setItem("installDismissed", new Date().getTime()); // Store dismiss time
+    });
+}
+
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+
+    let lastDismiss = localStorage.getItem("installDismissed");
+    let now = new Date().getTime();
+    
+    if (!lastDismiss || now - lastDismiss > 30 * 24 * 60 * 60 * 1000) { // 30 days
+        showInstallPopup();
+    }
+});
+</script>
  </head> 
  <body>
   <div class="banner"> 
