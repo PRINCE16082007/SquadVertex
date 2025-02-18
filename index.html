@@ -26,6 +26,67 @@
             overflow-x: hidden;
         }
 
+/* Add skeleton styles */
+        .skeleton-screen {
+            width: 90%;
+            margin: 30px auto;
+        }
+
+        .skeleton-channel-item {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            background: #222;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .skeleton-logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #333;
+            margin-right: 20px;
+        }
+
+        .skeleton-details {
+            flex: 1;
+        }
+
+        .skeleton-line {
+            height: 20px;
+            background: #333;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .skeleton-line::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -150%;
+            width: 150%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent 25%,
+                rgba(255,255,255,0.1) 50%,
+                transparent 75%
+            );
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            100% {
+                left: 200%;
+            }
+        }
+
 .subscription-button {
     position: fixed;  /* Ya phir absolute, as per requirement */
     bottom: 40px;  /* Adjust for best placement */
@@ -796,8 +857,46 @@ function showInstallPopup() {
     <button style="width: 250px; margin: 8px" onclick="location.href='about us.html'">About Us</button> 
 </div>
     <h1>Channels</h1>
-    <div class="channel-list" id="channelList">
-        <!-- Dynamically populated channel items will appear here -->
+       <div class="channel-list" id="channelList">
+        <!-- Skeleton Loading Screen -->
+        <div class="skeleton-screen">
+            <div class="skeleton-channel-item">
+                <div class="skeleton-logo"></div>
+                <div class="skeleton-details">
+                    <div class="skeleton-line" style="width: 60%"></div>
+                    <div class="skeleton-line" style="width: 80%"></div>
+                    <div class="skeleton-line" style="width: 40%"></div>
+                    <div class="skeleton-line" style="width: 30%; height: 30px"></div>
+                </div>
+            </div>
+            <div class="skeleton-channel-item">
+                <div class="skeleton-logo"></div>
+                <div class="skeleton-details">
+                    <div class="skeleton-line" style="width: 60%"></div>
+                    <div class="skeleton-line" style="width: 80%"></div>
+                    <div class="skeleton-line" style="width: 40%"></div>
+                    <div class="skeleton-line" style="width: 30%; height: 30px"></div>
+                </div>
+            </div>
+           <div class="skeleton-channel-item">
+                <div class="skeleton-logo"></div>
+                <div class="skeleton-details">
+                    <div class="skeleton-line" style="width: 60%"></div>
+                    <div class="skeleton-line" style="width: 80%"></div>
+                    <div class="skeleton-line" style="width: 40%"></div>
+                    <div class="skeleton-line" style="width: 30%; height: 30px"></div>
+                </div>
+            </div>
+            <div class="skeleton-channel-item">
+                <div class="skeleton-logo"></div>
+                <div class="skeleton-details">
+                    <div class="skeleton-line" style="width: 60%"></div>
+                    <div class="skeleton-line" style="width: 80%"></div>
+                    <div class="skeleton-line" style="width: 40%"></div>
+                    <div class="skeleton-line" style="width: 30%; height: 30px"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
 <footer>
@@ -918,12 +1017,15 @@ function showInstallPopup() {
 
     // Attach the function to the global window object
     window.toggleHiddenButtons = toggleHiddenButtons;
+
+   // Modified fetchChannels function with skeleton handling
     async function fetchChannels() {
         const channelList = document.getElementById('channelList');
+        const skeletonScreen = document.querySelector('.skeleton-screen');
 
         try {
-        const querySnapshot = await getDocs(collection(db, "channels")); 
-            querySnapshot.forEach(async (doc) => {
+            const querySnapshot = await getDocs(collection(db, "channels"));
+            const channelsPromises = querySnapshot.docs.map(async (doc) => {
                 const channelData = doc.data();
                 const channelId = channelData.id;
 
@@ -955,16 +1057,30 @@ function showInstallPopup() {
                     </div>
                 `;
 
-                channelList.appendChild(channelItem);
-
                 setupRealTimeListener(doc.id, `likesCount-${doc.id}`);
 
                 if (channelData.portal && channelData.portal.timer) {
                     initializeCountdownTimer(doc.id, channelData.portal.timer.seconds, channelData.portal.file);
                 }
+
+                return channelItem;
             });
+
+            // Wait for all channels to process
+            const channelItems = await Promise.all(channelsPromises);
+            
+            // Remove skeleton
+            if (skeletonScreen) {
+                skeletonScreen.remove();
+            }
+
+            // Append all channels
+            channelItems.forEach(item => channelList.appendChild(item));
         } catch (error) {
             console.error("Error fetching data:", error);
+            if (skeletonScreen) {
+                skeletonScreen.remove();
+            }
         }
     }
 
