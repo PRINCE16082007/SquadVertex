@@ -306,70 +306,80 @@
   </div>
 
   <!-- Firebase and YouTube API Integration -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
-  <script>
-    // Firebase Initialization
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+  <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    // Function to render embedded videos
-    async function renderVideos() {
-      try {
-        const shortsContainer = document.getElementById("shortsContainer");
-        const replaysContainer = document.getElementById("replaysContainer");
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+            authDomain: "squadvertex2007.firebaseapp.com",
+            projectId: "squadvertex2007",
+            storageBucket: "squadvertex2007.appspot.com",
+            messagingSenderId: "168905083514",
+            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+        };
 
-        // Clear skeleton loading
-        shortsContainer.innerHTML = "";
-        replaysContainer.innerHTML = "";
+        // Initialize Firebase & Firestore
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-        // Fetch shorts and videos data from Firestore
-        const shortsDoc = await db.collection("002-channel").doc("shorts").get();
-        const videosDoc = await db.collection("002-channel").doc("videos").get();
+        // Function to render embedded videos
+        async function renderVideos() {
+            try {
+                console.log("Fetching Firestore data...");
+                
+                const shortsContainer = document.getElementById("shortsContainer");
+                const replaysContainer = document.getElementById("replaysContainer");
 
-        if (shortsDoc.exists) {
-          const shortsData = shortsDoc.data().content;
-          shortsData.forEach(link => {
-            const videoId = extractVideoId(link);
-            if (videoId) {
-              const div = document.createElement("div");
-              div.classList.add("shorts-item");
-              div.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
-              shortsContainer.appendChild(div);
+                // Remove skeleton loaders
+                shortsContainer.innerHTML = "";
+                replaysContainer.innerHTML = "";
+
+                // Fetch shorts and videos data
+                const shortsRef = doc(db, "002-channel", "shorts");
+                const videosRef = doc(db, "002-channel", "videos");
+
+                const shortsSnap = await getDoc(shortsRef);
+                const videosSnap = await getDoc(videosRef);
+
+                if (shortsSnap.exists()) {
+                    const shortsData = shortsSnap.data().content || [];
+                    shortsData.forEach(link => appendVideo(shortsContainer, link));
+                } else {
+                    console.log("No shorts found.");
+                }
+
+                if (videosSnap.exists()) {
+                    const videosData = videosSnap.data().content || [];
+                    videosData.forEach(link => appendVideo(replaysContainer, link));
+                } else {
+                    console.log("No replays found.");
+                }
+            } catch (error) {
+                console.error("Error fetching videos:", error);
             }
-          });
         }
 
-        if (videosDoc.exists) {
-          const videosData = videosDoc.data().content;
-          videosData.forEach(link => {
-            const videoId = extractVideoId(link);
-            if (videoId) {
-              const div = document.createElement("div");
-              div.classList.add("replays-item");
-              div.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
-              replaysContainer.appendChild(div);
-            }
-          });
+        // Function to extract YouTube Video ID from a URL
+        function extractVideoId(url) {
+            const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*embed\/|.*v\/|.*watch\?v=))([^?&]+)/);
+            return match ? match[1] : null;
         }
-      } catch (error) {
-        console.error("Error fetching videos:", error);
-      }
-    }
 
-    // Function to extract YouTube Video ID from a URL
-    function extractVideoId(url) {
-      const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*embed\/|.*v\/|.*watch\?v=))([^?&]+)/);
-      return match ? match[1] : null;
-    }
+        // Function to create and append video container
+        function appendVideo(container, url) {
+            const videoId = extractVideoId(url);
+            if (videoId) {
+                const div = document.createElement("div");
+                div.classList.add("video-item");
+                div.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
+                container.appendChild(div);
+            }
+        }
+
+        // Run on DOM load
+        window.addEventListener("DOMContentLoaded", renderVideos);
 
     // Fetch YouTube Subscribers
     const apiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
