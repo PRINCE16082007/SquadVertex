@@ -2,18 +2,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seating Arrangement</title>
-    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/react-dnd/dist/ReactDnD.min.js"></script>
-    <script src="https://unpkg.com/react-dnd-html5-backend/dist/ReactDnDHTML5Backend.min.js"></script>
+    <title>Seat Allocation System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dnd/16.0.1/ReactDnD.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dnd-html5-backend/16.0.1/ReactDnDHTML5Backend.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.5/babel.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; }
-        .container { display: flex; gap: 20px; padding: 20px; }
-        .students, .rooms { border: 1px solid #ccc; padding: 10px; }
-        .student { padding: 5px; background: blue; color: white; margin: 5px; cursor: pointer; }
-        .seat { width: 40px; height: 40px; border: 1px solid gray; display: inline-block; text-align: center; }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .room { border: 2px solid black; padding: 20px; margin: 10px; display: inline-block; }
+        .student { padding: 10px; border: 1px solid gray; cursor: grab; background-color: lightblue; }
     </style>
 </head>
 <body>
@@ -21,86 +19,57 @@
     <script type="text/babel">
         const { useState } = React;
         const { DndProvider, useDrag, useDrop } = ReactDnD;
-        const { HTML5Backend } = ReactDnDHTML5Backend;const students = [
-        { id: 1, name: "Aryan", class: "10A", gender: "M" },
-        { id: 2, name: "Priya", class: "10A", gender: "F" }
-    ];
-
-    const rooms = [
-        { id: "101", layout: [4, 5, 4, 5], type: "Boys" },
-        { id: "102", layout: [5, 5, 5, 5], type: "Girls" }
-    ];
-
-    function StudentIcon({ student }) {
+        const { HTML5Backend } = ReactDnDHTML5Backend;const Student = ({ name, type }) => {
         const [{ isDragging }, drag] = useDrag(() => ({
             type: "STUDENT",
-            item: student,
-            collect: (monitor) => ({
-                isDragging: !!monitor.isDragging(),
-            }),
+            item: { name },
+            collect: (monitor) => ({ isDragging: !!monitor.isDragging() })
         }));
         return (
-            <div ref={drag} className="student">
-                {student.name} ({student.class}-{student.gender})
+            <div ref={drag} className="student" style={{ opacity: isDragging ? 0.5 : 1 }}>
+                {name}
             </div>
         );
-    }
+    };
 
-    function Seat({ seatId, onDrop }) {
+    const Room = ({ students, onDrop }) => {
         const [{ isOver }, drop] = useDrop(() => ({
             accept: "STUDENT",
-            drop: (item) => onDrop(item, seatId),
-            collect: (monitor) => ({
-                isOver: !!monitor.isOver(),
-            }),
+            drop: (item) => onDrop(item.name),
+            collect: (monitor) => ({ isOver: !!monitor.isOver() })
         }));
         return (
-            <div ref={drop} className="seat" style={{ background: isOver ? "lightgreen" : "white" }}>
-                {seatId}
-            </div>
-        );
-    }
-
-    function Room({ room, onDropStudent }) {
-        return (
-            <div className="room">
-                <h2>Room {room.id} ({room.type})</h2>
-                {room.layout.map((cols, rowIndex) => (
-                    <div key={rowIndex}>
-                        {[...Array(cols)].map((_, colIndex) => (
-                            <Seat key={colIndex} seatId={`${room.id}-${rowIndex}-${colIndex}`} onDrop={onDropStudent} />
-                        ))}
-                    </div>
+            <div ref={drop} className="room" style={{ backgroundColor: isOver ? "lightgreen" : "white" }}>
+                <h4>Room</h4>
+                {students.map((student, index) => (
+                    <div key={index} className="student">{student}</div>
                 ))}
             </div>
         );
-    }
+    };
 
-    function SeatingArrangement() {
-        const [seating, setSeating] = useState({});
-        const handleDropStudent = (student, seatId) => {
-            setSeating((prev) => ({ ...prev, [seatId]: student }));
+    const App = () => {
+        const [roomStudents, setRoomStudents] = useState([]);
+        const studentsList = ["John", "Alice", "Bob", "Emma"];
+
+        const handleDrop = (name) => {
+            setRoomStudents((prev) => [...prev, name]);
         };
+
         return (
             <DndProvider backend={HTML5Backend}>
-                <div className="container">
-                    <div className="students">
-                        <h2>Students</h2>
-                        {students.map((s) => (
-                            <StudentIcon key={s.id} student={s} />
-                        ))}
-                    </div>
-                    <div className="rooms">
-                        {rooms.map((room) => (
-                            <Room key={room.id} room={room} onDropStudent={handleDropStudent} />
-                        ))}
-                    </div>
+                <h2>Seat Allocation System</h2>
+                <div>
+                    {studentsList.map((name, index) => (
+                        <Student key={index} name={name} />
+                    ))}
                 </div>
+                <Room students={roomStudents} onDrop={handleDrop} />
             </DndProvider>
         );
-    }
+    };
 
-    ReactDOM.render(<SeatingArrangement />, document.getElementById("root"));
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
 
 </body>
