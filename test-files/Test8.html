@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,67 +11,191 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.5/babel.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
-        .room { border: 2px solid black; padding: 20px; margin: 10px; display: inline-block; }
-        .student { padding: 10px; border: 1px solid gray; cursor: grab; background-color: lightblue; }
+        .container { display: flex; gap: 20px; }
+        .student-list { width: 200px; }
+        .student { 
+            padding: 10px; margin: 5px; 
+            border: 1px solid #ccc; cursor: grab;
+            background-color: #e3f2fd; 
+        }
+        .room { margin: 10px; padding: 10px; border: 2px solid #666; }
+        .grid { display: grid; gap: 5px; }
+        .seat {
+            width: 60px; height: 60px;
+            border: 1px solid #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.8em;
+        }
+        .occupied { background-color: #c8e6c9; }
+        .male { background-color: #bbdefb; }
+        .female { background-color: #f8bbd0; }
     </style>
 </head>
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useEffect } = React;
         const { DndProvider, useDrag, useDrop } = ReactDnD;
-        const { HTML5Backend } = ReactDnDHTML5Backend;const Student = ({ name, type }) => {
-        const [{ isDragging }, drag] = useDrag(() => ({
-            type: "STUDENT",
-            item: { name },
-            collect: (monitor) => ({ isDragging: !!monitor.isDragging() })
-        }));
-        return (
-            <div ref={drag} className="student" style={{ opacity: isDragging ? 0.5 : 1 }}>
-                {name}
-            </div>
-        );
-    };
+        const { HTML5Backend } = ReactDnDHTML5Backend;
 
-    const Room = ({ students, onDrop }) => {
-        const [{ isOver }, drop] = useDrop(() => ({
-            accept: "STUDENT",
-            drop: (item) => onDrop(item.name),
-            collect: (monitor) => ({ isOver: !!monitor.isOver() })
-        }));
-        return (
-            <div ref={drop} className="room" style={{ backgroundColor: isOver ? "lightgreen" : "white" }}>
-                <h4>Room</h4>
-                {students.map((student, index) => (
-                    <div key={index} className="student">{student}</div>
-                ))}
-            </div>
-        );
-    };
-
-    const App = () => {
-        const [roomStudents, setRoomStudents] = useState([]);
-        const studentsList = ["John", "Alice", "Bob", "Emma"];
-
-        const handleDrop = (name) => {
-            setRoomStudents((prev) => [...prev, name]);
+        const initialData = {
+            students: [
+                { id: 1, name: "Aryan", class: "10A", gender: "M" },
+                { id: 2, name: "Priya", class: "10A", gender: "F" },
+                { id: 3, name: "Rahul", class: "10B", gender: "M" },
+                { id: 4, name: "Neha", class: "10A", gender: "F" }
+            ],
+            rooms: [
+                { id: "101", rows: 5, cols: 6, type: "Boys" },
+                { id: "102", rows: 4, cols: 6, type: "Girls" }
+            ],
+            seating: {}
         };
 
-        return (
-            <DndProvider backend={HTML5Backend}>
-                <h2>Seat Allocation System</h2>
-                <div>
-                    {studentsList.map((name, index) => (
-                        <Student key={index} name={name} />
-                    ))}
+        const Student = ({ student }) => {
+            const [{ isDragging }, drag] = useDrag(() => ({
+                type: "student",
+                item: { student },
+                collect: (monitor) => ({
+                    isDragging: !!monitor.isDragging()
+                })
+            }));
+
+            return (
+                <div ref={drag} className={`student ${student.gender === 'M' ? 'male' : 'female'}`}
+                     style={{ opacity: isDragging ? 0.5 : 1 }}>
+                    {student.name} ({student.class})
                 </div>
-                <Room students={roomStudents} onDrop={handleDrop} />
-            </DndProvider>
-        );
-    };
+            );
+        };
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-</script>
+        const Seat = ({ room, row, col, student, onDrop }) => {
+            const [{ isOver }, drop] = useDrop(() => ({
+                accept: "student",
+                drop: (item) => onDrop(item.student, room, row, col),
+                collect: (monitor) => ({
+                    isOver: !!monitor.isOver()
+                })
+            }));
 
+            return (
+                <div ref={drop} className={`seat ${student ? 'occupied' : ''}`} 
+                     style={{ backgroundColor: isOver ? '#ffecb3' : '' }}>
+                    {student && (
+                        <div>
+                            {student.name}<br/>
+                            {student.class}<br/>
+                            {student.gender === 'M' ? '♂' : '♀'}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const RoomGrid = ({ room, seating, onDrop }) => {
+            const grid = [];
+            for (let i = 0; i < room.rows; i++) {
+                const row = [];
+                for (let j = 0; j < room.cols; j++) {
+                    const studentId = seating[room.id]?.[i]?.[j];
+                    const student = initialData.students.find(s => s.id === studentId);
+                    row.push(
+                        <Seat key={`${i}-${j}`} 
+                              room={room} 
+                              row={i} 
+                              col={j} 
+                              student={student}
+                              onDrop={onDrop} />
+                    );
+                }
+                grid.push(
+                    <div key={i} className="grid" style={{ gridTemplateColumns: `repeat(${room.cols}, 60px)` }}>
+                        {row}
+                    </div>
+                );
+            }
+
+            return (
+                <div className="room">
+                    <h3>Room {room.id} ({room.type})</h3>
+                    {grid}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [seating, setSeating] = useState({});
+            const [warnings, setWarnings] = useState([]);
+
+            useEffect(() => {
+                // Initialize seating structure
+                const initialSeating = {};
+                initialData.rooms.forEach(room => {
+                    initialSeating[room.id] = Array(room.rows).fill()
+                        .map(() => Array(room.cols).fill(null));
+                });
+                setSeating(initialSeating);
+            }, []);
+
+            const handleDrop = (student, room, row, col) => {
+                // Check gender match
+                if ((room.type === 'Boys' && student.gender !== 'M') || 
+                    (room.type === 'Girls' && student.gender !== 'F')) {
+                    alert(`Gender mismatch! Room ${room.id} is for ${room.type}`);
+                    return;
+                }
+
+                // Update seating
+                const newSeating = { ...seating };
+                newSeating[room.id][row][col] = student.id;
+                setSeating(newSeating);
+
+                // Check same class neighbors
+                const neighbors = [];
+                if (col > 0 && newSeating[room.id][row][col-1]) {
+                    neighbors.push(newSeating[room.id][row][col-1]);
+                }
+                if (col < room.cols-1 && newSeating[room.id][row][col+1]) {
+                    neighbors.push(newSeating[room.id][row][col+1]);
+                }
+
+                const sameClassNeighbors = neighbors.some(neighborId => {
+                    const neighbor = initialData.students.find(s => s.id === neighborId);
+                    return neighbor.class === student.class;
+                });
+
+                if (sameClassNeighbors) {
+                    alert(`Warning: ${student.name} is seated next to same class student!`);
+                }
+            };
+
+            return (
+                <DndProvider backend={HTML5Backend}>
+                    <h1>Seating Arrangement System</h1>
+                    <div className="container">
+                        <div className="student-list">
+                            <h2>Students</h2>
+                            {initialData.students.map(student => (
+                                <Student key={student.id} student={student} />
+                            ))}
+                        </div>
+                        <div>
+                            {initialData.rooms.map(room => (
+                                <RoomGrid key={room.id} 
+                                          room={room} 
+                                          seating={seating}
+                                          onDrop={handleDrop} />
+                            ))}
+                        </div>
+                    </div>
+                </DndProvider>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
 </body>
 </html>
