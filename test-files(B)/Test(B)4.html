@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Seat Manager Pro</title>
-        <style>
+    <style>
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
@@ -184,14 +184,12 @@ function init() {
 
 // Enhanced Room Configuration
 function addNewRoom() {
-    const timestamp = Date.now().toString();
     const newRoom = {
-        id: timestamp,
-        name: `Room ${timestamp.substr(-4)}`,
+        id: Date.now().toString(),
+        name: `Room ${Date.now().toString().substr(-4)}`,
         type: "Mixed",
         rows: 5,
         cols: 6,
-        locked: false,
         neighborCheck: "none",
         seating: Array(5).fill().map(() => Array(6).fill(null))
     };
@@ -224,11 +222,11 @@ function createSettingsPanel() {
                     </div>
                     <div>
                         <label>Rows:</label>
-                        <input type="number" value="${room.rows}" min="1" class="room-rows" style="width: 100%" ${room.locked ? 'disabled' : ''}>
+                        <input type="number" value="${room.rows}" min="1" class="room-rows" style="width: 100%">
                     </div>
                     <div>
                         <label>Columns:</label>
-                        <input type="number" value="${room.cols}" min="1" class="room-cols" style="width: 100%" ${room.locked ? 'disabled' : ''}>
+                        <input type="number" value="${room.cols}" min="1" class="room-cols" style="width: 100%">
                     </div>
                     <div>
                         <label>Neighbor Check:</label>
@@ -240,14 +238,9 @@ function createSettingsPanel() {
                         </select>
                     </div>
                 </div>
-                <div style="margin-top: 10px;">
-                    <button onclick="toggleLock('${room.id}')" style="background: ${room.locked ? 'var(--success-color)' : '#95a5a6'}; margin-right: 5px;">
-                        ${room.locked ? '🔓 Unlock Room' : '🔒 Lock Room'}
-                    </button>
-                    <button onclick="deleteRoom('${room.id}')" style="background: var(--danger-color);" ${room.locked ? 'disabled' : ''}>
-                        🗑️ Delete Room
-                    </button>
-                </div>
+                <button onclick="deleteRoom('${room.id}')" style="background: var(--danger-color); margin-top: 10px;">
+                    🗑️ Delete Room
+                </button>
             </div>
         `;
         container.insertAdjacentHTML('beforeend', settingsHTML);
@@ -260,12 +253,9 @@ function createSettingsPanel() {
         settingsDiv.querySelector('.room-name').addEventListener('change', (e) => {
             room.name = e.target.value;
             document.querySelector(`[data-room-id="${room.id}"] h3`).textContent = `🚪 ${room.name} Settings`;
-            const roomHeader = document.querySelector(`#room-${room.id} h3`);
-            if(roomHeader) {
-                roomHeader.innerHTML = `
-                    ${room.type === 'Mixed' ? '👥' : room.type === 'Boys' ? '👨' : '👩'} ${room.name}
-                `;
-            }
+            document.querySelector(`#room-${room.id} h3`).innerHTML = `
+                ${room.type === 'Mixed' ? '👥' : room.type === 'Boys' ? '👨' : '👩'} ${room.name}
+            `;
         });
 
         settingsDiv.querySelector('.room-rows').addEventListener('change', (e) => updateRoomGrid(e, room.id));
@@ -275,27 +265,18 @@ function createSettingsPanel() {
     });
 }
 
-// Lock/Unlock Room
-function toggleLock(roomId) {
-    const room = config.rooms.find(r => r.id === roomId);
-    room.locked = !room.locked;
-    createSettingsPanel();
-    createRooms();
-}
-
-// Update Room Grid (modified for locking)
+// Update Room Grid
 function updateRoomGrid(e, roomId) {
     const room = config.rooms.find(r => r.id === roomId);
-    if(room.locked) return;
-
     if(e.target.classList.contains('room-rows')) {
         room.rows = parseInt(e.target.value);
     } else {
         room.cols = parseInt(e.target.value);
     }
 
-    const newSeating = Array(room.rows).fill().map((_, i) =>
-        Array(room.cols).fill().map((_, j) =>
+    // Preserve existing seating data
+    const newSeating = Array(room.rows).fill().map((_, i) => 
+        Array(room.cols).fill().map((_, j) => 
             (room.seating[i] && room.seating[i][j]) ? room.seating[i][j] : null
         )
     );
@@ -305,17 +286,43 @@ function updateRoomGrid(e, roomId) {
     updateStats();
 }
 
-// Delete Room (modified for locking)
-function deleteRoom(roomId) {
+// Update Room Settings
+function updateRoomSettings(e, roomId) {
     const room = config.rooms.find(r => r.id === roomId);
-    if(room.locked) return;
-    config.rooms = config.rooms.filter(r => r.id !== roomId);
+    const grid = document.getElementById(`room-${roomId}`);
+
+    if(e.target.classList.contains('room-type')) {
+        room.type = e.target.value;
+        grid.dataset.type = e.target.value;
+    } else {
+        room.neighborCheck = e.target.value;
+        grid.dataset.neighborCheck = e.target.value;
+    }
+    updateStats();
+}
+
+// Delete Room (with student return)
+function deleteRoom(roomId) {
+    const roomIndex = config.rooms.findIndex(r => r.id === roomId);
+    const room = config.rooms[roomIndex];
+    
+    // Return all students to list
+    room.seating.forEach(row => {
+        row.forEach(studentId => {
+            if(studentId) {
+                const studentElem = document.querySelector(`[data-id="${studentId}"]`);
+                if(studentElem) studentElem.classList.remove('hidden');
+            }
+        });
+    });
+
+    config.rooms.splice(roomIndex, 1);
     createSettingsPanel();
     createRooms();
     updateStats();
 }
 
-// Create Rooms (modified for name display)
+// Create Rooms
 function createRooms() {
     const container = document.getElementById("rooms-container");
     container.innerHTML = '';
@@ -325,14 +332,13 @@ function createRooms() {
             <div class="room">
                 <div style="display: flex; justify-content: space-between; align-items: center">
                     <h3>${room.type === 'Mixed' ? '👥' : room.type === 'Boys' ? '👨' : '👩'} ${room.name}</h3>
-                    <div>${room.rows}×${room.cols} Grid ${room.locked ? '🔒' : ''}</div>
+                    <div>${room.rows}×${room.cols} Grid</div>
                 </div>
-                <div class="grid"
-                    id="room-${room.id}"
-                    data-rows="${room.rows}"
+                <div class="grid" 
+                    id="room-${room.id}" 
+                    data-rows="${room.rows}" 
                     data-cols="${room.cols}"
                     data-type="${room.type}"
-                    data-locked="${room.locked}"
                     data-neighbor-check="${room.neighborCheck}">
                 </div>
             </div>
@@ -342,13 +348,12 @@ function createRooms() {
     });
 }
 
-// Generate Grid with Lock Support
+// Generate Grid with Enhanced Drag
 function generateGrid(roomId) {
     const room = config.rooms.find(r => r.id === roomId);
     const grid = document.getElementById(`room-${roomId}`);
     grid.innerHTML = '';
     grid.style.gridTemplateColumns = `repeat(${room.cols}, 65px)`;
-    grid.dataset.locked = room.locked;
 
     for(let i = 0; i < room.rows; i++) {
         for(let j = 0; j < room.cols; j++) {
@@ -359,12 +364,11 @@ function generateGrid(roomId) {
 
             if(room.seating[i][j]) {
                 const student = config.students.find(s => s.id === room.seating[i][j]);
-                if(student) {
-                    seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender === 'M' ? '♂' : '♀'}`;
-                    seat.classList.add('occupied', student.gender === 'M' ? 'male' : 'female');
-                    seat.dataset.studentId = student.id;
-                    seat.dataset.studentClass = student.class;
-                }
+                seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender === 'M' ? '♂' : '♀'}`;
+                seat.classList.add('occupied', student.gender === 'M' ? 'male' : 'female');
+                seat.dataset.studentId = student.id;
+                seat.dataset.studentClass = student.class;
+                seat.draggable = true;
             }
 
             grid.appendChild(seat);
@@ -373,47 +377,55 @@ function generateGrid(roomId) {
     attachGridListeners(grid);
 }
 
-// Attach Event Listeners
+// Attach Grid Listeners (Fixed)
 function attachGridListeners(grid) {
+    // Drag-drop handlers
     grid.addEventListener('dragover', e => e.preventDefault());
-    grid.addEventListener('drop', handleGridDrop);
+    grid.addEventListener('drop', handleDrop);
 
-    // Mobile touch events
-    grid.addEventListener('touchstart', handleTouchStart, { passive: false });
-    grid.addEventListener('touchmove', handleTouchMove, { passive: false });
-    grid.addEventListener('touchend', handleTouchEnd);
+    // Enable seat dragging
+    grid.querySelectorAll('.seat.occupied').forEach(seat => {
+        seat.addEventListener('dragstart', handleSeatDragStart);
+        seat.addEventListener('dragend', handleSeatDragEnd);
+    });
 }
 
-// Grid Drop Handler (consolidated version)
-function handleGridDrop(e) {
+function handleSeatDragStart(e) {
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', e.target.dataset.studentId);
+}
+
+function handleSeatDragEnd(e) {
+    e.target.classList.remove('dragging');
+}
+
+// Drag-Drop Handler (Fixed)
+function handleDrop(e) {
     e.preventDefault();
     const seat = e.target.closest('.seat');
-    const draggedStudent = document.querySelector('.student.dragging');
-    const room = config.rooms.find(r => r.id === e.currentTarget.id.split('-')[1]);
+    const draggedStudentId = e.dataTransfer.getData('text/plain');
+    const isFromList = !!document.querySelector('.student.dragging');
+    
+    let student;
+    let draggedElement;
 
-    if (!seat || !draggedStudent) return;
-
-    // Check if source room is locked
-    const prevSeat = document.querySelector(`[data-student-id="${draggedStudent.dataset.id}"]`);
-    let prevRoom = null;
-    if(prevSeat) {
-        const prevRoomId = prevSeat.closest('.grid').id.split('-')[1];
-        prevRoom = config.rooms.find(r => r.id === prevRoomId);
-        if(!prevRoom.locked) {
-            alert('🚫 Source room must be locked to move students!');
-            return;
-        }
+    if(isFromList) {
+        // Handle list to grid
+        draggedElement = document.querySelector('.student.dragging');
+        if(!draggedElement || !seat) return;
+        student = config.students.find(s => s.id == draggedElement.dataset.id);
+    } else {
+        // Handle grid to grid
+        if(!draggedStudentId || !seat) return;
+        student = config.students.find(s => s.id == draggedStudentId);
+        draggedElement = document.querySelector(`[data-student-id="${draggedStudentId}"]`);
     }
 
-    // Check if target room is locked
-    if(!room.locked) {
-        alert('🚫 Target room must be locked to add students!');
-        return;
-    }
-
-    const student = config.students.find(s => s.id == draggedStudent.dataset.id);
-
-    // Gender Validation
+    // Validate drop
+    const roomId = e.currentTarget.id.split('-')[1];
+    const room = config.rooms.find(r => r.id === roomId);
+    
+    // Fixed gender validation
     if(room.type !== 'Mixed') {
         const requiredGender = room.type === 'Boys' ? 'M' : 'F';
         if(student.gender !== requiredGender) {
@@ -422,150 +434,78 @@ function handleGridDrop(e) {
         }
     }
 
-    // Remove from previous seat
-    if(prevSeat && prevRoom) {
+    // Remove from previous position
+    const prevSeat = document.querySelector(`[data-student-id="${student.id}"]`);
+    if(prevSeat) {
+        const prevRoomId = prevSeat.closest('.grid').id.split('-')[1];
+        const prevRoom = config.rooms.find(r => r.id === prevRoomId);
         const prevRow = parseInt(prevSeat.dataset.row);
         const prevCol = parseInt(prevSeat.dataset.col);
         prevRoom.seating[prevRow][prevCol] = null;
-
+        
         prevSeat.innerHTML = '';
         prevSeat.classList.remove('occupied', 'male', 'female');
         delete prevSeat.dataset.studentId;
-        delete prevSeat.dataset.studentClass;
+        prevSeat.draggable = false;
     }
 
-    // Update new seat
+    // Add to new seat
     const row = parseInt(seat.dataset.row);
     const col = parseInt(seat.dataset.col);
     room.seating[row][col] = student.id;
-
+    
     seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender === 'M' ? '♂' : '♀'}`;
     seat.classList.add('occupied', student.gender === 'M' ? 'male' : 'female');
     seat.dataset.studentId = student.id;
-    seat.dataset.studentClass = student.class;
-    draggedStudent.classList.add('hidden');
-
+    seat.draggable = true;
+    
+    if(isFromList) draggedElement.classList.add('hidden');
     updateStats();
 }
 
-// Student List Drop Handler
-function handleListDrop(e) {
-    e.preventDefault();
-    const draggedStudent = document.querySelector('.student.dragging');
-    if(!draggedStudent) return;
-
-    // Check if source room is locked
-    const prevSeat = document.querySelector(`[data-student-id="${draggedStudent.dataset.id}"]`);
-    let prevRoom = null;
-    if(prevSeat) {
-        const prevRoomId = prevSeat.closest('.grid').id.split('-')[1];
-        prevRoom = config.rooms.find(r => r.id === prevRoomId);
-        if(!prevRoom.locked) {
-            alert('🚫 Source room must be locked to move students!');
-            return;
-        }
-    }
-
-    // Remove from previous seat
-    if(prevSeat && prevRoom) {
-        const prevRow = parseInt(prevSeat.dataset.row);
-        const prevCol = parseInt(prevSeat.dataset.col);
-        prevRoom.seating[prevRow][prevCol] = null;
-
-        prevSeat.innerHTML = '';
-        prevSeat.classList.remove('occupied', 'male', 'female');
-        delete prevSeat.dataset.studentId;
-        delete prevSeat.dataset.studentClass;
-    }
-
-    // Show student in list
-    draggedStudent.classList.remove('hidden');
-    updateStats();
-}
-
-// Touch Handling Variables
-let touchStartX = 0;
-let touchStartY = 0;
-let draggedElement = null;
-
-// Mobile Touch Handlers
-function handleTouchStart(e) {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    draggedElement = e.target.closest('.student');
-
-    if(draggedElement) {
-        draggedElement.classList.add('dragging');
-        e.preventDefault();
-    }
-}
-
-function handleTouchMove(e) {
-    if(!draggedElement) return;
-    e.preventDefault();
-}
-
-function handleTouchEnd(e) {
-    if(!draggedElement) return;
-
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-
-    // Check if it's a valid drag
-    if(Math.abs(touchEndX - touchStartX) > 10 || Math.abs(touchEndY - touchStartY) > 10) {
-        const elements = document.elementsFromPoint(touchEndX, touchEndY);
-        const dropTarget = elements.find(el => el.classList.contains('seat') || el.id === 'students');
-
-        if(dropTarget) {
-            if(dropTarget.classList.contains('seat')) {
-                handleGridDrop({
-                    target: dropTarget,
-                    preventDefault: () => {},
-                    currentTarget: dropTarget.closest('.grid')
-                });
-            } else if(dropTarget.id === 'students') {
-                handleListDrop({
-                    preventDefault: () => {},
-                    target: dropTarget
-                });
-            }
-        }
-    }
-
-    draggedElement.classList.remove('dragging');
-    draggedElement = null;
-}
-
-// Initialize Drag-Drop
+// Initialize Drag-Drop (Fixed)
 function initDragDrop() {
-    let draggedStudent = null;
-
-    // Student draggables
+    // Student list items
     document.querySelectorAll('.student').forEach(student => {
         student.draggable = true;
 
         student.addEventListener('dragstart', (e) => {
-            draggedStudent = e.target;
+            e.dataTransfer.setData('text/plain', e.target.dataset.id);
             e.target.classList.add('dragging');
         });
 
-        student.addEventListener('dragend', () => {
-            if(draggedStudent) {
-                draggedStudent.classList.remove('dragging');
-                draggedStudent = null;
-            }
+        student.addEventListener('dragend', (e) => {
+            e.target.classList.remove('dragging');
         });
     });
 
     // Student list drop zone
     const studentList = document.getElementById('students');
     studentList.addEventListener('dragover', e => e.preventDefault());
-    studentList.addEventListener('drop', handleListDrop);
-
-    // Mobile touch events for student list
-    studentList.addEventListener('touchstart', handleTouchStart, { passive: false });
-    studentList.addEventListener('touchmove', handleTouchMove, { passive: false });
-    studentList.addEventListener('touchend', handleTouchEnd);
+    studentList.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const studentId = e.dataTransfer.getData('text/plain');
+        const seat = document.querySelector(`[data-student-id="${studentId}"]`);
+        
+        if(seat) {
+            // Clear seat data
+            const roomId = seat.closest('.grid').id.split('-')[1];
+            const room = config.rooms.find(r => r.id === roomId);
+            const row = parseInt(seat.dataset.row);
+            const col = parseInt(seat.dataset.col);
+            room.seating[row][col] = null;
+            
+            seat.innerHTML = '';
+            seat.classList.remove('occupied', 'male', 'female');
+            delete seat.dataset.studentId;
+            seat.draggable = false;
+            
+            // Show in student list
+            const studentElem = document.querySelector(`[data-id="${studentId}"]`);
+            if(studentElem) studentElem.classList.remove('hidden');
+            updateStats();
+        }
+    });
 }
 
 // Generate Students List
@@ -596,10 +536,8 @@ function updateStats() {
             row.forEach(studentId => {
                 if(studentId) {
                     const student = config.students.find(s => s.id === studentId);
-                    if(student) {
-                        student.gender === 'M' ? boys++ : girls++;
-                        classCount[student.class] = (classCount[student.class] || 0) + 1;
-                    }
+                    student.gender === 'M' ? boys++ : girls++;
+                    classCount[student.class] = (classCount[student.class] || 0) + 1;
                 }
             });
         });
@@ -607,7 +545,6 @@ function updateStats() {
         statsHTML += `
             <div style="background: white; padding: 15px; border-radius: 8px;">
                 <h3>${room.name} (${room.type})</h3>
-                <p>🔒 Status: ${room.locked ? 'Locked' : 'Unlocked'}</p>
                 <p>🪑 Seats: ${room.rows * room.cols} (${boys + girls} occupied, ${(room.rows * room.cols) - (boys + girls)} vacant)</p>
                 <p>👨 Boys: ${boys}</p>
                 <p>👩 Girls: ${girls}</p>
@@ -621,54 +558,8 @@ function updateStats() {
     statsContainer.innerHTML = statsHTML + '</div>';
 }
 
-// Gender Validation in Settings Panel
-function updateRoomSettings(e, roomId) {
-    const room = config.rooms.find(r => r.id === roomId);
-    const grid = document.getElementById(`room-${roomId}`);
-
-    if(e.target.classList.contains('room-type')) {
-        // Validate existing students when changing room type
-        const newType = e.target.value;
-        const invalidStudents = [];
-
-        room.seating.forEach((row, i) => {
-            row.forEach((studentId, j) => {
-                if(studentId) {
-                    const student = config.students.find(s => s.id === studentId);
-                    if(newType !== 'Mixed' && student.gender !== (newType === 'Boys' ? 'M' : 'F')) {
-                        invalidStudents.push(student.name);
-                        room.seating[i][j] = null; // Remove invalid student
-                    }
-                }
-            });
-        });
-
-        if(invalidStudents.length > 0) {
-            alert(`❌ Removed ${invalidStudents.length} students not matching new room type:\n${invalidStudents.join('\n')}`);
-            generateGrid(roomId);
-        }
-
-        room.type = newType;
-        grid.dataset.type = newType;
-    } else {
-        room.neighborCheck = e.target.value;
-        grid.dataset.neighborCheck = e.target.value;
-    }
-
-    // Update room display
-    const roomHeader = document.querySelector(`#room-${roomId} h3`);
-    if(roomHeader) {
-        roomHeader.innerHTML = `
-            ${room.type === 'Mixed' ? '👥' : room.type === 'Boys' ? '👨' : '👩'} ${room.name}
-        `;
-    }
-    updateStats();
-}
-
 // Initialize System
 init();
-
-// Rest of the code remains exactly as previous version
 </script>
 </body>
 </html>
