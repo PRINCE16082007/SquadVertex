@@ -94,7 +94,6 @@
             justify-content: center;
             font-size: 0.85em;
             transition: all 0.2s;
-            cursor: move;
         }
 
         .seat:hover {
@@ -113,7 +112,6 @@
         .female { background-color: #fadbd8; border-color: #e74c3c; }
         .occupied { background-color: #e8f6ea; }
         .hidden { display: none; }
-        .dragging { opacity: 0.5; }
 
         button {
             padding: 8px 16px;
@@ -163,7 +161,7 @@
     <div class="stats-panel" id="stats-container"></div>
 
 <script>
-// Configuration
+// Professional Configuration
 const config = {
     rooms: [],
     students: [
@@ -184,7 +182,7 @@ function init() {
     updateStats();
 }
 
-// Add New Room
+// Enhanced Room Configuration
 function addNewRoom() {
     const newRoom = {
         id: Date.now().toString(),
@@ -199,7 +197,7 @@ function addNewRoom() {
     createRooms();
 }
 
-// Create Settings Panel
+// Modern Settings Panel
 function createSettingsPanel() {
     const container = document.getElementById("room-settings-container");
     container.innerHTML = '';
@@ -240,15 +238,12 @@ function createSettingsPanel() {
                 </button>
             </div>
         `;
-
         container.insertAdjacentHTML('beforeend', settingsHTML);
+
         const settingsDiv = container.children[index];
-        
-        // Set initial values
         settingsDiv.querySelector('.room-type').value = room.type;
         settingsDiv.querySelector('.neighbor-check').value = room.neighborCheck;
 
-        // Add event listeners
         settingsDiv.querySelector('.room-rows').addEventListener('change', (e) => updateRoomGrid(e, room.id));
         settingsDiv.querySelector('.room-cols').addEventListener('change', (e) => updateRoomGrid(e, room.id));
         settingsDiv.querySelector('.room-type').addEventListener('change', (e) => updateRoomSettings(e, room.id));
@@ -256,71 +251,45 @@ function createSettingsPanel() {
     });
 }
 
-// Update Room Grid Size
+// Update Room Grid
 function updateRoomGrid(e, roomId) {
     const room = config.rooms.find(r => r.id === roomId);
-    const oldRows = room.rows;
-    const oldCols = room.cols;
-
-    // Update dimensions
     if(e.target.classList.contains('room-rows')) {
         room.rows = parseInt(e.target.value);
     } else {
         room.cols = parseInt(e.target.value);
     }
-
-    // Find displaced students
-    const displacedStudents = [];
-    for(let i = 0; i < oldRows; i++) {
-        for(let j = 0; j < oldCols; j++) {
-            if(i >= room.rows || j >= room.cols) {
-                if(room.seating[i]?.[j]) {
-                    displacedStudents.push(room.seating[i][j]);
-                }
-            }
-        }
-    }
-
-    // Update seating matrix
+    
+    // Preserve existing seating data
     const newSeating = Array(room.rows).fill().map((_, i) => 
         Array(room.cols).fill().map((_, j) => 
-            (i < oldRows && j < oldCols) ? room.seating[i][j] : null
+            (room.seating[i] && room.seating[i][j]) ? room.seating[i][j] : null
         )
     );
     room.seating = newSeating;
-
-    // Show displaced students
-    displacedStudents.forEach(id => {
-        const student = document.querySelector(`[data-id="${id}"]`);
-        if(student) student.classList.remove('hidden');
-    });
-
+    
     generateGrid(roomId);
+    updateStats();
+}
+
+// Update Room Settings
+function updateRoomSettings(e, roomId) {
+    const room = config.rooms.find(r => r.id === roomId);
+    const grid = document.getElementById(`room-${roomId}`);
+
+    if(e.target.classList.contains('room-type')) {
+        room.type = e.target.value;
+        grid.dataset.type = e.target.value;
+    } else {
+        room.neighborCheck = e.target.value;
+        grid.dataset.neighborCheck = e.target.value;
+    }
     updateStats();
 }
 
 // Delete Room
 function deleteRoom(roomId) {
-    const roomIndex = config.rooms.findIndex(r => r.id === roomId);
-    const room = config.rooms[roomIndex];
-    
-    // Collect all students in the room
-    const studentsInRoom = [];
-    room.seating.forEach(row => {
-        row.forEach(studentId => {
-            if(studentId) studentsInRoom.push(studentId);
-        });
-    });
-
-    // Remove room
-    config.rooms.splice(roomIndex, 1);
-
-    // Show students in list
-    studentsInRoom.forEach(id => {
-        const student = document.querySelector(`[data-id="${id}"]`);
-        if(student) student.classList.remove('hidden');
-    });
-
+    config.rooms = config.rooms.filter(r => r.id !== roomId);
     createSettingsPanel();
     createRooms();
     updateStats();
@@ -352,10 +321,10 @@ function createRooms() {
     });
 }
 
-// Generate Grid with Seats
+// Generate Grid with Persistence
 function generateGrid(roomId) {
     const room = config.rooms.find(r => r.id === roomId);
-    const grid = document.getElementById(`room-${room.id}`);
+    const grid = document.getElementById(`room-${roomId}`);
     grid.innerHTML = '';
     grid.style.gridTemplateColumns = `repeat(${room.cols}, 65px)`;
 
@@ -366,14 +335,13 @@ function generateGrid(roomId) {
             seat.dataset.row = i;
             seat.dataset.col = j;
             
-            // Add existing students
+            // Restore student if exists
             if(room.seating[i][j]) {
                 const student = config.students.find(s => s.id === room.seating[i][j]);
                 seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender === 'M' ? '♂' : '♀'}`;
                 seat.classList.add('occupied', student.gender === 'M' ? 'male' : 'female');
                 seat.dataset.studentId = student.id;
                 seat.dataset.studentClass = student.class;
-                seat.draggable = true;
             }
 
             grid.appendChild(seat);
@@ -382,151 +350,100 @@ function generateGrid(roomId) {
     attachGridListeners(grid);
 }
 
+// Attach Event Listeners
+function attachGridListeners(grid) {
+    // Double-click handler
+    grid.addEventListener('dblclick', (e) => {
+        const seat = e.target.closest('.seat.occupied');
+        if(seat) {
+            const roomId = grid.id.split('-')[1];
+            const room = config.rooms.find(r => r.id === roomId);
+            const row = parseInt(seat.dataset.row);
+            const col = parseInt(seat.dataset.col);
+            
+            // Update config
+            room.seating[row][col] = null;
+            
+            // Update UI
+            const student = document.querySelector(`[data-id="${seat.dataset.studentId}"]`);
+            student.classList.remove('hidden');
+            seat.innerHTML = '';
+            seat.classList.remove('occupied', 'male', 'female');
+            delete seat.dataset.studentId;
+            delete seat.dataset.studentClass;
+            
+            updateStats();
+        }
+    });
+
+    // Drag-drop handlers
+    grid.addEventListener('dragover', e => e.preventDefault());
+    grid.addEventListener('drop', handleDrop);
+}
+
+// Drag-Drop Handler
+function handleDrop(e) {
+    e.preventDefault();
+    const seat = e.target.closest('.seat');
+    const draggedStudent = document.querySelector('.student.dragging');
+    if(!seat || !draggedStudent) return;
+
+    const roomId = e.currentTarget.id.split('-')[1];
+    const room = config.rooms.find(r => r.id === roomId);
+    const student = config.students.find(s => s.id == draggedStudent.dataset.id);
+
+    // Gender validation
+    if(room.type !== 'Mixed' && student.gender !== room.type.slice(0, -1)) {
+        alert(`❌ ${room.type} room only!`);
+        return;
+    }
+
+    // Remove from previous seat
+    const prevSeat = document.querySelector(`[data-student-id="${draggedStudent.dataset.id}"]`);
+    if(prevSeat) {
+        const prevRoomId = prevSeat.closest('.grid').id.split('-')[1];
+        const prevRoom = config.rooms.find(r => r.id === prevRoomId);
+        const prevRow = parseInt(prevSeat.dataset.row);
+        const prevCol = parseInt(prevSeat.dataset.col);
+        prevRoom.seating[prevRow][prevCol] = null;
+        
+        prevSeat.innerHTML = '';
+        prevSeat.classList.remove('occupied', 'male', 'female');
+        delete prevSeat.dataset.studentId;
+        delete prevSeat.dataset.studentClass;
+    }
+
+    // Update new seat
+    const row = parseInt(seat.dataset.row);
+    const col = parseInt(seat.dataset.col);
+    room.seating[row][col] = student.id;
+    
+    seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender === 'M' ? '♂' : '♀'}`;
+    seat.classList.add('occupied', student.gender === 'M' ? 'male' : 'female');
+    seat.dataset.studentId = student.id;
+    seat.dataset.studentClass = student.class;
+    draggedStudent.classList.add('hidden');
+
+    updateStats();
+}
+
 // Initialize Drag-Drop
 function initDragDrop() {
-    let draggedItem = null;
+    let draggedStudent = null;
 
-    // Student Drag Start
     document.querySelectorAll('.student').forEach(student => {
         student.draggable = true;
 
         student.addEventListener('dragstart', (e) => {
-            draggedItem = {
-                type: 'student',
-                element: e.target,
-                id: e.target.dataset.id
-            };
+            draggedStudent = e.target;
             e.target.classList.add('dragging');
         });
 
         student.addEventListener('dragend', () => {
-            draggedItem.element.classList.remove('dragging');
-            draggedItem = null;
+            draggedStudent.classList.remove('dragging');
+            draggedStudent = null;
         });
     });
-
-    // Seat Drag Start
-    document.addEventListener('dragstart', (e) => {
-        if(e.target.classList.contains('seat') && e.target.classList.contains('occupied')) {
-            draggedItem = {
-                type: 'seat',
-                element: e.target,
-                id: e.target.dataset.studentId,
-                roomId: e.target.closest('.grid').id.split('-')[1]
-            };
-            e.target.classList.add('dragging');
-        }
-    });
-
-    // Drop Handler
-    document.addEventListener('dragover', (e) => e.preventDefault());
-    document.addEventListener('drop', (e) => {
-        e.preventDefault();
-        if(!draggedItem) return;
-
-        // Drop on Grid
-        if(e.target.closest('.grid')) {
-            handleGridDrop(e, draggedItem);
-        }
-        // Drop on Student List
-        else if(e.target.closest('#students')) {
-            handleListDrop(draggedItem);
-        }
-
-        updateStats();
-    });
-}
-
-// Handle Grid Drop
-function handleGridDrop(e, draggedItem) {
-    const grid = e.target.closest('.grid');
-    const seat = e.target.closest('.seat');
-    if(!seat) return;
-
-    const roomId = grid.id.split('-')[1];
-    const room = config.rooms.find(r => r.id === roomId);
-    const row = parseInt(seat.dataset.row);
-    const col = parseInt(seat.dataset.col);
-
-    // Student Drop
-    if(draggedItem.type === 'student') {
-        const student = config.students.find(s => s.id == draggedItem.id);
-
-        // Gender Check
-        if(room.type !== 'Mixed' && student.gender !== room.type.slice(0, -1)) {
-            alert(`❌ ${room.type} room only!`);
-            return;
-        }
-
-        // Remove from previous seat
-        const prevSeat = document.querySelector(`[data-student-id="${draggedItem.id}"]`);
-        if(prevSeat) {
-            const prevRoomId = prevSeat.closest('.grid').id.split('-')[1];
-            const prevRoom = config.rooms.find(r => r.id === prevRoomId);
-            const prevRow = parseInt(prevSeat.dataset.row);
-            const prevCol = parseInt(prevSeat.dataset.col);
-            prevRoom.seating[prevRow][prevCol] = null;
-            
-            prevSeat.innerHTML = '';
-            prevSeat.classList.remove('occupied', 'male', 'female');
-            prevSeat.removeAttribute('data-student-id');
-            prevSeat.removeAttribute('data-student-class');
-        }
-
-        // Update new seat
-        room.seating[row][col] = student.id;
-        seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender === 'M' ? '♂' : '♀'}`;
-        seat.classList.add('occupied', student.gender === 'M' ? 'male' : 'female');
-        seat.dataset.studentId = student.id;
-        seat.dataset.studentClass = student.class;
-        draggedItem.element.classList.add('hidden');
-    }
-    // Seat-to-Seat Drop
-    else if(draggedItem.type === 'seat') {
-        const student = config.students.find(s => s.id == draggedItem.id);
-
-        // Gender Check
-        if(room.type !== 'Mixed' && student.gender !== room.type.slice(0, -1)) {
-            alert(`❌ ${room.type} room only!`);
-            return;
-        }
-
-        // Clear original seat
-        const sourceRoom = config.rooms.find(r => r.id === draggedItem.roomId);
-        const sourceRow = parseInt(draggedItem.element.dataset.row);
-        const sourceCol = parseInt(draggedItem.element.dataset.col);
-        sourceRoom.seating[sourceRow][sourceCol] = null;
-        draggedItem.element.innerHTML = '';
-        draggedItem.element.classList.remove('occupied', 'male', 'female');
-        draggedItem.element.removeAttribute('data-student-id');
-        draggedItem.element.removeAttribute('data-student-class');
-
-        // Update new seat
-        room.seating[row][col] = student.id;
-        seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender === 'M' ? '♂' : '♀'}`;
-        seat.classList.add('occupied', student.gender === 'M' ? 'male' : 'female');
-        seat.dataset.studentId = student.id;
-        seat.dataset.studentClass = student.class;
-    }
-    seat.draggable = true;
-}
-
-// Handle List Drop
-function handleListDrop(draggedItem) {
-    if(draggedItem.type === 'seat') {
-        const studentElem = document.querySelector(`[data-id="${draggedItem.id}"]`);
-        studentElem.classList.remove('hidden');
-        
-        // Clear seat data
-        const sourceRoom = config.rooms.find(r => r.id === draggedItem.roomId);
-        const row = parseInt(draggedItem.element.dataset.row);
-        const col = parseInt(draggedItem.element.dataset.col);
-        sourceRoom.seating[row][col] = null;
-        draggedItem.element.innerHTML = '';
-        draggedItem.element.classList.remove('occupied', 'male', 'female');
-        draggedItem.element.removeAttribute('data-student-id');
-        draggedItem.element.removeAttribute('data-student-class');
-    }
 }
 
 // Generate Students List
@@ -580,8 +497,7 @@ function updateStats() {
     statsContainer.innerHTML = statsHTML + '</div>';
 }
 
-// Initialize
+// Initialize System
 init();
 </script>
-</body>
-</html>
+</body
