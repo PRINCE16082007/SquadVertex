@@ -651,6 +651,116 @@ function handleTouchEnd(e) {
 }
 
 // Rest of the code remains exactly as previous version
+
+// Drag to Move Functionality
+function handleGridDrop(e) {
+    e.preventDefault();
+    const seat = e.target.closest('.seat');
+    const draggedStudent = document.querySelector('.student.dragging');
+    const room = config.rooms.find(r => r.id === e.currentTarget.id.split('-')[1]);
+
+    if (!seat || !draggedStudent) return;
+
+    // Check if source room is locked
+    const prevSeat = document.querySelector(`[data-student-id="${draggedStudent.dataset.id}"]`);
+    let prevRoom = null;
+    if(prevSeat) {
+        const prevRoomId = prevSeat.closest('.grid').id.split('-')[1];
+        prevRoom = config.rooms.find(r => r.id === prevRoomId);
+        if(!prevRoom.locked) {
+            alert('🚫 Source room must be locked to move students!');
+            return;
+        }
+    }
+
+    // Check if target room is locked
+    if(!room.locked) {
+        alert('🚫 Target room must be locked to add students!');
+        return;
+    }
+
+    const student = config.students.find(s => s.id == draggedStudent.dataset.id);
+
+    // Gender Validation
+    if(room.type !== 'Mixed') {
+        const requiredGender = room.type === 'Boys' ? 'M' : 'F';
+        if(student.gender !== requiredGender) {
+            alert(`❌ ${room.type} room only!`);
+            return;
+        }
+    }
+
+    // Remove from previous seat
+    if(prevSeat && prevRoom) {
+        const prevRow = parseInt(prevSeat.dataset.row);
+        const prevCol = parseInt(prevSeat.dataset.col);
+        prevRoom.seating[prevRow][prevCol] = null;
+        
+        prevSeat.innerHTML = '';
+        prevSeat.classList.remove('occupied', 'male', 'female');
+        delete prevSeat.dataset.studentId;
+        delete prevSeat.dataset.studentClass;
+    }
+
+    // Update new seat
+    const row = parseInt(seat.dataset.row);
+    const col = parseInt(seat.dataset.col);
+    room.seating[row][col] = student.id;
+    
+    seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender === 'M' ? '♂' : '♀'}`;
+    seat.classList.add('occupied', student.gender === 'M' ? 'male' : 'female');
+    seat.dataset.studentId = student.id;
+    seat.dataset.studentClass = student.class;
+    draggedStudent.classList.add('hidden');
+
+    updateStats();
+}
+
+// Gender Validation in Settings Panel
+function updateRoomSettings(e, roomId) {
+    const room = config.rooms.find(r => r.id === roomId);
+    const grid = document.getElementById(`room-${roomId}`);
+
+    if(e.target.classList.contains('room-type')) {
+        // Validate existing students when changing room type
+        const newType = e.target.value;
+        const invalidStudents = [];
+        
+        room.seating.forEach((row, i) => {
+            row.forEach((studentId, j) => {
+                if(studentId) {
+                    const student = config.students.find(s => s.id === studentId);
+                    if(newType !== 'Mixed' && student.gender !== newType.slice(0, -1)) {
+                        invalidStudents.push(student.name);
+                        room.seating[i][j] = null; // Remove invalid student
+                    }
+                }
+            });
+        });
+
+        if(invalidStudents.length > 0) {
+            alert(`❌ Removed ${invalidStudents.length} students not matching new room type:\n${invalidStudents.join('\n')}`);
+            generateGrid(roomId);
+        }
+
+        room.type = newType;
+        grid.dataset.type = newType;
+    } else {
+        room.neighborCheck = e.target.value;
+        grid.dataset.neighborCheck = e.target.value;
+    }
+    
+    // Update room display
+    document.querySelector(`#room-${roomId} h3`).innerHTML = `
+        ${room.type === 'Mixed' ? '👥' : room.type === 'Boys' ? '👨' : '👩'} ${room.name}
+    `;
+    
+    updateStats();
+}
+
+// Rest of the functions remain exactly as in previous version
+// (initDragDrop, createSettingsPanel, addNewRoom, generateGrid, etc.)
+// ...
 </script>
 </body>
 </html>
