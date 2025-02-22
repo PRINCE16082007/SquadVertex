@@ -149,34 +149,22 @@ const firebaseConfig={apiKey:"AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",authDomai
 firebase.initializeApp(firebaseConfig);const db=firebase.firestore();
 let currentFile=null;const config={students:[],rooms:[],files:[]};
 
-// Firestore Structure:
-// Collection: 001-school
-// ├── Document: students (ID: "students")
-// │   └── Subcollection: list
-// │       ├── Document: student1 (AutoID)
-// │       └── Document: student2 (AutoID)
-// └── Document: rooms (ID: "rooms")
-//     └── Subcollection: files 
-//         ├── Document: file1 (AutoID)
-//         │   └── Subcollection: layouts
-//         │       ├── Document: room1 (AutoID)
-//         │       └── Document: room2 (AutoID)
-//         └── Document: file2 (AutoID)
-//             └── Subcollection: layouts
+// Initialization
+async function init(){try{const students=await db.collection("001-school").doc("students").collection("list").get();config.students=students.docs.map(d=>d.data());const files=await db.collection("001-school").doc("rooms").collection("files").get();config.files=await Promise.all(files.docs.map(async f=>({id:f.id,name:f.data().name,rooms:(await f.ref.collection("layouts").get()).docs.map(r=>({id:r.id,...r.data()}))}));updateFileSelector();if(config.files.length>0){currentFile=config.files[0].id;loadFile(currentFile);}else{createNewFile();}}catch(e){console.error("Init error:",e);alert("Error loading data!");}}
 
-async function init(){try{const students=await db.collection("001-school").doc("students").collection("list").get();config.students=students.docs.map(d=>d.data());const files=await db.collection("001-school").doc("rooms").collection("files").get();config.files=await Promise.all(files.docs.map(async f=>({id:f.id,name:f.data().name,createdAt:f.data().createdAt,rooms:(await f.ref.collection("layouts").get()).docs.map(r=>({id:r.id,...r.data()}))}));updateFileSelector();if(config.files.length>0){currentFile=config.files[0].id;loadFile(currentFile);}else{createNewFile();}}catch(e){console.error("Init error:",e);alert("Error loading data!");}}
-
+// File Management
 async function createNewFile(){try{const fileRef=await db.collection("001-school").doc("rooms").collection("files").add({name:`New File ${new Date().toLocaleDateString()}`,createdAt:firebase.firestore.FieldValue.serverTimestamp()});currentFile=fileRef.id;config.files.push({id:fileRef.id,name:`New File ${new Date().toLocaleDateString()}`,rooms:[]});updateFileSelector();loadFile(currentFile);}catch(e){console.error("File creation error:",e);alert("Error creating file!");}}
 
-async function loadFile(fileId){currentFile=fileId;const file=config.files.find(f=>f.id===fileId);if(!file.rooms.length){await addNewRoom();}else{config.rooms=file.rooms;createSettingsPanel();createRooms();}generateStudentsList();updateStats();}
+async function loadFile(fileId){currentFile=fileId;const file=config.files.find(f=>f.id===fileId);config.rooms=file.rooms;createSettingsPanel();createRooms();generateStudentsList();updateStats();}
 
+function updateFileSelector(){document.getElementById("fileSelector").innerHTML=config.files.map(f=>`<option value="${f.id}" ${f.id===currentFile?"selected":""}>${f.name}</option>`).join("");}
+
+// Room Management
 async function addNewRoom(){try{const roomRef=await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").add({name:"New Room",type:"Mixed",rows:5,cols:6,seating:Array(5).fill().map(()=>Array(6).fill(null)),neighborCheck:"none",createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});config.rooms.push({id:roomRef.id,...(await roomRef.get()).data()});createSettingsPanel();createRooms();}catch(e){console.error("Room creation error:",e);alert("Error creating room!");}}
 
-function updateFileSelector(){const selector=document.getElementById("fileSelector");selector.innerHTML=config.files.map(f=>`<option value="${f.id}" ${f.id===currentFile?"selected":""}>${f.name}</option>`).join("");}
+async function saveRoom(roomId){try{await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).update(config.rooms.find(r=>r.id===roomId));alert("Room saved!");}catch(e){console.error("Save error:",e);alert("Error saving room!");}}
 
-async function saveRoom(roomId){try{const room=config.rooms.find(r=>r.id===roomId);await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).update(room);alert("Room saved!");}catch(e){console.error("Save error:",e);alert("Error saving room!");}}
-
-function createSettingsPanel(){const container=document.getElementById("room-settings-container");container.innerHTML=config.rooms.map(room=>`<div class="room-settings"><h3>🚪 ${room.name}</h3><div><input type="text" value="${room.name}" onchange="updateRoomField('${room.id}','name',this.value)"><button onclick="saveRoom('${room.id}')">💾 Save</button></div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px;"><div><label>Type:</label><select onchange="updateRoomField('${room.id}','type',this.value)"><option value="Boys" ${room.type==="Boys"?"selected":""}>Boys</option><option value="Girls" ${room.type==="Girls"?"selected":""}>Girls</option><option value="Mixed" ${room.type==="Mixed"?"selected":""}>Mixed</option></select></div><div><label>Rows:</label><input type="number" value="${room.rows}" onchange="updateRoomGrid('${room.id}','rows',this.value)"></div><div><label>Columns:</label><input type="number" value="${room.cols}" onchange="updateRoomGrid('${room.id}','cols',this.value)"></div><div><label>Neighbor Check:</label><select onchange="updateRoomField('${room.id}','neighborCheck',this.value)"><option value="none" ${room.neighborCheck==="none"?"selected":""}>None</option><option value="horizontal" ${room.neighborCheck==="horizontal"?"selected":""}>Horizontal</option><option value="vertical" ${room.neighborCheck==="vertical"?"selected":""}>Vertical</option><option value="both" ${room.neighborCheck==="both"?"selected":""}>Both</option></select></div></div><button onclick="deleteRoom('${room.id}')" style="background:var(--danger-color);margin-top:10px;">🗑️ Delete</button></div>`).join("");}
+function createSettingsPanel(){document.getElementById("room-settings-container").innerHTML=config.rooms.map(room=>`<div class="room-settings"><h3>🚪 ${room.name}</h3><div><input type="text" value="${room.name}" onchange="updateRoomField('${room.id}','name',this.value)"><button onclick="saveRoom('${room.id}')">💾 Save</button></div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px;"><div><label>Type:</label><select onchange="updateRoomField('${room.id}','type',this.value)"><option value="Boys" ${room.type==="Boys"?"selected":""}>Boys</option><option value="Girls" ${room.type==="Girls"?"selected":""}>Girls</option><option value="Mixed" ${room.type==="Mixed"?"selected":""}>Mixed</option></select></div><div><label>Rows:</label><input type="number" value="${room.rows}" onchange="updateRoomGrid('${room.id}','rows',this.value)"></div><div><label>Columns:</label><input type="number" value="${room.cols}" onchange="updateRoomGrid('${room.id}','cols',this.value)"></div><div><label>Neighbor Check:</label><select onchange="updateRoomField('${room.id}','neighborCheck',this.value)"><option value="none" ${room.neighborCheck==="none"?"selected":""}>None</option><option value="horizontal" ${room.neighborCheck==="horizontal"?"selected":""}>Horizontal</option><option value="vertical" ${room.neighborCheck==="vertical"?"selected":""}>Vertical</option><option value="both" ${room.neighborCheck==="both"?"selected":""}>Both</option></select></div></div><button onclick="deleteRoom('${room.id}')" style="background:var(--danger-color);margin-top:10px;">🗑️ Delete</button></div>`).join("");}
 
 async function updateRoomField(roomId,field,value){const room=config.rooms.find(r=>r.id===roomId);room[field]=value;await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).update({[field]:value});if(field==='name')createSettingsPanel();updateStats();}
 
@@ -184,12 +172,14 @@ async function updateRoomGrid(roomId,field,value){const room=config.rooms.find(r
 
 async function deleteRoom(roomId){try{await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).delete();config.rooms=config.rooms.filter(r=>r.id!==roomId);createSettingsPanel();createRooms();updateStats();}catch(e){console.error("Delete error:",e);alert("Error deleting room!");}}
 
-function createRooms(){const container=document.getElementById("rooms-container");container.innerHTML=config.rooms.map(room=>`<div class="room"><div style="display:flex;justify-content:space-between;align-items:center"><h3>${room.type==='Mixed'?'👥':room.type==='Boys'?'👨':'👩'} ${room.name}</h3><div>${room.rows}×${room.cols}<br><small>${new Date(room.updatedAt?.toDate()).toLocaleString()}</small></div></div><div class="grid" id="room-${room.id}"></div></div>`).join("");config.rooms.forEach(r=>generateGrid(r.id));}
+// Grid Management
+function createRooms(){document.getElementById("rooms-container").innerHTML=config.rooms.map(room=>`<div class="room"><div style="display:flex;justify-content:space-between;align-items:center"><h3>${room.type==='Mixed'?'👥':room.type==='Boys'?'👨':'👩'} ${room.name}</h3><div>${room.rows}×${room.cols}<br><small>${new Date(room.updatedAt?.toDate()).toLocaleString()}</small></div></div><div class="grid" id="room-${room.id}"></div></div>`).join("");config.rooms.forEach(r=>generateGrid(r.id));}
 
-function generateGrid(roomId){const room=config.rooms.find(r=>r.id===roomId);const grid=document.getElementById(`room-${room.id}`);if(!grid)return;grid.innerHTML="";grid.style.gridTemplateColumns=`repeat(${room.cols},65px)`;for(let i=0;i<room.rows;i++){for(let j=0;j<room.cols;j++){const seat=document.createElement('div');seat.className='seat';seat.dataset.row=i;seat.dataset.col=j;if(room.seating[i][j]){const student=config.students.find(s=>s.id===room.seating[i][j]);seat.innerHTML=`${student.name}<br>${student.class}<br>${student.gender==='M'?'♂':'♀'}`;seat.classList.add('occupied',student.gender==='M'?'male':'female');seat.dataset.studentId=student.id;}grid.appendChild(seat);}}attachGridListeners(grid);}
+function generateGrid(roomId){const room=config.rooms.find(r=>r.id===roomId);const grid=document.getElementById(`room-${roomId}`);if(!grid)return;grid.innerHTML="";grid.style.gridTemplateColumns=`repeat(${room.cols},65px)`;for(let i=0;i<room.rows;i++){for(let j=0;j<room.cols;j++){const seat=document.createElement('div');seat.className='seat';seat.dataset.row=i;seat.dataset.col=j;if(room.seating[i][j]){const student=config.students.find(s=>s.id===room.seating[i][j]);seat.innerHTML=`${student.name}<br>${student.class}<br>${student.gender==='M'?'♂':'♀'}`;seat.classList.add('occupied',student.gender==='M'?'male':'female');seat.dataset.studentId=student.id;}grid.appendChild(seat);}}attachGridListeners(grid);}
 
 function attachGridListeners(grid){grid.replaceWith(grid.cloneNode(true));const newGrid=document.getElementById(grid.id);newGrid.addEventListener('dragover',e=>e.preventDefault());newGrid.addEventListener('drop',e=>handleDrop(e,newGrid.id.split("-")[1]));newGrid.querySelectorAll('.seat.occupied').forEach(seat=>{seat.addEventListener('dragstart',handleSeatDragStart);seat.addEventListener('dragend',handleSeatDragEnd);});}
 
+// Drag-Drop Handlers
 function handleSeatDragStart(e){e.dataTransfer.setData('text/plain',JSON.stringify({studentId:e.target.dataset.studentId,roomId:e.target.closest('.grid').id.split("-")[1],row:e.target.dataset.row,col:e.target.dataset.col}));e.target.classList.add('dragging');}
 
 function handleSeatDragEnd(e){e.target.classList.remove('dragging');}
@@ -198,15 +188,18 @@ async function handleDrop(e,roomId){e.preventDefault();const dragData=JSON.parse
 
 async function updateSeating(dragData,targetRoomId,targetRow,targetCol){try{const batch=db.batch();const sourceRef=db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(dragData.roomId);batch.update(sourceRef,{[`seating.${dragData.row}.${dragData.col}`]:null});const targetRef=db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(targetRoomId);batch.update(targetRef,{[`seating.${targetRow}.${targetCol}`]:dragData.studentId});await batch.commit();config.rooms.find(r=>r.id===dragData.roomId).seating[dragData.row][dragData.col]=null;config.rooms.find(r=>r.id===targetRoomId).seating[targetRow][targetCol]=dragData.studentId;generateGrid(dragData.roomId);generateGrid(targetRoomId);updateStats();}catch(e){console.error("Seat update error:",e);alert("Error updating seat!");}}
 
+// Validation
 function validateGender(room,student){if(room.type==='Mixed')return true;const requiredGender=room.type==='Boys'?'M':'F';if(student.gender!==requiredGender){alert(`❌ ${room.type} room only!`);return false;}return true;}
 
 function validateNeighbors(room,student,row,col){if(room.neighborCheck==='none')return true;const directions=[];if(['horizontal','both'].includes(room.neighborCheck))directions.push([0,-1],[0,1]);if(['vertical','both'].includes(room.neighborCheck))directions.push([-1,0],[1,0]);for(const[dx,dy]of directions){const x=row+dx,y=col+dy;if(x>=0&&x<room.rows&&y>=0&&y<room.cols&&room.seating[x][y]){const neighbor=config.students.find(s=>s.id===room.seating[x][y]);if(neighbor.class===student.class){alert('❌ Same class students cannot sit adjacent!');return false;}}}return true;}
 
-function initDragDrop(){document.querySelectorAll('.student').forEach(student=>{student.draggable=true;student.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',e.target.dataset.id);e.target.classList.add('dragging');});student.addEventListener('dragend',e=>e.target.classList.remove('dragging'));});document.getElementById('students').addEventListener('dragover',e=>e.preventDefault());document.getElementById('students').addEventListener('drop',async e=>{e.preventDefault();const studentId=e.dataTransfer.getData('text/plain');const dragData=JSON.parse(e.dataTransfer.getData('text/plain'));if(dragData.roomId){await updateSeating(dragData,dragData.roomId,dragData.row,dragData.col);}});}
+// Student List
+function generateStudentsList(){document.getElementById("students").innerHTML=config.students.map(s=>`<div class="student ${s.gender==='M'?'male':'female'}" data-id="${s.id}">${s.name} (${s.class})</div>`).join("");}
 
-function generateStudentsList(){const container=document.getElementById('students');container.innerHTML=config.students.map(s=>`<div class="student ${s.gender==='M'?'male':'female'}" data-id="${s.id}">${s.name} (${s.class})</div>`).join("");}
+// Stats
+function updateStats(){document.getElementById("stats-container").innerHTML=`<h2>📊 Statistics</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;">${config.rooms.map(r=>`<div class="stats-card"><h3>${r.name}</h3><p>Capacity: ${r.rows*r.cols}</p><p>Occupied: ${r.seating.flat().filter(s=>s).length}</p><p>Type: ${r.type}</p><p>Rules: ${r.neighborCheck}</p></div>`).join("")}</div>`;}
 
-function updateStats(){const statsContainer=document.getElementById('stats-container');statsContainer.innerHTML=`<h2>📊 Statistics</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;">${config.rooms.map(r=>`<div class="stats-card"><h3>${r.name}</h3><p>Capacity: ${r.rows*r.cols}</p><p>Occupied: ${r.seating.flat().filter(s=>s).length}</p><p>Type: ${r.type}</p><p>Rules: ${r.neighborCheck}</p></div>`).join("")}</div>`;}
-
+// Initial Setup
 init();
 </script></body>
+</html>
