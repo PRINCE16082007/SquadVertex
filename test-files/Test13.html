@@ -1,12 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Smart Seat Manager Pro</title>
-  <style>
-    .mobile-warning { text-align:center; margin:10px; padding:5px; background:#ffcccc; }
-    .room-settings { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-    .seat { user-select:none; }
-   
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Seat Manager Pro</title>
+    <style>
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
@@ -136,8 +134,7 @@
             .container { display: none; }
         }
 
-   
-  </style>
+    </style>
 </head>
 <body>
   <div class="mobile-warning">⚠️ Please use desktop view for best experience!</div>
@@ -146,13 +143,11 @@
     <button onclick="createNewFile()">📁 New File</button>
     <select id="fileSelector" onchange="loadFile(this.value)"></select>
   </div>
-  
   <div class="settings-panel">
     <h2 style="margin:10px 0;">⚙️ Room Configuration</h2>
     <div id="room-settings-container"></div>
     <button onclick="addNewRoom()">➕ Add New Room</button>
   </div>
-  
   <div class="container">
     <div class="student-list" id="studentListContainer">
       <h2>🎓 Students</h2>
@@ -160,13 +155,13 @@
     </div>
     <div id="rooms-container"></div>
   </div>
-  
   <div class="stats-panel" id="stats-container"></div>
   
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   
   <script>
+    
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -177,10 +172,14 @@
     };
     
     firebase.initializeApp(firebaseConfig);
+    
     const db = firebase.firestore();
+    
     let currentFile = null;
+    
     const config = { students: [], rooms: [], files: [] };
     
+    // Helper: update seating array when grid size changes (flat array version)
     function updateSeatingArray(oldSeating, oldRows, oldCols, newRows, newCols) {
       const newSeating = Array(newRows * newCols).fill(null);
       for (let i = 0; i < Math.min(oldRows, newRows); i++) {
@@ -195,14 +194,12 @@
       try {
         const studentsSnap = await db.collection("001-school").doc("students").collection("list").get();
         config.students = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        
         const filesSnap = await db.collection("001-school").doc("rooms").collection("files").get();
         config.files = await Promise.all(filesSnap.docs.map(async f => ({
           id: f.id,
           name: f.data().name,
           rooms: (await f.ref.collection("layouts").get()).docs.map(r => ({ id: r.id, ...r.data() }))
         })));
-        
         updateFileSelector();
         if (config.files.length > 0) {
           currentFile = config.files[0].id;
@@ -220,7 +217,9 @@
     async function createNewFile() {
       try {
         let fileName = prompt("Enter file name:", "New File " + new Date().toLocaleDateString());
-        if (!fileName) fileName = "New File " + new Date().toLocaleDateString();
+        if (!fileName) {
+          fileName = "New File " + new Date().toLocaleDateString();
+        }
         const fileRef = await db.collection("001-school").doc("rooms").collection("files").add({
           name: fileName,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -252,26 +251,27 @@
     }
     
     function updateFileSelector() {
-      document.getElementById("fileSelector").innerHTML = config.files.map(f =>
-        `<option value="${f.id}" ${f.id === currentFile ? "selected" : ""}>${f.name}</option>`
-      ).join("");
+      document.getElementById("fileSelector").innerHTML = config.files.map(f => `<option value="${f.id}" ${f.id === currentFile ? "selected" : ""}>${f.name}</option>`).join("");
     }
     
     async function addNewRoom() {
-      if (!currentFile) { alert("No file selected!"); return; }
+      if (!currentFile) {
+        alert("No file selected!");
+        return;
+      }
       try {
         const rows = 5, cols = 5;
-        const roomRef = await db.collection("001-school").doc("rooms").collection("files")
-          .doc(currentFile).collection("layouts").add({
-            name: "New Room",
-            type: "Mixed",
-            rows: rows,
-            cols: cols,
-            seating: Array(rows * cols).fill(null),
-            neighborCheck: "none",
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
+        // Seating is stored as a flat array of length rows * cols
+        const roomRef = await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").add({
+          name: "New Room",
+          type: "Mixed",
+          rows: rows,
+          cols: cols,
+          seating: Array(rows * cols).fill(null),
+          neighborCheck: "none",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
         const roomData = (await roomRef.get()).data();
         config.rooms.push({ id: roomRef.id, ...roomData });
         createSettingsPanel();
@@ -287,8 +287,7 @@
       try {
         const room = config.rooms.find(r => r.id === roomId);
         room.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-        await db.collection("001-school").doc("rooms").collection("files")
-          .doc(currentFile).collection("layouts").doc(roomId).update(room);
+        await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).update(room);
         alert("Room saved!");
       } catch (e) {
         console.error("Save error:", e);
@@ -297,59 +296,50 @@
     }
     
     function createSettingsPanel() {
-      document.getElementById("room-settings-container").innerHTML = config.rooms.map(room =>
-        `<div class="room-settings">
-          <h3>🚪 ${room.name}</h3>
+      document.getElementById("room-settings-container").innerHTML = config.rooms.map(room => `<div class="room-settings">
+        <h3>🚪 ${room.name}</h3>
+        <div>
+          <input type="text" value="${room.name}" onchange="updateRoomField('${room.id}','name',this.value)">
+          <button onclick="saveRoom('${room.id}')">💾 Save</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px;">
           <div>
-            <input type="text" value="${room.name}" onchange="updateRoomField('${room.id}','name',this.value)">
-            <button onclick="saveRoom('${room.id}')">💾 Save</button>
+            <label>Type:</label>
+            <select onchange="updateRoomField('${room.id}','type',this.value)">
+              <option value="Boys" ${room.type==="Boys"?"selected":""}>Boys</option>
+              <option value="Girls" ${room.type==="Girls"?"selected":""}>Girls</option>
+              <option value="Mixed" ${room.type==="Mixed"?"selected":""}>Mixed</option>
+            </select>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px;">
-            <div>
-              <label>Type:</label>
-              <select onchange="updateRoomField('${room.id}','type',this.value)">
-                <option value="Boys" ${room.type==="Boys"?"selected":""}>Boys</option>
-                <option value="Girls" ${room.type==="Girls"?"selected":""}>Girls</option>
-                <option value="Mixed" ${room.type==="Mixed"?"selected":""}>Mixed</option>
-              </select>
-            </div>
-            <div>
-              <label>Rows:</label>
-              <input type="number" value="${room.rows}" onchange="updateRoomGrid('${room.id}','rows',this.value)">
-            </div>
-            <div>
-              <label>Columns:</label>
-              <input type="number" value="${room.cols}" onchange="updateRoomGrid('${room.id}','cols',this.value)">
-            </div>
-            <div>
-              <label>Neighbor Check:</label>
-              <select onchange="updateRoomField('${room.id}','neighborCheck',this.value)">
-                <option value="none" ${room.neighborCheck==="none"?"selected":""}>None</option>
-                <option value="horizontal" ${room.neighborCheck==="horizontal"?"selected":""}>Horizontal</option>
-                <option value="vertical" ${room.neighborCheck==="vertical"?"selected":""}>Vertical</option>
-                <option value="both" ${room.neighborCheck==="both"?"selected":""}>Both</option>
-              </select>
-            </div>
+          <div>
+            <label>Rows:</label>
+            <input type="number" value="${room.rows}" onchange="updateRoomGrid('${room.id}','rows',this.value)">
           </div>
-          <button onclick="deleteRoom('${room.id}')" style="background:var(--danger-color);margin-top:10px;">🗑️ Delete</button>
-          <div style="margin-top:10px;">
-            <label>Clear Seats (Start Row, Start Col, End Row, End Col):</label>
-            <input type="number" id="clear-start-row-${room.id}" placeholder="Start Row" style="width:50px;">
-            <input type="number" id="clear-start-col-${room.id}" placeholder="Start Col" style="width:50px;">
-            <input type="number" id="clear-end-row-${room.id}" placeholder="End Row" style="width:50px;">
-            <input type="number" id="clear-end-col-${room.id}" placeholder="End Col" style="width:50px;">
-            <button onclick="clearRange('${room.id}')">Clear</button>
+          <div>
+            <label>Columns:</label>
+            <input type="number" value="${room.cols}" onchange="updateRoomGrid('${room.id}','cols',this.value)">
           </div>
-        </div>`
-      ).join("");
+          <div>
+            <label>Neighbor Check:</label>
+            <select onchange="updateRoomField('${room.id}','neighborCheck',this.value)">
+              <option value="none" ${room.neighborCheck==="none"?"selected":""}>None</option>
+              <option value="horizontal" ${room.neighborCheck==="horizontal"?"selected":""}>Horizontal</option>
+              <option value="vertical" ${room.neighborCheck==="vertical"?"selected":""}>Vertical</option>
+              <option value="both" ${room.neighborCheck==="both"?"selected":""}>Both</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="deleteRoom('${room.id}')" style="background:var(--danger-color);margin-top:10px;">🗑️ Delete</button>
+      </div>`).join("");
     }
     
     async function updateRoomField(roomId, field, value) {
       const room = config.rooms.find(r => r.id === roomId);
       room[field] = value;
-      await db.collection("001-school").doc("rooms").collection("files")
-        .doc(currentFile).collection("layouts").doc(roomId).update({ [field]: value });
-      if (field === 'name') createSettingsPanel();
+      await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).update({ [field]: value });
+      if (field === 'name') {
+        createSettingsPanel();
+      }
       updateStats();
     }
     
@@ -364,8 +354,7 @@
         room.seating = updateSeatingArray(room.seating, room.rows, room.cols, room.rows, newCols);
         room.cols = newCols;
       }
-      await db.collection("001-school").doc("rooms").collection("files")
-        .doc(currentFile).collection("layouts").doc(roomId)
+      await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId)
         .update({ [field]: parseInt(value), seating: room.seating });
       generateGrid(roomId);
       updateStats();
@@ -373,13 +362,11 @@
     
     async function deleteRoom(roomId) {
       try {
-        await db.collection("001-school").doc("rooms").collection("files")
-          .doc(currentFile).collection("layouts").doc(roomId).delete();
+        await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).delete();
         config.rooms = config.rooms.filter(r => r.id !== roomId);
         createSettingsPanel();
         createRooms();
         updateStats();
-        generateStudentsList();
       } catch (e) {
         console.error("Delete error:", e);
         alert("Error deleting room!");
@@ -406,6 +393,7 @@
       if (!grid) return;
       grid.innerHTML = "";
       grid.style.gridTemplateColumns = `repeat(${room.cols},65px)`;
+      grid.style.display = "grid";
       for (let i = 0; i < room.rows; i++) {
         for (let j = 0; j < room.cols; j++) {
           const seat = document.createElement('div');
@@ -422,10 +410,11 @@
           const index = i * room.cols + j;
           if (room.seating[index]) {
             const student = config.students.find(s => s.id === room.seating[index]);
-            seat.innerHTML = `${student.name}<br>${student.class}<br>${(student.gender.toLowerCase()==="m"||student.gender.toLowerCase()==="male")?'♂':'♀'}`;
-            seat.classList.add('occupied',(student.gender.toLowerCase()==="m"||student.gender.toLowerCase()==="male")?'male':'female');
+            seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender==='M' || student.gender==='male' ? '♂' : '♀'}`;
+            seat.classList.add('occupied', (student.gender==='M' || student.gender==='male') ? 'male' : 'female');
             seat.dataset.studentId = student.id;
           }
+          // Prevent dropping if seat is already occupied
           seat.addEventListener("dragover", e => e.preventDefault());
           seat.addEventListener("drop", e => handleDrop(e, roomId));
           seat.addEventListener("dragstart", handleSeatDragStart);
@@ -436,22 +425,10 @@
       }
     }
     
-    function isStudentAssigned(studentId) {
-      for (let room of config.rooms) {
-        if (room.seating.includes(studentId)) return true;
-      }
-      return false;
-    }
-    
     function attachStudentDragListeners() {
       document.querySelectorAll(".student").forEach(item => {
         item.setAttribute("draggable", "true");
         item.addEventListener("dragstart", function(e) {
-          if (isStudentAssigned(item.dataset.id)) {
-            alert("Student is already assigned!");
-            e.preventDefault();
-            return;
-          }
           e.dataTransfer.setData("text/plain", JSON.stringify({ studentId: item.dataset.id, source: "list" }));
           item.classList.add("dragging");
         });
@@ -462,14 +439,17 @@
     }
     
     function generateStudentsList() {
+      // Compute assigned student IDs from all rooms (flat seating arrays)
       const assigned = new Set();
-      config.rooms.forEach(room => room.seating.forEach(sid => { if (sid) assigned.add(sid); }));
+      config.rooms.forEach(room => {
+        room.seating.forEach(sid => { if (sid) assigned.add(sid); });
+      });
+      // Filter unassigned students and sort by class
       const unassignedStudents = config.students.filter(s => !assigned.has(s.id));
-      document.getElementById("students").innerHTML = unassignedStudents.map(s =>
-        `<div class="student" data-id="${s.id}" style="padding:5px; margin:3px; border:1px solid #ccc; cursor:grab;">
-          ${s.name} (${s.class})
-        </div>`
-      ).join("");
+      unassignedStudents.sort((a, b) => (a.class > b.class ? 1 : -1));
+      document.getElementById("students").innerHTML = unassignedStudents.map(s => `<div class="student ${ (s.gender==='M' || s.gender==='male') ? 'male' : 'female' }" data-id="${s.id}" style="padding:5px; margin:3px; border:1px solid #ccc; cursor:grab;">
+        ${s.name} (${s.class})
+      </div>`).join("");
       attachStudentDragListeners();
     }
     
@@ -484,9 +464,8 @@
             const room = config.rooms.find(r => r.id === dragData.roomId);
             const index = dragData.row * room.cols + dragData.col;
             room.seating[index] = null;
-            await db.collection("001-school").doc("rooms").collection("files")
-              .doc(currentFile).collection("layouts").doc(dragData.roomId)
-              .update({ seating: room.seating });
+            await db.collection("001-school").doc("rooms").collection("files").doc(currentFile)
+              .collection("layouts").doc(dragData.roomId).update({ seating: room.seating });
             generateGrid(dragData.roomId);
             updateStats();
             generateStudentsList();
@@ -502,6 +481,7 @@
       if (!e.target.dataset.row || !e.target.dataset.col) return;
       const targetRow = parseInt(e.target.dataset.row);
       const targetCol = parseInt(e.target.dataset.col);
+      // Prevent assignment if target seat is already occupied
       const room = config.rooms.find(r => r.id === roomId);
       const targetIndex = targetRow * room.cols + targetCol;
       if (room.seating[targetIndex]) {
@@ -510,18 +490,15 @@
       }
       const dragData = JSON.parse(e.dataTransfer.getData("text/plain"));
       const student = config.students.find(s => s.id === dragData.studentId);
-      
-      if (!Logic.validateGender(room, student)) return;
-      if (!Logic.validateNeighbors(room, student, targetRow, targetCol)) return;
+      if (!validateGender(room, student) || !validateNeighbors(room, student, targetRow, targetCol)) return;
       
       if (dragData.source === "grid") {
         await updateSeating(dragData, roomId, targetRow, targetCol);
       } else if (dragData.source === "list") {
         try {
           room.seating[targetIndex] = dragData.studentId;
-          await db.collection("001-school").doc("rooms").collection("files")
-            .doc(currentFile).collection("layouts").doc(roomId)
-            .update({ seating: room.seating });
+          await db.collection("001-school").doc("rooms").collection("files").doc(currentFile)
+            .collection("layouts").doc(roomId).update({ seating: room.seating });
           generateGrid(roomId);
           updateStats();
           generateStudentsList();
@@ -532,7 +509,7 @@
       }
     }
     
-    async function updateSeating(dragData, targetRoomId, targetRow, targetCol) {
+        async function updateSeating(dragData, targetRoomId, targetRow, targetCol) {
       try {
         const sourceRoom = config.rooms.find(r => r.id === dragData.roomId);
         const targetRoom = config.rooms.find(r => r.id === targetRoomId);
@@ -540,13 +517,14 @@
         const targetIndex = targetRow * targetRoom.cols + targetCol;
         sourceRoom.seating[sourceIndex] = null;
         targetRoom.seating[targetIndex] = dragData.studentId;
+
         const batch = db.batch();
-        const sourceRef = db.collection("001-school").doc("rooms").collection("files")
-          .doc(currentFile).collection("layouts").doc(dragData.roomId);
+        const sourceRef = db.collection("001-school").doc("rooms").collection("files").doc(currentFile)
+          .collection("layouts").doc(dragData.roomId);
         batch.update(sourceRef, { seating: sourceRoom.seating });
         if (dragData.roomId !== targetRoomId) {
-          const targetRef = db.collection("001-school").doc("rooms").collection("files")
-            .doc(currentFile).collection("layouts").doc(targetRoomId);
+          const targetRef = db.collection("001-school").doc("rooms").collection("files").doc(currentFile)
+            .collection("layouts").doc(targetRoomId);
           batch.update(targetRef, { seating: targetRoom.seating });
         }
         await batch.commit();
@@ -559,7 +537,7 @@
         alert("Error updating seat!");
       }
     }
-    
+
     function handleSeatDragStart(e) {
       let seat = e.target;
       if (seat.classList.contains("occupied")) {
@@ -570,48 +548,45 @@
         seat.classList.add("dragging");
       }
     }
-    
+
     function handleSeatDragEnd(e) {
       e.target.classList.remove("dragging");
     }
-    
-   async function clearRange(roomId) {
-      const room = config.rooms.find(r => r.id === roomId);
-      const startRow = parseInt(document.getElementById(`clear-start-row-${roomId}`).value);
-      const startCol = parseInt(document.getElementById(`clear-start-col-${roomId}`).value);
-      const endRow = parseInt(document.getElementById(`clear-end-row-${roomId}`).value);
-      const endCol = parseInt(document.getElementById(`clear-end-col-${roomId}`).value);
-      
-      if (isNaN(startRow) || isNaN(startCol) || isNaN(endRow) || isNaN(endCol)) {
-        alert("Please enter valid numbers for the range.");
-        return;
+
+    function validateGender(room, student) {
+      if (room.type === "Mixed") return true;
+      if (room.type === "Boys" && !["M", "male"].includes(student.gender)) {
+        alert(`❌ ${room.type} room only!`);
+        return false;
       }
-      
-      if (startRow < 0 || startCol < 0 || endRow >= room.rows || endCol >= room.cols || startRow > endRow || startCol > endCol) {
-        alert("Invalid range. Please check your inputs.");
-        return;
+      if (room.type === "Girls" && !["F", "female"].includes(student.gender)) {
+        alert(`❌ ${room.type} room only!`);
+        return false;
       }
-      
-      for (let i = startRow; i <= endRow; i++) {
-        for (let j = startCol; j <= endCol; j++) {
-          const index = i * room.cols + j;
-          room.seating[index] = null;
+      return true;
+    }
+
+    function validateNeighbors(room, student, row, col) {
+      if (room.neighborCheck === "none") return true;
+      const directions = [];
+      if (["horizontal", "both"].includes(room.neighborCheck)) directions.push([0, -1], [0, 1]);
+      if (["vertical", "both"].includes(room.neighborCheck)) directions.push([-1, 0], [1, 0]);
+      for (const [dx, dy] of directions) {
+        const x = row + dx, y = col + dy;
+        if (x >= 0 && x < room.rows && y >= 0 && y < room.cols) {
+          const index = x * room.cols + y;
+          if (room.seating[index]) {
+            const neighbor = config.students.find(s => s.id === room.seating[index]);
+            if (neighbor.class === student.class) {
+              alert("❌ Same class students cannot sit adjacent!");
+              return false;
+            }
+          }
         }
       }
-      
-      try {
-        await db.collection("001-school").doc("rooms").collection("files")
-          .doc(currentFile).collection("layouts").doc(roomId)
-          .update({ seating: room.seating });
-        generateGrid(roomId);
-        updateStats();
-        generateStudentsList();
-      } catch (e) {
-        console.error("Error clearing range:", e);
-        alert("Error clearing seats!");
-      }
+      return true;
     }
-    
+
     function updateStats() {
       document.getElementById("stats-container").innerHTML = `<h2>📊 Statistics</h2>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;">
@@ -625,62 +600,16 @@
       </div>`;
     }
 
-const Logic = {
-  
-  validateGender: function(room, student) {
-    if (room.type === "Mixed") return true;
-    if (room.type === "Boys") {
-      const gender = student.gender.toLowerCase();
-      if (gender === "m" || gender === "male") return true;
-      alert("❌ Boys room: Only boys allowed!");
-      return false;
-    }
-    if (room.type === "Girls") {
-      const gender = student.gender.toLowerCase();
-      if (gender === "f" || gender === "female") return true;
-      alert("❌ Girls room: Only girls allowed!");
-      return false;
-    }
-    return true;
-  },
-  
-  validateNeighbors: function(room, student, row, col) {
-    if (room.neighborCheck === "none") return true;
-    const directions = [];
-    if (["horizontal", "both"].includes(room.neighborCheck)) {
-      directions.push([0, -1], [0, 1]);
-    }
-    if (["vertical", "both"].includes(room.neighborCheck)) {
-      directions.push([-1, 0], [1, 0]);
-    }
-    for (const [dx, dy] of directions) {
-      const x = row + dx, y = col + dy;
-      if (x >= 0 && x < room.rows && y >= 0 && y < room.cols) {
-        const index = x * room.cols + y;
-        if (room.seating[index]) {
-          const neighbor = config.students.find(s => s.id === room.seating[index]);
-          if (neighbor && neighbor.class === student.class) {
-            alert("❌ Neighbor check: Same class students cannot sit adjacent!");
-            return false;
-          }
-        }
-      }
-    }
-    return true;
-  }
-};
-    
     init();
-    window.createNewFile = createNewFile;
+
+   window.createNewFile = createNewFile;
     window.loadFile = loadFile;
     window.addNewRoom = addNewRoom;
     window.saveRoom = saveRoom;
     window.updateRoomField = updateRoomField;
     window.updateRoomGrid = updateRoomGrid;
     window.deleteRoom = deleteRoom;
-    window.clearRange = clearRange;
+
   </script>
-  
-  <script src="logic.js"></script>
 </body>
 </html>
