@@ -3,191 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Channel Data Fetch</title>
+    <title>Smart Seat Manager Pro</title>
     <style>
-        /* Styling for Channel Cards */
-        .channel-item {
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --danger-color: #e74c3c;
+            --text-color: #2c3e50;
+            --bg-color: #ecf0f1;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .mobile-warning {
+            display: none;
+            background: var(--danger-color);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 30px;
+        }
+
+        .student-list {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .student {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            transition: transform 0.2s;
+            cursor: grab;
+        }
+
+        .student:hover {
+            transform: translateX(5px);
+        }
+
+        .settings-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .room {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .grid {
+            display: grid;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .seat {
+            width: 65px;
+            height: 65px;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
             display: flex;
             align-items: center;
-            background: #f0f0f0;
+            justify-content: center;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .seat:hover {
+            border-color: var(--secondary-color);
+        }
+
+        .stats-panel {
+            background: white;
             padding: 20px;
-            margin: 20px 0;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-top: 30px;
         }
 
-        .channel-item img {
-            border-radius: 50%;
-            width: 80px;
-            height: 80px;
-            margin-right: 20px;
-        }
+        .male { background-color: #d6eaf8; border-color: #3498db; }
+        .female { background-color: #fadbd8; border-color: #e74c3c; }
+        .occupied { background-color: #e8f6ea; }
+        .hidden { display: none; }
 
-        .channel-info {
-            flex-grow: 1;
-        }
-
-        .reaction-container {
-            margin-top: 10px;
-        }
-
-        .reaction-btn {
-            margin-right: 10px;
-            padding: 5px 10px;
+        button {
+            padding: 8px 16px;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
-        }
-
-        .like-btn {
-            background-color: #4caf50;
+            background: var(--secondary-color);
             color: white;
         }
 
-        .dislike-btn {
-            background-color: #f44336;
-            color: white;
+        select, input {
+            padding: 8px;
+            border: 2px solid #bdc3c7;
+            border-radius: 6px;
+            margin: 5px 0;
         }
 
-        .vip-badge {
-            background-color: gold;
-            color: black;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-weight: bold;
-            display: inline-block;
-            margin-top: 10px;
+        @media (max-width: 768px) {
+            .mobile-warning { display: block; }
+            .container { display: none; }
         }
 
-        .test-button {
-            margin-top: 10px;
-            cursor: not-allowed;
-        }
-
-        .countdown-timer {
-            margin-top: 10px;
-            color: #555;
-        }
     </style>
 </head>
-<body>
-    <div id="channel-container">
-    <!-- Dynamic channel cards will be rendered here -->
-</div>
-
-<script>
-    // YouTube API Key
-    const apiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
-
-    // Sample Firestore Data (simulating fetched data)
-    const firestoreData = [
-        { channelId: "UCCWSA89tFicJ6s7OsAQ-uCg", vip: true },
-        { channelId: "UC29ju8bIPH5as8OGnQzwJyA", vip: false }
-    ];
-
-    // Fetch Channel Data from YouTube API
-    async function fetchChannelData(channelId) {
-        const apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${apiKey}`;
-        try {
-            const response = await fetch(apiUrl);
-            const data = await response.json();
-
-            if (data.items && data.items.length > 0) {
-                const channel = data.items[0];
-                return {
-                    title: channel.snippet.title,
-                    logo: channel.snippet.thumbnails.default.url,
-                    subscribers: channel.statistics.subscriberCount,
-                    videos: channel.statistics.videoCount,
-                    link: `https://youtube.com/channel/${channelId}`
-                };
-            } else {
-                console.error(`Channel data not found for ID: ${channelId}`);
-                return null;
-            }
-        } catch (error) {
-            console.error(`Error fetching data for channel ${channelId}:`, error);
-            return null;
-        }
-    }
-
-    // Update HTML Content Dynamically
-    async function updateChannelContent() {
-        const container = document.getElementById("channel-container");
-
-        for (const doc of firestoreData) {
-            try {
-                const channelData = await fetchChannelData(doc.channelId);
-
-                if (channelData) {
-                    const channelCard = document.createElement("div");
-                    channelCard.className = "channel-item";
-
-                    const vipBadge = doc.vip
-                        ? `<div class="vip-badge">VIP</div>`
-                        : "";
-
-                    channelCard.innerHTML = `
-                        <img src="${channelData.logo}" alt="${channelData.title}">
-                        <div class="channel-info">
-                            <h3>${channelData.title}</h3>
-                            <p class="subscriber-count">Subscribers: ${channelData.subscribers}</p>
-                            <p class="video-count">Videos: ${channelData.videos}</p>
-                            ${vipBadge}
-                            <a href="${channelData.link}" class="visit-channel" target="_blank">Visit Channel</a>
-                            <div class="reaction-container">
-                                <button class="reaction-btn like-btn" onclick="updateReaction('${doc.channelId}', 'like')">👍 <span id="likes-${doc.channelId}">0</span></button>
-                                <button class="reaction-btn dislike-btn" onclick="updateReaction('${doc.channelId}', 'dislike')">👎</button>
-                            </div>
-                            <button class="test-button" disabled>🔒 CustomPortal</button>
-                            <div class="countdown-timer">
-                                <span id="countdown-${doc.channelId}"></span>
-                            </div>
-                        </div>
-                    `;
-
-                    container.appendChild(channelCard);
-
-                    // Start countdown for each channel
-                    startCountdown(doc.channelId, 5 * 60 * 1000); // 5 minutes
-                }
-            } catch (error) {
-                console.error(`Error processing channel ${doc.channelId}:`, error);
-            }
-        }
-    }
-
-    // Reaction Button Functionality
-    function updateReaction(channelId, reactionType) {
-        const likesCountEl = document.getElementById(`likes-${channelId}`);
-        if (reactionType === "like") {
-            likesCountEl.textContent = parseInt(likesCountEl.textContent) + 1;
-        }
-        // Add logic for dislikes if needed
-    }
-
-    // Countdown Timer
-    function startCountdown(channelId, duration) {
-        const targetDate = new Date().getTime() + duration;
-        const countdownEl = document.getElementById(`countdown-${channelId}`);
-
-        const interval = setInterval(() => {
-            const now = new Date().getTime();
-            const distance = targetDate - now;
-
-            if (distance > 0) {
-                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                countdownEl.textContent = `${minutes}:${seconds}`;
-            } else {
-                clearInterval(interval);
-                countdownEl.textContent = "Expired";
-            }
-        }, 1000);
-    }
-
-    // Initialize Content Update
-    updateChannelContent();
-</script>
-</body>
+<body><div class="mobile-warning">⚠️ Please use desktop view for best experience!</div><h1 style="color: var(--primary-color); text-align: center; margin: 30px 0;">🪑 Smart Seat Manager Pro</h1><div class="file-manager"><button onclick="createNewFile()">📁 New File</button><select id="fileSelector" onchange="loadFile(this.value)"></select></div><div class="settings-panel"><h2>⚙️ Room Configuration</h2><div id="room-settings-container"></div><button onclick="addNewRoom()">➕ Add New Room</button></div><div class="container"><div class="student-list"><h2>🎓 Students</h2><div id="students"></div></div><div id="rooms-container"></div></div><div class="stats-panel" id="stats-container"></div><script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script><script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script><script>
+const firebaseConfig={apiKey:"AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",authDomain:"squadvertex2007.firebaseapp.com",projectId:"squadvertex2007",storageBucket:"squadvertex2007.appspot.com",messagingSenderId:"168905083514",appId:"1:168905083514:web:c8bbe2ce9f87800a0f09c3"};
+firebase.initializeApp(firebaseConfig);const db=firebase.firestore();let currentFile=null;const config={students:[],rooms:[],files:[]};
+async function init(){try{const students=await db.collection("001-school").doc("students").collection("list").get();config.students=students.docs.map(d=>({id:d.id,...d.data()}));const files=await db.collection("001-school").doc("rooms").collection("files").get();config.files=await Promise.all(files.docs.map(async f=>({id:f.id,name:f.data().name,rooms:(await f.ref.collection("layouts").get()).docs.map(r=>({id:r.id,...r.data()}))})));updateFileSelector();if(config.files.length>0){currentFile=config.files[0].id;loadFile(currentFile);}else{createNewFile();}}catch(e){console.error("Init error:",e);alert("Error loading data!");}}
+async function createNewFile(){try{let fileName=prompt("Enter file name:","New File "+new Date().toLocaleDateString());if(!fileName){fileName="New File "+new Date().toLocaleDateString();}const fileRef=await db.collection("001-school").doc("rooms").collection("files").add({name:fileName,createdAt:firebase.firestore.FieldValue.serverTimestamp()});currentFile=fileRef.id;config.files.push({id:fileRef.id,name:fileName,rooms:[]});updateFileSelector();loadFile(currentFile);}catch(e){console.error("File creation error:",e);alert("Error creating file!");}}
+async function loadFile(fileId){currentFile=fileId;const file=config.files.find(f=>f.id===fileId);try{const layouts=await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").get();config.rooms=layouts.docs.map(r=>({id:r.id,...r.data()}));}catch(e){console.error("Error loading layouts:",e);config.rooms=[];}createSettingsPanel();createRooms();generateStudentsList();updateStats();}
+function updateFileSelector(){document.getElementById("fileSelector").innerHTML=config.files.map(f=>`<option value="${f.id}" ${f.id===currentFile?"selected":""}>${f.name}</option>`).join("");}
+async function addNewRoom(){if(!currentFile){alert("No file selected!");return;}try{const roomRef=await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").add({name:"New Room",type:"Mixed",rows:5,cols:6,seating:Array(5).fill().map(()=>Array(6).fill(null)),neighborCheck:"none",createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});const roomData=(await roomRef.get()).data();config.rooms.push({id:roomRef.id,...roomData});createSettingsPanel();createRooms();updateStats();}catch(e){console.error("Room creation error:",e);alert("Error creating room!");}}
+async function saveRoom(roomId){try{const room=config.rooms.find(r=>r.id===roomId);room.updatedAt=firebase.firestore.FieldValue.serverTimestamp();await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).update(room);alert("Room saved!");}catch(e){console.error("Save error:",e);alert("Error saving room!");}}
+function createSettingsPanel(){document.getElementById("room-settings-container").innerHTML=config.rooms.map(room=>`<div class="room-settings"><h3>🚪 ${room.name}</h3><div><input type="text" value="${room.name}" onchange="updateRoomField('${room.id}','name',this.value)"><button onclick="saveRoom('${room.id}')">💾 Save</button></div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px;"><div><label>Type:</label><select onchange="updateRoomField('${room.id}','type',this.value)"><option value="Boys" ${room.type==="Boys"?"selected":""}>Boys</option><option value="Girls" ${room.type==="Girls"?"selected":""}>Girls</option><option value="Mixed" ${room.type==="Mixed"?"selected":""}>Mixed</option></select></div><div><label>Rows:</label><input type="number" value="${room.rows}" onchange="updateRoomGrid('${room.id}','rows',this.value)"></div><div><label>Columns:</label><input type="number" value="${room.cols}" onchange="updateRoomGrid('${room.id}','cols',this.value)"></div><div><label>Neighbor Check:</label><select onchange="updateRoomField('${room.id}','neighborCheck',this.value)"><option value="none" ${room.neighborCheck==="none"?"selected":""}>None</option><option value="horizontal" ${room.neighborCheck==="horizontal"?"selected":""}>Horizontal</option><option value="vertical" ${room.neighborCheck==="vertical"?"selected":""}>Vertical</option><option value="both" ${room.neighborCheck==="both"?"selected":""}>Both</option></select></div></div><button onclick="deleteRoom('${room.id}')" style="background:var(--danger-color);margin-top:10px;">🗑️ Delete</button></div>`).join("");}
+async function updateRoomField(roomId,field,value){const room=config.rooms.find(r=>r.id===roomId);room[field]=value;await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).update({[field]:value});if(field==='name')createSettingsPanel();updateStats();}
+async function updateRoomGrid(roomId,field,value){const room=config.rooms.find(r=>r.id===roomId);room[field]=parseInt(value);if(field==="rows")room.seating=Array(parseInt(value)).fill().map((_,i)=>room.seating[i]||Array(room.cols).fill(null));else room.seating=room.seating.map(r=>r.slice(0,parseInt(value)));await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).update({[field]:parseInt(value),seating:room.seating});generateGrid(roomId);updateStats();}
+async function deleteRoom(roomId){try{await db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(roomId).delete();config.rooms=config.rooms.filter(r=>r.id!==roomId);createSettingsPanel();createRooms();updateStats();}catch(e){console.error("Delete error:",e);alert("Error deleting room!");}}
+function createRooms(){document.getElementById("rooms-container").innerHTML=config.rooms.map(room=>`<div class="room"><div style="display:flex;justify-content:space-between;align-items:center"><h3>${room.type==='Mixed'?'👥':room.type==='Boys'?'👨':'👩'} ${room.name}</h3><div>${room.rows}×${room.cols}<br><small>${room.updatedAt?new Date(room.updatedAt.toDate()).toLocaleString():""}</small></div></div><div class="grid" id="room-${room.id}"></div></div>`).join("");config.rooms.forEach(r=>generateGrid(r.id));}
+function generateGrid(roomId){const room=config.rooms.find(r=>r.id===roomId);const grid=document.getElementById(`room-${roomId}`);if(!grid)return;grid.innerHTML="";grid.style.gridTemplateColumns=`repeat(${room.cols},65px)`;for(let i=0;i<room.rows;i++){for(let j=0;j<room.cols;j++){const seat=document.createElement('div');seat.className='seat';seat.dataset.row=i;seat.dataset.col=j;if(room.seating[i][j]){const student=config.students.find(s=>s.id===room.seating[i][j]);seat.innerHTML=`${student.name}<br>${student.class}<br>${student.gender==='M'?'♂':'♀'}`;seat.classList.add('occupied',student.gender==='M'?'male':'female');seat.dataset.studentId=student.id;}grid.appendChild(seat);}}attachGridListeners(grid);}
+function attachGridListeners(grid){grid.replaceWith(grid.cloneNode(true));const newGrid=document.getElementById(grid.id);newGrid.addEventListener('dragover',e=>e.preventDefault());newGrid.addEventListener('drop',e=>handleDrop(e,newGrid.id.split("-")[1]));newGrid.querySelectorAll('.seat.occupied').forEach(seat=>{seat.addEventListener('dragstart',handleSeatDragStart);seat.addEventListener('dragend',handleSeatDragEnd);});}
+function handleSeatDragStart(e){e.dataTransfer.setData('text/plain',JSON.stringify({studentId:e.target.dataset.studentId,roomId:e.target.closest('.grid').id.split("-")[1],row:e.target.dataset.row,col:e.target.dataset.col}));e.target.classList.add('dragging');}
+function handleSeatDragEnd(e){e.target.classList.remove('dragging');}
+async function handleDrop(e,roomId){e.preventDefault();const dragData=JSON.parse(e.dataTransfer.getData('text/plain'));const targetRow=parseInt(e.target.dataset.row);const targetCol=parseInt(e.target.dataset.col);const student=config.students.find(s=>s.id===dragData.studentId);const room=config.rooms.find(r=>r.id===roomId);if(!validateGender(room,student)||!validateNeighbors(room,student,targetRow,targetCol))return;await updateSeating(dragData,roomId,targetRow,targetCol);}
+async function updateSeating(dragData,targetRoomId,targetRow,targetCol){try{const batch=db.batch();const sourceRef=db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(dragData.roomId);batch.update(sourceRef,{[`seating.${dragData.row}.${dragData.col}`]:null});const targetRef=db.collection("001-school").doc("rooms").collection("files").doc(currentFile).collection("layouts").doc(targetRoomId);batch.update(targetRef,{[`seating.${targetRow}.${targetCol}`]:dragData.studentId});await batch.commit();config.rooms.find(r=>r.id===dragData.roomId).seating[dragData.row][dragData.col]=null;config.rooms.find(r=>r.id===targetRoomId).seating[targetRow][targetCol]=dragData.studentId;generateGrid(dragData.roomId);generateGrid(targetRoomId);updateStats();}catch(e){console.error("Seat update error:",e);alert("Error updating seat!");}}
+function validateGender(room,student){if(room.type==='Mixed')return true;const requiredGender=room.type==='Boys'?'M':'F';if(student.gender!==requiredGender){alert(`❌ ${room.type} room only!`);return false;}return true;}
+function validateNeighbors(room,student,row,col){if(room.neighborCheck==='none')return true;const directions=[];if(['horizontal','both'].includes(room.neighborCheck))directions.push([0,-1],[0,1]);if(['vertical','both'].includes(room.neighborCheck))directions.push([-1,0],[1,0]);for(const[dx,dy]of directions){const x=row+dx,y=col+dy;if(x>=0&&x<room.rows&&y>=0&&y<room.cols&&room.seating[x][y]){const neighbor=config.students.find(s=>s.id===room.seating[x][y]);if(neighbor.class===student.class){alert('❌ Same class students cannot sit adjacent!');return false;}}}return true;}
+function generateStudentsList(){document.getElementById("students").innerHTML=config.students.map(s=>`<div class="student ${s.gender==='M'?'male':'female'}" data-id="${s.id}">${s.name} (${s.class})</div>`).join("");}
+function updateStats(){document.getElementById("stats-container").innerHTML=`<h2>📊 Statistics</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;">${config.rooms.map(r=>`<div class="stats-card"><h3>${r.name}</h3><p>Capacity: ${r.rows*r.cols}</p><p>Occupied: ${r.seating.flat().filter(s=>s).length}</p><p>Type: ${r.type}</p><p>Rules: ${r.neighborCheck}</p></div>`).join("")}</div>`;}
+init();window.createNewFile=createNewFile;window.loadFile=loadFile;window.addNewRoom=addNewRoom;window.saveRoom=saveRoom;window.updateRoomField=updateRoomField;window.updateRoomGrid=updateRoomGrid;window.deleteRoom=deleteRoom;
+</script></body>
 </html>
