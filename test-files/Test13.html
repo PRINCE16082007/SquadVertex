@@ -366,6 +366,7 @@
         config.rooms = config.rooms.filter(r => r.id !== roomId);
         createSettingsPanel();
         createRooms();
+        generateStudentsList(); // Add this line to refresh student list
         updateStats();
       } catch (e) {
         console.error("Delete error:", e);
@@ -481,15 +482,23 @@
       if (!e.target.dataset.row || !e.target.dataset.col) return;
       const targetRow = parseInt(e.target.dataset.row);
       const targetCol = parseInt(e.target.dataset.col);
-      // Prevent assignment if target seat is already occupied
+      
       const room = config.rooms.find(r => r.id === roomId);
       const targetIndex = targetRow * room.cols + targetCol;
       if (room.seating[targetIndex]) {
         alert("Seat already occupied!");
         return;
       }
+
       const dragData = JSON.parse(e.dataTransfer.getData("text/plain"));
       const student = config.students.find(s => s.id === dragData.studentId);
+      // Prevent multiple assignments
+      const isAlreadyAssigned = config.rooms.some(r => r.seating.includes(dragData.studentId));
+      if (dragData.source === "list" && isAlreadyAssigned) {
+        alert("❌ Student is already assigned to another seat!");
+        return;
+      }
+
       if (!validateGender(room, student) || !validateNeighbors(room, student, targetRow, targetCol)) return;
       
       if (dragData.source === "grid") {
@@ -554,12 +563,14 @@
     }
 
     function validateGender(room, student) {
+      if (!student) return false;
+      const studentGender = student.gender.toLowerCase();
       if (room.type === "Mixed") return true;
-      if (room.type === "Boys" && !["M", "male"].includes(student.gender)) {
+      if (room.type === "Boys" && !["m", "male"].includes(studentGender)) {
         alert(`❌ ${room.type} room only!`);
         return false;
       }
-      if (room.type === "Girls" && !["F", "female"].includes(student.gender)) {
+      if (room.type === "Girls" && !["f", "female"].includes(studentGender)) {
         alert(`❌ ${room.type} room only!`);
         return false;
       }
@@ -571,6 +582,7 @@
       const directions = [];
       if (["horizontal", "both"].includes(room.neighborCheck)) directions.push([0, -1], [0, 1]);
       if (["vertical", "both"].includes(room.neighborCheck)) directions.push([-1, 0], [1, 0]);
+      
       for (const [dx, dy] of directions) {
         const x = row + dx, y = col + dy;
         if (x >= 0 && x < room.rows && y >= 0 && y < room.cols) {
