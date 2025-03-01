@@ -66,6 +66,8 @@
           <th>Class</th>
           <th>Stream</th>
           <th>Total Fee</th>
+          <th>Discount</th>
+          <th>Final Total</th>
           <th>Paid</th>
           <th>Pending</th>
           <th>Vehicle Fee</th>
@@ -83,12 +85,14 @@
           <td>10</td>
           <td>Science</td>
           <td>₹5000</td>
+          <td>₹500</td>
+          <td>₹4500</td>
           <td>₹2000</td>
-          <td>₹3000</td>
+          <td>₹2500</td>
           <td>₹500</td>
           <td>Partial</td>
           <td>
-            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#paymentModal">Add Payment</button>
+            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#paymentModal" onclick="setPaymentRoll(101)">Add Payment</button>
             <button class="btn btn-sm btn-info" data-toggle="modal" data-target="#detailsModal" onclick="loadStudentDetails(101)">View Details</button>
           </td>
         </tr>
@@ -101,12 +105,14 @@
           <td>9</td>
           <td>Commerce</td>
           <td>₹4000</td>
+          <td>₹0</td>
+          <td>₹4000</td>
           <td>₹4000</td>
           <td>₹0</td>
           <td>₹0</td>
           <td>Paid</td>
           <td>
-            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#paymentModal">Add Payment</button>
+            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#paymentModal" onclick="setPaymentRoll(102)">Add Payment</button>
             <button class="btn btn-sm btn-info" data-toggle="modal" data-target="#detailsModal" onclick="loadStudentDetails(102)">View Details</button>
           </td>
         </tr>
@@ -170,7 +176,7 @@
 
   <!-- Student Details Modal -->
   <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-dialog modal-xl" role="document">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="detailsModalLabel">Student Details</h5>
@@ -184,9 +190,48 @@
             <p><strong>Family ID:</strong> <span id="detail-family-id"></span></p>
             <p><strong>Name:</strong> <span id="detail-name"></span></p>
             <p><strong>Father's Name:</strong> <span id="detail-father-name"></span></p>
-            <p><strong>Class:</strong> <span id="detail-class"></span> | <strong>Stream:</strong> <span id="detail-stream"></span></p>
-            <p><strong>Total Fee:</strong> <span id="detail-total-fee"></span> | <strong>Paid:</strong> <span id="detail-paid"></span> | <strong>Pending:</strong> <span id="detail-pending"></span></p>
+            <p>
+              <strong>Class:</strong> <span id="detail-class"></span> | 
+              <strong>Stream:</strong> <span id="detail-stream"></span>
+            </p>
+            <p>
+              <strong>Total Fee:</strong> <span id="detail-total-fee"></span> | 
+              <strong>Discount:</strong> <span id="detail-discount"></span> | 
+              <strong>Final Total:</strong> <span id="detail-final-total"></span>
+            </p>
+            <p><strong>Paid:</strong> <span id="detail-paid"></span> | <strong>Pending:</strong> <span id="detail-pending"></span></p>
             <p><strong>Vehicle Fee:</strong> <span id="detail-vehicle-fee"></span></p>
+          </div>
+          <hr>
+          <!-- Universal Fee Chart Details -->
+          <div id="universal-fee-chart">
+            <h5>Universal Fee Chart</h5>
+            <p>
+              For <strong>Class <span id="ufc-class"></span> - <span id="ufc-stream"></span></strong>:
+            </p>
+            <ul>
+              <li><strong>Fee Amount:</strong> ₹<span id="ufc-fee"></span></li>
+              <li><strong>Vehicle Rent:</strong> ₹<span id="ufc-vehicle-fee"></span> 
+                  (<em>Category: <span id="ufc-vehicle-category"></span>, Expected Distance: <span id="ufc-distance"></span> km</em>)</li>
+              <li><strong>Discount Offered:</strong> ₹<span id="ufc-discount"></span></li>
+            </ul>
+          </div>
+          <hr>
+          <!-- Installment Due Dates -->
+          <div id="installment-due">
+            <h5>Installment Due Dates</h5>
+            <table class="table table-sm table-bordered">
+              <thead>
+                <tr>
+                  <th>Installment</th>
+                  <th>Due Date</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody id="installment-table">
+                <!-- Dummy installment data will be populated here -->
+              </tbody>
+            </table>
           </div>
           <hr>
           <!-- Transaction History -->
@@ -205,6 +250,8 @@
               <!-- Transaction rows will be populated here -->
             </tbody>
           </table>
+          <!-- WhatsApp Reminder Button -->
+          <button class="btn btn-success" onclick="sendWhatsAppReminder()">Send WhatsApp Reminder</button>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -218,32 +265,64 @@
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
   <script>
+    // Set roll number for Payment Modal
+    function setPaymentRoll(rollNo) {
+      document.getElementById('payment-roll-no').value = rollNo;
+    }
+
     // Dummy function for handling payment submission
     document.getElementById('payment-form').addEventListener('submit', function(e) {
       e.preventDefault();
       const rollNo = document.getElementById('payment-roll-no').value;
       alert("Payment recorded for student " + rollNo + " (dummy)!");
       $('#paymentModal').modal('hide');
-      // Here, update the table and backend as needed.
+      // Update table/backend as needed.
     });
 
     // Dummy function to load student details in modal
     function loadStudentDetails(rollNo) {
-      // For demo, use static data. In real app, fetch details based on rollNo.
+      // For demo, we use static data. In a real app, fetch details based on rollNo.
       if(rollNo == 101) {
+        // Basic info
         document.getElementById('detail-family-id').innerText = "FAM001";
         document.getElementById('detail-name').innerText = "Rahul Kumar";
         document.getElementById('detail-father-name').innerText = "Mr. Kumar";
         document.getElementById('detail-class').innerText = "10";
         document.getElementById('detail-stream').innerText = "Science";
         document.getElementById('detail-total-fee').innerText = "₹5000";
+        document.getElementById('detail-discount').innerText = "₹500";
+        document.getElementById('detail-final-total').innerText = "₹4500";
         document.getElementById('detail-paid').innerText = "₹2000";
-        document.getElementById('detail-pending').innerText = "₹3000";
+        document.getElementById('detail-pending').innerText = "₹2500";
         document.getElementById('detail-vehicle-fee').innerText = "₹500";
 
-        // Populate transaction history table
+        // Universal Fee Chart details (static dummy data)
+        document.getElementById('ufc-class').innerText = "10";
+        document.getElementById('ufc-stream').innerText = "Science";
+        document.getElementById('ufc-fee').innerText = "5000";
+        document.getElementById('ufc-vehicle-fee').innerText = "500";
+        document.getElementById('ufc-vehicle-category').innerText = "Sedan";
+        document.getElementById('ufc-distance').innerText = "10";
+        document.getElementById('ufc-discount').innerText = "500";
+
+        // Installment due dates (dummy two installments)
+        const installmentData = [
+          { installment: "1st Installment", due: "2025-03-05", amount: "₹2250" },
+          { installment: "2nd Installment", due: "2025-04-05", amount: "₹2250" }
+        ];
+        const instTable = document.getElementById('installment-table');
+        instTable.innerHTML = "";
+        installmentData.forEach(inst => {
+          const row = document.createElement("tr");
+          row.innerHTML = `<td>${inst.installment}</td>
+                           <td>${inst.due}</td>
+                           <td>${inst.amount}</td>`;
+          instTable.appendChild(row);
+        });
+
+        // Transaction history for Rahul
         const transTable = document.getElementById('student-transactions');
-        transTable.innerHTML = ""; // Clear previous data
+        transTable.innerHTML = "";
         const transactions = [
           { date: "2025-02-15", amount: 1000, mode: "Cash", txnId: "TXN1001", remarks: "First installment" },
           { date: "2025-02-28", amount: 1000, mode: "UPI", txnId: "TXN1002", remarks: "Second installment" }
@@ -264,11 +343,33 @@
         document.getElementById('detail-class').innerText = "9";
         document.getElementById('detail-stream').innerText = "Commerce";
         document.getElementById('detail-total-fee').innerText = "₹4000";
+        document.getElementById('detail-discount').innerText = "₹0";
+        document.getElementById('detail-final-total').innerText = "₹4000";
         document.getElementById('detail-paid').innerText = "₹4000";
         document.getElementById('detail-pending').innerText = "₹0";
         document.getElementById('detail-vehicle-fee').innerText = "₹0";
 
-        // Dummy transaction history for Priya
+        document.getElementById('ufc-class').innerText = "9";
+        document.getElementById('ufc-stream').innerText = "Commerce";
+        document.getElementById('ufc-fee').innerText = "4000";
+        document.getElementById('ufc-vehicle-fee').innerText = "0";
+        document.getElementById('ufc-vehicle-category').innerText = "N/A";
+        document.getElementById('ufc-distance').innerText = "0";
+        document.getElementById('ufc-discount').innerText = "0";
+
+        const instTable = document.getElementById('installment-table');
+        instTable.innerHTML = "";
+        const installmentData = [
+          { installment: "Full Payment", due: "2025-03-01", amount: "₹4000" }
+        ];
+        installmentData.forEach(inst => {
+          const row = document.createElement("tr");
+          row.innerHTML = `<td>${inst.installment}</td>
+                           <td>${inst.due}</td>
+                           <td>${inst.amount}</td>`;
+          instTable.appendChild(row);
+        });
+
         const transTable = document.getElementById('student-transactions');
         transTable.innerHTML = "";
         const transactions = [
@@ -286,6 +387,11 @@
       }
       // Set hidden field for payment modal with current roll no (if needed later)
       document.getElementById('payment-roll-no').value = rollNo;
+    }
+
+    // Dummy function to simulate sending WhatsApp reminders
+    function sendWhatsAppReminder() {
+      alert("WhatsApp reminder sent (dummy)!");
     }
   </script>
 </body>
