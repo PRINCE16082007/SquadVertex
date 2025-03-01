@@ -1,565 +1,274 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Seat Manager Pro</title>
-    <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --success-color: #27ae60;
-            --danger-color: #e74c3c;
-            --text-color: #2c3e50;
-            --bg-color: #ecf0f1;
-        }
-
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: var(--bg-color);
-            color: var(--text-color);
-        }
-
-        .mobile-warning {
-            display: none;
-            background: var(--danger-color);
-            color: white;
-            padding: 15px;
-            text-align: center;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 20px auto;
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 30px;
-        }
-
-        .student-list {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        .student {
-            padding: 12px;
-            margin: 8px 0;
-            border-radius: 8px;
-            transition: transform 0.2s;
-            cursor: grab;
-        }
-
-        .student:hover {
-            transform: translateX(5px);
-        }
-
-        .settings-panel {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-
-        .room {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        .grid {
-            display: grid;
-            gap: 8px;
-            margin-top: 15px;
-        }
-
-        .seat {
-            width: 65px;
-            height: 65px;
-            border: 2px solid #bdc3c7;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.85em;
-            transition: all 0.2s;
-        }
-
-        .seat:hover {
-            border-color: var(--secondary-color);
-        }
-
-        .stats-panel {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-top: 30px;
-        }
-
-        .male { background-color: #d6eaf8; border-color: #3498db; }
-        .female { background-color: #fadbd8; border-color: #e74c3c; }
-        .occupied { background-color: #e8f6ea; }
-        .hidden { display: none; }
-
-        button {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            background: var(--secondary-color);
-            color: white;
-        }
-
-        select, input {
-            padding: 8px;
-            border: 2px solid #bdc3c7;
-            border-radius: 6px;
-            margin: 5px 0;
-        }
-
-        @media (max-width: 768px) {
-            .mobile-warning { display: block; }
-            .container { display: none; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Student Data Entry - SquadVertex</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <style>
+    /* SquadVertex Theme Base */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #eef2f7;
+    }
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: #fff;
+      padding: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 20px;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      margin: 10px 0 5px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    input[type="text"], select {
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px;
+      background-color: #0073e6;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #005bb5;
+    }
+    .message {
+      margin-top: 20px;
+      text-align: center;
+      color: green;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .next-btn {
+      margin-top: 15px;
+      background-color: #28a745;
+    }
+    
+    /* Footer Styles (SquadVertex & EXELIS Branding) */
+    .branding-footer {
+      background-color: #f8f8f8;
+      border-top: 1px solid #ddd;
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      box-shadow: 0 -1px 5px rgba(0,0,0,0.1);
+      z-index: 1000;
+      font-size: 16px;
+      padding: 12px 0;
+    }
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 0 20px;
+    }
+    .branding-left a,
+    .branding-right {
+      display: flex;
+      align-items: center;
+    }
+    .branding-left a {
+      text-decoration: none;
+      color: inherit;
+    }
+    .logo-container {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      overflow: hidden;
+      margin-right: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #fff;
+    }
+    .logo-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .exelis-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .exelis-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .exelis-brand {
+      cursor: pointer;
+      color: #333;
+      font-weight: 500;
+    }
+    .exelis-version {
+      font-size: 14px;
+      color: #666;
+      margin-top: 2px;
+    }
+    .exelis-tooltip {
+      display: none;
+      position: absolute;
+      bottom: 120%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333;
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-size: 14px;
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      z-index: 100;
+    }
+    /* Show tooltip on hover */
+    .exelis-container:hover .exelis-tooltip {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-    <div class="mobile-warning">⚠️ Please use desktop view for best experience!</div>
-    <h1 style="color: var(--primary-color); text-align: center; margin: 30px 0;">🪑 Smart Seat Manager Pro</h1>
+  <div class="container">
+    <h1>Student Data Entry</h1>
+    <form id="studentForm">
+      <label for="studentId">Student ID:</label>
+      <!-- Enter a numeric ID which will be padded to 4 digits -->
+      <input type="text" id="studentId" placeholder="e.g. 5" required>
+      
+      <label for="name">Student Name:</label>
+      <input type="text" id="name" required>
 
-    <!-- Settings Panel -->
-    <div class="settings-panel">
-        <h2>⚙️ Room Configuration</h2>
-        <div id="room-settings-container"></div>
-        <button onclick="addNewRoom()">➕ Add New Room</button>
-    </div>
+      <label for="class">Class:</label>
+      <input type="text" id="class" required>
 
-    <div class="container">
-        <!-- Student List -->
-        <div class="student-list">
-            <h2>🎓 Students</h2>
-            <div id="students"></div>
+      <label for="gender">Gender:</label>
+      <select id="gender" required>
+        <option value="">Select Gender</option>
+        <option value="M">Male</option>
+        <option value="F">Female</option>
+      </select>
+
+      <button type="submit">Add Student</button>
+    </form>
+    <div class="message" id="message"></div>
+    <!-- Next button appears after a successful add -->
+    <button id="nextButton" class="next-btn" style="display:none;">Next Student</button>
+  </div>
+
+  <!-- Footer Section -->
+  <footer class="branding-footer">
+    <div class="footer-container">
+      <div class="branding-left">
+        <a href="https://squadvertex.com" target="_blank">
+          <div class="logo-container">
+            <img src="https://via.placeholder.com/40x40?text=SV" alt="SquadVertex Logo">
+          </div>
+          <span>Powered by SquadVertex</span>
+        </a>
+      </div>
+      <div class="branding-right">
+        <div class="exelis-container">
+          <div class="exelis-info">
+            <span id="exelisBrand" class="exelis-brand">Protected by EXELIS</span>
+            <span class="exelis-version">v1.0.0</span>
+          </div>
+          <div id="exelisTooltip" class="exelis-tooltip">
+            EXpert Enhanced Learning and Intelligent Support
+          </div>
         </div>
-
-        <!-- Rooms Container -->
-        <div id="rooms-container"></div>
+      </div>
     </div>
+  </footer>
 
-    <!-- Statistics Panel -->
-    <div class="stats-panel" id="stats-container"></div>
-
-<script>
-// Professional Configuration
-const config = {
-    rooms: [],
-    students: [
-        { id: 1, name: "Aryan", class: "10A", gender: "M" },
-        { id: 2, name: "Priya", class: "10A", gender: "F" },
-        { id: 3, name: "Rahul", class: "10B", gender: "M" },
-        { id: 4, name: "Neha", class: "10A", gender: "F" }
-    ]
-};
-
-// System Initialization
-function init() {
-    if(config.rooms.length === 0) addNewRoom();
-    createSettingsPanel();
-    createRooms();
-    generateStudentsList();
-    initDragDrop();
-    updateStats();
-}
-
-// Enhanced Room Configuration
-function addNewRoom() {
-    const newRoom = {
-        id: Date.now().toString(),
-        name: `Room ${Date.now().toString().substr(-4)}`,
-        type: "Mixed",
-        rows: 5,
-        cols: 6,
-        neighborCheck: "none",
-        seating: Array(5).fill().map(() => Array(6).fill(null))
+  <script>
+    // Firebase configuration & initialization
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
-    config.rooms.push(newRoom);
-    createSettingsPanel();
-    createRooms();
-}
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-// Modern Settings Panel
-function createSettingsPanel() {
-    const container = document.getElementById("room-settings-container");
-    container.innerHTML = '';
-
-    config.rooms.forEach((room, index) => {
-        const settingsHTML = `
-            <div class="room-settings" data-room-id="${room.id}">
-                <h3>🚪 ${room.name} Settings</h3>
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
-                    <div>
-                        <label>Room Name:</label>
-                        <input type="text" value="${room.name}" class="room-name" style="width: 100%">
-                    </div>
-                    <div>
-                        <label>Type:</label>
-                        <select class="room-type" style="width: 100%">
-                            <option value="Boys">Boys Only</option>
-                            <option value="Girls">Girls Only</option>
-                            <option value="Mixed">Mixed</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Rows:</label>
-                        <input type="number" value="${room.rows}" min="1" class="room-rows" style="width: 100%">
-                    </div>
-                    <div>
-                        <label>Columns:</label>
-                        <input type="number" value="${room.cols}" min="1" class="room-cols" style="width: 100%">
-                    </div>
-                    <div>
-                        <label>Neighbor Check:</label>
-                        <select class="neighbor-check" style="width: 100%">
-                            <option value="none">None</option>
-                            <option value="horizontal">Horizontal</option>
-                            <option value="vertical">Vertical</option>
-                            <option value="both">Both</option>
-                        </select>
-                    </div>
-                </div>
-                <button onclick="deleteRoom('${room.id}')" style="background: var(--danger-color); margin-top: 10px;">
-                    🗑️ Delete Room
-                </button>
-            </div>
-        `;
-        container.insertAdjacentHTML('beforeend', settingsHTML);
-
-        const settingsDiv = container.children[index];
-        settingsDiv.querySelector('.room-name').value = room.name;
-        settingsDiv.querySelector('.room-type').value = room.type;
-        settingsDiv.querySelector('.neighbor-check').value = room.neighborCheck;
-
-        settingsDiv.querySelector('.room-name').addEventListener('change', (e) => {
-            room.name = e.target.value;
-            document.querySelector(`[data-room-id="${room.id}"] h3`).textContent = `🚪 ${room.name} Settings`;
-            document.querySelector(`#room-${room.id} h3`).innerHTML = `
-                ${room.type === 'Mixed' ? '👥' : room.type === 'Boys' ? '👨' : '👩'} ${room.name}
-            `;
-        });
-
-        settingsDiv.querySelector('.room-rows').addEventListener('change', (e) => updateRoomGrid(e, room.id));
-        settingsDiv.querySelector('.room-cols').addEventListener('change', (e) => updateRoomGrid(e, room.id));
-        settingsDiv.querySelector('.room-type').addEventListener('change', (e) => updateRoomSettings(e, room.id));
-        settingsDiv.querySelector('.neighbor-check').addEventListener('change', (e) => updateRoomSettings(e, room.id));
-    });
-}
-
-// Update Room Grid
-function updateRoomGrid(e, roomId) {
-    const room = config.rooms.find(r => r.id === roomId);
-    if(e.target.classList.contains('room-rows')) {
-        room.rows = parseInt(e.target.value);
-    } else {
-        room.cols = parseInt(e.target.value);
-    }
-
-    // Preserve existing seating data
-    const newSeating = Array(room.rows).fill().map((_, i) => 
-        Array(room.cols).fill().map((_, j) => 
-            (room.seating[i] && room.seating[i][j]) ? room.seating[i][j] : null
-        )
-    );
-    room.seating = newSeating;
-
-    generateGrid(roomId);
-    updateStats();
-}
-
-// Update Room Settings
-function updateRoomSettings(e, roomId) {
-    const room = config.rooms.find(r => r.id === roomId);
-    const grid = document.getElementById(`room-${roomId}`);
-
-    if(e.target.classList.contains('room-type')) {
-        room.type = e.target.value;
-        grid.dataset.type = e.target.value;
-    } else {
-        room.neighborCheck = e.target.value;
-        grid.dataset.neighborCheck = e.target.value;
-    }
-    updateStats();
-}
-
-// Delete Room (with student return)
-function deleteRoom(roomId) {
-    const roomIndex = config.rooms.findIndex(r => r.id === roomId);
-    const room = config.rooms[roomIndex];
-    
-    // Return all students to list
-    room.seating.forEach(row => {
-        row.forEach(studentId => {
-            if(studentId) {
-                const studentElem = document.querySelector(`[data-id="${studentId}"]`);
-                if(studentElem) studentElem.classList.remove('hidden');
-            }
-        });
+    // Handle student form submission
+    const studentForm = document.getElementById("studentForm");
+    studentForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const idInput = document.getElementById("studentId").value.trim();
+      const name = document.getElementById("name").value.trim();
+      const studentClass = document.getElementById("class").value.trim();
+      const gender = document.getElementById("gender").value;
+      
+      if(idInput === "" || name === "" || studentClass === "" || gender === "") {
+        alert("Please fill in all fields");
+        return;
+      }
+      
+      // Pad the ID to 4 digits (e.g., "5" becomes "0005")
+      const paddedId = idInput.padStart(4, "0");
+      const documentId = "student" + paddedId;
+      
+      // Save the student to Firestore with the custom document ID
+      db.collection("001-school").doc("students").collection("list").doc(documentId).set({
+        id: paddedId,
+        name: name,
+        class: studentClass,
+        gender: gender
+      }).then(() => {
+        document.getElementById("message").innerText = "Student added successfully as " + documentId + "!";
+        studentForm.reset();
+        // Show the "Next Student" button after successful addition
+        document.getElementById("nextButton").style.display = "block";
+      }).catch((error) => {
+        console.error("Error adding student: ", error);
+        alert("Error adding student. Check console for details.");
+      });
     });
 
-    config.rooms.splice(roomIndex, 1);
-    createSettingsPanel();
-    createRooms();
-    updateStats();
-}
-
-// Create Rooms
-function createRooms() {
-    const container = document.getElementById("rooms-container");
-    container.innerHTML = '';
-
-    config.rooms.forEach(room => {
-        const roomHTML = `
-            <div class="room">
-                <div style="display: flex; justify-content: space-between; align-items: center">
-                    <h3>${room.type === 'Mixed' ? '👥' : room.type === 'Boys' ? '👨' : '👩'} ${room.name}</h3>
-                    <div>${room.rows}×${room.cols} Grid</div>
-                </div>
-                <div class="grid" 
-                    id="room-${room.id}" 
-                    data-rows="${room.rows}" 
-                    data-cols="${room.cols}"
-                    data-type="${room.type}"
-                    data-neighbor-check="${room.neighborCheck}">
-                </div>
-            </div>
-        `;
-        container.insertAdjacentHTML('beforeend', roomHTML);
-        generateGrid(room.id);
-    });
-}
-
-// Generate Grid with Enhanced Drag
-function generateGrid(roomId) {
-    const room = config.rooms.find(r => r.id === roomId);
-    const grid = document.getElementById(`room-${roomId}`);
-    grid.innerHTML = '';
-    grid.style.gridTemplateColumns = `repeat(${room.cols}, 65px)`;
-
-    for(let i = 0; i < room.rows; i++) {
-        for(let j = 0; j < room.cols; j++) {
-            const seat = document.createElement('div');
-            seat.className = 'seat';
-            seat.dataset.row = i;
-            seat.dataset.col = j;
-
-            if(room.seating[i][j]) {
-                const student = config.students.find(s => s.id === room.seating[i][j]);
-                seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender === 'M' ? '♂' : '♀'}`;
-                seat.classList.add('occupied', student.gender === 'M' ? 'male' : 'female');
-                seat.dataset.studentId = student.id;
-                seat.dataset.studentClass = student.class;
-                seat.draggable = true;
-            }
-
-            grid.appendChild(seat);
-        }
-    }
-    attachGridListeners(grid);
-}
-
-// Attach Grid Listeners (Fixed)
-function attachGridListeners(grid) {
-    // Drag-drop handlers
-    grid.addEventListener('dragover', e => e.preventDefault());
-    grid.addEventListener('drop', handleDrop);
-
-    // Enable seat dragging
-    grid.querySelectorAll('.seat.occupied').forEach(seat => {
-        seat.addEventListener('dragstart', handleSeatDragStart);
-        seat.addEventListener('dragend', handleSeatDragEnd);
-    });
-}
-
-function handleSeatDragStart(e) {
-    e.target.classList.add('dragging');
-    e.dataTransfer.setData('text/plain', e.target.dataset.studentId);
-}
-
-function handleSeatDragEnd(e) {
-    e.target.classList.remove('dragging');
-}
-
-// Drag-Drop Handler (Fixed)
-function handleDrop(e) {
-    e.preventDefault();
-    const seat = e.target.closest('.seat');
-    const draggedStudentId = e.dataTransfer.getData('text/plain');
-    const isFromList = !!document.querySelector('.student.dragging');
-    
-    let student;
-    let draggedElement;
-
-    if(isFromList) {
-        // Handle list to grid
-        draggedElement = document.querySelector('.student.dragging');
-        if(!draggedElement || !seat) return;
-        student = config.students.find(s => s.id == draggedElement.dataset.id);
-    } else {
-        // Handle grid to grid
-        if(!draggedStudentId || !seat) return;
-        student = config.students.find(s => s.id == draggedStudentId);
-        draggedElement = document.querySelector(`[data-student-id="${draggedStudentId}"]`);
-    }
-
-    // Validate drop
-    const roomId = e.currentTarget.id.split('-')[1];
-    const room = config.rooms.find(r => r.id === roomId);
-    
-    // Fixed gender validation
-    if(room.type !== 'Mixed') {
-        const requiredGender = room.type === 'Boys' ? 'M' : 'F';
-        if(student.gender !== requiredGender) {
-            alert(`❌ ${room.type} room only!`);
-            return;
-        }
-    }
-
-    // Remove from previous position
-    const prevSeat = document.querySelector(`[data-student-id="${student.id}"]`);
-    if(prevSeat) {
-        const prevRoomId = prevSeat.closest('.grid').id.split('-')[1];
-        const prevRoom = config.rooms.find(r => r.id === prevRoomId);
-        const prevRow = parseInt(prevSeat.dataset.row);
-        const prevCol = parseInt(prevSeat.dataset.col);
-        prevRoom.seating[prevRow][prevCol] = null;
-        
-        prevSeat.innerHTML = '';
-        prevSeat.classList.remove('occupied', 'male', 'female');
-        delete prevSeat.dataset.studentId;
-        prevSeat.draggable = false;
-    }
-
-    // Add to new seat
-    const row = parseInt(seat.dataset.row);
-    const col = parseInt(seat.dataset.col);
-    room.seating[row][col] = student.id;
-    
-    seat.innerHTML = `${student.name}<br>${student.class}<br>${student.gender === 'M' ? '♂' : '♀'}`;
-    seat.classList.add('occupied', student.gender === 'M' ? 'male' : 'female');
-    seat.dataset.studentId = student.id;
-    seat.draggable = true;
-    
-    if(isFromList) draggedElement.classList.add('hidden');
-    updateStats();
-}
-
-// Initialize Drag-Drop (Fixed)
-function initDragDrop() {
-    // Student list items
-    document.querySelectorAll('.student').forEach(student => {
-        student.draggable = true;
-
-        student.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', e.target.dataset.id);
-            e.target.classList.add('dragging');
-        });
-
-        student.addEventListener('dragend', (e) => {
-            e.target.classList.remove('dragging');
-        });
+    // Next button reloads the page to add another student
+    document.getElementById("nextButton").addEventListener("click", function() {
+      window.location.reload();
     });
 
-    // Student list drop zone
-    const studentList = document.getElementById('students');
-    studentList.addEventListener('dragover', e => e.preventDefault());
-    studentList.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const studentId = e.dataTransfer.getData('text/plain');
-        const seat = document.querySelector(`[data-student-id="${studentId}"]`);
-        
-        if(seat) {
-            // Clear seat data
-            const roomId = seat.closest('.grid').id.split('-')[1];
-            const room = config.rooms.find(r => r.id === roomId);
-            const row = parseInt(seat.dataset.row);
-            const col = parseInt(seat.dataset.col);
-            room.seating[row][col] = null;
-            
-            seat.innerHTML = '';
-            seat.classList.remove('occupied', 'male', 'female');
-            delete seat.dataset.studentId;
-            seat.draggable = false;
-            
-            // Show in student list
-            const studentElem = document.querySelector(`[data-id="${studentId}"]`);
-            if(studentElem) studentElem.classList.remove('hidden');
-            updateStats();
-        }
+    // Optional JS for EXELIS tooltip (click-to-toggle)
+    document.getElementById("exelisBrand").addEventListener("click", function() {
+      const tooltip = document.getElementById("exelisTooltip");
+      tooltip.style.display = (tooltip.style.display === "block") ? "none" : "block";
+      setTimeout(() => { tooltip.style.display = "none"; }, 3000);
     });
-}
-
-// Generate Students List
-function generateStudentsList() {
-    const container = document.getElementById('students');
-    container.innerHTML = '';
-
-    config.students.forEach(student => {
-        const elem = document.createElement('div');
-        elem.className = `student ${student.gender === 'M' ? 'male' : 'female'}`;
-        elem.dataset.id = student.id;
-        elem.dataset.class = student.class;
-        elem.textContent = `${student.name} (${student.class})`;
-        container.appendChild(elem);
-    });
-}
-
-// Update Statistics
-function updateStats() {
-    const statsContainer = document.getElementById('stats-container');
-    let statsHTML = '<h2>📊 Real-time Statistics</h2><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">';
-
-    config.rooms.forEach(room => {
-        let boys = 0, girls = 0;
-        const classCount = {};
-
-        room.seating.forEach(row => {
-            row.forEach(studentId => {
-                if(studentId) {
-                    const student = config.students.find(s => s.id === studentId);
-                    student.gender === 'M' ? boys++ : girls++;
-                    classCount[student.class] = (classCount[student.class] || 0) + 1;
-                }
-            });
-        });
-
-        statsHTML += `
-            <div style="background: white; padding: 15px; border-radius: 8px;">
-                <h3>${room.name} (${room.type})</h3>
-                <p>🪑 Seats: ${room.rows * room.cols} (${boys + girls} occupied, ${(room.rows * room.cols) - (boys + girls)} vacant)</p>
-                <p>👨 Boys: ${boys}</p>
-                <p>👩 Girls: ${girls}</p>
-                ${Object.entries(classCount).map(([cls, count]) => `
-                    <p>📚 Class ${cls}: ${count}</p>
-                `).join('')}
-            </div>
-        `;
-    });
-
-    statsContainer.innerHTML = statsHTML + '</div>';
-}
-
-// Initialize System
-init();
-</script>
+  </script>
 </body>
 </html>
