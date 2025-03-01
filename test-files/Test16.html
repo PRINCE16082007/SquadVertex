@@ -64,6 +64,10 @@
       font-weight: bold;
       font-size: 16px;
     }
+    .next-btn {
+      margin-top: 15px;
+      background-color: #28a745;
+    }
     
     /* Footer Styles (SquadVertex & EXELIS Branding) */
     .branding-footer {
@@ -157,6 +161,10 @@
   <div class="container">
     <h1>Student Data Entry</h1>
     <form id="studentForm">
+      <label for="studentId">Student ID:</label>
+      <!-- Enter a numeric ID which will be padded to 4 digits -->
+      <input type="text" id="studentId" placeholder="e.g. 5" required>
+      
       <label for="name">Student Name:</label>
       <input type="text" id="name" required>
 
@@ -173,6 +181,8 @@
       <button type="submit">Add Student</button>
     </form>
     <div class="message" id="message"></div>
+    <!-- Next button appears after a successful add -->
+    <button id="nextButton" class="next-btn" style="display:none;">Next Student</button>
   </div>
 
   <!-- Footer Section -->
@@ -213,34 +223,44 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // Add student data on form submission
+    // Handle student form submission
     const studentForm = document.getElementById("studentForm");
     studentForm.addEventListener("submit", function(e) {
       e.preventDefault();
+      const idInput = document.getElementById("studentId").value.trim();
       const name = document.getElementById("name").value.trim();
       const studentClass = document.getElementById("class").value.trim();
       const gender = document.getElementById("gender").value;
       
-      if(name === "" || studentClass === "" || gender === "") {
+      if(idInput === "" || name === "" || studentClass === "" || gender === "") {
         alert("Please fill in all fields");
         return;
       }
       
-      // Add the student to the Firestore under "001-school/students/list"
-      db.collection("001-school").doc("students").collection("list").add({
+      // Pad the ID to 4 digits (e.g., "5" becomes "0005")
+      const paddedId = idInput.padStart(4, "0");
+      const documentId = "student" + paddedId;
+      
+      // Save the student to Firestore with the custom document ID
+      db.collection("001-school").doc("students").collection("list").doc(documentId).set({
+        id: paddedId,
         name: name,
         class: studentClass,
         gender: gender
       }).then(() => {
-        document.getElementById("message").innerText = "Student added successfully!";
+        document.getElementById("message").innerText = "Student added successfully as " + documentId + "!";
         studentForm.reset();
-        setTimeout(() => {
-          document.getElementById("message").innerText = "";
-        }, 3000);
+        // Show the "Next Student" button after successful addition
+        document.getElementById("nextButton").style.display = "block";
       }).catch((error) => {
         console.error("Error adding student: ", error);
         alert("Error adding student. Check console for details.");
       });
+    });
+
+    // Next button reloads the page to add another student
+    document.getElementById("nextButton").addEventListener("click", function() {
+      window.location.reload();
     });
 
     // Optional JS for EXELIS tooltip (click-to-toggle)
