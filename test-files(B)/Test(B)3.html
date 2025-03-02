@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Smart Seat Manager Pro</title>
-  <!-- Firebase SDKs loaded in head -->
+  <!-- Firebase SDKs loaded in head so firebase is defined -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   <style>
@@ -572,7 +572,7 @@
       config.rooms.forEach(r => generateGrid(r.id));
     }
 
-    // Render a student card with proper data attribute for drag/drop
+    // Render a student card with two lines and proper data-student-id attribute.
     function renderStudentCard(student) {
       let trimmedName = student.name;
       if(trimmedName.length > 12) {
@@ -598,7 +598,7 @@
       const assigned = new Set();
       config.rooms.forEach(room => {
         room.seating.forEach(sid => { if(sid) assigned.add(sid); });
-      }); // Added missing bracket here.
+      }); // Added missing bracket
       let unassignedStudents = config.students.filter(s => !assigned.has(s.id));
       const uniqueSubjects = new Set();
       config.students.forEach(s => {
@@ -657,13 +657,12 @@
             seat.innerHTML = renderStudentCard(student);
             seat.classList.add('occupied', (student.gender==='M' || student.gender==='male') ? 'male' : 'female');
             seat.dataset.studentId = student.id;
-            seat.draggable = true;
+            // Do NOT set draggable on empty seats
           }
           seat.addEventListener("dragover", e => e.preventDefault());
           seat.addEventListener("drop", function(e){ handleDrop(e, room.id); });
           seat.addEventListener("dragstart", handleSeatDragStart);
           seat.addEventListener("dragend", handleSeatDragEnd);
-          seat.setAttribute("draggable", "true");
           grid.appendChild(seat);
         }
       }
@@ -671,11 +670,11 @@
     }
 
     // Drag and Drop Functions (from first code, adapted)
-    function attachGridListeners(grid){
-      grid.replaceWith(grid.cloneNode(true));
-      const newGrid = document.getElementById(grid.id);
+    function attachGridListeners(grid) {
+      const newGrid = grid.cloneNode(true);
+      grid.replaceWith(newGrid);
       newGrid.addEventListener('dragover', e => e.preventDefault());
-      newGrid.addEventListener('drop', function(e){
+      newGrid.addEventListener('drop', function(e) {
         const roomId = newGrid.id.split('-')[1];
         handleDrop(e, roomId);
       });
@@ -685,42 +684,42 @@
       });
     }
 
-    function handleSeatDragStart(e){
+    function handleSeatDragStart(e) {
       e.dataTransfer.setData('text/plain', e.target.dataset.studentId);
       e.target.classList.add('dragging');
     }
-    function handleSeatDragEnd(e){
+    function handleSeatDragEnd(e) {
       e.target.classList.remove('dragging');
     }
 
-    function handleDrop(e, roomId){
+    function handleDrop(e, roomId) {
       e.preventDefault();
       const target = e.target.closest('.seat') || document.getElementById('students');
       const studentId = e.dataTransfer.getData('text/plain');
       const student = config.students.find(s => s.id == studentId);
-      if(!student) return;
-      if(target && target.classList.contains('seat')){
+      if (!student) return;
+      if (target && target.classList.contains('seat')) {
         handleGridDrop(e, student, studentId, roomId);
-      } else if(target && target.id === 'students'){
+      } else if (target && target.id === 'students') {
         handleListDrop(studentId);
       }
     }
 
-function handleGridDrop(e, student, studentId, roomId){
+    function handleGridDrop(e, student, studentId, roomId) {
       const seat = e.target.closest('.seat');
       const room = config.rooms.find(r => r.id === roomId);
       const row = parseInt(seat.dataset.row);
       const col = parseInt(seat.dataset.col);
-      if(!validateGender(room, student)){
+      if (!validateGender(room, student)) {
         alert(`❌ ${room.type} room only!`);
         return;
       }
-      if(!validateNeighbors(room, student, row, col)){
+      if (!validateNeighbors(room, student, row, col)) {
         alert('❌ Neighbor check failed!');
         return;
       }
       const prevSeat = document.querySelector(`[data-student-id="${studentId}"]`);
-      if(prevSeat){
+      if (prevSeat) {
         const prevRoomId = prevSeat.closest('.grid').id.split('-')[1];
         const prevRoom = config.rooms.find(r => r.id === prevRoomId);
         const prevRow = parseInt(prevSeat.dataset.row);
@@ -737,9 +736,9 @@ function handleGridDrop(e, student, studentId, roomId){
       const index = row * room.cols + col;
       room.seating[index] = student.id;
       seat.innerHTML = renderStudentCard(student);
-      seat.classList.add('occupied', student.gender==='M'?'male':'female');
+      seat.classList.add('occupied', student.gender==='M' ? 'male' : 'female');
       seat.dataset.studentId = student.id;
-      seat.draggable = true;
+      // Instead of setting draggable here, rely on the student card drag handling.
       document.querySelectorAll(`[data-student-id="${studentId}"]`).forEach(elem => elem.classList.add('hidden'));
       db.collection("001-school").doc("rooms").collection("files").doc(currentFile)
         .collection("layouts").doc(roomId).update({ seating: room.seating });
@@ -747,9 +746,9 @@ function handleGridDrop(e, student, studentId, roomId){
       updateStats();
     }
 
-    function handleListDrop(studentId){
+    function handleListDrop(studentId) {
       const prevSeat = document.querySelector(`[data-student-id="${studentId}"]`);
-      if(prevSeat){
+      if (prevSeat) {
         const roomId = prevSeat.closest('.grid').id.split('-')[1];
         const room = config.rooms.find(r => r.id === roomId);
         const row = parseInt(prevSeat.dataset.row);
@@ -768,7 +767,7 @@ function handleGridDrop(e, student, studentId, roomId){
     }
 
     function initDragDrop() {
-      // Add event listeners to student cards within the #students container
+      // Attach drag event listeners to student cards within the #students container
       document.querySelectorAll('#students .student-card').forEach(card => {
         card.draggable = true;
         card.addEventListener('dragstart', (e) => {
@@ -803,28 +802,28 @@ function handleGridDrop(e, student, studentId, roomId){
     }
 
     function validateGender(room, student) {
-      if(room.type==='Mixed') return true;
-      const requiredGender = room.type==='Boys' ? 'M' : 'F';
+      if (room.type === 'Mixed') return true;
+      const requiredGender = room.type === 'Boys' ? 'M' : 'F';
       return student.gender === requiredGender;
     }
 
     function validateNeighbors(room, student, row, col) {
-      if(room.neighborCheck==='none') return true;
+      if (room.neighborCheck === 'none') return true;
       const directions = [];
-      if(room.neighborCheck==='horizontal' || room.neighborCheck==='both'){
-        directions.push([0,-1],[0,1]);
+      if (room.neighborCheck === 'horizontal' || room.neighborCheck === 'both') {
+        directions.push([0,-1], [0,1]);
       }
-      if(room.neighborCheck==='vertical' || room.neighborCheck==='both'){
-        directions.push([-1,0],[1,0]);
+      if (room.neighborCheck === 'vertical' || room.neighborCheck === 'both') {
+        directions.push([-1,0], [1,0]);
       }
-      for(const [dx,dy] of directions){
+      for (const [dx, dy] of directions) {
         const x = row + dx;
         const y = col + dy;
-        if(x >= 0 && x < room.rows && y >= 0 && y < room.cols) {
+        if (x >= 0 && x < room.rows && y >= 0 && y < room.cols) {
           const index = x * room.cols + y;
-          if(room.seating[index]){
+          if (room.seating[index]) {
             const neighbor = config.students.find(s => s.id === room.seating[index]);
-            if(neighbor.class === student.class)
+            if (neighbor.class === student.class)
               return false;
           }
         }
@@ -834,7 +833,7 @@ function handleGridDrop(e, student, studentId, roomId){
 
     function showStudentInfo(studentId) {
       const student = config.students.find(s => s.id === studentId);
-      if(student) {
+      if (student) {
         const infoHtml = `<p><strong>ID:</strong> ${student.id}</p>
                           <p><strong>Name:</strong> ${student.name}</p>
                           <p><strong>Class:</strong> ${student.class}</p>
@@ -850,7 +849,6 @@ function handleGridDrop(e, student, studentId, roomId){
     }
 
     init();
-
     window.createNewFile = createNewFile;
     window.loadFile = loadFile;
     window.addNewRoom = addNewRoom;
@@ -866,3 +864,4 @@ function handleGridDrop(e, student, studentId, roomId){
   </script>
 </body>
 </html>
+      
