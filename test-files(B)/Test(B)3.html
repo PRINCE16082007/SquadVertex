@@ -572,7 +572,7 @@
       config.rooms.forEach(r => generateGrid(r.id));
     }
 
-    // Render a student card with two lines and proper data attribute for drag/drop
+    // Render a student card with proper data attribute for drag/drop
     function renderStudentCard(student) {
       let trimmedName = student.name;
       if(trimmedName.length > 12) {
@@ -587,7 +587,6 @@
       if(student.subjects && student.subjects.length > 0) {
         line2 += " " + student.subjects.map(sub => subjectSymbols[sub] ? subjectSymbols[sub] : "").join(" ");
       }
-      // Note the added data-student-id attribute here.
       return `<div class="student-card" draggable="true" data-student-id="${student.id}" style="border-color: ${borderColor};">
                 <div class="card-line1">${line1}</div>
                 <div class="card-line2">${line2}</div>
@@ -599,7 +598,7 @@
       const assigned = new Set();
       config.rooms.forEach(room => {
         room.seating.forEach(sid => { if(sid) assigned.add(sid); });
-      });
+      }); // Added missing bracket here.
       let unassignedStudents = config.students.filter(s => !assigned.has(s.id));
       const uniqueSubjects = new Set();
       config.students.forEach(s => {
@@ -707,7 +706,7 @@
       }
     }
 
-    function handleGridDrop(e, student, studentId, roomId){
+function handleGridDrop(e, student, studentId, roomId){
       const seat = e.target.closest('.seat');
       const room = config.rooms.find(r => r.id === roomId);
       const row = parseInt(seat.dataset.row);
@@ -741,14 +740,14 @@
       seat.classList.add('occupied', student.gender==='M'?'male':'female');
       seat.dataset.studentId = student.id;
       seat.draggable = true;
-      document.querySelectorAll(`[data-id="${studentId}"]`).forEach(elem => elem.classList.add('hidden'));
+      document.querySelectorAll(`[data-student-id="${studentId}"]`).forEach(elem => elem.classList.add('hidden'));
       db.collection("001-school").doc("rooms").collection("files").doc(currentFile)
         .collection("layouts").doc(roomId).update({ seating: room.seating });
       attachGridListeners(e.currentTarget);
       updateStats();
     }
 
-function handleListDrop(studentId){
+    function handleListDrop(studentId){
       const prevSeat = document.querySelector(`[data-student-id="${studentId}"]`);
       if(prevSeat){
         const roomId = prevSeat.closest('.grid').id.split('-')[1];
@@ -761,7 +760,7 @@ function handleListDrop(studentId){
         prevSeat.classList.remove('occupied','male','female');
         delete prevSeat.dataset.studentId;
         prevSeat.draggable = false;
-        document.querySelectorAll(`[data-id="${studentId}"]`).forEach(elem => elem.classList.remove('hidden'));
+        document.querySelectorAll(`[data-student-id="${studentId}"]`).forEach(elem => elem.classList.remove('hidden'));
         db.collection("001-school").doc("rooms").collection("files").doc(currentFile)
           .collection("layouts").doc(roomId).update({ seating: room.seating });
         updateStats();
@@ -769,16 +768,16 @@ function handleListDrop(studentId){
     }
 
     function initDragDrop() {
-      // Use the new code that fixes drag initialization for student cards
-      document.querySelectorAll('.student-card').forEach(card => {
+      // Add event listeners to student cards within the #students container
+      document.querySelectorAll('#students .student-card').forEach(card => {
         card.draggable = true;
         card.addEventListener('dragstart', (e) => {
-          const studentId = e.target.closest('.student-card').dataset.studentId;
+          const studentId = card.dataset.studentId;
           e.dataTransfer.setData('text/plain', studentId);
-          e.target.closest('.student-card').classList.add('dragging');
+          card.classList.add('dragging');
         });
-        card.addEventListener('dragend', (e) => {
-          e.target.closest('.student-card').classList.remove('dragging');
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging');
         });
       });
       const studentList = document.getElementById('students');
@@ -849,7 +848,9 @@ function handleListDrop(studentId){
     function hideStudentInfo() {
       document.getElementById("studentInfoModal").style.display = "none";
     }
+
     init();
+
     window.createNewFile = createNewFile;
     window.loadFile = loadFile;
     window.addNewRoom = addNewRoom;
