@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SchoolMS - Teacher & Staff Management</title>
     <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
     <style>
       .form-section {
         margin-top: 20px;
@@ -36,8 +39,15 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container-fluid">
         <a class="navbar-brand" href="#">SchoolMS</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent"
-          aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarContent"
+          aria-controls="navbarContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarContent">
@@ -64,7 +74,7 @@
           <label for="staff-id-input" class="form-label">Enter ID Number</label>
           <input type="number" class="form-control" id="staff-id-input" placeholder="E.g., 256" required />
           <div class="form-text">
-            This will be padded to 5 digits with a prefix based on designation. (Teacher → teacherXXXXX, Administrator → adminXXXXX, Support Staff → staffXXXXX)
+            This number will be padded to 5 digits with a prefix based on designation.
           </div>
         </div>
         <!-- Name -->
@@ -82,10 +92,22 @@
             <option value="Support Staff">Support Staff</option>
           </select>
         </div>
-        <!-- Subjects (only for Teachers) -->
+        <!-- Subjects (multi-select, only for Teachers) -->
         <div class="mb-3" id="subjects-field">
-          <label for="subjects" class="form-label">Subjects (comma separated)</label>
-          <input type="text" class="form-control" id="subjects" placeholder="E.g., Math, Science, English" />
+          <label for="subjects" class="form-label">Subjects</label>
+          <select id="subjects" class="form-select" multiple>
+            <option value="Math">Math</option>
+            <option value="Science">Science</option>
+            <option value="English">English</option>
+            <option value="Social Studies">Social Studies</option>
+            <option value="History">History</option>
+            <option value="Geography">Geography</option>
+            <option value="Hindi">Hindi</option>
+            <option value="Sanskrit">Sanskrit</option>
+            <option value="Computer Science">Computer Science</option>
+            <option value="Physical Education">Physical Education</option>
+          </select>
+          <div class="form-text">Hold Ctrl (or Cmd on Mac) to select multiple subjects.</div>
         </div>
         <!-- Department -->
         <div class="mb-3">
@@ -125,8 +147,7 @@
       <h2 class="mt-5">Teacher & Staff Profiles</h2>
       <!-- Search Box -->
       <input type="text" id="staff-search" class="form-control mb-3" placeholder="Quick Search by Name or ID" />
-
-      <!-- Tabs for Teachers, Administrators, Support Staff -->
+      <!-- Tabs for grouping by designation -->
       <ul class="nav nav-tabs" id="staffTabs" role="tablist">
         <li class="nav-item" role="presentation">
           <button class="nav-link active" id="teachers-tab" data-bs-toggle="tab" data-bs-target="#teachers" type="button" role="tab">Teachers</button>
@@ -260,7 +281,7 @@
         return prefix + id.toString().padStart(5, "0");
       }
 
-      // Toggle Subjects field if designation is Teacher
+      // Toggle Subjects multi-select when designation is Teacher
       document.getElementById("designation").addEventListener("change", function () {
         if (this.value === "Teacher") {
           document.getElementById("subjects-field").style.display = "block";
@@ -283,7 +304,15 @@
         const contact = document.getElementById("staff-contact").value.trim();
         const email = document.getElementById("staff-email").value.trim();
         const joiningDate = document.getElementById("joining-date").value;
-        const subjects = document.getElementById("subjects").value.trim(); // Only for Teacher
+        let subjects = [];
+        if (designation === "Teacher") {
+          const subjectsSelect = document.getElementById("subjects");
+          for (let option of subjectsSelect.options) {
+            if (option.selected) {
+              subjects.push(option.value);
+            }
+          }
+        }
         const timestamp = firebase.firestore.FieldValue.serverTimestamp();
         let profilePicUrl = "";
         const fileInput = document.getElementById("profile-pic");
@@ -306,7 +335,7 @@
           contact,
           email,
           joiningDate,
-          subjects: designation === "Teacher" ? subjects : "",
+          subjects: designation === "Teacher" ? subjects : [],
           profilePicUrl,
           timestamp
         };
@@ -327,7 +356,7 @@
           });
       });
 
-      // Load staff profiles and separate them into three tabs
+      // Load staff profiles and group them into three tabs
       function loadStaffProfiles() {
         const teachersTbody = document.querySelector("#teachers-table tbody");
         const adminsTbody = document.querySelector("#admins-table tbody");
@@ -348,7 +377,7 @@
                     <td>${data.staffId || ""}</td>
                     <td>${data.staffName || ""}</td>
                     <td>${data.department || ""}</td>
-                    <td>${data.subjects || ""}</td>
+                    <td>${(data.subjects || []).join(", ")}</td>
                     <td>${data.contact || ""}</td>
                     <td>${data.email || ""}</td>
                     <td>${data.joiningDate || ""}</td>
@@ -396,7 +425,7 @@
                 supportTbody.innerHTML += rowHtml;
               }
             });
-            // Show tables for each tab if data loaded
+            // Show tables if data loaded
             document.getElementById("teachers-loading").classList.add("d-none");
             document.getElementById("teachers-table-container").classList.remove("d-none");
             document.getElementById("admins-loading").classList.add("d-none");
@@ -425,7 +454,7 @@
         });
       });
 
-      // Edit staff record
+      // Edit staff record – load data into form (including multi-select subjects)
       function editStaff(docId) {
         db.collection("001-school").doc("teachers").collection("list").doc(docId)
           .get().then(doc => {
@@ -436,10 +465,24 @@
               document.getElementById("staff-id-input").value = parseInt(numId);
               document.getElementById("staff-name").value = data.staffName;
               document.getElementById("designation").value = data.designation;
-              // Show subjects field if Teacher
+              // Show subjects field if designation is Teacher and pre-select subjects
               if (data.designation === "Teacher") {
                 document.getElementById("subjects-field").style.display = "block";
-                document.getElementById("subjects").value = data.subjects;
+                const subjectsSelect = document.getElementById("subjects");
+                // First, clear any current selections
+                for (let option of subjectsSelect.options) {
+                  option.selected = false;
+                }
+                if (data.subjects && Array.isArray(data.subjects)) {
+                  data.subjects.forEach(sub => {
+                    for (let option of subjectsSelect.options) {
+                      if (option.value === sub) {
+                        option.selected = true;
+                        break;
+                      }
+                    }
+                  });
+                }
               } else {
                 document.getElementById("subjects-field").style.display = "none";
               }
@@ -447,7 +490,6 @@
               document.getElementById("staff-contact").value = data.contact;
               document.getElementById("staff-email").value = data.email;
               document.getElementById("joining-date").value = data.joiningDate;
-              // Set hidden doc-id
               document.getElementById("doc-id").value = docId;
               editMode = true;
               document.getElementById("form-submit-btn").innerText = "Update Staff";
