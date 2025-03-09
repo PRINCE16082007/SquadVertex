@@ -59,7 +59,7 @@
             <li class="nav-item active">
               <a class="nav-link" href="admissions.html">Admissions</a>
             </li>
-            <!-- Additional nav links as needed -->
+            <!-- Other nav links as needed -->
             <li class="nav-item">
               <a class="nav-link" href="staff.html">Staff</a>
             </li>
@@ -121,7 +121,7 @@
             </select>
           </div>
         </div>
-        <!-- Optional: Stream/Subjects for 11th/12th -->
+        <!-- Optional: Stream/Subjects (for classes 11 & 12) -->
         <div class="row mb-3">
           <div class="col-md-6">
             <label for="stream" class="form-label">Stream / Subjects (if applicable)</label>
@@ -138,10 +138,13 @@
           <textarea class="form-control" id="remarks" rows="3" placeholder="Max 50 words"></textarea>
           <div class="word-count" id="word-count">0/50 words</div>
         </div>
-        <!-- Hidden Roll Number field (created but no value) -->
+        <!-- SR Number Field -->
         <div class="mb-3">
-          <label for="roll-number" class="form-label">Final Roll Number</label>
-          <input type="text" class="form-control" id="roll-number" placeholder="Auto-generated later" readonly />
+          <label for="sr-number" class="form-label">SR Number</label>
+          <input type="number" class="form-control" id="sr-number" placeholder="Enter SR number (e.g., 5 or 6195)" required />
+          <div class="form-text">
+            This SR number will be used to generate the student document ID in the format: studentXXXXX.
+          </div>
         </div>
         <!-- Optional PDF Upload -->
         <div class="mb-3">
@@ -175,7 +178,7 @@
             </tr>
           </thead>
           <tbody>
-            <!-- Data populated from Firebase -->
+            <!-- Data populated from Firebase (admission_requests collection) -->
           </tbody>
         </table>
       </div>
@@ -214,7 +217,7 @@
             </tr>
           </thead>
           <tbody>
-            <!-- Data populated from Firebase -->
+            <!-- Data populated from Firebase ("001-school/students/list" subcollection) -->
           </tbody>
         </table>
       </div>
@@ -238,12 +241,12 @@
       <h3>Admission Module Instructions</h3>
       <ul>
         <li>Only admin/admission staff can access this page.</li>
-        <li>Student details (name, gender, DOB, parent's/guardian names, etc.) are entered and documents verified.</li>
-        <li>Optional PDF upload for additional documents is provided.</li>
-        <li>A unique SR number field is created (roll number remains empty until assigned later).</li>
-        <li>An automatic timestamp is recorded on submission.</li>
-        <li>Recent Admission Requests are fetched from a separate collection.</li>
-        <li>Recent Admissions are dynamically loaded from the students subcollection and support quick search.</li>
+        <li>Student details (name, gender, DOB, father's name, guardian name, etc.) are entered and verified.</li>
+        <li>An optional PDF upload is provided for additional documents.</li>
+        <li>The SR Number field is mandatory and will be used to generate the student document ID in the format "studentXXXXX" (e.g. SR 5 becomes student00005, SR 6195 becomes student06195).</li>
+        <li>A hidden timestamp is recorded on submission.</li>
+        <li>Recent Admission Requests are fetched from the "admission_requests" collection.</li>
+        <li>Recent Admissions are dynamically loaded from the "001-school/students/list" subcollection and support quick search.</li>
         <li>All changes and data management in this module are the responsibility of the admin.</li>
       </ul>
     </div>
@@ -259,7 +262,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script>
-      // Firebase initialization with provided credentials
+      // Firebase initialization
       const firebaseConfig = {
         apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
         authDomain: "squadvertex2007.firebaseapp.com",
@@ -270,6 +273,12 @@
       };
       firebase.initializeApp(firebaseConfig);
       const db = firebase.firestore();
+
+      // Function to pad SR number to 5 digits and create document ID
+      function generateStudentDocId(srNumber) {
+        const padded = srNumber.toString().padStart(5, "0");
+        return "student" + padded;
+      }
 
       // Load Recent Admission Requests from "admission_requests" collection
       function loadAdmissionRequests() {
@@ -297,7 +306,7 @@
             document.getElementById("requests-table-container").classList.remove("d-none");
           })
           .catch((err) => {
-            console.error("Error fetching requests: ", err);
+            console.error("Error fetching admission requests: ", err);
           });
       }
 
@@ -335,7 +344,7 @@
             document.getElementById("admissions-table-container").classList.remove("d-none");
           })
           .catch((err) => {
-            console.error("Error fetching admissions: ", err);
+            console.error("Error fetching recent admissions: ", err);
           });
       }
 
@@ -349,7 +358,7 @@
         });
       });
 
-      // Load data once DOM content is loaded
+      // Load data on DOMContentLoaded
       window.addEventListener("DOMContentLoaded", function () {
         loadAdmissionRequests();
         loadRecentAdmissions();
@@ -370,23 +379,69 @@
         }
       });
 
-      // Admission form submission with confirmation and timestamp
+      // Admission form submission with confirmation, timestamp, and Firestore write
       document.getElementById("admission-form").addEventListener("submit", function (e) {
         e.preventDefault();
         if (!confirm("Are you sure you want to submit this admission?")) {
           return;
         }
         // Set the current timestamp
-        document.getElementById("timestamp").value = new Date().toISOString();
+        const now = new Date();
+        document.getElementById("timestamp").value = now.toISOString();
 
-        // (Optional) Handle PDF upload to Firebase Storage here...
+        // Retrieve form values
+        const studentName = document.getElementById("student-name").value.trim();
+        const gender = document.getElementById("gender").value;
+        const fatherName = document.getElementById("father-name").value.trim();
+        const guardianName = document.getElementById("guardian-name").value.trim();
+        const dob = document.getElementById("dob").value;
+        const sClass = document.getElementById("class").value;
+        const stream = document.getElementById("stream").value.trim();
+        const contact = document.getElementById("contact").value.trim();
+        const remarks = document.getElementById("remarks").value.trim();
+        const srNumber = document.getElementById("sr-number").value.trim();
+        // Optional PDF file handling can be added here (if a file is selected)
 
-        // Simulate saving data to Firestore (in production, use firebase.firestore().collection(...).add({...}))
-        setTimeout(function () {
-          alert("Admission submitted successfully!");
-          document.getElementById("admission-form").reset();
-          wordCountDisplay.innerText = "0/50 words";
-        }, 1500);
+        if (!srNumber) {
+          alert("SR Number is required.");
+          return;
+        }
+
+        // Generate document ID using SR number padded to 5 digits
+        const docId = generateStudentDocId(srNumber);
+
+        // Create the student document data
+        const studentData = {
+          studentName,
+          gender,
+          fatherName,
+          guardianName,
+          dob,
+          class: sClass,
+          stream: stream || "",
+          contact,
+          remarks,
+          srNumber, // Save the entered SR number
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          // Optionally, add a field for PDF URL if uploaded
+        };
+
+        // Write the data to Firestore in "001-school/students/list" with document ID as computed
+        db.collection("001-school")
+          .doc("students")
+          .collection("list")
+          .doc(docId)
+          .set(studentData)
+          .then(() => {
+            alert("Admission submitted successfully!");
+            // Reset form and word count
+            document.getElementById("admission-form").reset();
+            wordCountDisplay.innerText = "0/50 words";
+          })
+          .catch((error) => {
+            console.error("Error submitting admission: ", error);
+            alert("Error submitting admission. Please try again.");
+          });
       });
     </script>
 
