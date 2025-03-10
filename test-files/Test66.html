@@ -31,13 +31,12 @@
     
     <div class="container attendance-section">
       <h2>Student Attendance</h2>
-      
-      <!-- Teacher selection: Dropdown for Teacher ID and auto-fill teacher name -->
+      <!-- Teacher selection: drop-down for Teacher ID; auto-fills Teacher Name -->
       <div class="mb-3">
         <label for="teacher-select" class="form-label">Select Your Teacher ID</label>
         <select id="teacher-select" class="form-select" required>
           <option value="">Select Teacher</option>
-          <!-- Options will be populated from Firestore -->
+          <!-- Options will be loaded from Firestore -->
         </select>
       </div>
       <div class="mb-3">
@@ -45,7 +44,7 @@
         <input type="text" class="form-control" id="teacher-name" placeholder="Teacher name will load automatically" readonly />
       </div>
       
-      <!-- Session Picker for special cases (if both sessions are active manually) -->
+      <!-- Session Picker for manual override (if needed) -->
       <div class="mb-3">
         <label for="session-picker" class="form-label">Select Session (if manual override required)</label>
         <select id="session-picker" class="form-select">
@@ -72,7 +71,7 @@
           <table class="table table-bordered">
             <thead class="table-dark">
               <tr>
-                <th>Roll No</th>
+                <th>SR No</th>
                 <th>Student Name</th>
                 <th>Mark Attendance</th>
               </tr>
@@ -93,6 +92,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script>
+      // Firebase initialization
       const firebaseConfig = {
         apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
         authDomain: "squadvertex2007.firebaseapp.com",
@@ -104,41 +104,39 @@
       firebase.initializeApp(firebaseConfig);
       const db = firebase.firestore();
       
-      let currentSession = null; // "session1" or "session2"
+      let currentSession = null; // will be "session1" or "session2"
       let attendanceAllowed = false;
       let holidays = [];
       
-      // Load attendance settings from Firestore to check module status and active session.
+      // Load attendance settings to determine active session and module control.
       function loadAttendanceSettings() {
         db.collection("001-school").doc("attendanceSettings").get()
           .then(doc => {
             if (doc.exists) {
               const data = doc.data();
-              // Check if the attendance module is allowed (module control)
+              // Check module control: if attendance module is disabled, disallow attendance.
               if (!data.roleControls?.attendance) {
                 document.getElementById("session-message").innerHTML = `<div class="alert alert-danger">Attendance module is disabled by admin.</div>`;
                 attendanceAllowed = false;
                 return;
               }
-              // Read session1 settings (assume sessions are set in settings)
               const session1 = data.session1;
               holidays = data.holidays || [];
               const today = new Date();
               const todayStr = today.toISOString().split("T")[0];
-              // If today is Sunday or a holiday, attendance is disabled
+              // Disable attendance if today is Sunday or a holiday.
               if (today.getDay() === 0 || holidays.includes(todayStr)) {
                 document.getElementById("session-message").innerHTML = `<div class="alert alert-info">Today is a holiday. Attendance is disabled.</div>`;
                 attendanceAllowed = false;
                 return;
               }
-              // Get current time in HH:MM:SS format
+              // Check current time against session1 (for simplicity; you can expand to session2 as needed)
               const nowStr = today.toTimeString().split(" ")[0];
               if (session1.enabled && nowStr >= session1.start && nowStr <= session1.end) {
                 attendanceAllowed = true;
                 currentSession = "session1";
                 document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 1 is active.</div>`;
               } else {
-                // In a full system, you'd also check session2 – here we default to session1 for simplicity.
                 attendanceAllowed = false;
                 document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">Attendance is not allowed at this time.</div>`;
               }
@@ -153,30 +151,28 @@
       loadAttendanceSettings();
       
       // ---------------------------
-      // TEACHER DROPDOWN POPULATION
+      // TEACHER DROP-DOWN POPULATION
       // ---------------------------
       function loadTeacherDropdown() {
         const teacherSelect = document.getElementById("teacher-select");
         teacherSelect.innerHTML = `<option value="">Select Teacher</option>`;
         db.collection("001-school").doc("teachers").collection("list")
+          .where("designation", "==", "Teacher")
           .get()
           .then(snapshot => {
             snapshot.forEach(doc => {
               const data = doc.data();
-              // Only include records with designation "Teacher" (if desired)
-              if (data.designation === "Teacher") {
-                const opt = document.createElement("option");
-                opt.value = data.staffId;
-                opt.text = data.staffId + " - " + data.staffName;
-                teacherSelect.appendChild(opt);
-              }
+              const opt = document.createElement("option");
+              opt.value = data.staffId;
+              opt.text = data.staffId + " - " + data.staffName;
+              teacherSelect.appendChild(opt);
             });
           })
           .catch(err => console.error("Error loading teacher dropdown:", err));
       }
       loadTeacherDropdown();
       
-      // On teacher selection, auto-fill teacher name
+      // When teacher is selected, auto-fill teacher name
       document.getElementById("teacher-select").addEventListener("change", function () {
         const teacherId = this.value;
         if (!teacherId) {
@@ -209,7 +205,7 @@
         }
         const tbody = document.getElementById("students-table-body");
         tbody.innerHTML = "";
-        // Assuming your students are stored in 001-school/students/list
+        // Query students from "001-school/students/list" where field "class" equals selectedClass
         db.collection("001-school").doc("students").collection("list")
           .where("class", "==", selectedClass)
           .orderBy("timestamp", "desc")
@@ -217,6 +213,7 @@
           .then(snapshot => {
             snapshot.forEach(doc => {
               const data = doc.data();
+              // Display using "srNumber" and "studentName"
               const tr = document.createElement("tr");
               tr.innerHTML = `<td>${data.srNumber || "-"}</td>
                               <td>${data.studentName || "-"}</td>
@@ -248,7 +245,7 @@
           alert("Please select your teacher details."); 
           return; 
         }
-        // If session control is manual, override with session picker value; else use the one from settings.
+        // Use session from settings automatically; if manual override is selected, use the session-picker value.
         let activeSession = currentSession;
         const manualMode = document.getElementById("manual-control").checked;
         if (manualMode) {
@@ -256,7 +253,7 @@
         }
         const selects = document.querySelectorAll(".attendance-select");
         const batch = db.batch();
-        const currentDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+        const currentDate = new Date().toISOString().split("T")[0]; // Format: YYYY-MM-DD
         selects.forEach(select => {
           const status = select.value;
           const docId = select.getAttribute("data-docid");
