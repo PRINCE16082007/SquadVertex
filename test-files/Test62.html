@@ -671,7 +671,92 @@
             if (diff < 0) diff += 24 * 60;
             row.querySelector(".period-duration").value = diff;
           }
-                const scheduleData = {
+        }
+      });
+
+      // Populate teacher dropdowns using "staffId" from Firestore
+      function populateAllTeacherDropdowns() {
+        const selects = document.querySelectorAll(".period-teacher");
+        selects.forEach(sel => populateTeacherDropdown(sel));
+      }
+      function populateTeacherDropdown(selectElement) {
+        selectElement.innerHTML = `<option value="">Select Staff ID</option>`;
+        db.collection("001-school").doc("teachers").collection("list")
+          .get()
+          .then(snapshot => {
+            snapshot.forEach(doc => {
+              const data = doc.data();
+              const opt = document.createElement("option");
+              opt.value = data.staffId;
+              opt.text = data.staffId + " - " + data.staffName;
+              selectElement.appendChild(opt);
+            });
+          })
+          .catch(err => console.error("Error fetching teacher records:", err));
+      }
+      populateAllTeacherDropdowns();
+
+      // When teacher selection changes in a period row, auto-populate the subject dropdown
+      document.addEventListener("change", function (e) {
+        if (e.target.classList.contains("period-teacher")) {
+          const teacherId = e.target.value;
+          const row = e.target.closest(".period-row");
+          const subjectSelect = row.querySelector(".period-subject");
+          subjectSelect.innerHTML = `<option value="">Select Subject</option>`;
+          if (teacherId) {
+            db.collection("001-school").doc("teachers").collection("list").doc(teacherId)
+              .get()
+              .then(doc => {
+                if (doc.exists) {
+                  const data = doc.data();
+                  const subjects = data.subjects || [];
+                  subjects.forEach(sub => {
+                    const opt = document.createElement("option");
+                    opt.value = sub;
+                    opt.text = sub;
+                    subjectSelect.appendChild(opt);
+                  });
+                }
+              })
+              .catch(err => console.error("Error fetching teacher subjects:", err));
+          }
+        }
+      });
+
+      // ---------------------------
+      // SCHEDULE FORM SUBMISSION
+      // ---------------------------
+      document.getElementById("schedule-form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        const periodRows = document.querySelectorAll("#periods-container .period-row");
+        const periods = [];
+        periodRows.forEach(row => {
+          const periodKey = row.getAttribute("data-period");
+          // If half-day row, set type "halfday" and read duration
+          if (periodKey === "halfday") {
+            periods.push({
+              period: "halfday",
+              type: "halfday",
+              duration: parseInt(document.getElementById("halfday-duration").value)
+            });
+          } else {
+            const startTime = row.querySelector(".period-start").value;
+            const endTime = row.querySelector(".period-end").value;
+            const duration = parseInt(row.querySelector(".period-duration").value);
+            const teacher = row.querySelector(".period-teacher").value.trim();
+            const subject = row.querySelector(".period-subject").value.trim();
+            periods.push({
+              period: Number(periodKey),
+              startTime,
+              endTime,
+              duration,
+              teacher,
+              subject,
+              type: "class"
+            });
+          }
+        });
+        const scheduleData = {
           session1: {
             start: document.getElementById("session1-start").value,
             end: document.getElementById("session1-end").value,
