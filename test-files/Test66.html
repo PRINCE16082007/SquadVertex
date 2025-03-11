@@ -16,7 +16,7 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container-fluid">
-        <a class="navbar-brand" href="#">SchoolMS</a>
+        <a class="navbar-brand" href="index.html">SchoolMS</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
           <span class="navbar-toggler-icon"></span>
         </button>
@@ -45,6 +45,12 @@
       <div class="mb-3">
         <label for="teacher-name" class="form-label">Teacher Name</label>
         <input type="text" class="form-control" id="teacher-name" placeholder="Teacher name will load automatically" readonly />
+      </div>
+      
+      <!-- Attendance Date Picker -->
+      <div class="mb-3">
+        <label for="attendance-date" class="form-label">Attendance Date</label>
+        <input type="date" class="form-control" id="attendance-date" />
       </div>
       
       <!-- Session Picker for manual override -->
@@ -79,17 +85,14 @@
                 <th>Student Name</th>
                 <th>Class</th>
                 <th>Stream</th>
-                <th>Contact</th>
                 <th>DOB</th>
                 <th>Father Name</th>
                 <th>Gender</th>
-                <th>Guardian Name</th>
-                <th>Remarks</th>
                 <th>Mark Attendance</th>
               </tr>
             </thead>
             <tbody id="students-table-body">
-              <!-- Student rows loaded from Firestore -->
+              <!-- Student records loaded from Firestore -->
             </tbody>
           </table>
           <button type="submit" class="btn btn-success">Submit Attendance</button>
@@ -116,11 +119,14 @@
       firebase.initializeApp(firebaseConfig);
       const db = firebase.firestore();
       
-      let currentSession = null; // will be "session1" or "session2"
+      // Set the attendance date to today by default
+      document.getElementById("attendance-date").valueAsDate = new Date();
+      
+      let currentSession = null; // "session1" or "session2"
       let attendanceAllowed = false;
       let holidays = [];
       
-      // Load attendance settings (module control and session)
+      // Load attendance settings from Firestore (for module control and session activity)
       function loadAttendanceSettings() {
         db.collection("001-school").doc("attendanceSettings").get()
           .then(doc => {
@@ -181,7 +187,7 @@
       }
       loadTeacherDropdown();
       
-      // Auto-fill teacher name when teacher is selected
+      // Auto-fill teacher name on selection
       document.getElementById("teacher-select").addEventListener("change", function () {
         const teacherId = this.value;
         if (!teacherId) {
@@ -231,12 +237,9 @@
                 <td>${data.studentName || "-"}</td>
                 <td>${data.class || "-"}</td>
                 <td>${data.stream || "-"}</td>
-                <td>${data.contact || "-"}</td>
                 <td>${data.dob || "-"}</td>
                 <td>${data.fatherName || "-"}</td>
                 <td>${data.gender || "-"}</td>
-                <td>${data.guardianName || "-"}</td>
-                <td>${data.remarks || "-"}</td>
                 <td>
                   <select class="form-select attendance-select" data-docid="${doc.id}">
                     <option value="Present">Present</option>
@@ -269,24 +272,29 @@
           alert("Please select your teacher details."); 
           return; 
         }
-        // Use manual session override if enabled; otherwise use the session from settings.
+        // Determine the active session:
         let activeSession = currentSession;
         const manualMode = document.getElementById("manual-control").checked;
         if (manualMode) {
           activeSession = document.getElementById("session-picker").value;
         }
+        // Use the attendance date from the input
+        const attendanceDate = document.getElementById("attendance-date").value;
+        if (!attendanceDate) {
+          alert("Please select the attendance date.");
+          return;
+        }
         const selects = document.querySelectorAll(".attendance-select");
         const batch = db.batch();
-        const currentDate = new Date().toISOString().split("T")[0];
         selects.forEach(select => {
           const status = select.value;
           const docId = select.getAttribute("data-docid");
-          const recordId = docId + "_" + currentDate + "_" + activeSession;
+          const recordId = docId + "_" + attendanceDate + "_" + activeSession;
           const attendanceRef = db.collection("001-school").doc("attendance").collection("student_attendance").doc(recordId);
           batch.set(attendanceRef, {
             studentDocId: docId,
             status,
-            date: currentDate,
+            date: attendanceDate,
             session: activeSession,
             teacherId,
             teacherName,
