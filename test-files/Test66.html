@@ -8,7 +8,6 @@
     <style>
       .attendance-section { margin-top: 20px; }
       .alert { margin-top: 10px; }
-      /* Optional: Adjust table font-size for many columns */
       table { font-size: 0.9rem; }
     </style>
   </head>
@@ -16,7 +15,7 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container-fluid">
-        <a class="navbar-brand" href="index.html">SchoolMS</a>
+        <a class="navbar-brand" href="#">SchoolMS</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
           <span class="navbar-toggler-icon"></span>
         </button>
@@ -34,6 +33,12 @@
     <div class="container attendance-section">
       <h2>Student Attendance</h2>
       
+      <!-- Attendance Date (auto-set to today but editable) -->
+      <div class="mb-3">
+        <label for="attendance-date" class="form-label">Attendance Date</label>
+        <input type="date" class="form-control" id="attendance-date" required />
+      </div>
+      
       <!-- Teacher selection -->
       <div class="mb-3">
         <label for="teacher-select" class="form-label">Select Your Teacher ID</label>
@@ -45,21 +50,6 @@
       <div class="mb-3">
         <label for="teacher-name" class="form-label">Teacher Name</label>
         <input type="text" class="form-control" id="teacher-name" placeholder="Teacher name will load automatically" readonly />
-      </div>
-      
-      <!-- Attendance Date Picker -->
-      <div class="mb-3">
-        <label for="attendance-date" class="form-label">Attendance Date</label>
-        <input type="date" class="form-control" id="attendance-date" />
-      </div>
-      
-      <!-- Session Picker for manual override -->
-      <div class="mb-3">
-        <label for="session-picker" class="form-label">Select Session (if manual override required)</label>
-        <select id="session-picker" class="form-select">
-          <option value="session1">Session 1</option>
-          <option value="session2">Session 2</option>
-        </select>
       </div>
       
       <!-- Class selection -->
@@ -75,7 +65,6 @@
       </div>
       <button class="btn btn-primary mb-3" id="load-students-btn">Load Students</button>
       
-      <!-- Attendance form container -->
       <div id="attendance-form-container" class="d-none">
         <form id="attendance-form">
           <table class="table table-bordered">
@@ -85,14 +74,11 @@
                 <th>Student Name</th>
                 <th>Class</th>
                 <th>Stream</th>
-                <th>DOB</th>
-                <th>Father Name</th>
-                <th>Gender</th>
                 <th>Mark Attendance</th>
               </tr>
             </thead>
             <tbody id="students-table-body">
-              <!-- Student records loaded from Firestore -->
+              <!-- Student rows loaded from Firestore -->
             </tbody>
           </table>
           <button type="submit" class="btn btn-success">Submit Attendance</button>
@@ -119,19 +105,20 @@
       firebase.initializeApp(firebaseConfig);
       const db = firebase.firestore();
       
-      // Set the attendance date to today by default
-      document.getElementById("attendance-date").valueAsDate = new Date();
+      // Set Attendance Date to today by default
+      document.getElementById("attendance-date").value = new Date().toISOString().split("T")[0];
       
-      let currentSession = null; // "session1" or "session2"
+      let currentSession = "session1";  // This page is for Session 1 only.
       let attendanceAllowed = false;
       let holidays = [];
       
-      // Load attendance settings from Firestore (for module control and session activity)
+      // Load attendance settings from Firestore
       function loadAttendanceSettings() {
         db.collection("001-school").doc("attendanceSettings").get()
           .then(doc => {
             if (doc.exists) {
               const data = doc.data();
+              // Check if attendance module is enabled
               if (!data.roleControls?.attendance) {
                 document.getElementById("session-message").innerHTML = `<div class="alert alert-danger">Attendance module is disabled by admin.</div>`;
                 attendanceAllowed = false;
@@ -149,7 +136,6 @@
               const nowStr = today.toTimeString().split(" ")[0];
               if (session1.enabled && nowStr >= session1.start && nowStr <= session1.end) {
                 attendanceAllowed = true;
-                currentSession = "session1";
                 document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 1 is active.</div>`;
               } else {
                 attendanceAllowed = false;
@@ -162,7 +148,6 @@
           })
           .catch(err => console.error("Error loading attendance settings:", err));
       }
-      
       loadAttendanceSettings();
       
       // ---------------------------
@@ -187,7 +172,7 @@
       }
       loadTeacherDropdown();
       
-      // Auto-fill teacher name on selection
+      // Auto-fill teacher name when teacher is selected
       document.getElementById("teacher-select").addEventListener("change", function () {
         const teacherId = this.value;
         if (!teacherId) {
@@ -237,9 +222,6 @@
                 <td>${data.studentName || "-"}</td>
                 <td>${data.class || "-"}</td>
                 <td>${data.stream || "-"}</td>
-                <td>${data.dob || "-"}</td>
-                <td>${data.fatherName || "-"}</td>
-                <td>${data.gender || "-"}</td>
                 <td>
                   <select class="form-select attendance-select" data-docid="${doc.id}">
                     <option value="Present">Present</option>
@@ -258,7 +240,7 @@
       });
       
       // ---------------------------
-      // SUBMIT ATTENDANCE RECORDS
+      // SUBMIT ATTENDANCE RECORDS (Session 1 Only)
       // ---------------------------
       document.getElementById("attendance-form").addEventListener("submit", (e) => {
         e.preventDefault();
@@ -272,42 +254,48 @@
           alert("Please select your teacher details."); 
           return; 
         }
-        // Determine the active session:
-        let activeSession = currentSession;
-        const manualMode = document.getElementById("manual-control").checked;
-        if (manualMode) {
-          activeSession = document.getElementById("session-picker").value;
-        }
-        // Use the attendance date from the input
         const attendanceDate = document.getElementById("attendance-date").value;
-        if (!attendanceDate) {
-          alert("Please select the attendance date.");
-          return;
-        }
+        // For each student, we want to create or update a record in "attendance/student_attendance"
+        // The document ID is: studentDocId_attendanceDate_session1
         const selects = document.querySelectorAll(".attendance-select");
-        const batch = db.batch();
+        const promises = [];
+        
         selects.forEach(select => {
           const status = select.value;
           const docId = select.getAttribute("data-docid");
-          const recordId = docId + "_" + attendanceDate + "_" + activeSession;
+          const recordId = docId + "_" + attendanceDate + "_session1";
           const attendanceRef = db.collection("001-school").doc("attendance").collection("student_attendance").doc(recordId);
-          batch.set(attendanceRef, {
-            studentDocId: docId,
-            status,
-            date: attendanceDate,
-            session: activeSession,
-            teacherId,
-            teacherName,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          
+          // For each attendance record, check if it already exists.
+          // If it exists, update only the "status" field.
+          // If it doesn't exist, create a new record with a timestamp.
+          const p = attendanceRef.get().then(docSnapshot => {
+            if (docSnapshot.exists) {
+              // Update status without modifying the original timestamp.
+              return attendanceRef.update({ status: status });
+            } else {
+              // Create new record with timestamp.
+              return attendanceRef.set({
+                studentDocId: docId,
+                status: status,
+                date: attendanceDate,
+                session: "session1",
+                teacherId: teacherId,
+                teacherName: teacherName,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+              });
+            }
           });
+          promises.push(p);
         });
-        batch.commit()
-          .then(() => { 
-            document.getElementById("attendance-status").innerText = "Attendance submitted successfully!"; 
+        
+        Promise.all(promises)
+          .then(() => {
+            document.getElementById("attendance-status").innerText = "Attendance submitted successfully!";
           })
-          .catch(err => { 
+          .catch(err => {
             console.error("Error submitting attendance:", err);
-            document.getElementById("attendance-status").innerText = "Error submitting attendance: " + err.message; 
+            document.getElementById("attendance-status").innerText = "Error submitting attendance: " + err.message;
           });
       });
     </script>
