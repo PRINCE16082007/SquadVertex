@@ -121,11 +121,23 @@
             </select>
           </div>
         </div>
-        <!-- Optional: Stream/Subjects (for classes 11 & 12) -->
+        <!-- Subjects (Multi-select Dropdown) -->
         <div class="row mb-3">
           <div class="col-md-6">
-            <label for="stream" class="form-label">Stream / Subjects (if applicable)</label>
-            <input type="text" class="form-control" id="stream" placeholder="e.g. Science, Commerce" />
+            <label for="subjects" class="form-label">Subjects</label>
+            <select class="form-select" id="subjects" multiple required>
+              <option value="Math">Math</option>
+              <option value="Science">Science</option>
+              <option value="English">English</option>
+              <option value="Social Studies">Social Studies</option>
+              <option value="History">History</option>
+              <option value="Geography">Geography</option>
+              <option value="Computer Science">Computer Science</option>
+              <option value="Physical Education">Physical Education</option>
+              <option value="Economics">Economics</option>
+              <option value="Biology">Biology</option>
+              <!-- Add additional subjects as required -->
+            </select>
           </div>
           <div class="col-md-6">
             <label for="contact" class="form-label">Contact Number</label>
@@ -151,7 +163,7 @@
           <label for="pdf-upload" class="form-label">Upload Documents (PDF) (Optional)</label>
           <input type="file" class="form-control" id="pdf-upload" accept="application/pdf" />
         </div>
-        <!-- Hidden Timestamp (set on submit) -->
+        <!-- Hidden Timestamp (set on submission) -->
         <input type="hidden" id="timestamp" />
         <button type="submit" class="btn btn-primary">Submit Admission</button>
       </form>
@@ -225,13 +237,13 @@
 
     <!-- Navigation Buttons -->
     <div class="container nav-btns">
-      <button class="btn btn-secondary me-2" onclick="location.href='edit_students.html'">
+      <button class="btn btn-outline-dark" onclick="location.href='edit_students.html'">
         Edit Student Data
       </button>
-      <button class="btn btn-info me-2" onclick="location.href='recent_requests.html'">
+      <button class="btn btn-info" onclick="location.href='recent_requests.html'">
         View All Recent Requests
       </button>
-      <button class="btn btn-outline-dark" onclick="location.href='index.html'">
+      <button class="btn btn-secondary" onclick="location.href='index.html'">
         Home Dashboard
       </button>
     </div>
@@ -241,13 +253,12 @@
       <h3>Admission Module Instructions</h3>
       <ul>
         <li>Only admin/admission staff can access this page.</li>
-        <li>Student details (name, gender, DOB, father's name, guardian name, etc.) are entered and verified.</li>
-        <li>An optional PDF upload is provided for additional documents.</li>
-        <li>The SR Number field is mandatory and will be used to generate the student document ID in the format "studentXXXXX" (e.g. SR 5 becomes student00005, SR 6195 becomes student06195).</li>
+        <li>Enter student details accurately; all fields are required unless marked optional.</li>
+        <li>The Subjects field is now a multi‑select dropdown. Hold Ctrl (or Cmd on Mac) to select multiple subjects.</li>
+        <li>The SR Number is used to generate the student document ID (e.g., SR 5 becomes student00005).</li>
         <li>A hidden timestamp is recorded on submission.</li>
-        <li>Recent Admission Requests are fetched from the "admission_requests" collection.</li>
-        <li>Recent Admissions are dynamically loaded from the "001-school/students/list" subcollection and support quick search.</li>
-        <li>All changes and data management in this module are the responsibility of the admin.</li>
+        <li>Recent Admission Requests and Recent Admissions are dynamically loaded for review.</li>
+        <li>All data changes in this module are the responsibility of the admin.</li>
       </ul>
     </div>
 
@@ -258,26 +269,16 @@
       </p>
     </footer>
 
-    <!-- Firebase Libraries (Compat Version) -->
+    <!-- Firebase Libraries -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script>
-      // Firebase initialization
-      const firebaseConfig = {
-        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-        authDomain: "squadvertex2007.firebaseapp.com",
-        projectId: "squadvertex2007",
-        storageBucket: "squadvertex2007.appspot.com",
-        messagingSenderId: "168905083514",
-        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-      };
-      firebase.initializeApp(firebaseConfig);
+      // Firebase initialization (already set above)
       const db = firebase.firestore();
 
-      // Function to pad SR number to 5 digits and create document ID
+      // Utility: Generate document ID for student using SR Number
       function generateStudentDocId(srNumber) {
-        const padded = srNumber.toString().padStart(5, "0");
-        return "student" + padded;
+        return "student" + srNumber.toString().padStart(5, "0");
       }
 
       // Load Recent Admission Requests from "admission_requests" collection
@@ -310,7 +311,7 @@
           });
       }
 
-      // Load Recent Admissions from "001-school/students/list" subcollection
+      // Load Recent Admissions from "001-school/students/list"
       function loadRecentAdmissions() {
         const admissionsTableBody = document.querySelector("#admissions-table tbody");
         admissionsTableBody.innerHTML = "";
@@ -358,7 +359,7 @@
         });
       });
 
-      // Load data on DOMContentLoaded
+      // Load Recent Data on DOMContentLoaded
       window.addEventListener("DOMContentLoaded", function () {
         loadAdmissionRequests();
         loadRecentAdmissions();
@@ -379,13 +380,13 @@
         }
       });
 
-      // Admission form submission with confirmation, timestamp, and Firestore write
+      // Admission form submission
       document.getElementById("admission-form").addEventListener("submit", function (e) {
         e.preventDefault();
         if (!confirm("Are you sure you want to submit this admission?")) {
           return;
         }
-        // Set the current timestamp
+        // Set the current timestamp (as ISO string, not used for later updates)
         const now = new Date();
         document.getElementById("timestamp").value = now.toISOString();
 
@@ -396,18 +397,23 @@
         const guardianName = document.getElementById("guardian-name").value.trim();
         const dob = document.getElementById("dob").value;
         const sClass = document.getElementById("class").value;
-        const stream = document.getElementById("stream").value.trim();
+        // Replace the original stream input with subjects
+        const subjectsSelect = document.getElementById("subjects");
+        let subjects = [];
+        for (const option of subjectsSelect.options) {
+          if (option.selected) {
+            subjects.push(option.value);
+          }
+        }
         const contact = document.getElementById("contact").value.trim();
         const remarks = document.getElementById("remarks").value.trim();
         const srNumber = document.getElementById("sr-number").value.trim();
-        // Optional PDF file handling can be added here (if a file is selected)
 
         if (!srNumber) {
           alert("SR Number is required.");
           return;
         }
 
-        // Generate document ID using SR number padded to 5 digits
         const docId = generateStudentDocId(srNumber);
 
         // Create the student document data
@@ -418,15 +424,13 @@
           guardianName,
           dob,
           class: sClass,
-          stream: stream || "",
+          subjects,  // now an array of selected subjects
           contact,
           remarks,
-          srNumber, // Save the entered SR number
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          // Optionally, add a field for PDF URL if uploaded
+          srNumber,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        // Write the data to Firestore in "001-school/students/list" with document ID as computed
         db.collection("001-school")
           .doc("students")
           .collection("list")
@@ -434,7 +438,6 @@
           .set(studentData)
           .then(() => {
             alert("Admission submitted successfully!");
-            // Reset form and word count
             document.getElementById("admission-form").reset();
             wordCountDisplay.innerText = "0/50 words";
           })
@@ -444,7 +447,12 @@
           });
       });
     </script>
-
+    <!-- Utility: Generate student document ID -->
+    <script>
+      function generateStudentDocId(srNumber) {
+        return "student" + srNumber.toString().padStart(5, "0");
+      }
+    </script>
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   </body>
