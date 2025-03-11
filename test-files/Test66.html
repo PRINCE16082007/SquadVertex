@@ -8,6 +8,8 @@
     <style>
       .attendance-section { margin-top: 20px; }
       .alert { margin-top: 10px; }
+      /* Optional: Adjust table font-size for many columns */
+      table { font-size: 0.9rem; }
     </style>
   </head>
   <body>
@@ -67,6 +69,7 @@
       </div>
       <button class="btn btn-primary mb-3" id="load-students-btn">Load Students</button>
       
+      <!-- Attendance form container -->
       <div id="attendance-form-container" class="d-none">
         <form id="attendance-form">
           <table class="table table-bordered">
@@ -74,11 +77,19 @@
               <tr>
                 <th>SR No</th>
                 <th>Student Name</th>
+                <th>Class</th>
+                <th>Stream</th>
+                <th>Contact</th>
+                <th>DOB</th>
+                <th>Father Name</th>
+                <th>Gender</th>
+                <th>Guardian Name</th>
+                <th>Remarks</th>
                 <th>Mark Attendance</th>
               </tr>
             </thead>
             <tbody id="students-table-body">
-              <!-- Loaded from Firestore -->
+              <!-- Student rows loaded from Firestore -->
             </tbody>
           </table>
           <button type="submit" class="btn btn-success">Submit Attendance</button>
@@ -93,6 +104,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script>
+      // Initialize Firebase
       const firebaseConfig = {
         apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
         authDomain: "squadvertex2007.firebaseapp.com",
@@ -104,11 +116,11 @@
       firebase.initializeApp(firebaseConfig);
       const db = firebase.firestore();
       
-      let currentSession = null; // "session1" or "session2"
+      let currentSession = null; // will be "session1" or "session2"
       let attendanceAllowed = false;
       let holidays = [];
       
-      // Load attendance settings (module control and active session)
+      // Load attendance settings (module control and session)
       function loadAttendanceSettings() {
         db.collection("001-school").doc("attendanceSettings").get()
           .then(doc => {
@@ -148,7 +160,7 @@
       loadAttendanceSettings();
       
       // ---------------------------
-      // TEACHER DROPDOWN
+      // TEACHER DROPDOWN POPULATION
       // ---------------------------
       function loadTeacherDropdown() {
         const teacherSelect = document.getElementById("teacher-select");
@@ -169,7 +181,7 @@
       }
       loadTeacherDropdown();
       
-      // Auto-fill teacher name on teacher selection
+      // Auto-fill teacher name when teacher is selected
       document.getElementById("teacher-select").addEventListener("change", function () {
         const teacherId = this.value;
         if (!teacherId) {
@@ -214,14 +226,24 @@
             snapshot.forEach(doc => {
               const data = doc.data();
               const tr = document.createElement("tr");
-              tr.innerHTML = `<td>${data.srNumber || "-"}</td>
-                              <td>${data.studentName || "-"}</td>
-                              <td>
-                                <select class="form-select attendance-select" data-docid="${doc.id}">
-                                  <option value="Present">Present</option>
-                                  <option value="Absent">Absent</option>
-                                </select>
-                              </td>`;
+              tr.innerHTML = `
+                <td>${data.srNumber || "-"}</td>
+                <td>${data.studentName || "-"}</td>
+                <td>${data.class || "-"}</td>
+                <td>${data.stream || "-"}</td>
+                <td>${data.contact || "-"}</td>
+                <td>${data.dob || "-"}</td>
+                <td>${data.fatherName || "-"}</td>
+                <td>${data.gender || "-"}</td>
+                <td>${data.guardianName || "-"}</td>
+                <td>${data.remarks || "-"}</td>
+                <td>
+                  <select class="form-select attendance-select" data-docid="${doc.id}">
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                  </select>
+                </td>
+              `;
               tbody.appendChild(tr);
             });
             document.getElementById("attendance-form-container").classList.remove("d-none");
@@ -247,7 +269,7 @@
           alert("Please select your teacher details."); 
           return; 
         }
-        // If manual override is enabled, use the session-picker; otherwise, use the session from settings.
+        // Use manual session override if enabled; otherwise use the session from settings.
         let activeSession = currentSession;
         const manualMode = document.getElementById("manual-control").checked;
         if (manualMode) {
