@@ -31,12 +31,13 @@
     
     <div class="container attendance-section">
       <h2>Student Attendance</h2>
-      <!-- Teacher selection: drop-down for Teacher ID; auto-fills Teacher Name -->
+      
+      <!-- Teacher selection: drop-down for Teacher ID and auto-fill teacher name -->
       <div class="mb-3">
         <label for="teacher-select" class="form-label">Select Your Teacher ID</label>
         <select id="teacher-select" class="form-select" required>
           <option value="">Select Teacher</option>
-          <!-- Options will be loaded from Firestore -->
+          <!-- Options will be populated from Firestore -->
         </select>
       </div>
       <div class="mb-3">
@@ -92,7 +93,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script>
-      // Firebase initialization
+      // Initialize Firebase
       const firebaseConfig = {
         apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
         authDomain: "squadvertex2007.firebaseapp.com",
@@ -104,17 +105,17 @@
       firebase.initializeApp(firebaseConfig);
       const db = firebase.firestore();
       
-      let currentSession = null; // will be "session1" or "session2"
+      let currentSession = null; // "session1" or "session2"
       let attendanceAllowed = false;
       let holidays = [];
       
-      // Load attendance settings to determine active session and module control.
+      // Load attendance settings from Firestore
       function loadAttendanceSettings() {
         db.collection("001-school").doc("attendanceSettings").get()
           .then(doc => {
             if (doc.exists) {
               const data = doc.data();
-              // Check module control: if attendance module is disabled, disallow attendance.
+              // Check if attendance module is enabled by admin
               if (!data.roleControls?.attendance) {
                 document.getElementById("session-message").innerHTML = `<div class="alert alert-danger">Attendance module is disabled by admin.</div>`;
                 attendanceAllowed = false;
@@ -124,13 +125,12 @@
               holidays = data.holidays || [];
               const today = new Date();
               const todayStr = today.toISOString().split("T")[0];
-              // Disable attendance if today is Sunday or a holiday.
+              // Disable attendance if today is Sunday or a holiday
               if (today.getDay() === 0 || holidays.includes(todayStr)) {
                 document.getElementById("session-message").innerHTML = `<div class="alert alert-info">Today is a holiday. Attendance is disabled.</div>`;
                 attendanceAllowed = false;
                 return;
               }
-              // Check current time against session1 (for simplicity; you can expand to session2 as needed)
               const nowStr = today.toTimeString().split(" ")[0];
               if (session1.enabled && nowStr >= session1.start && nowStr <= session1.end) {
                 attendanceAllowed = true;
@@ -151,7 +151,7 @@
       loadAttendanceSettings();
       
       // ---------------------------
-      // TEACHER DROP-DOWN POPULATION
+      // TEACHER DROPDOWN POPULATION
       // ---------------------------
       function loadTeacherDropdown() {
         const teacherSelect = document.getElementById("teacher-select");
@@ -172,7 +172,7 @@
       }
       loadTeacherDropdown();
       
-      // When teacher is selected, auto-fill teacher name
+      // Auto-fill teacher name when a teacher is selected
       document.getElementById("teacher-select").addEventListener("change", function () {
         const teacherId = this.value;
         if (!teacherId) {
@@ -191,7 +191,7 @@
       });
       
       // ---------------------------
-      // LOAD STUDENTS BASED ON CLASS SELECTION
+      // LOAD STUDENTS FOR SELECTED CLASS
       // ---------------------------
       document.getElementById("load-students-btn").addEventListener("click", () => {
         if (!attendanceAllowed) {
@@ -205,15 +205,19 @@
         }
         const tbody = document.getElementById("students-table-body");
         tbody.innerHTML = "";
-        // Query students from "001-school/students/list" where field "class" equals selectedClass
         db.collection("001-school").doc("students").collection("list")
           .where("class", "==", selectedClass)
           .orderBy("timestamp", "desc")
           .get()
           .then(snapshot => {
+            if (snapshot.empty) {
+              document.getElementById("attendance-status").innerText = "No students found for class " + selectedClass;
+              document.getElementById("attendance-form-container").classList.add("d-none");
+              return;
+            }
             snapshot.forEach(doc => {
               const data = doc.data();
-              // Display using "srNumber" and "studentName"
+              // Display student using srNumber and studentName
               const tr = document.createElement("tr");
               tr.innerHTML = `<td>${data.srNumber || "-"}</td>
                               <td>${data.studentName || "-"}</td>
@@ -227,7 +231,10 @@
             });
             document.getElementById("attendance-form-container").classList.remove("d-none");
           })
-          .catch(err => console.error("Error loading students:", err));
+          .catch(err => {
+            console.error("Error loading students:", err);
+            document.getElementById("attendance-status").innerText = "Error loading students: " + err.message;
+          });
       });
       
       // ---------------------------
@@ -245,7 +252,7 @@
           alert("Please select your teacher details."); 
           return; 
         }
-        // Use session from settings automatically; if manual override is selected, use the session-picker value.
+        // Use session from settings automatically; if manual mode is selected, use the session-picker value.
         let activeSession = currentSession;
         const manualMode = document.getElementById("manual-control").checked;
         if (manualMode) {
@@ -253,7 +260,7 @@
         }
         const selects = document.querySelectorAll(".attendance-select");
         const batch = db.batch();
-        const currentDate = new Date().toISOString().split("T")[0]; // Format: YYYY-MM-DD
+        const currentDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
         selects.forEach(select => {
           const status = select.value;
           const docId = select.getAttribute("data-docid");
@@ -275,7 +282,7 @@
           })
           .catch(err => { 
             console.error("Error submitting attendance:", err); 
-            document.getElementById("attendance-status").innerText = "Error submitting attendance."; 
+            document.getElementById("attendance-status").innerText = "Error submitting attendance: " + err.message; 
           });
       });
     </script>
