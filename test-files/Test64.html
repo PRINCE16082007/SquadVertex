@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SchoolMS - Student Attendance (Session 2)</title>
+    <title>SchoolMS - Student Attendance (Session 1)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <style>
       .attendance-section { margin-top: 20px; }
@@ -15,7 +15,7 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container-fluid">
-        <a class="navbar-brand" href="#">SchoolMS</a>
+        <a class="navbar-brand" href="index.html">SchoolMS</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
           <span class="navbar-toggler-icon"></span>
         </button>
@@ -23,7 +23,7 @@
           <ul class="navbar-nav me-auto">
             <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
             <li class="nav-item"><a class="nav-link" href="attendance_admin.html">Attendance Admin</a></li>
-            <li class="nav-item active"><a class="nav-link" href="student_attendance_session2.html">Student Attendance</a></li>
+            <li class="nav-item active"><a class="nav-link" href="student_attendance_session1.html">Student Attendance</a></li>
             <li class="nav-item"><a class="nav-link" href="staff_attendance.html">Staff Attendance</a></li>
           </ul>
         </div>
@@ -31,7 +31,7 @@
     </nav>
     
     <div class="container attendance-section">
-      <h2>Student Attendance (Session 2)</h2>
+      <h2>Student Attendance (Session 1)</h2>
       
       <!-- Attendance Date -->
       <div class="mb-3">
@@ -69,7 +69,7 @@
       <!-- Student Table -->
       <div id="attendance-form-container" class="d-none">
         <div class="mb-2">
-          <small class="text-muted">Review the student details below and mark attendance for Session 2.</small>
+          <small class="text-muted">Review the student details below and mark attendance for Session 1.</small>
         </div>
         <form id="attendance-form">
           <table class="table table-bordered">
@@ -101,7 +101,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script>
-      // Firebase initialization
+      // Initialize Firebase
       const firebaseConfig = {
         apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
         authDomain: "squadvertex2007.firebaseapp.com",
@@ -121,7 +121,7 @@
       let attendanceAllowed = false;
       let holidays = [];
       
-      // Load attendance settings from Firestore (Session 2 specific)
+      // Load attendance settings for Session 1
       function loadAttendanceSettings() {
         db.collection("001-school").doc("attendanceSettings").get()
           .then(doc => {
@@ -132,8 +132,7 @@
                 attendanceAllowed = false;
                 return;
               }
-              // For Session 2, assume separate timing exists in your settings (data.session2)
-              const session2 = data.session2;
+              const session1 = data.session1;
               holidays = data.holidays || [];
               const today = new Date();
               const todayStr = today.toISOString().split("T")[0];
@@ -143,12 +142,23 @@
                 return;
               }
               const nowStr = today.toTimeString().split(" ")[0];
-              if (session2.enabled && nowStr >= session2.start && nowStr <= session2.end) {
-                attendanceAllowed = true;
-                document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 2 is active.</div>`;
-              } else {
-                attendanceAllowed = false;
-                document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">Attendance is not allowed at this time.</div>`;
+              if (data.sessionControl === "automatic") {
+                // In automatic mode, only time matters
+                if (nowStr >= session1.start && nowStr <= session1.end) {
+                  attendanceAllowed = true;
+                  document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 1 is active (Automatic Mode).</div>`;
+                } else {
+                  attendanceAllowed = false;
+                  document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">Attendance is not allowed at this time (Automatic Mode).</div>`;
+                }
+              } else { // manual mode
+                if (session1.enabled && nowStr >= session1.start && nowStr <= session1.end) {
+                  attendanceAllowed = true;
+                  document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 1 is active (Manual Mode).</div>`;
+                } else {
+                  attendanceAllowed = false;
+                  document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">Attendance is not allowed at this time (Manual Mode).</div>`;
+                }
               }
             } else {
               document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">Attendance settings not configured by admin.</div>`;
@@ -160,7 +170,7 @@
       loadAttendanceSettings();
       
       // ---------------------------
-      // TEACHER DROPDOWN POPULATION
+      // TEACHER DROPDOWN
       // ---------------------------
       function loadTeacherDropdown() {
         const teacherSelect = document.getElementById("teacher-select");
@@ -252,7 +262,7 @@
       });
       
       // ---------------------------
-      // SUBMIT ATTENDANCE RECORDS (Session 2)
+      // SUBMIT ATTENDANCE RECORDS (Session 1)
       // ---------------------------
       document.getElementById("attendance-form").addEventListener("submit", (e) => {
         e.preventDefault();
@@ -272,13 +282,13 @@
           alert("Class not selected.");
           return;
         }
-        const classDocId = "class" + selectedClass; // e.g., class9
-        // Path: 001-school/attendance/student_attendance/{attendanceDate}/session2/{classDocId}/students/{studentDocId}
+        const classDocId = "class" + selectedClass;
+        // Build path for Session 1 attendance
         const studentsSubColl = db.collection("001-school")
           .doc("attendance")
           .collection("student_attendance")
           .doc(attendanceDate)
-          .collection("session2")
+          .collection("session1")
           .doc(classDocId)
           .collection("students");
         
@@ -290,10 +300,8 @@
           const studentAttendanceRef = studentsSubColl.doc(studentDocId);
           const p = studentAttendanceRef.get().then(docSnapshot => {
             if (docSnapshot.exists) {
-              // Update status only
               return studentAttendanceRef.update({ status: status });
             } else {
-              // Fetch student's data from "001-school/students/list"
               return db.collection("001-school")
                 .doc("students")
                 .collection("list")
@@ -302,9 +310,11 @@
                 .then(studentDoc => {
                   if (studentDoc.exists) {
                     const studentData = studentDoc.data();
+                    // Ensure srNumber is defined; otherwise provide a default (e.g., "N/A")
+                    const sr = studentData.srNumber || "N/A";
                     return studentAttendanceRef.set({
                       studentDocId: studentDocId,
-                      srNumber: studentData.srNumber,  // ensure this field is defined in the student's document
+                      srNumber: sr,
                       studentName: studentData.studentName,
                       class: studentData.class,
                       stream: studentData.stream,
@@ -328,7 +338,7 @@
         
         Promise.all(promises)
           .then(() => {
-            document.getElementById("attendance-status").innerText = "Attendance submitted successfully for Session 2!";
+            document.getElementById("attendance-status").innerText = "Attendance submitted successfully for Session 1!";
           })
           .catch(err => {
             console.error("Error submitting attendance:", err);
