@@ -557,91 +557,42 @@
             if (data.holidays && data.holidays.length > 0) {
               document.getElementById("holiday-dates").value = data.holidays.join(",");
             }
-            function loadPeriodsFromFirebase() {
-  const dbRef = firebase.database().ref("periods"); // Firebase database reference
-  
-  dbRef.once("value")
-    .then(snapshot => {
-      const data = snapshot.val();
-
-      if (data) {
-        Object.values(data).forEach(period => {
-          let existingRow = document.querySelector(`[data-period="${period.period}"]`);
-          
-          if (existingRow) {
-            // Update time inputs
-            let startTimeInput = existingRow.querySelector(".start-time");
-            let endTimeInput = existingRow.querySelector(".end-time");
-            let durationInput = existingRow.querySelector(".duration");
-            let teacherDropdown = existingRow.querySelector(".teacher-dropdown");
-            let subjectDropdown = existingRow.querySelector(".subject-dropdown");
-            let typeDropdown = existingRow.querySelector(".type-dropdown");
-            let noteInput = existingRow.querySelector(".note"); // For Half-day note
-
-            if (startTimeInput) startTimeInput.value = period.startTime || "";
-            if (endTimeInput) endTimeInput.value = period.endTime || "";
-            if (durationInput) durationInput.value = period.duration || 0;
-
-            if (teacherDropdown) teacherDropdown.value = period.teacher || "";
-            if (subjectDropdown) subjectDropdown.value = period.subject || "";
-            if (typeDropdown) typeDropdown.value = period.type || "class";
-
-            // Fix for Half-Day note
-            if (period.period === "halfday" && noteInput) {
-              noteInput.value = period.note || "No attendance during half-day";
+            // Load period rows if available
+            if (data.periods && data.periods.length > 0) {
+              // Clear existing rows
+              document.getElementById("periods-container").innerHTML = "";
+              data.periods.forEach(period => {
+                addPeriodRow(period);
+              });
+            } else {
+              // Default: 4 morning periods, then half-day row, then 4 afternoon periods
+              // Generate 4 morning period rows
+              for (let i = 1; i <= 4; i++) {
+                addPeriodRow({ period: i, startTime: "", endTime: "", duration: 0, teacher: "", subject: "", type: "class" });
+              }
+              // Add half-day row
+              const halfDayRow = document.createElement("div");
+              halfDayRow.className = "period-row";
+              halfDayRow.setAttribute("data-period", "halfday");
+              halfDayRow.innerHTML = `
+                <h6>Half Day Break</h6>
+                <div class="row">
+                  <div class="col-md-6">
+                    <label class="form-label">Duration (min)</label>
+                    <input type="number" class="form-control" id="halfday-duration" value="20" required />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Note</label>
+                    <input type="text" class="form-control" value="No attendance during half-day" readonly />
+                  </div>
+                </div>
+              `;
+              document.getElementById("periods-container").appendChild(halfDayRow);
+              // Generate 4 afternoon period rows (period numbers 5-8)
+              for (let i = 5; i <= 8; i++) {
+                addPeriodRow({ period: i, startTime: "", endTime: "", duration: 0, teacher: "", subject: "", type: "class" });
+              }
             }
-          }
-        });
-      }
-    })
-    .catch(error => {
-      console.error("Error fetching periods:", error);
-    });
-}
-
-// Call this function when you need to load data
-loadPeriodsFromFirebase();
-
-// Load period rows (keep all default periods and update existing ones)
-const defaultPeriods = [
-  { period: 1, startTime: "", endTime: "", duration: 0, teacher: "", subject: "", type: "class" },
-  { period: 2, startTime: "", endTime: "", duration: 0, teacher: "", subject: "", type: "class" },
-  { period: 3, startTime: "", endTime: "", duration: 0, teacher: "", subject: "", type: "class" },
-  { period: 4, startTime: "", endTime: "", duration: 0, teacher: "", subject: "", type: "class" },
-  { period: "halfday", duration: 20, note: "No attendance during half-day" },
-  { period: 5, startTime: "", endTime: "", duration: 0, teacher: "", subject: "", type: "class" },
-  { period: 6, startTime: "", endTime: "", duration: 0, teacher: "", subject: "", type: "class" },
-  { period: 7, startTime: "", endTime: "", duration: 0, teacher: "", subject: "", type: "class" },
-  { period: 8, startTime: "", endTime: "", duration: 0, teacher: "", subject: "", type: "class" }
-];
-
-// Function to update or add period row
-function updatePeriodRow(periodData) {
-  let existingRow = document.querySelector(`[data-period="${periodData.period}"]`);
-  if (!existingRow) {
-    addPeriodRow(periodData);
-  } else {
-    // Update existing row with new data
-    // Example: if it has input fields, update their values
-    let inputs = existingRow.querySelectorAll("input");
-    if (inputs.length > 0) {
-      inputs[0].value = periodData.startTime || "";
-      inputs[1].value = periodData.endTime || "";
-    }
-  }
-}
-
-// Load periods
-if (data.periods && data.periods.length > 0) {
-  data.periods.forEach(period => {
-    updatePeriodRow(period);
-  });
-}
-
-// Ensure all default periods exist
-defaultPeriods.forEach(period => {
-  updatePeriodRow(period);
-});
             // Load bells & module controls
             document.getElementById("first-bell").value = data.bells?.firstBell || "";
             document.getElementById("second-bell").value = data.bells?.secondBell || "";
