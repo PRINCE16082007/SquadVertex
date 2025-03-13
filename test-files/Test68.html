@@ -349,20 +349,20 @@
                 </div>
               </div>
             </div>
-            <!-- Half-Day Row -->
-            <div class="period-row" data-period="halfday">
-              <h6>Half Day Break</h6>
-              <div class="row">
-                <div class="col-md-6">
-                  <label class="form-label">Duration (min)</label>
-                  <input type="number" class="form-control" id="halfday-duration" value="20" required />
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">Note</label>
-                  <input type="text" class="form-control" value="No attendance during half-day" readonly />
-                </div>
+            <!-- Half-Day Row (updated with class instead of ID) -->
+          <div class="period-row" data-period="halfday">
+            <h6>Half Day Break</h6>
+            <div class="row">
+              <div class="col-md-6">
+                <label class="form-label">Duration (min)</label>
+                <input type="number" class="form-control halfday-duration" value="20" required />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Note</label>
+                <input type="text" class="form-control" value="No attendance during half-day" readonly />
               </div>
             </div>
+          </div>
             <!-- Afternoon Periods (Periods 5-8) -->
             <div class="period-row" data-period="5">
               <h6>Period 5</h6>
@@ -783,80 +783,106 @@ if (data.periods && data.periods.length > 0) {
           }
         }
       });
+// ---------------------------
+    // SCHEDULE FORM SUBMISSION (FIXED VERSION)
+    // ---------------------------
+    document.getElementById("schedule-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const periodRows = document.querySelectorAll("#periods-container .period-row");
+      const periods = [];
+      let isValid = true;
 
-      // ---------------------------
-      // SCHEDULE FORM SUBMISSION
-      // ---------------------------
-      document.getElementById("schedule-form").addEventListener("submit", function (e) {
-        e.preventDefault();
-        const periodRows = document.querySelectorAll("#periods-container .period-row");
-        const periods = [];
-        periodRows.forEach(row => {
-          const periodKey = row.getAttribute("data-period");
-          // If half-day row, set type "halfday" and read duration
-          if (periodKey === "halfday") {
+      // Clear previous error states
+      document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+      document.getElementById("schedule-status").innerHTML = '';
+
+      periodRows.forEach(row => {
+        const periodKey = row.getAttribute("data-period");
+        if (periodKey === "halfday") {
+          const durationInput = row.querySelector('.halfday-duration');
+          if (!durationInput.value) {
+            isValid = false;
+            durationInput.classList.add('is-invalid');
+          } else {
             periods.push({
               period: "halfday",
               type: "halfday",
-              duration: parseInt(document.getElementById("halfday-duration").value)
+              duration: parseInt(durationInput.value)
             });
+          }
+        } else {
+          const startTime = row.querySelector('.period-start').value;
+          const endTime = row.querySelector('.period-end').value;
+          const teacher = row.querySelector('.period-teacher').value.trim();
+          const subject = row.querySelector('.period-subject').value.trim();
+          const duration = row.querySelector('.period-duration').value;
+
+          if (!startTime || !endTime || !teacher || !subject || !duration) {
+            isValid = false;
+            if (!startTime) row.querySelector('.period-start').classList.add('is-invalid');
+            if (!endTime) row.querySelector('.period-end').classList.add('is-invalid');
+            if (!teacher) row.querySelector('.period-teacher').classList.add('is-invalid');
+            if (!subject) row.querySelector('.period-subject').classList.add('is-invalid');
           } else {
-            const startTime = row.querySelector(".period-start").value;
-            const endTime = row.querySelector(".period-end").value;
-            const duration = parseInt(row.querySelector(".period-duration").value);
-            const teacher = row.querySelector(".period-teacher").value.trim();
-            const subject = row.querySelector(".period-subject").value.trim();
             periods.push({
               period: Number(periodKey),
               startTime,
               endTime,
-              duration,
+              duration: parseInt(duration),
               teacher,
               subject,
               type: "class"
             });
           }
-        });
-        const scheduleData = {
-          session1: {
-            start: document.getElementById("session1-start").value,
-            end: document.getElementById("session1-end").value,
-            enabled: document.getElementById("session1-enabled").checked
-          },
-          session2: {
-            start: document.getElementById("session2-start").value,
-            end: document.getElementById("session2-end").value,
-            enabled: document.getElementById("session2-enabled").checked
-          },
-          // Holidays from Flatpickr: convert selected dates to YYYY-MM-DD strings
-          holidays: document.getElementById("holiday-dates")._flatpickr 
-            ? document.getElementById("holiday-dates")._flatpickr.selectedDates.map(date => date.toISOString().split("T")[0])
-            : [],
-          periods,
-          bells: {
-            firstBell: document.getElementById("first-bell").value,
-            secondBell: document.getElementById("second-bell").value,
-            prayerTime: document.getElementById("prayer-time").value,
-            holidayStart: document.getElementById("holiday-start").value,
-            holidayEnd: document.getElementById("holiday-end").value
-          },
-          roleControls: {
-            attendance: document.getElementById("control-attendance").checked,
-            admissions: document.getElementById("control-admissions").checked,
-            exams: document.getElementById("control-exams").checked
-          },
-          sessionControl: document.querySelector('input[name="session-control"]:checked').value,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        db.collection("001-school").doc("attendanceSettings").set(scheduleData)
-          .then(() => {
-            document.getElementById("schedule-status").innerText = "Schedule saved successfully!";
-          })
-          .catch(err => {
-            console.error("Error saving schedule:", err);
-            document.getElementById("schedule-status").innerText = "Error saving schedule.";
-          });
+        }
       });
+
+      if (!isValid) {
+        document.getElementById("schedule-status").innerHTML = 
+          '<div class="alert alert-danger">Please fill all required fields.</div>';
+        return;
+      }
+
+      const scheduleData = {
+        session1: {
+          start: document.getElementById("session1-start").value,
+          end: document.getElementById("session1-end").value,
+          enabled: document.getElementById("session1-enabled").checked
+        },
+        session2: {
+          start: document.getElementById("session2-start").value,
+          end: document.getElementById("session2-end").value,
+          enabled: document.getElementById("session2-enabled").checked
+        },
+        holidays: document.getElementById("holiday-dates")._flatpickr 
+          ? document.getElementById("holiday-dates")._flatpickr.selectedDates.map(date => date.toISOString().split("T")[0])
+          : [],
+        periods,
+        bells: {
+          firstBell: document.getElementById("first-bell").value,
+          secondBell: document.getElementById("second-bell").value,
+          prayerTime: document.getElementById("prayer-time").value,
+          holidayStart: document.getElementById("holiday-start").value,
+          holidayEnd: document.getElementById("holiday-end").value
+        },
+        roleControls: {
+          attendance: document.getElementById("control-attendance").checked
+        },
+        sessionControl: document.querySelector('input[name="session-control"]:checked').value,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      db.collection("001-school").doc("attendanceSettings").set(scheduleData)
+        .then(() => {
+          document.getElementById("schedule-status").innerHTML = 
+            '<div class="alert alert-success">Schedule saved successfully!</div>';
+        })
+        .catch(err => {
+          console.error("Error saving schedule:", err);
+          document.getElementById("schedule-status").innerHTML = 
+            `<div class="alert alert-danger">Error saving schedule: ${err.message}</div>`;
+        });
+    });
 
       // ---------------------------
       // SETTINGS FORM SUBMISSION
