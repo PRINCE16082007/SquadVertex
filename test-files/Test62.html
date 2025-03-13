@@ -557,7 +557,50 @@
             if (data.holidays && data.holidays.length > 0) {
               document.getElementById("holiday-dates").value = data.holidays.join(",");
             }
-// ---------------------------
+            // Load period rows if available
+if (data.periods && data.periods.length > 0) {
+  // Clear existing rows
+  const container = document.getElementById("periods-container");
+  container.innerHTML = "";
+  data.periods.forEach(period => {
+    if (period.type === "halfday") {
+      // Create half-day row
+      const halfDayRow = document.createElement("div");
+      halfDayRow.className = "period-row";
+      halfDayRow.setAttribute("data-period", "halfday");
+      halfDayRow.innerHTML = `
+        <h6>Half Day Break</h6>
+        <div class="row">
+          <div class="col-md-6">
+            <label class="form-label">Duration (min)</label>
+            <input type="number" class="form-control" id="halfday-duration" value="${period.duration}" required />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Note</label>
+            <input type="text" class="form-control" value="No attendance during half-day" readonly />
+          </div>
+        </div>
+      `;
+      container.appendChild(halfDayRow);
+    } else {
+      addPeriodRow(period);
+    }
+  });
+}
+            // Load bells & module controls
+            document.getElementById("first-bell").value = data.bells?.firstBell || "";
+            document.getElementById("second-bell").value = data.bells?.secondBell || "";
+            document.getElementById("prayer-time").value = data.bells?.prayerTime || "";
+            document.getElementById("holiday-start").value = data.bells?.holidayStart || "";
+            document.getElementById("holiday-end").value = data.bells?.holidayEnd || "";
+            document.getElementById("control-attendance").checked = data.roleControls?.attendance || false;
+            document.getElementById("control-admissions").checked = data.roleControls?.admissions || false;
+            document.getElementById("control-exams").checked = data.roleControls?.exams || false;
+          }
+        })
+        .catch(err => console.error("Error loading schedule settings:", err));
+
+      // ---------------------------
       // DYNAMIC PERIOD ROW FUNCTIONS
       // ---------------------------
       function addPeriodRow(periodData) {
@@ -603,8 +646,171 @@
               </select>
             </div>
           </div>
-          <span class="delete-period" onclick="this.parentElement.remove()">X</span>
         `;
         container.appendChild(row);
         populateTeacherDropdown(row.querySelector(".period-teacher"));
       }
+
+      // Auto-calculate duration when start or end time changes
+      document.addEventListener("change", function (e) {
+        if (e.target.classList.contains("period-start") || e.target.classList.contains("period-end")) {
+          const row = e.target.closest(".period-row");
+          const start = row.querySelector(".period-start").value;
+          const end = row.querySelector(".period-end").value;
+          if (start && end) {
+            const startTime = new Date("1970-01-01T" + start + "Z");
+            const endTime = new Date("1970-01-01T" + end + "Z");
+            let diff = (endTime - startTime) / 60000;
+            if (diff < 0) diff += 24 * 60;
+            row.querySelector(".period-duration").value = diff;
+          }
+        }
+      });
+
+      // Populate teacher dropdowns using "staffId" from Firestore
+      function populateAllTeacherDropdowns() {
+        const selects = document.querySelectorAll(".period-teacher");
+        selects.forEach(sel => populateTeacherDropdown(sel));
+      }
+      function populateTeacherDropdown(selectElement) {
+        selectElement.innerHTML = `<option value="">Select Staff ID</option>`;
+        db.collection("001-school").doc("teachers").collection("list")
+          .get()
+          .then(snapshot => {
+            snapshot.forEach(doc => {
+              const data = doc.data();
+              const opt = document.createElement("option");
+              opt.value = data.staffId;
+              opt.text = data.staffId + " - " + data.staffName;
+              selectElement.appendChild(opt);
+            });
+          })
+          .catch(err => console.error("Error fetching teacher records:", err));
+      }
+      populateAllTeacherDropdowns();
+
+      // When teacher selection changes in a period row, auto-populate the subject dropdown
+      document.addEventListener("change", function (e) {
+        if (e.target.classList.contains("period-teacher")) {
+          const teacherId = e.target.value;
+          const row = e.target.closest(".period-row");
+          const subjectSelect = row.querySelector(".period-subject");
+          subjectSelect.innerHTML = `<option value="">Select Subject</option>`;
+          if (teacherId) {
+            db.collection("001-school").doc("teachers").collection("list").doc(teacherId)
+              .get()
+              .then(doc => {
+                if (doc.exists) {
+                  const data = doc.data();
+                  const subjects = data.subjects || [];
+                  subjects.forEach(sub => {
+                    const opt = document.createElement("option");
+                    opt.value = sub;
+                    opt.text = sub;
+                    subjectSelect.appendChild(opt);
+                  });
+                }
+              })
+              .catch(err => console.error("Error fetching teacher subjects:", err));
+          }
+        }
+      });
+
+      // ---------------------------
+      // SCHEDULE FORM SUBMISSION
+      // ---------------------------
+      document.getElementById("schedule-form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        const periodRows = document.querySelectorAll("#periods-container .period-row");
+        const periods = [];
+        periodRows.forEach(row => {
+          const periodKey = row.getAttribute("data-period");
+          // If half-day row, set type "halfday" and read duration
+          if (periodKey === "halfday") {
+            periods.push({
+              period: "halfday",
+              type: "halfday",
+              duration: parseInt(document.getElementById("halfday-duration").value)
+            });
+          } else {
+            const startTime = row.querySelector(".period-start").value;
+            const endTime = row.querySelector(".period-end").value;
+            const duration = parseInt(row.querySelector(".period-duration").value);
+            const teacher = row.querySelector(".period-teacher").value.trim();
+            const subject = row.querySelector(".period-subject").value.trim();
+            periods.push({
+              period: Number(periodKey),
+              startTime,
+              endTime,
+              duration,
+              teacher,
+              subject,
+              type: "class"
+            });
+          }
+        });
+        const scheduleData = {
+          session1: {
+            start: document.getElementById("session1-start").value,
+            end: document.getElementById("session1-end").value,
+            enabled: document.getElementById("session1-enabled").checked
+          },
+          session2: {
+            start: document.getElementById("session2-start").value,
+            end: document.getElementById("session2-end").value,
+            enabled: document.getElementById("session2-enabled").checked
+          },
+          // Holidays from Flatpickr: convert selected dates to YYYY-MM-DD strings
+          holidays: document.getElementById("holiday-dates")._flatpickr 
+            ? document.getElementById("holiday-dates")._flatpickr.selectedDates.map(date => date.toISOString().split("T")[0])
+            : [],
+          periods,
+          bells: {
+            firstBell: document.getElementById("first-bell").value,
+            secondBell: document.getElementById("second-bell").value,
+            prayerTime: document.getElementById("prayer-time").value,
+            holidayStart: document.getElementById("holiday-start").value,
+            holidayEnd: document.getElementById("holiday-end").value
+          },
+          roleControls: {
+            attendance: document.getElementById("control-attendance").checked,
+            admissions: document.getElementById("control-admissions").checked,
+            exams: document.getElementById("control-exams").checked
+          },
+          sessionControl: document.querySelector('input[name="session-control"]:checked').value,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        db.collection("001-school").doc("attendanceSettings").set(scheduleData)
+          .then(() => {
+            document.getElementById("schedule-status").innerText = "Schedule saved successfully!";
+          })
+          .catch(err => {
+            console.error("Error saving schedule:", err);
+            document.getElementById("schedule-status").innerText = "Error saving schedule.";
+          });
+      });
+
+      // ---------------------------
+      // SETTINGS FORM SUBMISSION
+      // ---------------------------
+      document.getElementById("settings-form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        const settingsData = {
+          schoolName: document.getElementById("school-name").value.trim(),
+          academicYear: document.getElementById("academic-year").value.trim(),
+          contactEmail: document.getElementById("contact-email").value.trim(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        db.collection("001-school").doc("systemSettings").set(settingsData)
+          .then(() => {
+            document.getElementById("settings-status").innerText = "Settings saved successfully!";
+          })
+          .catch(err => {
+            console.error("Error saving settings:", err);
+            document.getElementById("settings-status").innerText = "Error saving settings.";
+          });
+      });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
