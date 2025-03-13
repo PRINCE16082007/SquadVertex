@@ -544,7 +544,7 @@
       </div>
     </div>
 
-<div class="container module-container">
+<div class="module-container">
       <h2 class="mb-3">Universal Fees Chart</h2>
       <p class="note">
         Note: Admission fees are not included in this chart; they will be collected separately.
@@ -570,7 +570,8 @@
             <!-- Dynamic rows will be inserted here -->
           </tbody>
         </table>
-         <button type="submit" class="btn btn-primary">Save Fees Chart</button>
+        <!-- Save button -->
+        <button type="submit" class="btn btn-primary">Save Fees Chart</button>
       </form>
       <div id="save-status" class="mt-3"></div>
       <!-- Button to add a new row -->
@@ -878,7 +879,7 @@ if (data.periods && data.periods.length > 0) {
           });
       });
 
-// --- Options for Dropdowns ---
+// --- Dropdown Options ---
       const classOptions = [
         "Nursery",
         "KG",
@@ -897,12 +898,12 @@ if (data.periods && data.periods.length > 0) {
       ];
       const streamOptions = ["Arts", "Commerce", "Science", "Agriculture", "Nothing"];
 
-      // --- Function to create a new row ---
+      // --- Function to Create a New Row ---
       function addFeesChartRow(feesData = null) {
         const tbody = document.querySelector("#fees-chart-table tbody");
         const tr = document.createElement("tr");
 
-        // Create Class dropdown (auto-select if feesData provided)
+        // Class dropdown (auto-select if feesData provided)
         let classSelectHTML = '<select class="form-select class-select" required>';
         classSelectHTML += '<option value="">Select Class</option>';
         classOptions.forEach((opt) => {
@@ -911,7 +912,7 @@ if (data.periods && data.periods.length > 0) {
         });
         classSelectHTML += '</select>';
 
-        // Create Stream dropdown (auto-select if feesData provided)
+        // Stream dropdown (auto-select if feesData provided)
         let streamSelectHTML = '<select class="form-select stream-select" required>';
         streamSelectHTML += '<option value="">Select Stream</option>';
         streamOptions.forEach((opt) => {
@@ -920,7 +921,7 @@ if (data.periods && data.periods.length > 0) {
         });
         streamSelectHTML += '</select>';
 
-        // Base fee input, pre-filled if feesData exists
+        // Base fee input field (pre-filled if feesData exists)
         const feeValue = feesData && feesData.baseFee ? feesData.baseFee : "";
         const feeInputHTML = `<input type="number" class="form-control fee-input" placeholder="Enter fee" value="${feeValue}" required />`;
 
@@ -933,37 +934,30 @@ if (data.periods && data.periods.length > 0) {
                         <td>${delButtonHTML}</td>`;
         tbody.appendChild(tr);
 
-        // Add event listener for delete button
+        // Attach delete event
         tr.querySelector(".delete-row-btn").addEventListener("click", () => {
           tr.remove();
         });
       }
 
-      // --- Auto-load existing Universal Fees Chart data ---
+      // --- Auto-load Existing Fees Chart Data ---
       function loadFeesChart() {
         db.collection("001-school").doc("systemSettings").get()
           .then(doc => {
             if (doc.exists) {
               const data = doc.data();
-              // Set the checkbox if fees module is enabled (assume field feesModuleEnabled exists)
-              if (data.feesModuleEnabled) {
-                document.getElementById("fees-module-checkbox").checked = true;
-              } else {
-                document.getElementById("fees-module-checkbox").checked = false;
-              }
-              // If universalFeesChart array exists, populate table rows
+              // Set fees module checkbox state
+              document.getElementById("fees-module-checkbox").checked = !!data.feesModuleEnabled;
+              // If universalFeesChart exists, populate rows; otherwise, add one default row.
               if (data.universalFeesChart && data.universalFeesChart.length > 0) {
-                // Clear any existing rows
                 document.querySelector("#fees-chart-table tbody").innerHTML = "";
                 data.universalFeesChart.forEach((feesRow) => {
                   addFeesChartRow(feesRow);
                 });
               } else {
-                // If no data, add one default row
                 addFeesChartRow();
               }
             } else {
-              // If systemSettings doc doesn't exist, add default row
               addFeesChartRow();
             }
           })
@@ -971,19 +965,17 @@ if (data.periods && data.periods.length > 0) {
             console.error("Error loading fees chart data:", err);
           });
       }
-
-      // --- On page load, auto-load fees chart data ---
       window.addEventListener("DOMContentLoaded", loadFeesChart);
 
-      // --- "Add Row" button event ---
+      // --- Add Row Button Event ---
       document.getElementById("add-row-btn").addEventListener("click", () => {
         addFeesChartRow();
       });
 
-      // --- Form submission ---
+      // --- Form Submission ---
       document.getElementById("fees-chart-form").addEventListener("submit", function(e) {
         e.preventDefault();
-        // Gather rows data
+        // Gather all row data
         const rows = document.querySelectorAll("#fees-chart-table tbody tr");
         let feesChart = [];
         rows.forEach((row) => {
@@ -996,9 +988,8 @@ if (data.periods && data.periods.length > 0) {
             baseFee: parseFloat(feeVal)
           });
         });
-        // Also get the state of the fees module enable checkbox
         const feesModuleEnabled = document.getElementById("fees-module-checkbox").checked;
-        // Save into systemSettings document under universalFeesChart and feesModuleEnabled
+        // Save into systemSettings document
         db.collection("001-school").doc("systemSettings").update({
           universalFeesChart: feesChart,
           feesModuleEnabled: feesModuleEnabled,
@@ -1007,7 +998,7 @@ if (data.periods && data.periods.length > 0) {
         .then(() => {
           document.getElementById("save-status").innerHTML = '<div class="alert alert-success">Universal Fees Chart saved successfully!</div>';
         })
-        .catch((err) => {
+        .catch(err => {
           console.error("Error saving fees chart:", err);
           document.getElementById("save-status").innerHTML = `<div class="alert alert-danger">Error saving fees chart: ${err.message}</div>`;
         });
