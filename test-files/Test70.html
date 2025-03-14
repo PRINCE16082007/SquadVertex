@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Add Payment - Fee Management</title>
-  <!-- Bootstrap CSS (Bootstrap 4) -->
+  <title>Fee Management - Payments</title>
+  <!-- Bootstrap CSS (using Bootstrap 4) -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <style>
     /* Prevent horizontal overflow */
@@ -84,7 +84,7 @@
             </button>
           </div>
           <div class="modal-body">
-            <!-- Hidden field to store student ID -->
+            <!-- Hidden field for student ID -->
             <input type="hidden" id="payment-student-id">
             <div class="form-group">
               <label for="payment-amount">Amount Paid</label>
@@ -214,7 +214,7 @@
                 </tr>
               </thead>
               <tbody id="student-transactions">
-                <!-- Transaction rows will be populated here -->
+                <!-- Transactions will be populated here -->
               </tbody>
             </table>
           </div>
@@ -249,7 +249,7 @@
     let systemSettings = {};
     let transactionsData = {};
 
-    // Load system settings (including masterPassword, universalFeesChart, vehicleFeesChart)
+    // Load system settings (including universalFeesChart, vehicleFeesChart, masterPassword)
     function loadSystemSettings() {
       db.collection("001-school").doc("systemSettings").get()
         .then(doc => {
@@ -276,7 +276,7 @@
         .catch(err => console.error("Error loading transactions data:", err));
     }
 
-    // Load students from Firestore (from "001-school" -> "students" document -> "list" subcollection)
+    // Load students from "001-school" → "students" document's "list" subcollection
     function loadStudents() {
       db.collection("001-school").doc("students").collection("list").get()
         .then(querySnapshot => {
@@ -305,14 +305,14 @@
         .catch(err => console.error("Error loading students:", err));
     }
 
-    // Open Payment Modal
+    // Open Payment Modal and set the student ID
     function openPaymentModal(studentId) {
       document.getElementById("payment-student-id").value = studentId;
       document.getElementById("payment-form").reset();
       $("#addPaymentModal").modal("show");
     }
 
-    // Handle Payment Form Submission
+    // Handle Payment Form Submission – add payment to "transactions" document
     document.getElementById("payment-form").addEventListener("submit", function(e) {
       e.preventDefault();
       const studentId = document.getElementById("payment-student-id").value;
@@ -321,7 +321,7 @@
       const txnId = document.getElementById("transaction-id").value;
       const remarks = document.getElementById("payment-remarks").value;
       const payment = {
-        installment: 0, // This can be dynamically set if needed
+        installment: 0, // You may set installment dynamically if needed
         date: new Date().toLocaleDateString(),
         amount: amount,
         mode: mode,
@@ -329,7 +329,7 @@
         remarks: remarks,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       };
-      // Update transactions document – assume structure: { studentTransactions: { [studentId]: [payment, ...] } }
+      // Update the transactions document (structure: { studentTransactions: { [studentId]: [payment, ...] } })
       const transRef = db.collection("001-school").doc("transactions");
       transRef.get().then(doc => {
         let data = doc.exists ? doc.data() : { studentTransactions: {} };
@@ -340,12 +340,11 @@
           data.studentTransactions[studentId] = [];
         }
         data.studentTransactions[studentId].push(payment);
-        transRef.set(data)
+        transRef.set(data, { merge: true })
           .then(() => {
             alert("Payment added successfully!");
             $("#addPaymentModal").modal("hide");
-            // Reload transactions data and refresh details if modal is open
-            loadTransactionsData();
+            loadTransactionsData(); // refresh transactions data
           })
           .catch(err => {
             console.error("Error saving payment:", err);
@@ -354,22 +353,21 @@
       });
     });
 
-    // Open Discount Modal
+    // Open Discount Modal and set student ID
     function openDiscountModal(studentId) {
       document.getElementById("discount-student-id").value = studentId;
       document.getElementById("discount-form").reset();
       $("#giveDiscountModal").modal("show");
     }
 
-    // Handle Discount Form Submission
+    // Handle Discount Form Submission – update student discount
     document.getElementById("discount-form").addEventListener("submit", function(e) {
       e.preventDefault();
       const studentId = document.getElementById("discount-student-id").value;
       const discountAmount = parseFloat(document.getElementById("discount-amount").value);
       const adminPassword = document.getElementById("admin-password").value;
-      // Validate password using systemSettings.masterPassword
+      // Verify password against systemSettings.masterPassword
       if (systemSettings.masterPassword && adminPassword === systemSettings.masterPassword) {
-        // Update student document's discount field using increment operator
         const studentRef = db.collection("001-school").doc("students").collection("list").doc(studentId);
         studentRef.update({
           discount: firebase.firestore.FieldValue.increment(discountAmount)
@@ -387,9 +385,8 @@
       }
     });
 
-    // View Details – fetch and populate student details in the modal
+    // View Details – fetch student data and transactions, then show details modal
     function viewDetails(studentId) {
-      // First, load the student document
       db.collection("001-school").doc("students").collection("list").doc(studentId).get()
         .then(doc => {
           if (doc.exists) {
@@ -400,19 +397,19 @@
             document.getElementById("detail-father").innerText = student.fatherName || "";
             document.getElementById("detail-class").innerText = student.class || "";
             document.getElementById("detail-stream").innerText = student.stream || "";
-            // Calculate base fee using universalFeesChart (match by class and stream)
+            // Determine base fee from universalFeesChart
             let baseFee = 0;
-            if(systemSettings.universalFeesChart && Array.isArray(systemSettings.universalFeesChart)) {
+            if (systemSettings.universalFeesChart && Array.isArray(systemSettings.universalFeesChart)) {
               systemSettings.universalFeesChart.forEach(feeRow => {
-                if(feeRow.class === student.class && feeRow.stream === student.stream) {
+                if (feeRow.class === student.class && feeRow.stream === student.stream) {
                   baseFee = feeRow.baseFee;
                 }
               });
             }
-            // Discount from student document (if exists) or 0
+            // Discount from student document (if not set, assume 0)
             const discount = student.discount || 0;
             const finalTotal = baseFee - discount;
-            // Get paid amount from transactions data
+            // Load transactions for this student
             let paid = 0;
             const studentTransactions = (transactionsData.studentTransactions && transactionsData.studentTransactions[studentId]) || [];
             const transTable = document.getElementById("student-transactions");
@@ -430,21 +427,27 @@
               transTable.appendChild(row);
             });
             const pending = finalTotal - paid;
-            // Populate fee details
+            // Populate fee details in modal
             document.getElementById("detail-total-fee").innerText = "₹" + baseFee;
             document.getElementById("detail-discount").innerText = "₹" + discount;
             document.getElementById("detail-final").innerText = "₹" + finalTotal;
             document.getElementById("detail-paid").innerText = "₹" + paid;
             document.getElementById("detail-pending").innerText = "₹" + pending;
-            // For vehicle fee details, here we assume 0 (or you can fetch from student document if available)
-            document.getElementById("detail-vehicle-total").innerText = "₹0";
-            document.getElementById("detail-vehicle-paid").innerText = "₹0";
-            document.getElementById("detail-vehicle-pending").innerText = "₹0";
-            // Populate universal fee chart details in the modal
+            // For vehicle fee details, using first vehicle fee as example (adjust logic as needed)
+            if (systemSettings.vehicleFeesChart && systemSettings.vehicleFeesChart.length > 0) {
+              document.getElementById("detail-vehicle-total").innerText = "₹" + systemSettings.vehicleFeesChart[0].amount;
+              document.getElementById("detail-vehicle-paid").innerText = "₹0";
+              document.getElementById("detail-vehicle-pending").innerText = "₹" + systemSettings.vehicleFeesChart[0].amount;
+            } else {
+              document.getElementById("detail-vehicle-total").innerText = "₹0";
+              document.getElementById("detail-vehicle-paid").innerText = "₹0";
+              document.getElementById("detail-vehicle-pending").innerText = "₹0";
+            }
+            // Populate Universal Fee Chart details in modal
             document.getElementById("ufc-class").innerText = student.class || "";
             document.getElementById("ufc-stream").innerText = student.stream || "";
             document.getElementById("ufc-fee").innerText = baseFee;
-            if(systemSettings.vehicleFeesChart && systemSettings.vehicleFeesChart.length > 0) {
+            if (systemSettings.vehicleFeesChart && systemSettings.vehicleFeesChart.length > 0) {
               document.getElementById("ufc-vehicle-fee").innerText = systemSettings.vehicleFeesChart[0].amount || "0";
               document.getElementById("ufc-vehicle-category").innerText = systemSettings.vehicleFeesChart[0].vehicleName || "";
               document.getElementById("ufc-distance").innerText = systemSettings.vehicleFeesChart[0].estimatedDistance || "0";
@@ -454,7 +457,7 @@
               document.getElementById("ufc-distance").innerText = "0";
             }
             document.getElementById("ufc-discount").innerText = discount;
-            // Finally, show the details modal
+            // Show the details modal
             $("#detailsModal").modal("show");
           } else {
             console.error("Student not found:", studentId);
@@ -463,11 +466,10 @@
         .catch(err => console.error("Error loading student details:", err));
     }
 
-    // Initialize page: load system settings, transactions data, then students
+    // Initialize page: load system settings, transactions, then students
     window.addEventListener("DOMContentLoaded", function() {
       loadSystemSettings();
       loadTransactionsData(loadStudents);
-      // Optionally, add event listeners to filtering inputs for dynamic filtering…
     });
   </script>
 </body>
