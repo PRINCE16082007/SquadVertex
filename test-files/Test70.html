@@ -1,10 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- ... (keep existing head content unchanged) ... -->
+    <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fee Management - Students</title>
+  <!-- Bootstrap CSS CDN (Bootstrap 4) -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    /* Control horizontal overflow */
+    .table-responsive { overflow-x: auto; }
+    .status-paid { background-color: #d4edda; }
+    .status-partial { background-color: #fff3cd; }
+    .status-pending { background-color: #f8d7da; }
+    /* Optional: limit overall page overflow */
+    body { overflow-x: hidden; }
+  </style>
 </head>
 <body>
-  <!-- ... (keep existing navbar and HTML structure unchanged) ... -->
+    <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand" href="#">FeeManage</a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+        <li class="nav-item active"><a class="nav-link" href="students.html">Students</a></li>
+        <li class="nav-item"><a class="nav-link" href="transactions.html">Transactions</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Students Management Content -->
+  <div class="container mt-4">
+    <h3 class="mb-4">Students &amp; Fees Management</h3>
+    <!-- Search & Filter Section (optional; you can expand later) -->
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <input type="text" id="student-search" class="form-control" placeholder="Search by Name or No">
+      </div>
+      <div class="col-md-3">
+        <select id="class-filter" class="form-control">
+          <option value="">Select Class</option>
+          <option value="10">Class 10</option>
+          <option value="9">Class 9</option>
+          <!-- More as needed -->
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select id="stream-filter" class="form-control">
+          <option value="">Select Stream</option>
+          <option value="Science">Science</option>
+          <option value="Commerce">Commerce</option>
+          <option value="Arts">Arts</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select id="vehicle-status-filter" class="form-control">
+          <option value="both">Vehicle: Both</option>
+          <option value="pending">Vehicle: Pending</option>
+          <option value="not_pending">Vehicle: Not Pending</option>
+        </select>
+      </div>
+    </div>
+    <!-- Students Table inside a responsive container -->
+    <div class="table-responsive">
+      <table class="table table-bordered" id="students-table">
+        <thead class="thead-dark">
+          <tr>
+            <th>No</th>
+            <th>Name</th>
+            <th>Father's Name</th>
+            <th>Class</th>
+            <th>Stream</th>
+            <th>Total Fee</th>
+            <th>Discount</th>
+            <th>Final Total</th>
+            <th>Paid</th>
+            <th>Pending</th>
+            <th>Vehicle Fee Total</th>
+            <th>Vehicle Fee Paid</th>
+            <th>Vehicle Fee Pending</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Student rows will be injected here -->
+        </tbody>
+      </table>
+    </div>
+    <!-- QR Code & UPI Info -->
+    <div class="mt-4">
+      <h5>Payment Info</h5>
+      <p>Scan the QR Code or use UPI ID: <strong>school@upi</strong></p>
+      <img src="https://via.placeholder.com/150?text=QR+Code" alt="UPI QR Code">
+    </div>
+  </div>
+
+  <!-- Student Details Modal (remarks column removed from transactions table) -->
+  <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="detailsModalLabel">Student Details</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- Student Basic Info -->
+          <div id="student-basic-info">
+            <p><strong>No:</strong> <span id="detail-no"></span></p>
+            <p><strong>Name:</strong> <span id="detail-name"></span></p>
+            <p><strong>Father's Name:</strong> <span id="detail-father-name"></span></p>
+            <p>
+              <strong>Class:</strong> <span id="detail-class"></span> | 
+              <strong>Stream:</strong> <span id="detail-stream"></span>
+            </p>
+            <p>
+              <strong>Total Fee:</strong> <span id="detail-total-fee"></span> | 
+              <strong>Discount:</strong> <span id="detail-discount"></span> | 
+              <strong>Final Total:</strong> <span id="detail-final-total"></span>
+            </p>
+            <p>
+              <strong>Paid:</strong> <span id="detail-paid"></span> | 
+              <strong>Pending:</strong> <span id="detail-pending"></span>
+            </p>
+            <p>
+              <strong>Vehicle Fee:</strong> Total: <span id="detail-vehicle-total"></span>, 
+              Paid: <span id="detail-vehicle-paid"></span>, 
+              Pending: <span id="detail-vehicle-pending"></span>
+            </p>
+          </div>
+          <hr>
+          <!-- Universal Fee Chart Details -->
+          <div id="universal-fee-chart">
+            <h5>Universal Fee Chart</h5>
+            <p>
+              For <strong>Class <span id="ufc-class"></span> - <span id="ufc-stream"></span></strong>:
+            </p>
+            <ul>
+              <li><strong>Fee Amount:</strong> ₹<span id="ufc-fee"></span></li>
+              <li><strong>Vehicle Rent:</strong> ₹<span id="ufc-vehicle-fee"></span>
+                (<em>Category: <span id="ufc-vehicle-category"></span>, Expected Distance: <span id="ufc-distance"></span> km</em>)
+              </li>
+              <li><strong>Discount Offered:</strong> ₹<span id="ufc-discount"></span></li>
+            </ul>
+          </div>
+          <hr>
+          <!-- Transaction History (remarks column removed) -->
+          <h5>Transaction History</h5>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+              <thead>
+                <tr>
+                  <th>Installment</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Mode</th>
+                  <th>Transaction ID</th>
+                </tr>
+              </thead>
+              <tbody id="student-transactions">
+                <!-- Transactions will be populated here dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <!-- All transactions are stored in the "transactions" document in Firestore -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase and Dependencies -->
+  <!-- Firebase App (the core Firebase SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <!-- Firebase Firestore -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <!-- jQuery, Popper, and Bootstrap JS (for Bootstrap 4) -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
 
   <script>
     const firebaseConfig = {
