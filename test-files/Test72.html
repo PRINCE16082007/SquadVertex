@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Fee Management - Students</title>
-  <!-- Bootstrap CSS CDN (Bootstrap 4) -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <style>
     .table-responsive { overflow-x: auto; }
@@ -78,7 +77,7 @@
           </tr>
         </thead>
         <tbody>
-          <!-- Student rows will be injected here -->
+          <!-- Dynamic content -->
         </tbody>
       </table>
     </div>
@@ -90,7 +89,7 @@
     </div>
   </div>
 
-  <!-- Student Details Modal -->
+  <!-- Details Modal -->
   <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl" role="document">
       <div class="modal-content">
@@ -119,14 +118,13 @@
               <strong>Pending:</strong> <span id="detail-pending"></span>
             </p>
             <p>
-              <strong>Vehicle Status:</strong> <span id="detail-vehicle-status"></span><br>
-              <span id="detail-vehicle-info"></span>
+              <strong>Vehicle Status:</strong> <span id="detail-vehicle-status"></span>
             </p>
           </div>
           <hr>
           <div id="universal-fee-chart">
             <h5>Universal Fee Chart</h5>
-            <p>For <strong>Class <span id="ufc-class"></span> - <span id="ufc-stream"></span></strong>:</p>
+            <p>For <strong>Class <span id="ufc-class"></span> - <span id="ufc-stream"></span></strong></p>
             <ul>
               <li><strong>Base Fee:</strong> ₹<span id="ufc-fee"></span></li>
             </ul>
@@ -144,7 +142,7 @@
                 </tr>
               </thead>
               <tbody id="student-transactions">
-                <!-- Transactions will be populated here -->
+                <!-- Transactions -->
               </tbody>
             </table>
           </div>
@@ -156,270 +154,247 @@
     </div>
   </div>
 
-  <!-- Firebase and Dependencies -->
+  <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-  };
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+  <!-- App Script -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
 
-  let systemSettings = {};
-  let studentsData = [];
-  let sortState = { column: 'no', direction: 'asc' };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-  // Main initialization
-  window.addEventListener('DOMContentLoaded', async () => {
-    await loadSystemSettings();
-    await loadStudents();
-    setupEventListeners();
-  });
+    let systemSettings = {};
+    let studentsData = [];
+    let sortState = { column: 'no', direction: 'asc' };
 
-  async function loadSystemSettings() {
-    try {
-      const settingsDoc = await db.collection("001-school").doc("systemSettings").get();
-      systemSettings = settingsDoc.exists ? settingsDoc.data() : {};
-    } catch (error) {
-      console.error("Error loading system settings:", error);
-    }
-  }
+    // Initialization
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadSystemSettings();
+      await loadStudents();
+      setupEventListeners();
+    });
 
-  async function loadStudents() {
-    try {
-      const querySnapshot = await db.collection("001-school").doc("students").collection("list").get();
-      studentsData = await Promise.all(querySnapshot.docs.map(async doc => {
-        const student = doc.data();
-        const studentId = doc.id;
-        
-        // Fetch transactions
-        const paymentsSnap = await db.collection("001-school").doc("transactions")
-          .collection(`class${student.class}`).doc(studentId).collection("payments").get();
-        
-        // Fetch vehicle record
-        const vehicleDoc = await db.collection("001-school").doc("vehicleTransactions")
-          .collection("records").doc(studentId).get();
-
-        return {
-          ...student,
-          id: studentId,
-          payments: paymentsSnap.docs.map(d => d.data()),
-          vehicle: vehicleDoc.exists ? vehicleDoc.data() : null
-        };
-      }));
-
-      applyFiltersAndSort();
-    } catch (error) {
-      console.error("Error loading students:", error);
-    }
-  }
-
-  function calculateStudentFees(student) {
-    const ufc = systemSettings.universalFeesChart?.find(f => 
-      f.class === student.class && f.stream === student.stream
-    ) || {};
-
-    const baseFee = ufc.baseFee || 0;
-    const vehicleRent = ufc.vehicleRent || 0;
-    const discountPolicy = ufc.discountPolicy || 'No discount policy';
-    const personalDiscount = student.discount || 0;
-    
-    // Vehicle calculations
-    let vehicleFee = 0;
-    let vehicleStatus = 'Not Eligible';
-    if(student.vehicle?.eligible === 'Yes') {
-      vehicleStatus = 'Eligible';
-      if(student.vehicle.vehicleData) {
-        const { rent = 0, months = [] } = student.vehicle.vehicleData;
-        vehicleFee = parseFloat(rent) * months.length;
-        vehicleStatus = `${months.length} months (₹${rent}/month)`;
+    async function loadSystemSettings() {
+      try {
+        const doc = await db.collection("001-school").doc("systemSettings").get();
+        systemSettings = doc.exists ? doc.data() : {};
+      } catch (error) {
+        console.error("Error loading settings:", error);
       }
     }
 
-    // Payment calculations
-    const paid = student.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const finalTotal = (baseFee - personalDiscount) + vehicleFee;
-    const pending = finalTotal - paid;
+    async function loadStudents() {
+      try {
+        const snapshot = await db.collection("001-school").doc("students").collection("list").get();
+        studentsData = await Promise.all(snapshot.docs.map(async doc => {
+          const student = doc.data();
+          const studentId = doc.id;
 
-    return {
-      baseFee,
-      vehicleRent,
-      discountPolicy,
-      personalDiscount,
-      finalTotal,
-      paid,
-      pending,
-      vehicleFee,
-      status: pending <= 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Pending',
-      vehicleStatus
-    };
-  }
+          const [payments, vehicle] = await Promise.all([
+            db.collection("001-school").doc("transactions")
+              .collection(`class${student.class}`).doc(studentId).collection("payments").get(),
+            db.collection("001-school").doc("vehicleTransactions")
+              .collection("records").doc(studentId).get()
+          ]);
 
-  function applyFiltersAndSort() {
-    const searchTerm = document.getElementById('student-search').value.toLowerCase();
-    const classFilter = document.getElementById('class-filter').value;
-    const streamFilter = document.getElementById('stream-filter').value;
-    const vehicleFilter = document.getElementById('vehicle-status-filter').value;
+          return {
+            ...student,
+            id: studentId,
+            payments: payments.docs.map(d => d.data()),
+            vehicle: vehicle.exists ? vehicle.data() : null
+          };
+        }));
 
-    const filtered = studentsData.filter(student => {
-      const searchMatch = [student.srNumber, student.studentName, student.fatherName]
-        .some(field => (field || '').toLowerCase().includes(searchTerm));
-      
-      const classMatch = !classFilter || student.class === classFilter;
-      const streamMatch = !streamFilter || student.stream === streamFilter;
-      
-      const vehicleEligible = student.vehicle?.eligible === 'Yes';
-      const vehicleMatch = vehicleFilter === 'all' || 
-        (vehicleFilter === 'eligible' && vehicleEligible) ||
-        (vehicleFilter === 'not-eligible' && !vehicleEligible);
-
-      return searchMatch && classMatch && streamMatch && vehicleMatch;
-    });
-
-    filtered.sort((a, b) => {
-      const aValue = getSortValue(a, sortState.column);
-      const bValue = getSortValue(b, sortState.column);
-      return sortState.direction === 'asc' ? compare(aValue, bValue) : compare(bValue, aValue);
-    });
-
-    renderStudents(filtered);
-  }
-
-  function getSortValue(student, column) {
-    const fees = calculateStudentFees(student);
-    switch(column) {
-      case 'no': return student.srNumber;
-      case 'name': return student.studentName.toLowerCase();
-      case 'class': return parseInt(student.class);
-      case 'total': return fees.baseFee;
-      case 'discount': return fees.personalDiscount;
-      case 'final': return fees.finalTotal;
-      case 'paid': return fees.paid;
-      case 'pending': return fees.pending;
-      case 'vehicle': return fees.vehicleFee;
-      default: return 0;
-    }
-  }
-
-  function compare(a, b) {
-    if (typeof a === 'string' && typeof b === 'string') return a.localeCompare(b);
-    return (a || 0) - (b || 0);
-  }
-
-  function renderStudents(students) {
-    const tbody = document.querySelector("#students-table tbody");
-    tbody.innerHTML = "";
-
-    students.forEach(student => {
-      const fees = calculateStudentFees(student);
-      const row = document.createElement('tr');
-      row.className = `status-${fees.status.toLowerCase()}`;
-      
-      row.innerHTML = `
-        <td>${student.srNumber}</td>
-        <td>${student.studentName}</td>
-        <td>${student.fatherName}</td>
-        <td>${student.class}</td>
-        <td>${student.stream}</td>
-        <td>₹${fees.baseFee}</td>
-        <td>₹${fees.personalDiscount}</td>
-        <td>₹${fees.finalTotal}</td>
-        <td>₹${fees.paid}</td>
-        <td>₹${fees.pending}</td>
-        <td>₹${fees.vehicleFee}</td>
-        <td>${fees.status}</td>
-        <td>
-          <button class="btn btn-sm btn-info" onclick="showStudentDetails('${student.id}')">
-            View Details
-          </button>
-        </td>
-      `;
-      tbody.appendChild(row);
-    });
-  }
-
-  function showStudentDetails(studentId) {
-    const student = studentsData.find(s => s.id === studentId);
-    if(!student) return;
-
-    const fees = calculateStudentFees(student);
-    const ufc = systemSettings.universalFeesChart?.find(f => 
-      f.class === student.class && f.stream === student.stream
-    ) || {};
-
-    // Basic Info
-    document.getElementById('detail-no').textContent = student.srNumber;
-    document.getElementById('detail-name').textContent = student.studentName;
-    document.getElementById('detail-father-name').textContent = student.fatherName;
-    document.getElementById('detail-class').textContent = student.class;
-    document.getElementById('detail-stream').textContent = student.stream;
-    
-    // Fee Info
-    document.getElementById('detail-total-fee').textContent = `₹${fees.baseFee}`;
-    document.getElementById('detail-discount').textContent = 
-      `₹${fees.personalDiscount} (Policy: ${fees.discountPolicy})`;
-    document.getElementById('detail-final-total').textContent = `₹${fees.finalTotal}`;
-    document.getElementById('detail-paid').textContent = `₹${fees.paid}`;
-    document.getElementById('detail-pending').textContent = `₹${fees.pending}`;
-    
-    // Vehicle Info
-    document.getElementById('detail-vehicle-status').innerHTML = `
-      ${fees.vehicleStatus}<br>
-      <small>Total: ₹${fees.vehicleFee} (System Rate: ₹${ufc.vehicleRent || 0})</small>
-    `;
-
-    // Universal Fee Chart
-    document.getElementById('ufc-class').textContent = student.class;
-    document.getElementById('ufc-stream').textContent = student.stream;
-    document.getElementById('ufc-fee').textContent = `₹${ufc.baseFee || 0}`;
-    document.getElementById('ufc-vehicle-fee').textContent = `₹${ufc.vehicleRent || 0}`;
-    document.getElementById('ufc-discount').textContent = ufc.discountPolicy || 'No discount policy';
-
-    // Transactions
-    const tbody = document.getElementById('student-transactions');
-    tbody.innerHTML = student.payments.map(payment => `
-      <tr>
-        <td>${new Date(payment.timestamp?.toDate() || payment.date).toLocaleDateString()}</td>
-        <td>₹${payment.amount || 0}</td>
-        <td>${payment.mode || ''}</td>
-        <td>${payment.txnId || ''}</td>
-      </tr>
-    `).join('');
-
-    $('#detailsModal').modal('show');
-  }
-
-  function setupEventListeners() {
-    // Sorting
-    document.querySelectorAll('#students-table th[data-sort]').forEach(header => {
-      header.addEventListener('click', () => {
-        const column = header.dataset.sort;
-        if(sortState.column === column) {
-          sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
-        } else {
-          sortState = { column, direction: 'asc' };
-        }
         applyFiltersAndSort();
-      });
-    });
+      } catch (error) {
+        console.error("Error loading students:", error);
+      }
+    }
 
-    // Filtering
-    ['input', 'change'].forEach(event => {
-      ['student-search', 'class-filter', 'stream-filter', 'vehicle-status-filter'].forEach(id => {
-        document.getElementById(id).addEventListener(event, () => applyFiltersAndSort());
+    function calculateFees(student) {
+      const ufc = systemSettings.universalFeesChart?.find(f => 
+        f.class === student.class && f.stream === student.stream
+      ) || {};
+
+      const baseFee = ufc.baseFee || 0;
+      const discount = student.discount || 0;
+      let vehicleFee = 0;
+      let vehicleStatus = 'Not Eligible';
+
+      if(student.vehicle?.eligible === 'Yes') {
+        vehicleStatus = 'Eligible';
+        if(student.vehicle.vehicleData) {
+          const { rent = 0, months = [] } = student.vehicle.vehicleData;
+          vehicleFee = rent * months.length;
+          vehicleStatus = `${months.length} months (₹${rent}/month)`;
+        }
+      }
+
+      const paid = student.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const finalTotal = (baseFee - discount) + vehicleFee;
+      const pending = finalTotal - paid;
+
+      return {
+        baseFee,
+        discount,
+        finalTotal,
+        paid,
+        pending,
+        vehicleFee,
+        status: pending <= 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Pending',
+        vehicleStatus
+      };
+    }
+
+    function applyFiltersAndSort() {
+      const search = document.getElementById('student-search').value.toLowerCase();
+      const classFilter = document.getElementById('class-filter').value;
+      const streamFilter = document.getElementById('stream-filter').value;
+      const vehicleFilter = document.getElementById('vehicle-status-filter').value;
+
+      const filtered = studentsData.filter(student => {
+        const matchSearch = [student.srNumber, student.studentName, student.fatherName]
+          .some(f => (f || '').toLowerCase().includes(search));
+        const matchClass = !classFilter || student.class === classFilter;
+        const matchStream = !streamFilter || student.stream === streamFilter;
+        const isEligible = student.vehicle?.eligible === 'Yes';
+        const matchVehicle = vehicleFilter === 'all' || 
+          (vehicleFilter === 'eligible' && isEligible) || 
+          (vehicleFilter === 'not-eligible' && !isEligible);
+
+        return matchSearch && matchClass && matchStream && matchVehicle;
       });
-    });
-  }
-</script>
+
+      filtered.sort((a, b) => {
+        const aVal = getSortValue(a, sortState.column);
+        const bVal = getSortValue(b, sortState.column);
+        return sortState.direction === 'asc' ? compare(aVal, bVal) : compare(bVal, aVal);
+      });
+
+      renderStudents(filtered);
+    }
+
+    function getSortValue(student, column) {
+      const fees = calculateFees(student);
+      switch(column) {
+        case 'no': return student.srNumber;
+        case 'name': return student.studentName.toLowerCase();
+        case 'class': return parseInt(student.class);
+        case 'total': return fees.baseFee;
+        case 'discount': return fees.discount;
+        case 'final': return fees.finalTotal;
+        case 'paid': return fees.paid;
+        case 'pending': return fees.pending;
+        case 'vehicle': return fees.vehicleFee;
+        default: return 0;
+      }
+    }
+
+    function compare(a, b) {
+      if(typeof a === 'string' && typeof b === 'string') return a.localeCompare(b);
+      return (a || 0) - (b || 0);
+    }
+
+    function renderStudents(students) {
+      const tbody = document.querySelector("#students-table tbody");
+      tbody.innerHTML = students.map(student => {
+        const fees = calculateFees(student);
+        return `
+          <tr class="status-${fees.status.toLowerCase()}">
+            <td>${student.srNumber}</td>
+            <td>${student.studentName}</td>
+            <td>${student.fatherName}</td>
+            <td>${student.class}</td>
+            <td>${student.stream}</td>
+            <td>₹${fees.baseFee}</td>
+            <td>₹${fees.discount}</td>
+            <td>₹${fees.finalTotal}</td>
+            <td>₹${fees.paid}</td>
+            <td>₹${fees.pending}</td>
+            <td>₹${fees.vehicleFee}</td>
+            <td>${fees.status}</td>
+            <td>
+              <button class="btn btn-sm btn-info" onclick="showDetails('${student.id}')">
+                View Details
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function showDetails(studentId) {
+      const student = studentsData.find(s => s.id === studentId);
+      if(!student) return;
+
+      const fees = calculateFees(student);
+      const ufc = systemSettings.universalFeesChart?.find(f => 
+        f.class === student.class && f.stream === student.stream
+      ) || {};
+
+      // Update modal content
+      document.getElementById('detail-no').textContent = student.srNumber;
+      document.getElementById('detail-name').textContent = student.studentName;
+      document.getElementById('detail-father-name').textContent = student.fatherName;
+      document.getElementById('detail-class').textContent = student.class;
+      document.getElementById('detail-stream').textContent = student.stream;
+      document.getElementById('detail-total-fee').textContent = `₹${fees.baseFee}`;
+      document.getElementById('detail-discount').textContent = `₹${fees.discount}`;
+      document.getElementById('detail-final-total').textContent = `₹${fees.finalTotal}`;
+      document.getElementById('detail-paid').textContent = `₹${fees.paid}`;
+      document.getElementById('detail-pending').textContent = `₹${fees.pending}`;
+      document.getElementById('detail-vehicle-status').textContent = fees.vehicleStatus;
+
+      // Universal Fee Chart
+      document.getElementById('ufc-class').textContent = student.class;
+      document.getElementById('ufc-stream').textContent = student.stream;
+      document.getElementById('ufc-fee').textContent = `₹${ufc.baseFee || 0}`;
+
+      // Transactions
+      const tbody = document.getElementById('student-transactions');
+      tbody.innerHTML = student.payments.map(p => `
+        <tr>
+          <td>${new Date(p.timestamp?.toDate() || p.date).toLocaleDateString()}</td>
+          <td>₹${p.amount}</td>
+          <td>${p.mode}</td>
+          <td>${p.txnId || ''}</td>
+        </tr>
+      `).join('');
+
+      $('#detailsModal').modal('show');
+    }
+
+    function setupEventListeners() {
+      // Sorting
+      document.querySelectorAll('#students-table th[data-sort]').forEach(header => {
+        header.addEventListener('click', () => {
+          const column = header.dataset.sort;
+          sortState = {
+            column,
+            direction: sortState.column === column && sortState.direction === 'asc' ? 'desc' : 'asc'
+          };
+          applyFiltersAndSort();
+        });
+      });
+
+      // Filtering
+      ['student-search', 'class-filter', 'stream-filter', 'vehicle-status-filter'].forEach(id => {
+        document.getElementById(id).addEventListener('input', applyFiltersAndSort);
+        document.getElementById(id).addEventListener('change', applyFiltersAndSort);
+      });
+    }
+  </script>
 </body>
 </html>
