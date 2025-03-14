@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Add Payment - Fee Management</title>
-  <!-- Bootstrap CSS (using Bootstrap 4) -->
+  <!-- Bootstrap CSS (Bootstrap 4) -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <style>
-    /* Control horizontal overflow */
+    /* Prevent horizontal overflow */
     .table-responsive { overflow-x: auto; }
     body { overflow-x: hidden; }
   </style>
@@ -19,7 +19,7 @@
     <div class="collapse navbar-collapse">
       <ul class="navbar-nav mr-auto">
         <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
-        <li class="nav-item active"><a class="nav-link" href="payment.html">Add Payment</a></li>
+        <li class="nav-item active"><a class="nav-link" href="payment.html">Payments</a></li>
         <li class="nav-item"><a class="nav-link" href="students.html">Students</a></li>
         <li class="nav-item"><a class="nav-link" href="transactions.html">Transactions</a></li>
       </ul>
@@ -29,7 +29,7 @@
   <!-- Main Content -->
   <div class="container mt-4">
     <h3 class="mb-4">Add Payment &amp; Apply Discount</h3>
-    <!-- Sorting Options -->
+    <!-- Sorting & Filter Options -->
     <div class="row mb-3">
       <div class="col-md-3">
         <input type="text" id="student-search" class="form-control" placeholder="Search by Name or SR Number">
@@ -54,7 +54,7 @@
         </select>
       </div>
     </div>
-    <!-- Students Table -->
+    <!-- Students Table in a responsive container -->
     <div class="table-responsive">
       <table class="table table-bordered" id="students-table">
         <thead class="thead-dark">
@@ -84,6 +84,7 @@
             </button>
           </div>
           <div class="modal-body">
+            <!-- Hidden field to store student ID -->
             <input type="hidden" id="payment-student-id">
             <div class="form-group">
               <label for="payment-amount">Amount Paid</label>
@@ -148,7 +149,7 @@
     </div>
   </div>
 
-  <!-- View Details Modal (dummy implementation; can be extended) -->
+  <!-- View Details Modal -->
   <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl" role="document">
       <div class="modal-content">
@@ -159,9 +160,63 @@
           </button>
         </div>
         <div class="modal-body">
-          <div id="student-details">
-            <!-- Populate student details here as needed -->
-            <p>Details for the selected student will appear here.</p>
+          <!-- Student Basic Info -->
+          <div id="student-basic-info">
+            <p><strong>SR Number:</strong> <span id="detail-sr"></span></p>
+            <p><strong>Name:</strong> <span id="detail-name"></span></p>
+            <p><strong>Father's Name:</strong> <span id="detail-father"></span></p>
+            <p>
+              <strong>Class:</strong> <span id="detail-class"></span> | 
+              <strong>Stream:</strong> <span id="detail-stream"></span>
+            </p>
+            <p>
+              <strong>Total Fee:</strong> <span id="detail-total-fee"></span> | 
+              <strong>Discount:</strong> <span id="detail-discount"></span> | 
+              <strong>Final Total:</strong> <span id="detail-final"></span>
+            </p>
+            <p>
+              <strong>Paid:</strong> <span id="detail-paid"></span> | 
+              <strong>Pending:</strong> <span id="detail-pending"></span>
+            </p>
+            <p>
+              <strong>Vehicle Fee:</strong> Total: <span id="detail-vehicle-total"></span>, 
+              Paid: <span id="detail-vehicle-paid"></span>, 
+              Pending: <span id="detail-vehicle-pending"></span>
+            </p>
+          </div>
+          <hr>
+          <!-- Universal Fee Chart Details -->
+          <div id="universal-fee-chart">
+            <h5>Universal Fee Chart</h5>
+            <p>
+              For <strong>Class <span id="ufc-class"></span> - <span id="ufc-stream"></span></strong>:
+            </p>
+            <ul>
+              <li><strong>Fee Amount:</strong> ₹<span id="ufc-fee"></span></li>
+              <li><strong>Vehicle Rent:</strong> ₹<span id="ufc-vehicle-fee"></span>
+                (<em>Category: <span id="ufc-vehicle-category"></span>, Expected Distance: <span id="ufc-distance"></span> km</em>)
+              </li>
+              <li><strong>Discount Offered:</strong> ₹<span id="ufc-discount"></span></li>
+            </ul>
+          </div>
+          <hr>
+          <!-- Transaction History (remarks column removed) -->
+          <h5>Transaction History</h5>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered">
+              <thead>
+                <tr>
+                  <th>Installment</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Mode</th>
+                  <th>Transaction ID</th>
+                </tr>
+              </thead>
+              <tbody id="student-transactions">
+                <!-- Transaction rows will be populated here -->
+              </tbody>
+            </table>
           </div>
         </div>
         <div class="modal-footer">
@@ -179,7 +234,7 @@
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
   <script>
-    // Firebase configuration (use your provided config)
+    // Firebase configuration – use your provided config
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -192,7 +247,9 @@
     const db = firebase.firestore();
 
     let systemSettings = {};
-    // Load system settings (including masterPassword)
+    let transactionsData = {};
+
+    // Load system settings (including masterPassword, universalFeesChart, vehicleFeesChart)
     function loadSystemSettings() {
       db.collection("001-school").doc("systemSettings").get()
         .then(doc => {
@@ -203,6 +260,20 @@
           }
         })
         .catch(err => console.error("Error loading system settings:", err));
+    }
+
+    // Load transactions data from "transactions" document
+    function loadTransactionsData(callback) {
+      db.collection("001-school").doc("transactions").get()
+        .then(doc => {
+          if (doc.exists) {
+            transactionsData = doc.data();
+          } else {
+            transactionsData = { studentTransactions: {} };
+          }
+          if(callback) callback();
+        })
+        .catch(err => console.error("Error loading transactions data:", err));
     }
 
     // Load students from Firestore (from "001-school" -> "students" document -> "list" subcollection)
@@ -224,7 +295,7 @@
               <td>${fatherName}</td>
               <td>
                 <button class="btn btn-sm btn-primary" onclick="openPaymentModal('${studentId}')">Add Payment</button>
-                <button class="btn btn-sm btn-info" data-toggle="modal" data-target="#detailsModal" onclick="viewDetails('${studentId}')">View Details</button>
+                <button class="btn btn-sm btn-info" onclick="viewDetails('${studentId}')">View Details</button>
                 <button class="btn btn-sm btn-warning" onclick="openDiscountModal('${studentId}')">Give Discount</button>
               </td>
             `;
@@ -234,7 +305,7 @@
         .catch(err => console.error("Error loading students:", err));
     }
 
-    // Open Payment Modal and set the current student id
+    // Open Payment Modal
     function openPaymentModal(studentId) {
       document.getElementById("payment-student-id").value = studentId;
       document.getElementById("payment-form").reset();
@@ -250,7 +321,7 @@
       const txnId = document.getElementById("transaction-id").value;
       const remarks = document.getElementById("payment-remarks").value;
       const payment = {
-        installment: 0,  // Installment can be set dynamically if needed
+        installment: 0, // This can be dynamically set if needed
         date: new Date().toLocaleDateString(),
         amount: amount,
         mode: mode,
@@ -258,10 +329,10 @@
         remarks: remarks,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       };
-      // Update the transactions document (assumed structure: { studentTransactions: { [studentId]: [ payment, ... ] } })
+      // Update transactions document – assume structure: { studentTransactions: { [studentId]: [payment, ...] } }
       const transRef = db.collection("001-school").doc("transactions");
       transRef.get().then(doc => {
-        let data = doc.exists ? doc.data() : {};
+        let data = doc.exists ? doc.data() : { studentTransactions: {} };
         if (!data.studentTransactions) {
           data.studentTransactions = {};
         }
@@ -273,6 +344,8 @@
           .then(() => {
             alert("Payment added successfully!");
             $("#addPaymentModal").modal("hide");
+            // Reload transactions data and refresh details if modal is open
+            loadTransactionsData();
           })
           .catch(err => {
             console.error("Error saving payment:", err);
@@ -294,9 +367,9 @@
       const studentId = document.getElementById("discount-student-id").value;
       const discountAmount = parseFloat(document.getElementById("discount-amount").value);
       const adminPassword = document.getElementById("admin-password").value;
-      // Check password against systemSettings.masterPassword
+      // Validate password using systemSettings.masterPassword
       if (systemSettings.masterPassword && adminPassword === systemSettings.masterPassword) {
-        // Update student's discount field (using Firestore increment)
+        // Update student document's discount field using increment operator
         const studentRef = db.collection("001-school").doc("students").collection("list").doc(studentId);
         studentRef.update({
           discount: firebase.firestore.FieldValue.increment(discountAmount)
@@ -314,15 +387,87 @@
       }
     });
 
-    // Dummy View Details function (can be enhanced as needed)
+    // View Details – fetch and populate student details in the modal
     function viewDetails(studentId) {
-      alert("View details for student: " + studentId);
+      // First, load the student document
+      db.collection("001-school").doc("students").collection("list").doc(studentId).get()
+        .then(doc => {
+          if (doc.exists) {
+            const student = doc.data();
+            // Populate basic info
+            document.getElementById("detail-sr").innerText = student.srNumber || "";
+            document.getElementById("detail-name").innerText = student.studentName || "";
+            document.getElementById("detail-father").innerText = student.fatherName || "";
+            document.getElementById("detail-class").innerText = student.class || "";
+            document.getElementById("detail-stream").innerText = student.stream || "";
+            // Calculate base fee using universalFeesChart (match by class and stream)
+            let baseFee = 0;
+            if(systemSettings.universalFeesChart && Array.isArray(systemSettings.universalFeesChart)) {
+              systemSettings.universalFeesChart.forEach(feeRow => {
+                if(feeRow.class === student.class && feeRow.stream === student.stream) {
+                  baseFee = feeRow.baseFee;
+                }
+              });
+            }
+            // Discount from student document (if exists) or 0
+            const discount = student.discount || 0;
+            const finalTotal = baseFee - discount;
+            // Get paid amount from transactions data
+            let paid = 0;
+            const studentTransactions = (transactionsData.studentTransactions && transactionsData.studentTransactions[studentId]) || [];
+            const transTable = document.getElementById("student-transactions");
+            transTable.innerHTML = "";
+            studentTransactions.forEach((tx, index) => {
+              paid += tx.amount;
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                <td>${tx.installment || (index + 1)}</td>
+                <td>${tx.date || ""}</td>
+                <td>₹${tx.amount || 0}</td>
+                <td>${tx.mode || ""}</td>
+                <td>${tx.txnId || ""}</td>
+              `;
+              transTable.appendChild(row);
+            });
+            const pending = finalTotal - paid;
+            // Populate fee details
+            document.getElementById("detail-total-fee").innerText = "₹" + baseFee;
+            document.getElementById("detail-discount").innerText = "₹" + discount;
+            document.getElementById("detail-final").innerText = "₹" + finalTotal;
+            document.getElementById("detail-paid").innerText = "₹" + paid;
+            document.getElementById("detail-pending").innerText = "₹" + pending;
+            // For vehicle fee details, here we assume 0 (or you can fetch from student document if available)
+            document.getElementById("detail-vehicle-total").innerText = "₹0";
+            document.getElementById("detail-vehicle-paid").innerText = "₹0";
+            document.getElementById("detail-vehicle-pending").innerText = "₹0";
+            // Populate universal fee chart details in the modal
+            document.getElementById("ufc-class").innerText = student.class || "";
+            document.getElementById("ufc-stream").innerText = student.stream || "";
+            document.getElementById("ufc-fee").innerText = baseFee;
+            if(systemSettings.vehicleFeesChart && systemSettings.vehicleFeesChart.length > 0) {
+              document.getElementById("ufc-vehicle-fee").innerText = systemSettings.vehicleFeesChart[0].amount || "0";
+              document.getElementById("ufc-vehicle-category").innerText = systemSettings.vehicleFeesChart[0].vehicleName || "";
+              document.getElementById("ufc-distance").innerText = systemSettings.vehicleFeesChart[0].estimatedDistance || "0";
+            } else {
+              document.getElementById("ufc-vehicle-fee").innerText = "0";
+              document.getElementById("ufc-vehicle-category").innerText = "";
+              document.getElementById("ufc-distance").innerText = "0";
+            }
+            document.getElementById("ufc-discount").innerText = discount;
+            // Finally, show the details modal
+            $("#detailsModal").modal("show");
+          } else {
+            console.error("Student not found:", studentId);
+          }
+        })
+        .catch(err => console.error("Error loading student details:", err));
     }
 
-    // Initialize on page load
+    // Initialize page: load system settings, transactions data, then students
     window.addEventListener("DOMContentLoaded", function() {
       loadSystemSettings();
-      loadStudents();
+      loadTransactionsData(loadStudents);
+      // Optionally, add event listeners to filtering inputs for dynamic filtering…
     });
   </script>
 </body>
