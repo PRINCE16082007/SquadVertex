@@ -1,236 +1,329 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Admin Panel - Universal Fees Chart</title>
-    <!-- Bootstrap 5 CSS -->
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-    <style>
-      /* Container styling: reduced width and centered */
-      .module-container {
-        max-width: 700px;
-        margin: 30px auto;
-        padding: 15px;
-        background: #fff;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0,0,0,0.05);
-      }
-      .module-container h2 {
-        font-size: 1.5rem;
-        margin-bottom: 20px;
-      }
-      .note {
-        font-size: 0.95rem;
-        color: #555;
-        margin-bottom: 15px;
-      }
-      table {
-        margin-bottom: 15px;
-      }
-      table th,
-      table td {
-        vertical-align: middle;
-      }
-      .nav-btns {
-        margin-top: 20px;
-      }
-      /* Skeleton styling */
-      .skeleton {
-        height: 1.2em;
-        width: 100%;
-        background-color: #e2e2e2;
-        margin-bottom: 0.5em;
-        animation: shimmer 1.5s infinite;
-      }
-      @keyframes shimmer {
-        0% { background-position: -100%; }
-        100% { background-position: 100%; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="module-container">
-      <h2 class="mb-3">Universal Fees Chart</h2>
-      <p class="note">
-        Note: Admission fees are not included in this chart; they will be collected separately.
-      </p>
-      <!-- Module Controller Checkbox -->
-      <div class="form-check mb-3">
-        <input type="checkbox" class="form-check-input" id="fees-module-checkbox" />
-        <label class="form-check-label" for="fees-module-checkbox">Enable Fees Module</label>
-      </div>
-      
-      <!-- Fees Chart Form -->
-      <form id="fees-chart-form">
-        <table class="table table-bordered" id="fees-chart-table">
-          <thead class="table-dark">
-            <tr>
-              <th>Class</th>
-              <th>Stream</th>
-              <th>Base Fee (₹)</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Dynamic rows will be inserted here -->
-          </tbody>
-        </table>
-        <!-- Save button (if you already have a separate controller, you may remove this) -->
-        <button type="submit" class="btn btn-primary">Save Fees Chart</button>
-      </form>
-      <div id="save-status" class="mt-3"></div>
-      <!-- Button to add a new row -->
-      <button type="button" id="add-row-btn" class="btn btn-secondary mt-3">Add Row</button>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Add Payment - Fee Management</title>
+  <!-- Bootstrap CSS (using Bootstrap 4) -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    /* Control horizontal overflow */
+    .table-responsive { overflow-x: auto; }
+    body { overflow-x: hidden; }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand" href="#">FeeManage</a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+        <li class="nav-item active"><a class="nav-link" href="payment.html">Add Payment</a></li>
+        <li class="nav-item"><a class="nav-link" href="students.html">Students</a></li>
+        <li class="nav-item"><a class="nav-link" href="transactions.html">Transactions</a></li>
+      </ul>
     </div>
+  </nav>
 
-    <!-- Firebase Libraries (Assuming Firebase is already initialized on your admin panel) -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    <script>
-      // Firebase Initialization (if not already done elsewhere)
-      const firebaseConfig = {
-        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-        authDomain: "squadvertex2007.firebaseapp.com",
-        projectId: "squadvertex2007",
-        storageBucket: "squadvertex2007.appspot.com",
-        messagingSenderId: "168905083514",
-        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+  <!-- Main Content -->
+  <div class="container mt-4">
+    <h3 class="mb-4">Add Payment &amp; Apply Discount</h3>
+    <!-- Sorting Options -->
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <input type="text" id="student-search" class="form-control" placeholder="Search by Name or SR Number">
+      </div>
+      <div class="col-md-3">
+        <select id="class-filter" class="form-control">
+          <option value="">Select Class</option>
+          <option value="9">Class 9</option>
+          <option value="10">Class 10</option>
+          <option value="11">Class 11</option>
+          <option value="12">Class 12</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select id="stream-filter" class="form-control">
+          <option value="">Select Stream</option>
+          <option value="Science">Science</option>
+          <option value="Commerce">Commerce</option>
+          <option value="Arts">Arts</option>
+          <option value="Agriculture">Agriculture</option>
+          <option value="Nothing">Nothing</option>
+        </select>
+      </div>
+    </div>
+    <!-- Students Table -->
+    <div class="table-responsive">
+      <table class="table table-bordered" id="students-table">
+        <thead class="thead-dark">
+          <tr>
+            <th>SR Number</th>
+            <th>Name</th>
+            <th>Father's Name</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Student rows will be dynamically loaded here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add Payment Modal -->
+  <div class="modal fade" id="addPaymentModal" tabindex="-1" role="dialog" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <form id="payment-form">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addPaymentModalLabel">Add Payment</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="payment-student-id">
+            <div class="form-group">
+              <label for="payment-amount">Amount Paid</label>
+              <input type="number" class="form-control" id="payment-amount" required>
+            </div>
+            <div class="form-group">
+              <label for="payment-mode">Payment Mode</label>
+              <select class="form-control" id="payment-mode">
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="transaction-id">Transaction ID (optional)</label>
+              <input type="text" class="form-control" id="transaction-id">
+            </div>
+            <div class="form-group">
+              <label for="payment-remarks">Remarks</label>
+              <textarea class="form-control" id="payment-remarks"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Save Payment</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Give Discount Modal -->
+  <div class="modal fade" id="giveDiscountModal" tabindex="-1" role="dialog" aria-labelledby="giveDiscountModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <form id="discount-form">
+          <div class="modal-header">
+            <h5 class="modal-title" id="giveDiscountModalLabel">Give Discount</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <p class="text-danger">Note: This action is allowed for admin only.</p>
+            <input type="hidden" id="discount-student-id">
+            <div class="form-group">
+              <label for="discount-amount">Discount Amount</label>
+              <input type="number" class="form-control" id="discount-amount" required>
+            </div>
+            <div class="form-group">
+              <label for="admin-password">Admin Password</label>
+              <input type="password" class="form-control" id="admin-password" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Apply Discount</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Details Modal (dummy implementation; can be extended) -->
+  <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="detailsModalLabel">Student Details</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="student-details">
+            <!-- Populate student details here as needed -->
+            <p>Details for the selected student will appear here.</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase and Dependencies -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+  <script>
+    // Firebase configuration (use your provided config)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let systemSettings = {};
+    // Load system settings (including masterPassword)
+    function loadSystemSettings() {
+      db.collection("001-school").doc("systemSettings").get()
+        .then(doc => {
+          if (doc.exists) {
+            systemSettings = doc.data();
+          } else {
+            console.error("System settings not found!");
+          }
+        })
+        .catch(err => console.error("Error loading system settings:", err));
+    }
+
+    // Load students from Firestore (from "001-school" -> "students" document -> "list" subcollection)
+    function loadStudents() {
+      db.collection("001-school").doc("students").collection("list").get()
+        .then(querySnapshot => {
+          const tbody = document.querySelector("#students-table tbody");
+          tbody.innerHTML = "";
+          querySnapshot.forEach(doc => {
+            const student = doc.data();
+            const studentId = doc.id;
+            const srNumber = student.srNumber || "";
+            const name = student.studentName || "";
+            const fatherName = student.fatherName || "";
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${srNumber}</td>
+              <td>${name}</td>
+              <td>${fatherName}</td>
+              <td>
+                <button class="btn btn-sm btn-primary" onclick="openPaymentModal('${studentId}')">Add Payment</button>
+                <button class="btn btn-sm btn-info" data-toggle="modal" data-target="#detailsModal" onclick="viewDetails('${studentId}')">View Details</button>
+                <button class="btn btn-sm btn-warning" onclick="openDiscountModal('${studentId}')">Give Discount</button>
+              </td>
+            `;
+            tbody.appendChild(row);
+          });
+        })
+        .catch(err => console.error("Error loading students:", err));
+    }
+
+    // Open Payment Modal and set the current student id
+    function openPaymentModal(studentId) {
+      document.getElementById("payment-student-id").value = studentId;
+      document.getElementById("payment-form").reset();
+      $("#addPaymentModal").modal("show");
+    }
+
+    // Handle Payment Form Submission
+    document.getElementById("payment-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const studentId = document.getElementById("payment-student-id").value;
+      const amount = parseFloat(document.getElementById("payment-amount").value);
+      const mode = document.getElementById("payment-mode").value;
+      const txnId = document.getElementById("transaction-id").value;
+      const remarks = document.getElementById("payment-remarks").value;
+      const payment = {
+        installment: 0,  // Installment can be set dynamically if needed
+        date: new Date().toLocaleDateString(),
+        amount: amount,
+        mode: mode,
+        txnId: txnId,
+        remarks: remarks,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
       };
-      if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-      }
-      const db = firebase.firestore();
-
-      // Dropdown options for class and stream
-      const classOptions = [
-        "Nursery",
-        "KG",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "10",
-        "11",
-        "12"
-      ];
-      const streamOptions = ["Arts", "Commerce", "Science", "Agriculture", "Nothing"];
-
-      // Function to add a new fees chart row (with auto-select if feesData is provided)
-      function addFeesChartRow(feesData = null) {
-        const tbody = document.querySelector("#fees-chart-table tbody");
-        const tr = document.createElement("tr");
-
-        // Create Class dropdown
-        let classSelectHTML = '<select class="form-select class-select" required>';
-        classSelectHTML += '<option value="">Select Class</option>';
-        classOptions.forEach((opt) => {
-          const selected = feesData && feesData.class === opt ? 'selected' : "";
-          classSelectHTML += `<option value="${opt}" ${selected}>${opt}</option>`;
-        });
-        classSelectHTML += '</select>';
-
-        // Create Stream dropdown
-        let streamSelectHTML = '<select class="form-select stream-select" required>';
-        streamSelectHTML += '<option value="">Select Stream</option>';
-        streamOptions.forEach((opt) => {
-          const selected = feesData && feesData.stream === opt ? 'selected' : "";
-          streamSelectHTML += `<option value="${opt}" ${selected}>${opt}</option>`;
-        });
-        streamSelectHTML += '</select>';
-
-        // Base fee input field
-        const feeValue = feesData && feesData.baseFee ? feesData.baseFee : "";
-        const feeInputHTML = `<input type="number" class="form-control fee-input" placeholder="Enter fee" value="${feeValue}" required />`;
-
-        // Delete button with proper styling
-        const delButtonHTML = '<button type="button" class="btn btn-danger btn-sm delete-row-btn">Delete</button>';
-
-        tr.innerHTML = `<td>${classSelectHTML}</td>
-                        <td>${streamSelectHTML}</td>
-                        <td>${feeInputHTML}</td>
-                        <td>${delButtonHTML}</td>`;
-        tbody.appendChild(tr);
-
-        // Attach event listener for delete
-        tr.querySelector(".delete-row-btn").addEventListener("click", () => {
-          tr.remove();
-        });
-      }
-
-      // Auto-load existing fees chart from systemSettings
-      function loadFeesChart() {
-        db.collection("001-school").doc("systemSettings").get()
-          .then(doc => {
-            if (doc.exists) {
-              const data = doc.data();
-              // Set fees module checkbox
-              document.getElementById("fees-module-checkbox").checked = !!data.feesModuleEnabled;
-              // Load universalFeesChart if available
-              if (data.universalFeesChart && data.universalFeesChart.length > 0) {
-                document.querySelector("#fees-chart-table tbody").innerHTML = "";
-                data.universalFeesChart.forEach(feesRow => {
-                  addFeesChartRow(feesRow);
-                });
-              } else {
-                addFeesChartRow();
-              }
-            } else {
-              addFeesChartRow();
-            }
+      // Update the transactions document (assumed structure: { studentTransactions: { [studentId]: [ payment, ... ] } })
+      const transRef = db.collection("001-school").doc("transactions");
+      transRef.get().then(doc => {
+        let data = doc.exists ? doc.data() : {};
+        if (!data.studentTransactions) {
+          data.studentTransactions = {};
+        }
+        if (!data.studentTransactions[studentId]) {
+          data.studentTransactions[studentId] = [];
+        }
+        data.studentTransactions[studentId].push(payment);
+        transRef.set(data)
+          .then(() => {
+            alert("Payment added successfully!");
+            $("#addPaymentModal").modal("hide");
           })
           .catch(err => {
-            console.error("Error loading fees chart data:", err);
+            console.error("Error saving payment:", err);
+            alert("Error saving payment: " + err.message);
           });
-      }
-      window.addEventListener("DOMContentLoaded", loadFeesChart);
-
-      // Add row button
-      document.getElementById("add-row-btn").addEventListener("click", () => {
-        addFeesChartRow();
       });
+    });
 
-      // Form submission: Save fees chart data into systemSettings
-      document.getElementById("fees-chart-form").addEventListener("submit", function(e) {
-        e.preventDefault();
-        // Gather all rows' data
-        const rows = document.querySelectorAll("#fees-chart-table tbody tr");
-        let feesChart = [];
-        rows.forEach(row => {
-          const classVal = row.querySelector(".class-select").value;
-          const streamVal = row.querySelector(".stream-select").value;
-          const feeVal = row.querySelector(".fee-input").value;
-          feesChart.push({
-            class: classVal,
-            stream: streamVal,
-            baseFee: parseFloat(feeVal)
-          });
-        });
-        const feesModuleEnabled = document.getElementById("fees-module-checkbox").checked;
-        // Save to systemSettings document
-        db.collection("001-school").doc("systemSettings").update({
-          universalFeesChart: feesChart,
-          feesModuleEnabled: feesModuleEnabled,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    // Open Discount Modal
+    function openDiscountModal(studentId) {
+      document.getElementById("discount-student-id").value = studentId;
+      document.getElementById("discount-form").reset();
+      $("#giveDiscountModal").modal("show");
+    }
+
+    // Handle Discount Form Submission
+    document.getElementById("discount-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const studentId = document.getElementById("discount-student-id").value;
+      const discountAmount = parseFloat(document.getElementById("discount-amount").value);
+      const adminPassword = document.getElementById("admin-password").value;
+      // Check password against systemSettings.masterPassword
+      if (systemSettings.masterPassword && adminPassword === systemSettings.masterPassword) {
+        // Update student's discount field (using Firestore increment)
+        const studentRef = db.collection("001-school").doc("students").collection("list").doc(studentId);
+        studentRef.update({
+          discount: firebase.firestore.FieldValue.increment(discountAmount)
         })
         .then(() => {
-          document.getElementById("save-status").innerHTML = '<div class="alert alert-success">Universal Fees Chart saved successfully!</div>';
+          alert("Discount applied successfully!");
+          $("#giveDiscountModal").modal("hide");
         })
         .catch(err => {
-          console.error("Error saving fees chart:", err);
-          document.getElementById("save-status").innerHTML = `<div class="alert alert-danger">Error saving fees chart: ${err.message}</div>`;
+          console.error("Error applying discount:", err);
+          alert("Error applying discount: " + err.message);
         });
-      });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
+      } else {
+        alert("Incorrect admin password!");
+      }
+    });
+
+    // Dummy View Details function (can be enhanced as needed)
+    function viewDetails(studentId) {
+      alert("View details for student: " + studentId);
+    }
+
+    // Initialize on page load
+    window.addEventListener("DOMContentLoaded", function() {
+      loadSystemSettings();
+      loadStudents();
+    });
+  </script>
+</body>
 </html>
