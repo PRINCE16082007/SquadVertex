@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Fee Management - Payments</title>
-  <!-- Bootstrap CSS (using Bootstrap 4) -->
+  <!-- Bootstrap CSS (Bootstrap 4) -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <style>
     /* Prevent horizontal overflow */
@@ -54,7 +54,7 @@
         </select>
       </div>
     </div>
-    <!-- Students Table in a responsive container -->
+    <!-- Students Table -->
     <div class="table-responsive">
       <table class="table table-bordered" id="students-table">
         <thead class="thead-dark">
@@ -66,7 +66,7 @@
           </tr>
         </thead>
         <tbody>
-          <!-- Student rows will be dynamically loaded here -->
+          <!-- Student rows will be loaded here -->
         </tbody>
       </table>
     </div>
@@ -84,7 +84,7 @@
             </button>
           </div>
           <div class="modal-body">
-            <!-- Hidden field for student ID -->
+            <!-- Hidden field to store student ID -->
             <input type="hidden" id="payment-student-id">
             <div class="form-group">
               <label for="payment-amount">Amount Paid</label>
@@ -170,7 +170,7 @@
               <strong>Stream:</strong> <span id="detail-stream"></span>
             </p>
             <p>
-              <strong>Total Fee:</strong> <span id="detail-total-fee"></span> | 
+              <strong>Base Fee:</strong> <span id="detail-total-fee"></span> | 
               <strong>Discount:</strong> <span id="detail-discount"></span> | 
               <strong>Final Total:</strong> <span id="detail-final"></span>
             </p>
@@ -193,9 +193,7 @@
             </p>
             <ul>
               <li><strong>Fee Amount:</strong> ₹<span id="ufc-fee"></span></li>
-              <li><strong>Vehicle Rent:</strong> ₹<span id="ufc-vehicle-fee"></span>
-                (<em>Category: <span id="ufc-vehicle-category"></span>, Expected Distance: <span id="ufc-distance"></span> km</em>)
-              </li>
+              <li><strong>Vehicle Rent:</strong> <span id="ufc-vehicle-fee"></span></li>
               <li><strong>Discount Offered:</strong> ₹<span id="ufc-discount"></span></li>
             </ul>
           </div>
@@ -234,7 +232,7 @@
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
   <script>
-    // Firebase configuration – use your provided config
+    // Firebase configuration – replace with your provided config
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -320,16 +318,17 @@
       const mode = document.getElementById("payment-mode").value;
       const txnId = document.getElementById("transaction-id").value;
       const remarks = document.getElementById("payment-remarks").value;
+      // Use client-side timestamp as ISO string instead of FieldValue.serverTimestamp()
       const payment = {
-        installment: 0, // You may set installment dynamically if needed
+        installment: 0, // You can update this dynamically if needed
         date: new Date().toLocaleDateString(),
         amount: amount,
         mode: mode,
         txnId: txnId,
         remarks: remarks,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        timestamp: new Date().toISOString()
       };
-      // Update the transactions document (structure: { studentTransactions: { [studentId]: [payment, ...] } })
+      // Update the transactions document – structure: { studentTransactions: { [studentId]: [payment, ...] } }
       const transRef = db.collection("001-school").doc("transactions");
       transRef.get().then(doc => {
         let data = doc.exists ? doc.data() : { studentTransactions: {} };
@@ -340,6 +339,7 @@
           data.studentTransactions[studentId] = [];
         }
         data.studentTransactions[studentId].push(payment);
+        // Use merge:true so that we update the document without overwriting other fields
         transRef.set(data, { merge: true })
           .then(() => {
             alert("Payment added successfully!");
@@ -397,7 +397,7 @@
             document.getElementById("detail-father").innerText = student.fatherName || "";
             document.getElementById("detail-class").innerText = student.class || "";
             document.getElementById("detail-stream").innerText = student.stream || "";
-            // Determine base fee from universalFeesChart
+            // Compute base fee from universalFeesChart based on student's class and stream
             let baseFee = 0;
             if (systemSettings.universalFeesChart && Array.isArray(systemSettings.universalFeesChart)) {
               systemSettings.universalFeesChart.forEach(feeRow => {
@@ -406,7 +406,7 @@
                 }
               });
             }
-            // Discount from student document (if not set, assume 0)
+            // Use student discount if exists; otherwise 0
             const discount = student.discount || 0;
             const finalTotal = baseFee - discount;
             // Load transactions for this student
@@ -427,35 +427,24 @@
               transTable.appendChild(row);
             });
             const pending = finalTotal - paid;
-            // Populate fee details in modal
+             // Populate fee details in modal
             document.getElementById("detail-total-fee").innerText = "₹" + baseFee;
             document.getElementById("detail-discount").innerText = "₹" + discount;
             document.getElementById("detail-final").innerText = "₹" + finalTotal;
             document.getElementById("detail-paid").innerText = "₹" + paid;
             document.getElementById("detail-pending").innerText = "₹" + pending;
-            // For vehicle fee details, using first vehicle fee as example (adjust logic as needed)
-            if (systemSettings.vehicleFeesChart && systemSettings.vehicleFeesChart.length > 0) {
-              document.getElementById("detail-vehicle-total").innerText = "₹" + systemSettings.vehicleFeesChart[0].amount;
-              document.getElementById("detail-vehicle-paid").innerText = "₹0";
-              document.getElementById("detail-vehicle-pending").innerText = "₹" + systemSettings.vehicleFeesChart[0].amount;
-            } else {
-              document.getElementById("detail-vehicle-total").innerText = "₹0";
-              document.getElementById("detail-vehicle-paid").innerText = "₹0";
-              document.getElementById("detail-vehicle-pending").innerText = "₹0";
-            }
+            // For vehicle fee, since no student vehicle fee field is provided, show 0
+            document.getElementById("detail-vehicle-total").innerText = "₹0";
+            document.getElementById("detail-vehicle-paid").innerText = "₹0";
+            document.getElementById("detail-vehicle-pending").innerText = "₹0";
             // Populate Universal Fee Chart details in modal
             document.getElementById("ufc-class").innerText = student.class || "";
             document.getElementById("ufc-stream").innerText = student.stream || "";
             document.getElementById("ufc-fee").innerText = baseFee;
-            if (systemSettings.vehicleFeesChart && systemSettings.vehicleFeesChart.length > 0) {
-              document.getElementById("ufc-vehicle-fee").innerText = systemSettings.vehicleFeesChart[0].amount || "0";
-              document.getElementById("ufc-vehicle-category").innerText = systemSettings.vehicleFeesChart[0].vehicleName || "";
-              document.getElementById("ufc-distance").innerText = systemSettings.vehicleFeesChart[0].estimatedDistance || "0";
-            } else {
-              document.getElementById("ufc-vehicle-fee").innerText = "0";
-              document.getElementById("ufc-vehicle-category").innerText = "";
-              document.getElementById("ufc-distance").innerText = "0";
-            }
+            // Since vehicle fee isn't applicable here, display "N/A"
+            document.getElementById("ufc-vehicle-fee").innerText = "N/A";
+            document.getElementById("ufc-vehicle-category").innerText = "";
+            document.getElementById("ufc-distance").innerText = "";
             document.getElementById("ufc-discount").innerText = discount;
             // Show the details modal
             $("#detailsModal").modal("show");
@@ -474,3 +463,4 @@
   </script>
 </body>
 </html>
+        
