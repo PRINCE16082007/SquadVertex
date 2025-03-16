@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Main Admin Login - SquadVertex</title>
+  <title>Teacher Login - SquadVertex</title>
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -20,18 +20,21 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      background-color: #222; /* initial dark */
-      color: #fff;
+      /* Default colors (will be overridden by animation) */
+      background-color: #fff;
+      color: #000;
     }
-    /* First-time dark-to-light animation */
+    /* First-time animation: dark-to-white transition over 7 seconds */
     .first-animation {
+      background-color: #222;
+      color: #fff;
       animation: bgTransition 7s forwards;
     }
     @keyframes bgTransition {
       from { background-color: #222; color: #fff; }
       to { background-color: #fff; color: #000; }
     }
-    /* Idle animation for subsequent loads */
+    /* Idle animation for subsequent visits (subtle pulse) */
     .idle-animation {
       animation: idlePulse 3s infinite;
     }
@@ -51,11 +54,13 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    /* Hide main content until loading finishes */
+    /* Hide main content and sign-in popup by default */
     #content, #signInPopup { display: none; }
-    /* Form styling */
+    /* School Selection styling */
+    #schoolSelection { margin-bottom: 20px; }
+    /* Login form styling */
     #loginForm { max-width: 400px; margin: auto; }
-    /* Footer */
+    /* Footer styling */
     #footer {
       margin-top: 40px;
       text-align: center;
@@ -64,14 +69,9 @@
       border-top: 1px solid #ccc;
       padding-top: 10px;
     }
-    button:not([disabled]) {
-      opacity: 1;
-      cursor: pointer;
-    }
-    button[disabled] {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    /* Button visual states */
+    button:not([disabled]) { opacity: 1; cursor: pointer; }
+    button[disabled] { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -79,28 +79,34 @@
   <div id="loadingScreen">
     <div class="spinner"></div>
     <h2 class="mt-3">Welcome to SquadVertex</h2>
-    <p id="loadingText">Loading your Main Admin experience...</p>
+    <p id="loadingText">Loading your Teacher experience...</p>
   </div>
+
   <!-- Main Content -->
   <div id="content" class="container mt-4">
-    <!-- School Selection -->
+    <!-- School Selection: Only shown if no school is already chosen -->
     <div id="schoolSelection" class="mb-4">
       <h3>Select Your School</h3>
       <select id="schoolDropdown" class="form-control">
         <option value="">-- Select School --</option>
       </select>
     </div>
-    <!-- Password Form for Main Admin -->
+    <!-- Login Form -->
     <div id="loginForm" class="mb-4">
-      <h3>Main Admin Login</h3>
-      <p>Please enter your Main Admin password. (This password is stored in systemSettings as <strong>adminLoginPassword</strong> and will be provided by your designated admin.)</p>
+      <h3>Teacher Login</h3>
+      <p>
+        Please enter your Teacher password.<br>
+        (This password is stored in systemSettings as <strong>teacherLoginPassword</strong> and will be provided by your designated admin.  
+        For any issues, contact support.)
+      </p>
       <div class="form-group">
-        <input type="password" id="passwordInput" class="form-control" placeholder="Enter Main Admin Password">
+        <input type="password" id="passwordInput" class="form-control" placeholder="Enter Teacher Password">
       </div>
-      <button id="loginButton" class="btn btn-primary" disabled>Login</button>
+      <button id="loginButton" class="btn btn-success" disabled>Login</button>
       <p id="loginError" class="text-danger mt-2"></p>
     </div>
   </div>
+
   <!-- Sign-In Popup (if not signed in) -->
   <div id="signInPopup" class="container mt-4">
     <div class="alert alert-info">
@@ -108,14 +114,15 @@
       <button id="btnSignIn" class="btn btn-primary">Sign In with Google</button>
     </div>
   </div>
+
   <!-- Footer -->
   <div id="footer" class="container">
     <p>Powered by SquadVertex Cloud Services. © SquadVertex</p>
     <p>Please ensure you have read and accepted our terms and conditions before proceeding.</p>
   </div>
-  
+
   <script>
-    // Firebase initialization (replace with your credentials)
+    // Firebase initialization (use your provided credentials)
     var firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -130,117 +137,126 @@
 
     let currentUser = null;
     let selectedSchool = null;
-    let systemSettings = null; // will hold systemSettings document for chosen school
-    let pageLinks = {}; // will hold pages document data
+    let systemSettings = null;  // Will store the chosen school's systemSettings
+    let pageLinks = {};         // Will store the pages document data
     const isFirstVisit = !localStorage.getItem("firstTimeLoaded");
-
-    // For demo: known school collections (adjust as needed)
+    // For demo: list of known school collections; adjust as needed.
     const schoolCollections = ["001-school", "002-school"];
 
-    // Set loading animation class based on first visit
+    // On window load, set the appropriate animation class
     window.onload = function() {
       const ls = document.getElementById("loadingScreen");
-      if (isFirstVisit) {
+      if(isFirstVisit) {
         ls.classList.add("first-animation");
       } else {
         ls.classList.add("idle-animation");
-        document.getElementById("loadingText").textContent = "Welcome back, Main Admin!";
+        document.getElementById("loadingText").textContent = "Welcome back, Teacher!";
       }
     };
 
-    // Fetch schools from systemSettings docs
+    // Fetch the list of schools from each school's systemSettings doc
     async function fetchSchools() {
       const dropdown = document.getElementById("schoolDropdown");
       dropdown.innerHTML = '<option value="">-- Select School --</option>';
-      for (let col of schoolCollections) {
+      for(let col of schoolCollections) {
         try {
           let doc = await db.collection(col).doc("systemSettings").get();
-          if (doc.exists) {
+          if(doc.exists) {
             let data = doc.data();
             let option = document.createElement("option");
             option.value = col;
             option.text = data.schoolName || col;
             dropdown.appendChild(option);
           }
-        } catch (error) {
+        } catch(error) {
           console.error("Error fetching school from", col, error);
         }
       }
     }
 
-    // When school is selected, fetch systemSettings and pages documents
+    // When a school is selected (or if already stored), load its data
     async function onSchoolSelected(schoolCol) {
       selectedSchool = schoolCol;
+      // Save the chosen school so other pages can read it later
+      localStorage.setItem("selectedSchool", selectedSchool);
       let sysDoc = await db.collection(schoolCol).doc("systemSettings").get();
-      if(sysDoc.exists) {
-        systemSettings = sysDoc.data();
-      }
+      if(sysDoc.exists) { systemSettings = sysDoc.data(); }
       let pagesDoc = await db.collection(schoolCol).doc("pages").get();
-      if(pagesDoc.exists) {
-        pageLinks = pagesDoc.data();
-      }
-      // Enable the login button if password field is not empty
-      document.getElementById("passwordInput").addEventListener("input", function(){
+      if(pagesDoc.exists) { pageLinks = pagesDoc.data(); }
+      // Enable the login button when the password field is non-empty
+      document.getElementById("passwordInput").addEventListener("input", function() {
         document.getElementById("loginButton").disabled = (this.value.trim() === "");
       });
     }
 
-    // On login button click: verify password against systemSettings.adminLoginPassword
-    document.getElementById("loginButton").addEventListener("click", async function(){
+    // Login button click: verify entered password against systemSettings.teacherLoginPassword
+    document.getElementById("loginButton").addEventListener("click", async function() {
       const inputPassword = document.getElementById("passwordInput").value.trim();
       if(!selectedSchool || !systemSettings) {
         document.getElementById("loginError").textContent = "Please select your school first.";
         return;
       }
-      if(inputPassword === systemSettings.adminLoginPassword) {
-        // Password match; now fetch the secure URL
-        if(pageLinks.adminSecure) {
-          window.location.href = pageLinks.adminSecure;
+      if(inputPassword === systemSettings.teacherLoginPassword) {
+        if(pageLinks.teacherSecure) {
+          window.location.href = pageLinks.teacherSecure;
         } else {
           document.getElementById("loginError").textContent = "Secure page URL not available.";
         }
       } else {
-        document.getElementById("loginError").textContent = "Incorrect password. Please contact support for assistance.";
+        document.getElementById("loginError").textContent = "Incorrect password. Please contact support.";
       }
     });
 
-    // School dropdown change event
-    document.getElementById("schoolDropdown").addEventListener("change", function(e){
+    // School dropdown change event: when the user chooses a school
+    document.getElementById("schoolDropdown").addEventListener("change", function(e) {
       let selected = e.target.value;
       if(selected) {
-        // Show loading screen while fetching school data
         document.getElementById("loadingScreen").style.display = "flex";
         onSchoolSelected(selected).then(() => {
           let delay = isFirstVisit ? 7000 : 500;
           setTimeout(() => {
             document.getElementById("loadingScreen").style.display = "none";
             document.getElementById("content").style.display = "block";
-            if(isFirstVisit) localStorage.setItem("firstTimeLoaded", "true");
           }, delay);
         });
       }
     });
 
-    // Authentication state listener
+    // If the user has already selected a school, skip the dropdown and use that
+    if(localStorage.getItem("selectedSchool")) {
+      selectedSchool = localStorage.getItem("selectedSchool");
+      document.getElementById("schoolSelection").style.display = "none";
+      onSchoolSelected(selectedSchool).then(() => {
+        let delay = isFirstVisit ? 7000 : 500;
+        setTimeout(() => {
+          document.getElementById("loadingScreen").style.display = "none";
+          document.getElementById("content").style.display = "block";
+        }, delay);
+      });
+    }
+
+    // Listen for authentication state changes
     auth.onAuthStateChanged(user => {
       if(user) {
         currentUser = user;
-        fetchSchools().then(() => {
-          let delay = isFirstVisit ? 7000 : 500;
-          setTimeout(() => {
-            document.getElementById("loadingScreen").style.display = "none";
-            document.getElementById("content").style.display = "block";
-            if(isFirstVisit) localStorage.setItem("firstTimeLoaded", "true");
-          }, delay);
-        });
+        // If no school is already chosen, fetch schools
+        if(!localStorage.getItem("selectedSchool")) {
+          fetchSchools().then(() => {
+            let delay = isFirstVisit ? 7000 : 500;
+            setTimeout(() => {
+              document.getElementById("loadingScreen").style.display = "none";
+              document.getElementById("content").style.display = "block";
+            }, delay);
+          });
+        }
       } else {
         document.getElementById("loadingScreen").style.display = "none";
         document.getElementById("signInPopup").style.display = "block";
       }
     });
 
-    // Google Sign-In
-    document.getElementById("btnSignIn").addEventListener("click", function(){
+    // Google Sign-In button event
+    document.getElementById("btnSignIn").addEventListener("click", function() {
       var provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider)
         .then(result => { location.reload(); })
