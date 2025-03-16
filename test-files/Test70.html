@@ -6,11 +6,9 @@
   <title>Fee Management - Transactions</title>
   <!-- Bootstrap CSS CDN -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <!-- DataTables CSS -->
-  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
-  <style>
-    body { padding-top: 20px; }
-  </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 </head>
 <body>
   <!-- Navbar -->
@@ -32,14 +30,14 @@
     <!-- Filters -->
     <div class="row mb-3">
       <div class="col-md-3">
-        <input type="date" id="start-date" class="form-control" placeholder="Start Date">
+        <input type="date" id="start-date" class="form-control">
       </div>
       <div class="col-md-3">
-        <input type="date" id="end-date" class="form-control" placeholder="End Date">
+        <input type="date" id="end-date" class="form-control">
       </div>
       <div class="col-md-3">
         <select id="mode-filter" class="form-control">
-          <option value="">Payment Mode</option>
+          <option value="">All Payment Modes</option>
           <option value="Cash">Cash</option>
           <option value="UPI">UPI</option>
           <option value="Bank Transfer">Bank Transfer</option>
@@ -47,18 +45,12 @@
         </select>
       </div>
       <div class="col-md-3">
-        <button class="btn btn-primary btn-block" onclick="applyFilters()">Apply Filters</button>
+        <button class="btn btn-primary btn-block" onclick="loadTransactions()">Apply Filters</button>
       </div>
     </div>
 
-    <!-- Export Buttons (optional for later implementation) -->
-    <div class="mb-3">
-      <button class="btn btn-success">Export as CSV</button>
-      <button class="btn btn-danger">Export as PDF</button>
-    </div>
-
-    <!-- Transactions Table (Family ID column removed) -->
-    <table class="table table-striped" id="transactionsTable">
+    <!-- Transactions Table -->
+    <table class="table table-striped">
       <thead class="thead-dark">
         <tr>
           <th>Roll No</th>
@@ -71,130 +63,105 @@
         </tr>
       </thead>
       <tbody id="transactions-table">
-        <!-- Payment rows will be populated dynamically -->
+        <!-- Transactions will be loaded here -->
       </tbody>
     </table>
   </div>
 
-  <!-- Firebase (using compat versions for ease) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-  <!-- DataTables JS -->
-  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <!-- Bootstrap JS and dependencies -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
   <script>
-    // Firebase initialization with your provided credentials
+    // Firebase initialization
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
       projectId: "squadvertex2007",
       storageBucket: "squadvertex2007.appspot.com",
       messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
     };
 
+    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // Fetch payments using a collection group query on "payments" subcollections.
-    async function fetchTransactions() {
-      try {
-        // Collection group query to fetch all payment documents
-        const paymentsSnapshot = await db.collectionGroup("payments").get();
-        const transactionsTable = document.getElementById("transactions-table");
-        transactionsTable.innerHTML = ""; // Clear existing rows
+    async function loadTransactions() {
+      const transactionsTable = document.getElementById('transactions-table');
+      transactionsTable.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
 
-        // Array to store all promises for fetching student data
-        let promises = [];
-        
-        paymentsSnapshot.forEach(doc => {
+      try {
+        const querySnapshot = await db.collectionGroup('payments').get();
+        const transactions = [];
+
+        for (const doc of querySnapshot.docs) {
           const paymentData = doc.data();
-          // Use the document reference to traverse to the student document:
-          // Payment doc path: /001-school/transactions/classX/studentXXXXX/payments/{autoID}
-          // So, student doc reference is doc.ref.parent.parent
-          const studentDocRef = doc.ref.parent.parent;
+          const studentRef = doc.ref.parent.parent;
+          const studentDoc = await studentRef.get();
           
-          let p = studentDocRef.get().then(studentDoc => {
-            const studentData = studentDoc.exists ? studentDoc.data() : {};
-            const rollNo = studentData.srNumber || "";
-            const name = studentData.studentName || "";
-            // Use payment fields
-            const amountPaid = paymentData.amount ? "₹" + paymentData.amount : "";
-            const mode = paymentData.mode || "";
-            // Use txnId if exists, otherwise fall back to document id
-            const txnId = paymentData.txnId ? paymentData.txnId : doc.id;
-            // Date & Time – you can choose between paymentData.date and/or timestamp (if available)
-            const dateTime = paymentData.date || "";
-            // Set status (for now we assume a successful transaction)
-            const status = "Success";
-  
-            const row = `
-              <tr>
-                <td>${rollNo}</td>
-                <td>${name}</td>
-                <td>${amountPaid}</td>
-                <td>${mode}</td>
-                <td>${txnId}</td>
-                <td>${dateTime}</td>
-                <td>${status}</td>
-              </tr>
-            `;
-            transactionsTable.insertAdjacentHTML("beforeend", row);
-          }).catch(error => {
-            console.error("Error fetching student data:", error);
-          });
-          promises.push(p);
-        });
-  
-        await Promise.all(promises);
-        // Initialize DataTables after populating the table
-        $("#transactionsTable").DataTable();
+          if (studentDoc.exists) {
+            const studentData = studentDoc.data();
+            transactions.push({
+              rollNo: studentData.srNumber,
+              name: studentData.studentName,
+              amount: paymentData.amount,
+              mode: paymentData.mode,
+              txnId: paymentData.txnId || 'N/A',
+              date: paymentData.timestamp.toDate(),
+              status: 'Success'
+            });
+          }
+        }
+
+        renderTransactions(transactions);
       } catch (error) {
-        console.error("Error fetching transactions: ", error);
+        console.error("Error loading transactions:", error);
+        transactionsTable.innerHTML = '<tr><td colspan="7">Error loading transactions</td></tr>';
       }
     }
-    
-    // Custom filtering function using DataTables search extension
-    function applyFilters() {
-      const startDate = document.getElementById("start-date").value;
-      const endDate = document.getElementById("end-date").value;
-      const modeFilter = document.getElementById("mode-filter").value;
-  
-      const table = $("#transactionsTable").DataTable();
-      $.fn.dataTable.ext.search = [];
-  
-      $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-        const dateTime = data[5] || ""; // Date & Time column (index 5)
-        const mode = data[3] || ""; // Mode column (index 3)
-  
-        // Filter by payment mode
-        if (modeFilter && mode !== modeFilter) {
-          return false;
-        }
-  
-        // Filter by date range if a valid date exists (assuming date is stored in a format that the JS Date() constructor can parse)
-        if (startDate || endDate) {
-          const transactionDate = new Date(dateTime);
-          if (startDate && transactionDate < new Date(startDate)) {
-            return false;
-          }
-          if (endDate && transactionDate > new Date(endDate)) {
-            return false;
-          }
-        }
-        return true;
+
+    function renderTransactions(transactions) {
+      const transactionsTable = document.getElementById('transactions-table');
+      transactionsTable.innerHTML = '';
+
+      // Apply filters
+      const startDate = document.getElementById('start-date').value;
+      const endDate = document.getElementById('end-date').value;
+      const modeFilter = document.getElementById('mode-filter').value;
+
+      const filtered = transactions.filter(txn => {
+        const txnDate = txn.date;
+        const dateFilter = (!startDate || txnDate >= new Date(startDate)) && 
+                         (!endDate || txnDate <= new Date(endDate + 'T23:59:59'));
+        const modeFilterPass = !modeFilter || txn.mode === modeFilter;
+        return dateFilter && modeFilterPass;
       });
-  
-      table.draw();
+
+      if (filtered.length === 0) {
+        transactionsTable.innerHTML = '<tr><td colspan="7">No transactions found</td></tr>';
+        return;
+      }
+
+      filtered.forEach(txn => {
+        const row = `
+          <tr>
+            <td>${txn.rollNo}</td>
+            <td>${txn.name}</td>
+            <td>₹${txn.amount}</td>
+            <td>${txn.mode}</td>
+            <td>${txn.txnId}</td>
+            <td>${txn.date.toLocaleString()}</td>
+            <td>${txn.status}</td>
+          </tr>
+        `;
+        transactionsTable.innerHTML += row;
+      });
     }
-  
-    // Fetch transactions when the page loads
-    window.onload = fetchTransactions;
+
+    // Initial load
+    loadTransactions();
   </script>
 </body>
 </html>
