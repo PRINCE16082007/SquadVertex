@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SquadVertex Landing Page</title>
+  <title>Main Admin Login - SquadVertex</title>
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -20,13 +20,24 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      /* Start dark and animate to white */
-      background-color: #222;
+      background-color: #222; /* initial dark */
+      color: #fff;
+    }
+    /* First-time dark-to-light animation */
+    .first-animation {
       animation: bgTransition 7s forwards;
     }
     @keyframes bgTransition {
-      from { background-color: #222; }
-      to { background-color: #fff; }
+      from { background-color: #222; color: #fff; }
+      to { background-color: #fff; color: #000; }
+    }
+    /* Idle animation for subsequent loads */
+    .idle-animation {
+      animation: idlePulse 3s infinite;
+    }
+    @keyframes idlePulse {
+      0%, 100% { background-color: #fff; }
+      50% { background-color: #f9f9f9; }
     }
     .spinner {
       border: 8px solid #f3f3f3;
@@ -41,17 +52,9 @@
       100% { transform: rotate(360deg); }
     }
     /* Hide main content until loading finishes */
-    #content, #signUpPopup { display: none; }
-    /* Terms checkbox styling */
-    #termsSection {
-      border: 1px solid #ccc;
-      padding: 15px;
-      margin-bottom: 20px;
-      background: #f9f9f9;
-    }
-    #termsSection label {
-      margin-left: 5px;
-    }
+    #content, #signInPopup { display: none; }
+    /* Form styling */
+    #loginForm { max-width: 400px; margin: auto; }
     /* Footer */
     #footer {
       margin-top: 40px;
@@ -61,7 +64,6 @@
       border-top: 1px solid #ccc;
       padding-top: 10px;
     }
-    /* Button enabled styles override disabled styles */
     button:not([disabled]) {
       opacity: 1;
       cursor: pointer;
@@ -73,14 +75,12 @@
   </style>
 </head>
 <body>
-  <!-- Loading Screen with animated background and SquadVertex branding -->
+  <!-- Loading Screen -->
   <div id="loadingScreen">
     <div class="spinner"></div>
-    <h2 class="mt-3 text-white">Welcome to SquadVertex</h2>
-    <p class="text-white">Loading... This may take a few seconds.</p>
-    <p class="text-white">Please wait while we prepare your experience (transitioning from dark to light theme).</p>
+    <h2 class="mt-3">Welcome to SquadVertex</h2>
+    <p id="loadingText">Loading your Main Admin experience...</p>
   </div>
-
   <!-- Main Content -->
   <div id="content" class="container mt-4">
     <!-- School Selection -->
@@ -90,79 +90,65 @@
         <option value="">-- Select School --</option>
       </select>
     </div>
-    <!-- Terms & Conditions Section -->
-    <div id="termsSection" class="mb-4" style="display:none;">
-      <h4>Terms &amp; Conditions</h4>
-      <p>Please read and accept the SquadVertex terms and conditions, privacy policy, and all related cloud service rules.</p>
-      <div class="form-check">
-        <input type="checkbox" id="termsCheckbox" class="form-check-input">
-        <label for="termsCheckbox" class="form-check-label">
-          I accept that I have read and agreed to all SquadVertex terms and conditions.
-        </label>
+    <!-- Password Form for Main Admin -->
+    <div id="loginForm" class="mb-4">
+      <h3>Main Admin Login</h3>
+      <p>Please enter your Main Admin password. (This password is stored in systemSettings as <strong>adminLoginPassword</strong> and will be provided by your designated admin.)</p>
+      <div class="form-group">
+        <input type="password" id="passwordInput" class="form-control" placeholder="Enter Main Admin Password">
       </div>
-      <small id="termsMsg" class="form-text text-muted"></small>
-    </div>
-    <!-- Role Selection -->
-    <div id="roleSelection" class="mb-4" style="display:none;">
-      <h3>Choose Your Role</h3>
-      <div class="mb-2">
-        <button id="btnMainAdmin" class="btn btn-primary m-2" disabled>Main Admin</button>
-        <span id="msgMainAdmin" class="text-danger"></span>
-      </div>
-      <div class="mb-2">
-        <button id="btnTeacher" class="btn btn-success m-2" disabled>Teacher</button>
-        <span id="msgTeacher" class="text-danger"></span>
-      </div>
-      <div class="mb-2">
-        <button id="btnCoAdmin" class="btn btn-warning m-2" disabled>Co‑Admin</button>
-        <span id="msgCoAdmin" class="text-danger"></span>
-      </div>
-    </div>
-    <!-- Not Authorized Message -->
-    <div id="notAuthorized" class="alert alert-danger" style="display:none;">
-      You are not authorized for any role in this school.
+      <button id="loginButton" class="btn btn-primary" disabled>Login</button>
+      <p id="loginError" class="text-danger mt-2"></p>
     </div>
   </div>
-
-  <!-- Sign-Up Popup (if not signed in) -->
-  <div id="signUpPopup" class="container mt-4">
+  <!-- Sign-In Popup (if not signed in) -->
+  <div id="signInPopup" class="container mt-4">
     <div class="alert alert-info">
       You need to sign in to continue.
       <button id="btnSignIn" class="btn btn-primary">Sign In with Google</button>
     </div>
   </div>
-
   <!-- Footer -->
   <div id="footer" class="container">
     <p>Powered by SquadVertex Cloud Services. © SquadVertex</p>
-    <p>Please ensure that you have read and accepted our terms and conditions before proceeding.</p>
+    <p>Please ensure you have read and accepted our terms and conditions before proceeding.</p>
   </div>
-
+  
   <script>
-    // Initialize Firebase (replace with your config)
+    // Firebase initialization (replace with your credentials)
     var firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-  };
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // Global variables
     let currentUser = null;
     let selectedSchool = null;
-    let schoolSettings = null; // systemSettings document data for the chosen school
-    let pageLinks = {}; // To hold dynamic URLs for role pages
-    let userRole = null; // "mainAdmin", "teacher", or "coAdmin"
-    
-    // For demo, known school collections (adjust as needed)
+    let systemSettings = null; // will hold systemSettings document for chosen school
+    let pageLinks = {}; // will hold pages document data
+    const isFirstVisit = !localStorage.getItem("firstTimeLoaded");
+
+    // For demo: known school collections (adjust as needed)
     const schoolCollections = ["001-school", "002-school"];
 
-    // Fetch schools from each school's systemSettings document
+    // Set loading animation class based on first visit
+    window.onload = function() {
+      const ls = document.getElementById("loadingScreen");
+      if (isFirstVisit) {
+        ls.classList.add("first-animation");
+      } else {
+        ls.classList.add("idle-animation");
+        document.getElementById("loadingText").textContent = "Welcome back, Main Admin!";
+      }
+    };
+
+    // Fetch schools from systemSettings docs
     async function fetchSchools() {
       const dropdown = document.getElementById("schoolDropdown");
       dropdown.innerHTML = '<option value="">-- Select School --</option>';
@@ -182,200 +168,78 @@
       }
     }
 
-    // Fetch dynamic page links from the "pages" document in the selected school collection
-    async function fetchPageLinks(schoolCol) {
-      try {
-        let doc = await db.collection(schoolCol).doc("pages").get();
-        if (doc.exists) {
-          pageLinks = doc.data();
-        }
-      } catch (error) {
-        console.error("Error fetching page links from", schoolCol, error);
-      }
-    }
-
-    // Check user role for the selected school and update UI accordingly
-    async function checkUserRoleForSchool(schoolCol) {
+    // When school is selected, fetch systemSettings and pages documents
+    async function onSchoolSelected(schoolCol) {
       selectedSchool = schoolCol;
-      // Get systemSettings
       let sysDoc = await db.collection(schoolCol).doc("systemSettings").get();
       if(sysDoc.exists) {
-        schoolSettings = sysDoc.data();
+        systemSettings = sysDoc.data();
       }
-      // Fetch dynamic page links
-      await fetchPageLinks(schoolCol);
-      
-      // Check roles in teachers/list sub-collection (for teacher and co‑admin)
-      let teachersRef = db.collection(schoolCol).doc("teachers").collection("list");
-      let userEmail = currentUser.email;
-      let roleFound = false;
-      
-      // Reset messages and disable buttons initially
-      document.getElementById("btnMainAdmin").disabled = true;
-      document.getElementById("btnTeacher").disabled = true;
-      document.getElementById("btnCoAdmin").disabled = true;
-      document.getElementById("msgMainAdmin").textContent = "";
-      document.getElementById("msgTeacher").textContent = "";
-      document.getElementById("msgCoAdmin").textContent = "";
-      
-      // 1. Check Main Admin: match with systemSettings.officialEmail
-      if (schoolSettings && schoolSettings.officialEmail &&
-          schoolSettings.officialEmail.toLowerCase() === userEmail.toLowerCase()) {
-        document.getElementById("btnMainAdmin").disabled = false;
-        document.getElementById("msgMainAdmin").textContent = "Authorized.";
-        userRole = "mainAdmin";
-        roleFound = true;
-      } else {
-        document.getElementById("msgMainAdmin").textContent = "Not authorized for Main Admin.";
+      let pagesDoc = await db.collection(schoolCol).doc("pages").get();
+      if(pagesDoc.exists) {
+        pageLinks = pagesDoc.data();
       }
-      // 2. Check Teacher and Co‑Admin roles
-      let querySnapshot = await teachersRef.where("email", "==", userEmail).get();
-      querySnapshot.forEach(doc => {
-        if (doc.id.startsWith("teacher")) {
-          document.getElementById("btnTeacher").disabled = false;
-          document.getElementById("msgTeacher").textContent = "Authorized.";
-          userRole = "teacher";
-          roleFound = true;
-        }
-        if (doc.id.startsWith("admin")) {
-          document.getElementById("btnCoAdmin").disabled = false;
-          document.getElementById("msgCoAdmin").textContent = "Authorized.";
-          userRole = "coAdmin";
-          roleFound = true;
-        }
+      // Enable the login button if password field is not empty
+      document.getElementById("passwordInput").addEventListener("input", function(){
+        document.getElementById("loginButton").disabled = (this.value.trim() === "");
       });
-      
-      if (!roleFound) {
-        document.getElementById("notAuthorized").style.display = "block";
-      } else {
-        document.getElementById("notAuthorized").style.display = "none";
-        // Show the Terms & Conditions section once a role is found
-        document.getElementById("termsSection").style.display = "block";
-        // Check if the user has already accepted the terms
-        await checkTermsAcceptance();
-      }
     }
 
-    // Check if the user has already accepted terms. 
-    // For mainAdmin, check in systemSettings; for teacher/coAdmin, check in teachers/list document.
-    async function checkTermsAcceptance() {
-      let accepted = false;
-      let consentDocRef = null;
-      let userEmail = currentUser.email;
-      if(userRole === "mainAdmin") {
-        // For main admin, consent stored in systemSettings (field: consentAccepted)
-        consentDocRef = db.collection(selectedSchool).doc("systemSettings");
-      } else {
-        // For teacher or coAdmin, consent stored in their own document in teachers/list
-        let teachersRef = db.collection(selectedSchool).doc("teachers").collection("list");
-        // We assume there is exactly one document with matching email
-        let querySnapshot = await teachersRef.where("email", "==", userEmail).get();
-        querySnapshot.forEach(doc => {
-          consentDocRef = doc.ref;
-        });
+    // On login button click: verify password against systemSettings.adminLoginPassword
+    document.getElementById("loginButton").addEventListener("click", async function(){
+      const inputPassword = document.getElementById("passwordInput").value.trim();
+      if(!selectedSchool || !systemSettings) {
+        document.getElementById("loginError").textContent = "Please select your school first.";
+        return;
       }
-      if (consentDocRef) {
-        let doc = await consentDocRef.get();
-        if(doc.exists && doc.data().consentAccepted === true) {
-          accepted = true;
-        }
-      }
-      // Update the checkbox state accordingly
-      let termsCheckbox = document.getElementById("termsCheckbox");
-      let termsMsg = document.getElementById("termsMsg");
-      if(accepted) {
-        termsCheckbox.checked = true;
-        termsCheckbox.disabled = true;
-        termsMsg.textContent = "You have already accepted the terms.";
-      } else {
-        termsCheckbox.checked = false;
-        termsCheckbox.disabled = false;
-        termsMsg.textContent = "Please accept the terms to proceed.";
-      }
-    }
-
-    // When the user clicks the terms checkbox, update consent in Firestore
-    document.getElementById("termsCheckbox").addEventListener("change", async function(){
-      if(this.checked) {
-        // Update Firestore record to mark consentAccepted = true.
-        let consentDocRef = null;
-        let userEmail = currentUser.email;
-        if(userRole === "mainAdmin") {
-          consentDocRef = db.collection(selectedSchool).doc("systemSettings");
+      if(inputPassword === systemSettings.adminLoginPassword) {
+        // Password match; now fetch the secure URL
+        if(pageLinks.adminSecure) {
+          window.location.href = pageLinks.adminSecure;
         } else {
-          let teachersRef = db.collection(selectedSchool).doc("teachers").collection("list");
-          let querySnapshot = await teachersRef.where("email", "==", userEmail).get();
-          querySnapshot.forEach(doc => {
-            consentDocRef = doc.ref;
-          });
+          document.getElementById("loginError").textContent = "Secure page URL not available.";
         }
-        if(consentDocRef) {
-          await consentDocRef.update({ consentAccepted: true });
-          // Disable checkbox after update
-          this.disabled = true;
-          document.getElementById("termsMsg").textContent = "You have accepted the terms.";
-        }
+      } else {
+        document.getElementById("loginError").textContent = "Incorrect password. Please contact support for assistance.";
       }
     });
 
-    // Set role button redirection using dynamic page links (fetched earlier)
-    document.getElementById("btnMainAdmin").addEventListener("click", function(){
-      if(pageLinks.adminSignUp) {
-        window.location.href = pageLinks.adminSignUp;
-      } else {
-        alert("Page link not available.");
-      }
-    });
-    document.getElementById("btnTeacher").addEventListener("click", function(){
-      if(pageLinks.teacherSignUp) {
-        window.location.href = pageLinks.teacherSignUp;
-      } else {
-        alert("Page link not available.");
-      }
-    });
-    document.getElementById("btnCoAdmin").addEventListener("click", function(){
-      if(pageLinks.coAdminSignUp) {
-        window.location.href = pageLinks.coAdminSignUp;
-      } else {
-        alert("Page link not available.");
-      }
-    });
-
-    // Handle school selection change event
+    // School dropdown change event
     document.getElementById("schoolDropdown").addEventListener("change", function(e){
       let selected = e.target.value;
       if(selected) {
-        // Show loading screen while checking role and terms acceptance
+        // Show loading screen while fetching school data
         document.getElementById("loadingScreen").style.display = "flex";
-        checkUserRoleForSchool(selected).then(() => {
-          // Ensure minimum 7 seconds loading
+        onSchoolSelected(selected).then(() => {
+          let delay = isFirstVisit ? 7000 : 500;
           setTimeout(() => {
             document.getElementById("loadingScreen").style.display = "none";
             document.getElementById("content").style.display = "block";
-          }, 7000);
+            if(isFirstVisit) localStorage.setItem("firstTimeLoaded", "true");
+          }, delay);
         });
       }
     });
 
-    // Listen for authentication state changes
+    // Authentication state listener
     auth.onAuthStateChanged(user => {
       if(user) {
         currentUser = user;
-        // Fetch schools and then show content after 7 seconds
         fetchSchools().then(() => {
+          let delay = isFirstVisit ? 7000 : 500;
           setTimeout(() => {
             document.getElementById("loadingScreen").style.display = "none";
             document.getElementById("content").style.display = "block";
-          }, 7000);
+            if(isFirstVisit) localStorage.setItem("firstTimeLoaded", "true");
+          }, delay);
         });
       } else {
-        // If not signed in, hide loading and show sign-up popup
         document.getElementById("loadingScreen").style.display = "none";
-        document.getElementById("signUpPopup").style.display = "block";
+        document.getElementById("signInPopup").style.display = "block";
       }
     });
 
-    // Google Sign-In button event
+    // Google Sign-In
     document.getElementById("btnSignIn").addEventListener("click", function(){
       var provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider)
