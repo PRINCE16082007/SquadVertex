@@ -1,400 +1,440 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fee Management - Students</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Student Transactions & Multi-Template Receipt Printing</title>
+  <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <style>
-    .table-responsive { overflow-x: auto; }
-    .status-paid { background-color: #d4edda; }
-    .status-partial { background-color: #fff3cd; }
-    .status-pending { background-color: #f8d7da; }
-    body { overflow-x: hidden; }
-    th { cursor: pointer; }
-    th:hover { background-color: #f8f9fa; }
+    body { padding-top: 20px; }
+    .powered { font-size: 0.7em; color: #555; text-align: center; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <a class="navbar-brand" href="#">FeeManage</a>
-    <div class="collapse navbar-collapse">
-      <ul class="navbar-nav mr-auto">
-        <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
-        <li class="nav-item active"><a class="nav-link" href="students.html">Students</a></li>
-        <li class="nav-item"><a class="nav-link" href="transactions.html">Transactions</a></li>
-      </ul>
-    </div>
-  </nav>
-
-  <div class="container mt-4">
-    <h3 class="mb-4">Students &amp; Fees Management</h3>
-    <div class="row mb-3">
-      <div class="col-md-3">
-        <input type="text" id="student-search" class="form-control" placeholder="Search by Name or No">
-      </div>
-      <div class="col-md-3">
-        <select id="class-filter" class="form-control">
-          <option value="">Select Class</option>
-          <option value="10">Class 10</option>
-          <option value="9">Class 9</option>
-        </select>
-      </div>
-      <div class="col-md-3">
-        <select id="stream-filter" class="form-control">
-          <option value="">Select Stream</option>
-          <option value="Science">Science</option>
-          <option value="Commerce">Commerce</option>
-          <option value="Arts">Arts</option>
-        </select>
-      </div>
-      <div class="col-md-3">
-        <select id="vehicle-status-filter" class="form-control">
-          <option value="all">All Vehicles</option>
-          <option value="eligible">Vehicle Eligible</option>
-          <option value="not-eligible">Not Eligible</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="table-responsive">
-      <table class="table table-bordered" id="students-table">
-        <thead class="thead-dark">
-          <tr>
-            <th data-sort="no">No ▼</th>
-            <th data-sort="name">Name ▼</th>
-            <th data-sort="father">Father's Name ▼</th>
-            <th data-sort="class">Class ▼</th>
-            <th data-sort="stream">Stream ▼</th>
-            <th data-sort="total">Total Fee ▼</th>
-            <th data-sort="discount">Discount ▼</th>
-            <th data-sort="final">Final Total ▼</th>
-            <th data-sort="paid">Paid ▼</th>
-            <th data-sort="pending">Pending ▼</th>
-            <th data-sort="vehicle">Vehicle Fee ▼</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Dynamic content -->
-        </tbody>
-      </table>
-    </div>
-
-      <div class="mt-4" style="max-width: 100%; width: fit-content; margin: auto; text-align: center; padding: 10px;">
-    <h5>Payment Info</h5>
-    <p>Scan the QR Code or use UPI ID: <strong>school@upi</strong></p>
-    <img src="https://dl.dropboxusercontent.com/scl/fi/fkq02zrhmtjo8q0j66pj4/Screenshot_20240901-172502.png?rlkey=256r98hep0tclyuznt3yjqdj1&st=ybcwph1t&dl=0" alt="UPI QR Code" style="max-width: 100%; height: auto;">
-    </div>
+  <div class="container">
+    <h3 class="mb-4">Student Transactions</h3>
+    <!-- Transactions Table -->
+    <table class="table table-bordered" id="transactionsTable">
+      <thead>
+        <tr>
+          <th>Roll No</th>
+          <th>Name</th>
+          <th>Class</th>
+          <th>Transaction ID</th>
+          <th>Amount Paid</th>
+          <th>Mode</th>
+          <th>Date & Time</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="transactions-body">
+      </tbody>
+    </table>
   </div>
 
-  <!-- Details Modal -->
-  <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl" role="document">
+  <!-- Modal for Template Selection -->
+  <div class="modal fade" id="templateModal" tabindex="-1" aria-labelledby="templateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="detailsModalLabel">Student Details</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <h5 class="modal-title" id="templateModalLabel">Select Receipt Template</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeModal()">
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
         <div class="modal-body">
-          <div id="student-basic-info">
-            <p><strong>No:</strong> <span id="detail-no"></span></p>
-            <p><strong>Name:</strong> <span id="detail-name"></span></p>
-            <p><strong>Father's Name:</strong> <span id="detail-father-name"></span></p>
-            <p>
-              <strong>Class:</strong> <span id="detail-class"></span> | 
-              <strong>Stream:</strong> <span id="detail-stream"></span>
-            </p>
-            <p>
-              <strong>Total Fee:</strong> <span id="detail-total-fee"></span> | 
-              <strong>Discount:</strong> <span id="detail-discount"></span> | 
-              <strong>Final Total:</strong> <span id="detail-final-total"></span>
-            </p>
-            <p>
-              <strong>Paid:</strong> <span id="detail-paid"></span> | 
-              <strong>Pending:</strong> <span id="detail-pending"></span>
-            </p>
-            <p>
-              <strong>Vehicle Status:</strong> <span id="detail-vehicle-status"></span>
-            </p>
-          </div>
-          <hr>
-          <div id="universal-fee-chart">
-            <h5>Universal Fee Chart</h5>
-            <p>For <strong>Class <span id="ufc-class"></span> - <span id="ufc-stream"></span></strong></p>
-            <ul>
-              <li><strong>Base Fee:</strong> <span id="ufc-fee"></span></li>
-            </ul>
-          </div>
-          <hr>
-          <h5>Transaction History</h5>
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Amount</th>
-                  <th>Mode</th>
-                  <th>Transaction ID</th>
-                </tr>
-              </thead>
-              <tbody id="student-transactions">
-                <!-- Transactions -->
-              </tbody>
-            </table>
+          <p>Select one of the following receipt templates:</p>
+          <div class="list-group">
+            <button type="button" class="list-group-item list-group-item-action" onclick="printTemplate1(selectedIndex)">
+              Template 1: Detailed Receipt with Signature
+            </button>
+            <button type="button" class="list-group-item list-group-item-action" onclick="printTemplate2(selectedIndex)">
+              Template 2: Duplicate Receipt (Half Page)
+            </button>
+            <button type="button" class="list-group-item list-group-item-action" onclick="printTemplate3(selectedIndex)">
+              Template 3: Minimal Receipt
+            </button>
+            <button type="button" class="list-group-item list-group-item-action" onclick="printTemplate4(selectedIndex)">
+              Template 4: Modern Card Receipt
+            </button>
+            <button type="button" class="list-group-item list-group-item-action" onclick="printTemplate5(selectedIndex)">
+              Template 5: Compact Vertical Receipt
+            </button>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="closeModal()">Close</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Scripts -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <!-- jQuery, Popper.js, and Bootstrap JS -->
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
-  <!-- App Script -->
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    // Use the provided Dropbox logo URL directly.
+    const logoURL = "https://dl.dropboxusercontent.com/scl/fi/fkq02zrhmtjo8q0j66pj4/Screenshot_20240901-172502.png?rlkey=256r98hep0tclyuznt3yjqdj1&dl=0";
+
+    // Dummy transaction data (replace with Firebase data later)
+    const transactions = [
+      {
+        rollNo: "53",
+        studentName: "Aayush",
+        class: "9",
+        transactionId: "gwbI79kvCjMgIhRg2N6S",
+        amountPaid: 1000,
+        mode: "Cash",
+        dateTime: "3/14/2025 8:04 PM",
+        notes: "Thank you for your payment. Please keep this receipt for your records."
+      },
+      {
+        rollNo: "78",
+        studentName: "Fadrick",
+        class: "10",
+        transactionId: "txn12345",
+        amountPaid: 2000,
+        mode: "UPI",
+        dateTime: "3/14/2025 9:00 PM",
+        notes: "Payment received successfully. We appreciate your prompt payment."
+      }
+    ];
+
+    // Dummy school details
+    const schoolDetails = {
+      schoolName: "ABC Public School",
+      address: "123 Main Street, City, Country",
+      contact: "0123456789",
+      email: "info@abcpublicschool.com"
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    let systemSettings = {};
-    let studentsData = [];
-    let sortState = { column: 'no', direction: 'asc' };
-
-    // Initialization
-    window.addEventListener('DOMContentLoaded', async () => {
-      await loadSystemSettings();
-      await loadStudents();
-      setupEventListeners();
-    });
-
-    async function loadSystemSettings() {
-      try {
-        const doc = await db.collection("001-school").doc("systemSettings").get();
-        systemSettings = doc.exists ? doc.data() : {};
-      } catch (error) {
-        console.error("Error loading settings:", error);
-      }
-    }
-
-    async function loadStudents() {
-      try {
-        const snapshot = await db.collection("001-school").doc("students").collection("list").get();
-        studentsData = await Promise.all(snapshot.docs.map(async doc => {
-          const student = doc.data();
-          const studentId = doc.id;
-
-          const [payments, vehicle] = await Promise.all([
-            db.collection("001-school").doc("transactions")
-              .collection(`class${student.class}`).doc(studentId).collection("payments").get(),
-            db.collection("001-school").doc("vehicleTransactions")
-              .collection("records").doc(studentId).get()
-          ]);
-
-          return {
-            ...student,
-            id: studentId,
-            payments: payments.docs.map(d => d.data()),
-            vehicle: vehicle.exists ? vehicle.data() : null
-          };
-        }));
-
-        applyFiltersAndSort();
-      } catch (error) {
-        console.error("Error loading students:", error);
-      }
-    }
-
-    function calculateFees(student) {
-      const ufc = systemSettings.universalFeesChart?.find(f => 
-        f.class === student.class && f.stream === student.stream
-      ) || {};
-
-      const baseFee = ufc.baseFee || 0;
-      const discount = student.discount || 0;
-      let vehicleFee = 0;
-      let vehicleStatus = 'Not Eligible';
-
-      if(student.vehicle?.eligible === 'Yes') {
-        vehicleStatus = 'Eligible';
-        if(student.vehicle.vehicleData) {
-          const { rent = 0, months = [] } = student.vehicle.vehicleData;
-          vehicleFee = rent * months.length;
-          vehicleStatus = `${months.length} months (₹${rent}/month)`;
-        }
-      }
-
-      const paid = student.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-      const finalTotal = (baseFee - discount) + vehicleFee;
-      const pending = finalTotal - paid;
-
-      return {
-        baseFee,
-        discount,
-        finalTotal,
-        paid,
-        pending,
-        vehicleFee,
-        status: pending <= 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Pending',
-        vehicleStatus
-      };
-    }
-
-    function applyFiltersAndSort() {
-      const search = document.getElementById('student-search').value.toLowerCase();
-      const classFilter = document.getElementById('class-filter').value;
-      const streamFilter = document.getElementById('stream-filter').value;
-      const vehicleFilter = document.getElementById('vehicle-status-filter').value;
-
-      const filtered = studentsData.filter(student => {
-        const matchSearch = [student.srNumber, student.studentName, student.fatherName]
-          .some(f => (f || '').toLowerCase().includes(search));
-        const matchClass = !classFilter || student.class === classFilter;
-        const matchStream = !streamFilter || student.stream === streamFilter;
-        const isEligible = student.vehicle?.eligible === 'Yes';
-        const matchVehicle = vehicleFilter === 'all' || 
-          (vehicleFilter === 'eligible' && isEligible) || 
-          (vehicleFilter === 'not-eligible' && !isEligible);
-
-        return matchSearch && matchClass && matchStream && matchVehicle;
-      });
-
-      filtered.sort((a, b) => {
-        const aVal = getSortValue(a, sortState.column);
-        const bVal = getSortValue(b, sortState.column);
-        return sortState.direction === 'asc' ? compare(aVal, bVal) : compare(bVal, aVal);
-      });
-
-      renderStudents(filtered);
-    }
-
-    function getSortValue(student, column) {
-      const fees = calculateFees(student);
-      switch(column) {
-        case 'no': return student.srNumber;
-        case 'name': return student.studentName.toLowerCase();
-        case 'class': return parseInt(student.class);
-        case 'total': return fees.baseFee;
-        case 'discount': return fees.discount;
-        case 'final': return fees.finalTotal;
-        case 'paid': return fees.paid;
-        case 'pending': return fees.pending;
-        case 'vehicle': return fees.vehicleFee;
-        default: return 0;
-      }
-    }
-
-    function compare(a, b) {
-      if(typeof a === 'string' && typeof b === 'string') return a.localeCompare(b);
-      return (a || 0) - (b || 0);
-    }
-
-    function renderStudents(students) {
-      const tbody = document.querySelector("#students-table tbody");
-      tbody.innerHTML = students.map(student => {
-        const fees = calculateFees(student);
-        return `
-          <tr class="status-${fees.status.toLowerCase()}">
-            <td>${student.srNumber}</td>
-            <td>${student.studentName}</td>
-            <td>${student.fatherName}</td>
-            <td>${student.class}</td>
-            <td>${student.stream}</td>
-            <td>₹${fees.baseFee}</td>
-            <td>₹${fees.discount}</td>
-            <td>₹${fees.finalTotal}</td>
-            <td>₹${fees.paid}</td>
-            <td>₹${fees.pending}</td>
-            <td>₹${fees.vehicleFee}</td>
-            <td>${fees.status}</td>
-            <td>
-              <button class="btn btn-sm btn-info" onclick="showDetails('${student.id}')">
-                View Details
-              </button>
-            </td>
-          </tr>
+    // Populate the transactions table
+    function populateTable() {
+      const tbody = document.getElementById("transactions-body");
+      tbody.innerHTML = "";
+      transactions.forEach((tx, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${tx.rollNo}</td>
+          <td>${tx.studentName}</td>
+          <td>${tx.class}</td>
+          <td>${tx.transactionId}</td>
+          <td>₹${tx.amountPaid}</td>
+          <td>${tx.mode}</td>
+          <td>${tx.dateTime}</td>
+          <td><button class="btn btn-primary" onclick="chooseTemplate(${index})">Print Receipt</button></td>
         `;
-      }).join('');
-    }
-
-    function showDetails(studentId) {
-      const student = studentsData.find(s => s.id === studentId);
-      if(!student) return;
-
-      const fees = calculateFees(student);
-      const ufc = systemSettings.universalFeesChart?.find(f => 
-        f.class === student.class && f.stream === student.stream
-      ) || {};
-
-      // Update modal content
-      document.getElementById('detail-no').textContent = student.srNumber;
-      document.getElementById('detail-name').textContent = student.studentName;
-      document.getElementById('detail-father-name').textContent = student.fatherName;
-      document.getElementById('detail-class').textContent = student.class;
-      document.getElementById('detail-stream').textContent = student.stream;
-      document.getElementById('detail-total-fee').textContent = `₹${fees.baseFee}`;
-      document.getElementById('detail-discount').textContent = `₹${fees.discount}`;
-      document.getElementById('detail-final-total').textContent = `₹${fees.finalTotal}`;
-      document.getElementById('detail-paid').textContent = `₹${fees.paid}`;
-      document.getElementById('detail-pending').textContent = `₹${fees.pending}`;
-      document.getElementById('detail-vehicle-status').textContent = fees.vehicleStatus;
-
-      // Universal Fee Chart
-      document.getElementById('ufc-class').textContent = student.class;
-      document.getElementById('ufc-stream').textContent = student.stream;
-      document.getElementById('ufc-fee').textContent = `₹${ufc.baseFee || 0}`;
-
-      // Transactions
-      const tbody = document.getElementById('student-transactions');
-      tbody.innerHTML = student.payments.map(p => `
-        <tr>
-          <td>${new Date(p.timestamp?.toDate() || p.date).toLocaleDateString()}</td>
-          <td>₹${p.amount}</td>
-          <td>${p.mode}</td>
-          <td>${p.txnId || ''}</td>
-        </tr>
-      `).join('');
-
-      $('#detailsModal').modal('show');
-    }
-
-    function setupEventListeners() {
-      // Sorting
-      document.querySelectorAll('#students-table th[data-sort]').forEach(header => {
-        header.addEventListener('click', () => {
-          const column = header.dataset.sort;
-          sortState = {
-            column,
-            direction: sortState.column === column && sortState.direction === 'asc' ? 'desc' : 'asc'
-          };
-          applyFiltersAndSort();
-        });
-      });
-
-      // Filtering
-      ['student-search', 'class-filter', 'stream-filter', 'vehicle-status-filter'].forEach(id => {
-        document.getElementById(id).addEventListener('input', applyFiltersAndSort);
-        document.getElementById(id).addEventListener('change', applyFiltersAndSort);
+        tbody.appendChild(row);
       });
     }
+
+    let selectedIndex = null;
+    function chooseTemplate(index) {
+      selectedIndex = index;
+      $('#templateModal').modal('show');
+    }
+    function closeModal() {
+      $('#templateModal').modal('hide');
+    }
+
+    // Template 1: Detailed Receipt with Signature Required
+    function printTemplate1(index) {
+      const tx = transactions[index];
+      const printHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Receipt - ${tx.studentName}</title>
+          <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+          <style>
+            body { padding: 20px; font-family: Arial, sans-serif; position: relative; }
+            .logo { position: absolute; top: 20px; left: 20px; width: 60px; height: 60px; }
+            .receipt-container { max-width: 800px; margin: auto; border: 1px solid #000; padding: 20px; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .header h2 { margin-bottom: 5px; }
+            .details { margin-top: 20px; }
+            .details h4 { border-bottom: 1px solid #000; padding-bottom: 5px; }
+            .details p { margin: 5px 0; }
+            .signature { margin-top: 20px; text-align: center; }
+            .signature p { border-top: 1px solid #000; width: 200px; margin: 0 auto; }
+            .notes { margin-top: 20px; font-style: italic; }
+            .footer { text-align: center; margin-top: 20px; }
+            .action-buttons { margin-top: 20px; text-align: center; }
+            @media print { .action-buttons { display: none; } }
+          </style>
+        </head>
+        <body>
+          <img src="${logoURL}" alt="School Logo" class="logo" />
+          <div class="receipt-container">
+            <div class="header">
+              <h2>${schoolDetails.schoolName}</h2>
+              <p>${schoolDetails.address}</p>
+              <p>Contact: ${schoolDetails.contact} | Email: ${schoolDetails.email}</p>
+            </div>
+            <div class="details">
+              <h4>Student Details</h4>
+              <p><strong>Roll No:</strong> ${tx.rollNo}</p>
+              <p><strong>Name:</strong> ${tx.studentName}</p>
+              <p><strong>Class:</strong> ${tx.class}</p>
+            </div>
+            <div class="details">
+              <h4>Transaction Details</h4>
+              <p><strong>Transaction ID:</strong> ${tx.transactionId}</p>
+              <p><strong>Amount Paid:</strong> ₹${tx.amountPaid}</p>
+              <p><strong>Mode:</strong> ${tx.mode}</p>
+              <p><strong>Date & Time:</strong> ${tx.dateTime}</p>
+            </div>
+            <div class="notes">
+              <p>${tx.notes}</p>
+            </div>
+            <div class="signature">
+              <p>Signature Required</p>
+            </div>
+            <div class="footer">
+              <p>Thank you for your payment!</p>
+              <p>This is a computer-generated receipt.</p>
+              <div class="powered">Powered by SquadVertex &amp; EXELIS</div>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-success" onclick="window.print()">Save &amp; Print</button>
+              <button class="btn btn-secondary" onclick="window.close()">Close</button>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+      const printWindow = window.open("", "_blank", "width=900,height=700");
+      printWindow.document.open();
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+      closeModal();
+    }
+
+    // Template 2: Duplicate Receipt (Half Page for School & Parent)
+    function printTemplate2(index) {
+      const tx = transactions[index];
+      const receiptPart = `
+        <div style="border: 1px solid #000; padding: 10px; margin-bottom: 10px; position: relative;">
+          <img src="${logoURL}" alt="Logo" style="position: absolute; top: 10px; left: 10px; width:50px; height:50px;" />
+          <div style="text-align: center; margin-left: 70px;">
+            <h4>${schoolDetails.schoolName}</h4>
+            <p>${schoolDetails.address}</p>
+            <p>Contact: ${schoolDetails.contact} | Email: ${schoolDetails.email}</p>
+          </div>
+          <hr style="margin-top: 60px;">
+          <div>
+            <p><strong>Roll No:</strong> ${tx.rollNo} | <strong>Name:</strong> ${tx.studentName} | <strong>Class:</strong> ${tx.class}</p>
+            <p><strong>Txn ID:</strong> ${tx.transactionId} | <strong>Amount:</strong> ₹${tx.amountPaid}</p>
+            <p><strong>Mode:</strong> ${tx.mode} | <strong>Date &amp; Time:</strong> ${tx.dateTime}</p>
+          </div>
+          <div style="text-align: center; margin-top: 10px;">
+            <p>Signature Required</p>
+          </div>
+          <div class="powered">Powered by SquadVertex &amp; EXELIS</div>
+        </div>
+      `;
+      const printHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Duplicate Receipt - ${tx.studentName}</title>
+          <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+          <style>
+            body { padding: 20px; font-family: Arial, sans-serif; }
+            .receipt-container { max-width: 800px; margin: auto; }
+            .action-buttons { margin-top: 20px; text-align: center; }
+            @media print { .action-buttons { display: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="receipt-container">
+            ${receiptPart}
+            ${receiptPart}
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-success" onclick="window.print()">Save &amp; Print</button>
+            <button class="btn btn-secondary" onclick="window.close()">Close</button>
+          </div>
+        </body>
+        </html>
+      `;
+      const printWindow = window.open("", "_blank", "width=900,height=700");
+      printWindow.document.open();
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+      closeModal();
+    }
+
+    // Template 3: Minimal Receipt (Compact with Powered by)
+    function printTemplate3(index) {
+      const tx = transactions[index];
+      const printHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Minimal Receipt - ${tx.studentName}</title>
+          <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+          <style>
+            body { padding: 20px; font-family: Arial, sans-serif; position: relative; }
+            .logo { position: absolute; top: 20px; left: 20px; width: 50px; height: 50px; }
+            .receipt-container { max-width: 600px; margin: auto; border: 1px solid #000; padding: 15px; text-align: center; }
+            .details p { margin: 5px 0; }
+            .action-buttons { margin-top: 20px; text-align: center; }
+            @media print { .action-buttons { display: none; } }
+            .powered { font-size: 0.7em; color: #555; margin-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <img src="${logoURL}" alt="Logo" class="logo" />
+          <div class="receipt-container">
+            <h4>${schoolDetails.schoolName}</h4>
+            <div class="details">
+              <p><strong>${tx.studentName}</strong> (Roll No: ${tx.rollNo})</p>
+              <p>Class: ${tx.class}</p>
+              <p>Txn ID: ${tx.transactionId} | ₹${tx.amountPaid}</p>
+              <p>${tx.mode} | ${tx.dateTime}</p>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-success" onclick="window.print()">Save &amp; Print</button>
+              <button class="btn btn-secondary" onclick="window.close()">Close</button>
+            </div>
+            <div class="powered">Powered by SquadVertex &amp; EXELIS</div>
+          </div>
+        </body>
+        </html>
+      `;
+      const printWindow = window.open("", "_blank", "width=900,height=700");
+      printWindow.document.open();
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+      closeModal();
+    }
+
+    // Template 4: Modern Card Receipt
+    function printTemplate4(index) {
+      const tx = transactions[index];
+      const printHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Modern Receipt - ${tx.studentName}</title>
+          <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+          <style>
+            body { background-color: #f4f7f6; padding: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+            .card { max-width: 700px; margin: auto; border: none; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+            .card-header { background-color: #007bff; color: #fff; border-top-left-radius: 10px; border-top-right-radius: 10px; position: relative; padding: 20px; }
+            .card-header img { position: absolute; top: 20px; left: 20px; width: 60px; height: 60px; }
+            .card-header h2 { margin-left: 90px; }
+            .card-body { padding: 20px; background-color: #fff; }
+            .card-body p { margin: 5px 0; }
+            .card-footer { text-align: center; padding: 10px; background-color: #f1f1f1; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
+            .action-buttons { text-align: center; margin-top: 20px; }
+            @media print { .action-buttons { display: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="card-header">
+              <img src="${logoURL}" alt="Logo">
+              <h2>${schoolDetails.schoolName}</h2>
+              <p>${schoolDetails.address}</p>
+              <p>Contact: ${schoolDetails.contact} | Email: ${schoolDetails.email}</p>
+            </div>
+            <div class="card-body">
+              <h4>Student Details</h4>
+              <p><strong>Roll No:</strong> ${tx.rollNo}</p>
+              <p><strong>Name:</strong> ${tx.studentName}</p>
+              <p><strong>Class:</strong> ${tx.class}</p>
+              <hr>
+              <h4>Transaction Details</h4>
+              <p><strong>Txn ID:</strong> ${tx.transactionId}</p>
+              <p><strong>Amount Paid:</strong> ₹${tx.amountPaid}</p>
+              <p><strong>Mode:</strong> ${tx.mode}</p>
+              <p><strong>Date & Time:</strong> ${tx.dateTime}</p>
+              <p>${tx.notes}</p>
+            </div>
+            <div class="card-footer">
+              <p>Signature Required</p>
+              <p>Thank you for your payment!</p>
+              <p class="powered">Powered by SquadVertex &amp; EXELIS</p>
+            </div>
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-success" onclick="window.print()">Save &amp; Print</button>
+            <button class="btn btn-secondary" onclick="window.close()">Close</button>
+          </div>
+        </body>
+        </html>
+      `;
+      const printWindow = window.open("", "_blank", "width=900,height=700");
+      printWindow.document.open();
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+      closeModal();
+    }
+
+    // Template 5: Compact Vertical Receipt
+    function printTemplate5(index) {
+      const tx = transactions[index];
+      const printHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Vertical Receipt - ${tx.studentName}</title>
+          <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+          <style>
+            body { padding: 20px; font-family: Arial, sans-serif; }
+            .vertical-receipt { max-width: 500px; margin: auto; border: 1px solid #000; padding: 15px; }
+            .vertical-receipt img { display: block; margin: 0 auto 10px auto; width: 50px; height: 50px; }
+            .vertical-receipt h4 { text-align: center; margin-bottom: 10px; }
+            .vertical-receipt .info { margin-bottom: 10px; }
+            .vertical-receipt .info p { margin: 3px 0; }
+            .action-buttons { text-align: center; margin-top: 20px; }
+            @media print { .action-buttons { display: none; } }
+            .powered { font-size: 0.7em; color: #555; text-align: center; margin-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="vertical-receipt">
+            <img src="${logoURL}" alt="Logo">
+            <h4>${schoolDetails.schoolName}</h4>
+            <div class="info">
+              <p><strong>Student:</strong> ${tx.studentName}</p>
+              <p><strong>Roll No:</strong> ${tx.rollNo}</p>
+              <p><strong>Class:</strong> ${tx.class}</p>
+            </div>
+            <div class="info">
+              <p><strong>Txn ID:</strong> ${tx.transactionId}</p>
+              <p><strong>Amount:</strong> ₹${tx.amountPaid}</p>
+              <p><strong>Mode:</strong> ${tx.mode}</p>
+              <p><strong>Date:</strong> ${tx.dateTime}</p>
+            </div>
+            <div class="powered">Powered by SquadVertex &amp; EXELIS</div>
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-success" onclick="window.print()">Save &amp; Print</button>
+            <button class="btn btn-secondary" onclick="window.close()">Close</button>
+          </div>
+        </body>
+        </html>
+      `;
+      const printWindow = window.open("", "_blank", "width=900,height=700");
+      printWindow.document.open();
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+      closeModal();
+    }
+
+    // Populate table on page load
+    window.onload = populateTable;
   </script>
 </body>
 </html>
