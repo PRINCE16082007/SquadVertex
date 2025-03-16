@@ -11,7 +11,7 @@
   <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <style>
-    /* Loading Screen styles with background and text color animation */
+    /* Loading Screen styles */
     #loadingScreen {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -20,13 +20,27 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
+      /* Default background & text color */
+      background-color: #fff;
+      color: #000;
+    }
+    /* First-time animation: dark-to-white transition */
+    .first-animation {
       background-color: #222;
-      /* Animate background from dark to white and text from white to black */
+      color: #fff;
       animation: bgTransition 7s forwards;
     }
     @keyframes bgTransition {
       from { background-color: #222; color: #fff; }
       to { background-color: #fff; color: #000; }
+    }
+    /* Subsequent idle animation (subtle pulse) */
+    .idle-animation {
+      animation: idlePulse 3s infinite;
+    }
+    @keyframes idlePulse {
+      0%, 100% { background-color: #fff; }
+      50% { background-color: #f9f9f9; }
     }
     .spinner {
       border: 8px solid #f3f3f3;
@@ -66,7 +80,7 @@
       border-top: 1px solid #ccc;
       padding-top: 10px;
     }
-    /* Ensure enabled buttons have clear visual state */
+    /* Button styles: enabled vs disabled */
     button:not([disabled]) {
       opacity: 1;
       cursor: pointer;
@@ -82,8 +96,8 @@
   <div id="loadingScreen">
     <div class="spinner"></div>
     <h2 class="mt-3">Welcome to SquadVertex</h2>
-    <p>Loading... Please wait while we prepare your experience.</p>
-    <p>The UI will smoothly transition from dark to light. (This happens only on your first visit.)</p>
+    <p id="loadingMsg">Loading... Please wait while we prepare your experience.</p>
+    <p id="themeMsg">Your UI is transitioning from dark to light.</p>
   </div>
 
   <!-- Main Content -->
@@ -95,10 +109,10 @@
         <option value="">-- Select School --</option>
       </select>
     </div>
-    <!-- Role Selection (Appears after school selection) -->
+    <!-- Role Selection & Instructions -->
     <div id="roleSelection" class="mb-4" style="display:none;">
       <h3>Choose Your Role</h3>
-      <p id="roleInstructions">Based on your registered email, the corresponding role button will be enabled if you are eligible. If not, you’ll see an authorization message next to the button.</p>
+      <p id="roleInstructions">Based on your registered email, the corresponding role button will be enabled if you are eligible. (If a button remains disabled, you are not authorized for that role.)</p>
       <div class="mb-2">
         <button id="btnMainAdmin" class="btn btn-primary m-2" disabled>Main Admin</button>
         <span id="msgMainAdmin" class="text-danger"></span>
@@ -117,8 +131,8 @@
       <h4>Terms &amp; Conditions &amp; Password Instructions</h4>
       <p>
         Please read and accept the SquadVertex terms and conditions, privacy policy, and related cloud service rules.
-        Your password will be provided by the designated admin. If you need any help, please contact the admin or support.
-        Only your authorized email can access the system.
+        Your password will be provided by the designated admin (contact support if needed). Only an authorized email
+        can access the system.
       </p>
       <div class="form-check">
         <input type="checkbox" id="termsCheckbox" class="form-check-input">
@@ -145,19 +159,17 @@
   <!-- Footer -->
   <div id="footer" class="container">
     <p>Powered by SquadVertex Cloud Services. © SquadVertex</p>
-    <p>Please ensure that you have read and accepted our terms and conditions before proceeding.</p>
+    <p>Please ensure you have read and accepted our terms and conditions before proceeding.</p>
   </div>
 
   <script>
-    // Initialize Firebase (replace with your config)
+    // Initialize Firebase (replace with your own config)
     var firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-  };
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID"
+      // ... other config fields
+    };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
@@ -168,12 +180,25 @@
     let schoolSettings = null; // systemSettings document for the chosen school
     let pageLinks = {}; // dynamic page URLs: adminSignUp, teacherSignUp, coAdminSignUp
     let userRole = null; // "mainAdmin", "teacher", or "coAdmin"
+    let authorizedMainAdmin = false, authorizedTeacher = false, authorizedCoAdmin = false;
 
-    // For demo purposes, assume these known school collections (adjust as needed)
-    const schoolCollections = ["001-school", "002-school"];
-
-    // Check if it's the first visit (for loading animation)
+    // Determine if this is the first visit (for animation purposes)
     const isFirstVisit = !localStorage.getItem("firstTimeLoaded");
+
+    // Apply the proper animation class to the loading screen
+    window.onload = function(){
+      const loadingScreen = document.getElementById("loadingScreen");
+      if(isFirstVisit){
+        loadingScreen.classList.add("first-animation");
+      } else {
+        loadingScreen.classList.add("idle-animation");
+        document.getElementById("loadingMsg").textContent = "Welcome back!";
+        document.getElementById("themeMsg").textContent = "";
+      }
+    };
+
+    // For demo, assume these known school collections (adjust as needed)
+    const schoolCollections = ["001-school", "002-school"];
 
     // Fetch schools by reading each school's systemSettings document
     async function fetchSchools() {
@@ -218,26 +243,18 @@
       // Fetch dynamic page links
       await fetchPageLinks(schoolCol);
       
+      // Reset authorized flags
+      authorizedMainAdmin = false; authorizedTeacher = false; authorizedCoAdmin = false;
+      
       // Check roles in the teachers/list sub-collection (for teacher and coAdmin)
       let teachersRef = db.collection(schoolCol).doc("teachers").collection("list");
       let userEmail = currentUser.email;
-      let roleFound = false;
-      
-      // Reset button states and messages
-      document.getElementById("btnMainAdmin").disabled = true;
-      document.getElementById("btnTeacher").disabled = true;
-      document.getElementById("btnCoAdmin").disabled = true;
-      document.getElementById("msgMainAdmin").textContent = "";
-      document.getElementById("msgTeacher").textContent = "";
-      document.getElementById("msgCoAdmin").textContent = "";
       
       // 1. Check Main Admin by comparing with systemSettings.officialEmail
       if (schoolSettings && schoolSettings.officialEmail &&
           schoolSettings.officialEmail.toLowerCase() === userEmail.toLowerCase()) {
-        document.getElementById("btnMainAdmin").disabled = false;
+        authorizedMainAdmin = true;
         document.getElementById("msgMainAdmin").textContent = "Authorized for Main Admin.";
-        userRole = "mainAdmin";
-        roleFound = true;
       } else {
         document.getElementById("msgMainAdmin").textContent = "Not authorized for Main Admin.";
       }
@@ -245,30 +262,36 @@
       let querySnapshot = await teachersRef.where("email", "==", userEmail).get();
       querySnapshot.forEach(doc => {
         if (doc.id.startsWith("teacher")) {
-          document.getElementById("btnTeacher").disabled = false;
+          authorizedTeacher = true;
           document.getElementById("msgTeacher").textContent = "Authorized for Teacher.";
-          userRole = "teacher";
-          roleFound = true;
         }
         if (doc.id.startsWith("admin")) {
-          document.getElementById("btnCoAdmin").disabled = false;
+          authorizedCoAdmin = true;
           document.getElementById("msgCoAdmin").textContent = "Authorized for Co‑Admin.";
-          userRole = "coAdmin";
-          roleFound = true;
         }
       });
       
-      if (!roleFound) {
+      // Initially, regardless of authorization, keep buttons disabled until terms are accepted.
+      document.getElementById("btnMainAdmin").disabled = true;
+      document.getElementById("btnTeacher").disabled = true;
+      document.getElementById("btnCoAdmin").disabled = true;
+      
+      // If no role is authorized, show not authorized message
+      if (!authorizedMainAdmin && !authorizedTeacher && !authorizedCoAdmin) {
         document.getElementById("notAuthorized").style.display = "block";
       } else {
         document.getElementById("notAuthorized").style.display = "none";
-        // Show the Terms & Conditions section once a role is verified
-        document.getElementById("termsSection").style.display = "block";
-        await checkTermsAcceptance();
       }
+      
+      // Show Role Selection and Terms section regardless
+      document.getElementById("roleSelection").style.display = "block";
+      document.getElementById("termsSection").style.display = "block";
+      
+      // Check if the user already accepted the terms
+      await checkTermsAcceptance();
     }
 
-    // Check if the user has already accepted the terms
+    // Check if the user has already accepted terms in Firestore
     async function checkTermsAcceptance() {
       let accepted = false;
       let consentDocRef = null;
@@ -294,19 +317,42 @@
         termsCheckbox.checked = true;
         termsCheckbox.disabled = true;
         termsMsg.textContent = "You have already accepted the terms.";
+        // Enable authorized buttons now that terms are accepted
+        updateRoleButtonsState(true);
       } else {
         termsCheckbox.checked = false;
         termsCheckbox.disabled = false;
         termsMsg.textContent = "Please accept the terms to proceed.";
+        // Ensure role buttons remain disabled
+        updateRoleButtonsState(false);
       }
     }
 
-    // When the user clicks the terms checkbox, update Firestore with consentAccepted = true
+    // Function to update role buttons based on checkbox state and authorization
+    function updateRoleButtonsState(termsAccepted) {
+      if(termsAccepted) {
+        if(authorizedMainAdmin) {
+          document.getElementById("btnMainAdmin").disabled = false;
+        }
+        if(authorizedTeacher) {
+          document.getElementById("btnTeacher").disabled = false;
+        }
+        if(authorizedCoAdmin) {
+          document.getElementById("btnCoAdmin").disabled = false;
+        }
+      } else {
+        document.getElementById("btnMainAdmin").disabled = true;
+        document.getElementById("btnTeacher").disabled = true;
+        document.getElementById("btnCoAdmin").disabled = true;
+      }
+    }
+
+    // Terms checkbox event listener: update Firestore and enable buttons if checked
     document.getElementById("termsCheckbox").addEventListener("change", async function(){
       if(this.checked) {
         let consentDocRef = null;
         let userEmail = currentUser.email;
-        if(userRole === "mainAdmin") {
+        if(authorizedMainAdmin) {
           consentDocRef = db.collection(selectedSchool).doc("systemSettings");
         } else {
           let teachersRef = db.collection(selectedSchool).doc("teachers").collection("list");
@@ -319,11 +365,14 @@
           await consentDocRef.update({ consentAccepted: true });
           this.disabled = true;
           document.getElementById("termsMsg").textContent = "You have accepted the terms.";
+          updateRoleButtonsState(true);
         }
+      } else {
+        updateRoleButtonsState(false);
       }
     });
 
-    // Set redirection for role buttons using dynamic page links from the database
+    // Set redirection for role buttons using dynamic page links
     document.getElementById("btnMainAdmin").addEventListener("click", function(){
       if(pageLinks.adminSignUp) {
         window.location.href = pageLinks.adminSignUp;
@@ -350,15 +399,13 @@
     document.getElementById("schoolDropdown").addEventListener("change", function(e){
       let selected = e.target.value;
       if(selected) {
-        // Show loading screen while checking role and terms acceptance
         document.getElementById("loadingScreen").style.display = "flex";
         checkUserRoleForSchool(selected).then(() => {
-          // Use 7 seconds loading if first visit, otherwise proceed immediately
+          // Use a 7-second delay on first visit; otherwise, a short delay
           let delay = isFirstVisit ? 7000 : 500;
           setTimeout(() => {
             document.getElementById("loadingScreen").style.display = "none";
             document.getElementById("content").style.display = "block";
-            // Mark that the user has seen the animated transition
             if(isFirstVisit) localStorage.setItem("firstTimeLoaded", "true");
           }, delay);
         });
