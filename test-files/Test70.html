@@ -1,386 +1,179 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fee Management - Students</title>
-  <!-- Bootstrap CSS CDN (Bootstrap 4) -->
+  <title>Fee Management - Transactions</title>
+  <!-- Bootstrap CSS CDN -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <style>
-    /* Control horizontal overflow */
-    .table-responsive { overflow-x: auto; }
-    .status-paid { background-color: #d4edda; }
-    .status-partial { background-color: #fff3cd; }
-    .status-pending { background-color: #f8d7da; }
-    /* Optional: limit overall page overflow */
-    body { overflow-x: hidden; }
-  </style>
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
 </head>
 <body>
-    <!-- Navbar -->
+  <!-- Navbar -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <a class="navbar-brand" href="#">FeeManage</a>
     <div class="collapse navbar-collapse">
       <ul class="navbar-nav mr-auto">
         <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
-        <li class="nav-item active"><a class="nav-link" href="students.html">Students</a></li>
-        <li class="nav-item"><a class="nav-link" href="transactions.html">Transactions</a></li>
+        <li class="nav-item"><a class="nav-link" href="students.html">Students</a></li>
+        <li class="nav-item active"><a class="nav-link" href="transactions.html">Transactions</a></li>
       </ul>
     </div>
   </nav>
 
-  <!-- Students Management Content -->
+  <!-- Transactions Content -->
   <div class="container mt-4">
-    <h3 class="mb-4">Students &amp; Fees Management</h3>
-    <!-- Search & Filter Section (optional; you can expand later) -->
+    <h3 class="mb-4">Transaction History</h3>
+
+    <!-- Filters -->
     <div class="row mb-3">
       <div class="col-md-3">
-        <input type="text" id="student-search" class="form-control" placeholder="Search by Name or No">
+        <input type="date" id="start-date" class="form-control" placeholder="Start Date">
       </div>
       <div class="col-md-3">
-        <select id="class-filter" class="form-control">
-          <option value="">Select Class</option>
-          <option value="10">Class 10</option>
-          <option value="9">Class 9</option>
-          <!-- More as needed -->
+        <input type="date" id="end-date" class="form-control" placeholder="End Date">
+      </div>
+      <div class="col-md-3">
+        <select id="mode-filter" class="form-control">
+          <option value="">Payment Mode</option>
+          <option value="Cash">Cash</option>
+          <option value="UPI">UPI</option>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="Cheque">Cheque</option>
         </select>
       </div>
       <div class="col-md-3">
-        <select id="stream-filter" class="form-control">
-          <option value="">Select Stream</option>
-          <option value="Science">Science</option>
-          <option value="Commerce">Commerce</option>
-          <option value="Arts">Arts</option>
-        </select>
-      </div>
-      <div class="col-md-3">
-        <select id="vehicle-status-filter" class="form-control">
-          <option value="both">Vehicle: Both</option>
-          <option value="pending">Vehicle: Pending</option>
-          <option value="not_pending">Vehicle: Not Pending</option>
-        </select>
+        <button class="btn btn-primary btn-block" onclick="applyFilters()">Apply Filters</button>
       </div>
     </div>
-    <!-- Students Table inside a responsive container -->
-    <div class="table-responsive">
-      <table class="table table-bordered" id="students-table">
-        <thead class="thead-dark">
-          <tr>
-            <th>No</th>
-            <th>Name</th>
-            <th>Father's Name</th>
-            <th>Class</th>
-            <th>Stream</th>
-            <th>Total Fee</th>
-            <th>Discount</th>
-            <th>Final Total</th>
-            <th>Paid</th>
-            <th>Pending</th>
-            <th>Vehicle Fee Total</th>
-            <th>Vehicle Fee Paid</th>
-            <th>Vehicle Fee Pending</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Student rows will be injected here -->
-        </tbody>
-      </table>
-    </div>
-    <!-- QR Code & UPI Info -->
-    <div class="mt-4">
-      <h5>Payment Info</h5>
-      <p>Scan the QR Code or use UPI ID: <strong>school@upi</strong></p>
-      <img src="https://via.placeholder.com/150?text=QR+Code" alt="UPI QR Code">
-    </div>
+
+    <!-- Transactions Table (Family ID column removed) -->
+    <table class="table table-striped" id="transactionsTable">
+      <thead class="thead-dark">
+        <tr>
+          <th>Roll No</th>
+          <th>Name</th>
+          <th>Amount Paid</th>
+          <th>Mode</th>
+          <th>Transaction ID</th>
+          <th>Date & Time</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="transactions-table">
+        <!-- Transaction rows will be populated from Firebase -->
+      </tbody>
+    </table>
   </div>
 
-  <!-- Student Details Modal (remarks column removed from transactions table) -->
-  <div class="modal fade" id="detailsModal" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="detailsModalLabel">Student Details</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <!-- Student Basic Info -->
-          <div id="student-basic-info">
-            <p><strong>No:</strong> <span id="detail-no"></span></p>
-            <p><strong>Name:</strong> <span id="detail-name"></span></p>
-            <p><strong>Father's Name:</strong> <span id="detail-father-name"></span></p>
-            <p>
-              <strong>Class:</strong> <span id="detail-class"></span> | 
-              <strong>Stream:</strong> <span id="detail-stream"></span>
-            </p>
-            <p>
-              <strong>Total Fee:</strong> <span id="detail-total-fee"></span> | 
-              <strong>Discount:</strong> <span id="detail-discount"></span> | 
-              <strong>Final Total:</strong> <span id="detail-final-total"></span>
-            </p>
-            <p>
-              <strong>Paid:</strong> <span id="detail-paid"></span> | 
-              <strong>Pending:</strong> <span id="detail-pending"></span>
-            </p>
-            <p>
-              <strong>Vehicle Fee:</strong> Total: <span id="detail-vehicle-total"></span>, 
-              Paid: <span id="detail-vehicle-paid"></span>, 
-              Pending: <span id="detail-vehicle-pending"></span>
-            </p>
-          </div>
-          <hr>
-          <!-- Universal Fee Chart Details -->
-          <div id="universal-fee-chart">
-            <h5>Universal Fee Chart</h5>
-            <p>
-              For <strong>Class <span id="ufc-class"></span> - <span id="ufc-stream"></span></strong>:
-            </p>
-            <ul>
-              <li><strong>Fee Amount:</strong> ₹<span id="ufc-fee"></span></li>
-              <li><strong>Vehicle Rent:</strong> ₹<span id="ufc-vehicle-fee"></span>
-                (<em>Category: <span id="ufc-vehicle-category"></span>, Expected Distance: <span id="ufc-distance"></span> km</em>)
-              </li>
-              <li><strong>Discount Offered:</strong> ₹<span id="ufc-discount"></span></li>
-            </ul>
-          </div>
-          <hr>
-          <!-- Transaction History (remarks column removed) -->
-          <h5>Transaction History</h5>
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered">
-              <thead>
-                <tr>
-                  <th>Installment</th>
-                  <th>Date</th>
-                  <th>Amount</th>
-                  <th>Mode</th>
-                  <th>Transaction ID</th>
-                </tr>
-              </thead>
-              <tbody id="student-transactions">
-                <!-- Transactions will be populated here dynamically -->
-              </tbody>
-            </table>
-          </div>
-          <!-- All transactions are stored in the "transactions" document in Firestore -->
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Firebase and Dependencies -->
-  <!-- Firebase App (the core Firebase SDK) -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-  <!-- Firebase Firestore -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-  <!-- jQuery, Popper, and Bootstrap JS (for Bootstrap 4) -->
-  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <!-- Firebase (using compat versions for ease) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <!-- DataTables JS -->
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <!-- Bootstrap JS and dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
-
   <script>
+    // Replace these with your actual Firebase credentials
     const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
 
+    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let systemSettings = {};
-    let allStudents = [];
-    let vehicleRecords = {};
-    let sortConfig = { column: 'no', direction: 'asc' };
+    // Fetch transactions from Firestore and populate the table
+    async function fetchTransactions() {
+      try {
+        // Assuming your transactions are stored in a collection called "transactions"
+        const snapshot = await db.collection("transactions").get();
+        const transactionsTable = document.getElementById("transactions-table");
+        transactionsTable.innerHTML = ""; // Clear any existing rows
 
-    async function loadSystemSettings() {
-      const [settingsSnap, vehicleSnap] = await Promise.all([
-        db.collection("001-school").doc("systemSettings").get(),
-        db.collection("001-school").doc("vehicleTransactions").collection("records").get()
-      ]);
-      
-      systemSettings = settingsSnap.exists ? settingsSnap.data() : {};
-      vehicleRecords = vehicleSnap.docs.reduce((acc, doc) => {
-        acc[doc.id] = doc.data();
-        return acc;
-      }, {});
-    }
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          // Expected fields: rollNo, name, amountPaid, mode, txnId, dateTime, status
+          const rollNo = data.rollNo || "";
+          const name = data.name || "";
+          const amountPaid = data.amountPaid ? "₹" + data.amountPaid : "";
+          const mode = data.mode || "";
+          const txnId = data.txnId || "";
+          const dateTime = data.dateTime || "";
+          const status = data.status || "";
 
-    async function loadStudents() {
-      const querySnapshot = await db.collection("001-school").doc("students").collection("list").get();
-      allStudents = await Promise.all(querySnapshot.docs.map(async doc => {
-        const student = doc.data();
-        const studentId = doc.id;
-        
-        // Get transactions
-        const payments = await db.collection("001-school").doc("transactions")
-          .collection(`class${student.class}`).doc(studentId).collection("payments").get();
-        
-        // Get vehicle record
-        const vehicleRecord = vehicleRecords[studentId] || { eligible: 'No' };
-        
-        return { ...student, id: studentId, payments, vehicleRecord };
-      }));
+          const row = `
+            <tr>
+              <td>${rollNo}</td>
+              <td>${name}</td>
+              <td>${amountPaid}</td>
+              <td>${mode}</td>
+              <td>${txnId}</td>
+              <td>${dateTime}</td>
+              <td>${status}</td>
+            </tr>
+          `;
+          transactionsTable.insertAdjacentHTML("beforeend", row);
+        });
 
-      applyFiltersAndSort();
-    }
-
-    function calculateFees(student) {
-      // Base fee calculation
-      const baseFee = (systemSettings.universalFeesChart || []).find(f => 
-        f.class === student.class && f.stream === student.stream
-      )?.baseFee || 0;
-
-      // Discount
-      const discount = student.discount || 0;
-
-      // Vehicle fee calculation
-      let vehicleTotal = 0;
-      if (student.vehicleRecord.eligible === 'Yes' && student.vehicleRecord.vehicleData) {
-        const { rent, months = [] } = student.vehicleRecord.vehicleData;
-        vehicleTotal = (parseFloat(rent) || 0) * months.length;
-      }
-
-      // Payment calculations
-      const paid = student.payments.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
-      const finalTotal = (baseFee - discount) + vehicleTotal;
-      const pending = finalTotal - paid;
-
-      // Vehicle payments (simplified example)
-      const vehiclePaid = 0; // You'd need actual vehicle payment data
-      const vehiclePending = vehicleTotal - vehiclePaid;
-
-      return {
-        baseFee,
-        discount,
-        finalTotal,
-        paid,
-        pending,
-        vehicleTotal,
-        vehiclePaid,
-        vehiclePending,
-        status: pending <= 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Pending'
-      };
-    }
-
-    function applyFiltersAndSort() {
-      const searchTerm = document.getElementById('student-search').value.toLowerCase();
-      const classFilter = document.getElementById('class-filter').value;
-      const streamFilter = document.getElementById('stream-filter').value;
-      const vehicleFilter = document.getElementById('vehicle-status-filter').value;
-
-      const filtered = allStudents.filter(student => {
-        const matchesSearch = [student.srNumber, student.studentName, student.fatherName]
-          .some(field => field?.toLowerCase().includes(searchTerm));
-        
-        const matchesClass = !classFilter || student.class === classFilter;
-        const matchesStream = !streamFilter || student.stream === streamFilter;
-        
-        const vehicleStatus = student.vehicleRecord.eligible === 'Yes' ? 
-          (student.vehicleRecord.vehicleData?.months?.length > 0 ? 'not_pending' : 'pending') : 'not_pending';
-        const matchesVehicle = vehicleFilter === 'both' || vehicleFilter === vehicleStatus;
-
-        return matchesSearch && matchesClass && matchesStream && matchesVehicle;
-      });
-
-      // Sorting
-      filtered.sort((a, b) => {
-        const valA = getSortValue(a, sortConfig.column);
-        const valB = getSortValue(b, sortConfig.column);
-        return sortConfig.direction === 'asc' ? compare(valA, valB) : compare(valB, valA);
-      });
-
-      renderStudents(filtered);
-    }
-
-    function getSortValue(student, column) {
-      const fees = calculateFees(student);
-      switch(column) {
-        case 'no': return student.srNumber;
-        case 'name': return student.studentName;
-        case 'class': return student.class;
-        case 'pending': return fees.pending;
-        case 'vehiclePending': return fees.vehiclePending;
-        default: return fees[column] || 0;
+        // Initialize DataTables for sorting and other goodies
+        $("#transactionsTable").DataTable();
+      } catch (error) {
+        console.error("Error fetching transactions: ", error);
       }
     }
 
-    function compare(a, b) {
-      if (typeof a === 'string') return a.localeCompare(b);
-      return (a || 0) - (b || 0);
-    }
+    // Call fetchTransactions when the page loads
+    window.onload = fetchTransactions;
 
-    function renderStudents(students) {
-      const tbody = document.querySelector("#students-table tbody");
-      tbody.innerHTML = "";
+    // Filtering function using DataTables custom search
+    function applyFilters() {
+      const startDate = document.getElementById("start-date").value;
+      const endDate = document.getElementById("end-date").value;
+      const modeFilter = document.getElementById("mode-filter").value;
 
-      students.forEach(student => {
-        const fees = calculateFees(student);
-        const row = document.createElement('tr');
-        row.className = `status-${fees.status.toLowerCase()}`;
-        
-        row.innerHTML = `
-          <td>${student.srNumber}</td>
-          <td>${student.studentName}</td>
-          <td>${student.fatherName}</td>
-          <td>${student.class}</td>
-          <td>${student.stream}</td>
-          <td>₹${fees.baseFee}</td>
-          <td>₹${fees.discount}</td>
-          <td>₹${fees.finalTotal}</td>
-          <td>₹${fees.paid}</td>
-          <td>₹${fees.pending}</td>
-          <td>₹${fees.vehicleTotal}</td>
-          <td>₹${fees.vehiclePaid}</td>
-          <td>₹${fees.vehiclePending}</td>
-          <td>${fees.status}</td>
-          <td>
-            <button class="btn btn-sm btn-info" onclick="loadStudentDetails('${student.id}')">
-              View Details
-            </button>
-          </td>
-        `;
-        tbody.appendChild(row);
+      // Get the DataTable instance
+      const table = $("#transactionsTable").DataTable();
+
+      // Clear previous filters
+      $.fn.dataTable.ext.search = [];
+
+      // Custom search filter
+      $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+        const dateTime = data[5] || ""; // Date & Time column index
+        const mode = data[3] || ""; // Mode column index
+
+        // Mode filtering
+        if (modeFilter && mode !== modeFilter) {
+          return false;
+        }
+
+        // Date range filtering
+        if (startDate || endDate) {
+          const transactionDate = new Date(dateTime);
+          if (startDate && transactionDate < new Date(startDate)) {
+            return false;
+          }
+          if (endDate && transactionDate > new Date(endDate)) {
+            return false;
+          }
+        }
+
+        return true;
       });
+
+      table.draw();
     }
-
-    // Add sorting handlers
-    document.querySelectorAll('#students-table th').forEach(header => {
-      header.style.cursor = 'pointer';
-      header.addEventListener('click', () => {
-        const column = header.textContent.toLowerCase().replace(/ /g, '');
-        sortConfig = {
-          column,
-          direction: sortConfig.column === column && sortConfig.direction === 'asc' ? 'desc' : 'asc'
-        };
-        applyFiltersAndSort();
-      });
-    });
-
-    // Add filter event listeners
-    ['input', 'change'].forEach(event => {
-      document.getElementById('student-search').addEventListener(event, applyFiltersAndSort);
-      document.getElementById('class-filter').addEventListener(event, applyFiltersAndSort);
-      document.getElementById('stream-filter').addEventListener(event, applyFiltersAndSort);
-      document.getElementById('vehicle-status-filter').addEventListener(event, applyFiltersAndSort);
-    });
-
-    // ... (keep existing loadStudentDetails function mostly unchanged, but update fee calculations) ...
-
-    window.addEventListener('DOMContentLoaded', async () => {
-      await loadSystemSettings();
-      await loadStudents();
-    });
   </script>
 </body>
 </html>
