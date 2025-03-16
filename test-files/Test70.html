@@ -4,14 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Fee Management - Transactions</title>
-  <!-- Bootstrap CSS CDN -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 </head>
 <body>
-  <!-- Navbar -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <a class="navbar-brand" href="#">FeeManage</a>
     <div class="collapse navbar-collapse">
@@ -23,11 +20,9 @@
     </div>
   </nav>
 
-  <!-- Transactions Content -->
   <div class="container mt-4">
     <h3 class="mb-4">Transaction History</h3>
 
-    <!-- Filters -->
     <div class="row mb-3">
       <div class="col-md-3">
         <input type="date" id="start-date" class="form-control">
@@ -49,7 +44,6 @@
       </div>
     </div>
 
-    <!-- Transactions Table -->
     <table class="table table-striped">
       <thead class="thead-dark">
         <tr>
@@ -62,19 +56,16 @@
           <th>Status</th>
         </tr>
       </thead>
-      <tbody id="transactions-table">
-        <!-- Transactions will be loaded here -->
-      </tbody>
+      <tbody id="transactions-table"></tbody>
     </table>
   </div>
 
-  <!-- Bootstrap JS and dependencies -->
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
   <script>
-    // Firebase initialization
+    // Firebase Initialization
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -84,44 +75,87 @@
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
     };
 
-    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
+    // Main Transactions Loader
     async function loadTransactions() {
       const transactionsTable = document.getElementById('transactions-table');
-      transactionsTable.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+      transactionsTable.innerHTML = '<tr><td colspan="7">Loading... (Check console for details)</td></tr>';
 
       try {
-        const querySnapshot = await db.collectionGroup('payments').get();
-        const transactions = [];
+        console.log("[DEBUG] Starting payments collection group query");
+        const paymentsQuery = await db.collectionGroup('payments').get();
+        console.log(`[DEBUG] Found ${paymentsQuery.size} payment documents`);
 
-        for (const doc of querySnapshot.docs) {
-          const paymentData = doc.data();
-          const studentRef = doc.ref.parent.parent;
-          const studentDoc = await studentRef.get();
-          
-          if (studentDoc.exists) {
+        const transactions = [];
+        let studentFetchErrors = 0;
+
+        for (const paymentDoc of paymentsQuery.docs) {
+          try {
+            console.groupCollapsed(`[DEBUG] Processing payment: ${paymentDoc.id}`);
+            const paymentData = paymentDoc.data();
+            console.log("Payment data:", paymentData);
+
+            // Extract student ID and class from document path
+            const pathParts = paymentDoc.ref.path.split('/');
+            const studentId = pathParts[3]; // 001-school/transactions/class9/student00053/payments/...
+            const className = pathParts[2];
+            console.log("Extracted student ID:", studentId, "Class:", className);
+
+            // Get student document from students/list collection
+            const studentRef = db.doc(`001-school/students/list/${studentId}`);
+            console.log("Student reference path:", studentRef.path);
+            
+            const studentDoc = await studentRef.get();
+            
+            if (!studentDoc.exists) {
+              console.warn("[ERROR] Student document not found!");
+              studentFetchErrors++;
+              continue;
+            }
+
             const studentData = studentDoc.data();
+            console.log("Student data:", studentData);
+
+            // Handle timestamp conversion
+            let transactionDate;
+            if (paymentData.timestamp?.toDate) {
+              transactionDate = paymentData.timestamp.toDate();
+            } else if (paymentData.date) {
+              transactionDate = new Date(paymentData.date);
+            } else {
+              console.warn("[WARNING] Using fallback date");
+              transactionDate = new Date();
+            }
+
             transactions.push({
-              rollNo: studentData.srNumber,
-              name: studentData.studentName,
-              amount: paymentData.amount,
-              mode: paymentData.mode,
+              rollNo: studentData.srNumber || 'N/A',
+              name: studentData.studentName || 'Unknown',
+              amount: paymentData.amount || 0,
+              mode: paymentData.mode || 'Cash',
               txnId: paymentData.txnId || 'N/A',
-              date: paymentData.timestamp.toDate(),
+              date: transactionDate,
               status: 'Success'
             });
+            console.groupEnd();
+          } catch (error) {
+            console.error("[ERROR] Processing document:", error);
           }
         }
 
+        console.log(`[DEBUG] Processed ${transactions.length} valid transactions`);
+        console.log(`[DEBUG] ${studentFetchErrors} student documents not found`);
+        console.table(transactions);
+
         renderTransactions(transactions);
       } catch (error) {
-        console.error("Error loading transactions:", error);
+        console.error("[CRITICAL ERROR] Main error:", error);
         transactionsTable.innerHTML = '<tr><td colspan="7">Error loading transactions</td></tr>';
       }
     }
 
+    // Render Transactions with Filters
     function renderTransactions(transactions) {
       const transactionsTable = document.getElementById('transactions-table');
       transactionsTable.innerHTML = '';
@@ -144,24 +178,27 @@
         return;
       }
 
+      // Display transactions
       filtered.forEach(txn => {
-        const row = `
-          <tr>
-            <td>${txn.rollNo}</td>
-            <td>${txn.name}</td>
-            <td>₹${txn.amount}</td>
-            <td>${txn.mode}</td>
-            <td>${txn.txnId}</td>
-            <td>${txn.date.toLocaleString()}</td>
-            <td>${txn.status}</td>
-          </tr>
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${txn.rollNo}</td>
+          <td>${txn.name}</td>
+          <td>₹${txn.amount.toLocaleString()}</td>
+          <td>${txn.mode}</td>
+          <td>${txn.txnId}</td>
+          <td>${txn.date.toLocaleString()}</td>
+          <td><span class="badge badge-success">${txn.status}</span></td>
         `;
-        transactionsTable.innerHTML += row;
+        transactionsTable.appendChild(row);
       });
     }
 
-    // Initial load
-    loadTransactions();
+    // Initial Load
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log("[INIT] Page loaded, starting transaction fetch");
+      loadTransactions();
+    });
   </script>
 </body>
 </html>
