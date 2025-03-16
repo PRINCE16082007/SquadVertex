@@ -3,438 +3,385 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Student Transactions & Multi-Template Receipt Printing</title>
+  <title>SquadVertex Landing Page</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <style>
-    body { padding-top: 20px; }
-    .powered { font-size: 0.7em; color: #555; text-align: center; margin-top: 10px; }
+    /* Loading Screen styles */
+    #loadingScreen {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      /* Start dark and animate to white */
+      background-color: #222;
+      animation: bgTransition 7s forwards;
+    }
+    @keyframes bgTransition {
+      from { background-color: #222; }
+      to { background-color: #fff; }
+    }
+    .spinner {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #3498db;
+      border-radius: 50%;
+      width: 80px;
+      height: 80px;
+      animation: spin 2s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    /* Hide main content until loading finishes */
+    #content, #signUpPopup { display: none; }
+    /* Terms checkbox styling */
+    #termsSection {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-bottom: 20px;
+      background: #f9f9f9;
+    }
+    #termsSection label {
+      margin-left: 5px;
+    }
+    /* Footer */
+    #footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 0.9em;
+      color: #777;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+    }
+    /* Button enabled styles override disabled styles */
+    button:not([disabled]) {
+      opacity: 1;
+      cursor: pointer;
+    }
+    button[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h3 class="mb-4">Student Transactions</h3>
-    <!-- Transactions Table -->
-    <table class="table table-bordered" id="transactionsTable">
-      <thead>
-        <tr>
-          <th>Roll No</th>
-          <th>Name</th>
-          <th>Class</th>
-          <th>Transaction ID</th>
-          <th>Amount Paid</th>
-          <th>Mode</th>
-          <th>Date & Time</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="transactions-body">
-      </tbody>
-    </table>
+  <!-- Loading Screen with animated background and SquadVertex branding -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <h2 class="mt-3 text-white">Welcome to SquadVertex</h2>
+    <p class="text-white">Loading... This may take a few seconds.</p>
+    <p class="text-white">Please wait while we prepare your experience (transitioning from dark to light theme).</p>
   </div>
 
-  <!-- Modal for Template Selection -->
-  <div class="modal fade" id="templateModal" tabindex="-1" aria-labelledby="templateModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="templateModalLabel">Select Receipt Template</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeModal()">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>Select one of the following receipt templates:</p>
-          <div class="list-group">
-            <button type="button" class="list-group-item list-group-item-action" onclick="printTemplate1(selectedIndex)">
-              Template 1: Detailed Receipt with Signature
-            </button>
-            <button type="button" class="list-group-item list-group-item-action" onclick="printTemplate2(selectedIndex)">
-              Template 2: Duplicate Receipt (Half Page)
-            </button>
-            <button type="button" class="list-group-item list-group-item-action" onclick="printTemplate3(selectedIndex)">
-              Template 3: Minimal Receipt
-            </button>
-            <button type="button" class="list-group-item list-group-item-action" onclick="printTemplate4(selectedIndex)">
-              Template 4: Modern Card Receipt
-            </button>
-            <button type="button" class="list-group-item list-group-item-action" onclick="printTemplate5(selectedIndex)">
-              Template 5: Compact Vertical Receipt
-            </button>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal" onclick="closeModal()">Close</button>
-        </div>
+  <!-- Main Content -->
+  <div id="content" class="container mt-4">
+    <!-- School Selection -->
+    <div id="schoolSelection" class="mb-4">
+      <h3>Select Your School</h3>
+      <select id="schoolDropdown" class="form-control">
+        <option value="">-- Select School --</option>
+      </select>
+    </div>
+    <!-- Terms & Conditions Section -->
+    <div id="termsSection" class="mb-4" style="display:none;">
+      <h4>Terms &amp; Conditions</h4>
+      <p>Please read and accept the SquadVertex terms and conditions, privacy policy, and all related cloud service rules.</p>
+      <div class="form-check">
+        <input type="checkbox" id="termsCheckbox" class="form-check-input">
+        <label for="termsCheckbox" class="form-check-label">
+          I accept that I have read and agreed to all SquadVertex terms and conditions.
+        </label>
       </div>
+      <small id="termsMsg" class="form-text text-muted"></small>
+    </div>
+    <!-- Role Selection -->
+    <div id="roleSelection" class="mb-4" style="display:none;">
+      <h3>Choose Your Role</h3>
+      <div class="mb-2">
+        <button id="btnMainAdmin" class="btn btn-primary m-2" disabled>Main Admin</button>
+        <span id="msgMainAdmin" class="text-danger"></span>
+      </div>
+      <div class="mb-2">
+        <button id="btnTeacher" class="btn btn-success m-2" disabled>Teacher</button>
+        <span id="msgTeacher" class="text-danger"></span>
+      </div>
+      <div class="mb-2">
+        <button id="btnCoAdmin" class="btn btn-warning m-2" disabled>Co‑Admin</button>
+        <span id="msgCoAdmin" class="text-danger"></span>
+      </div>
+    </div>
+    <!-- Not Authorized Message -->
+    <div id="notAuthorized" class="alert alert-danger" style="display:none;">
+      You are not authorized for any role in this school.
     </div>
   </div>
 
-  <!-- jQuery, Popper.js, and Bootstrap JS -->
-  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <!-- Sign-Up Popup (if not signed in) -->
+  <div id="signUpPopup" class="container mt-4">
+    <div class="alert alert-info">
+      You need to sign in to continue.
+      <button id="btnSignIn" class="btn btn-primary">Sign In with Google</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="footer" class="container">
+    <p>Powered by SquadVertex Cloud Services. © SquadVertex</p>
+    <p>Please ensure that you have read and accepted our terms and conditions before proceeding.</p>
+  </div>
 
   <script>
-    // Use the provided Dropbox logo URL directly.
-    const logoURL = "https://dl.dropboxusercontent.com/scl/fi/fkq02zrhmtjo8q0j66pj4/Screenshot_20240901-172502.png?rlkey=256r98hep0tclyuznt3yjqdj1&dl=0";
+    // Initialize Firebase (replace with your config)
+    var firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+  };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-    // Dummy transaction data (replace with Firebase data later)
-    const transactions = [
-      {
-        rollNo: "53",
-        studentName: "Aayush",
-        class: "9",
-        transactionId: "gwbI79kvCjMgIhRg2N6S",
-        amountPaid: 1000,
-        mode: "Cash",
-        dateTime: "3/14/2025 8:04 PM",
-        notes: "Thank you for your payment. Please keep this receipt for your records."
-      },
-      {
-        rollNo: "78",
-        studentName: "Fadrick",
-        class: "10",
-        transactionId: "txn12345",
-        amountPaid: 2000,
-        mode: "UPI",
-        dateTime: "3/14/2025 9:00 PM",
-        notes: "Payment received successfully. We appreciate your prompt payment."
+    // Global variables
+    let currentUser = null;
+    let selectedSchool = null;
+    let schoolSettings = null; // systemSettings document data for the chosen school
+    let pageLinks = {}; // To hold dynamic URLs for role pages
+    let userRole = null; // "mainAdmin", "teacher", or "coAdmin"
+    
+    // For demo, known school collections (adjust as needed)
+    const schoolCollections = ["001-school", "002-school"];
+
+    // Fetch schools from each school's systemSettings document
+    async function fetchSchools() {
+      const dropdown = document.getElementById("schoolDropdown");
+      dropdown.innerHTML = '<option value="">-- Select School --</option>';
+      for (let col of schoolCollections) {
+        try {
+          let doc = await db.collection(col).doc("systemSettings").get();
+          if (doc.exists) {
+            let data = doc.data();
+            let option = document.createElement("option");
+            option.value = col;
+            option.text = data.schoolName || col;
+            dropdown.appendChild(option);
+          }
+        } catch (error) {
+          console.error("Error fetching school from", col, error);
+        }
       }
-    ];
+    }
 
-    // Dummy school details
-    const schoolDetails = {
-      schoolName: "ABC Public School",
-      address: "123 Main Street, City, Country",
-      contact: "0123456789",
-      email: "info@abcpublicschool.com"
-    };
+    // Fetch dynamic page links from the "pages" document in the selected school collection
+    async function fetchPageLinks(schoolCol) {
+      try {
+        let doc = await db.collection(schoolCol).doc("pages").get();
+        if (doc.exists) {
+          pageLinks = doc.data();
+        }
+      } catch (error) {
+        console.error("Error fetching page links from", schoolCol, error);
+      }
+    }
 
-    // Populate the transactions table
-    function populateTable() {
-      const tbody = document.getElementById("transactions-body");
-      tbody.innerHTML = "";
-      transactions.forEach((tx, index) => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${tx.rollNo}</td>
-          <td>${tx.studentName}</td>
-          <td>${tx.class}</td>
-          <td>${tx.transactionId}</td>
-          <td>₹${tx.amountPaid}</td>
-          <td>${tx.mode}</td>
-          <td>${tx.dateTime}</td>
-          <td><button class="btn btn-primary" onclick="chooseTemplate(${index})">Print Receipt</button></td>
-        `;
-        tbody.appendChild(row);
+    // Check user role for the selected school and update UI accordingly
+    async function checkUserRoleForSchool(schoolCol) {
+      selectedSchool = schoolCol;
+      // Get systemSettings
+      let sysDoc = await db.collection(schoolCol).doc("systemSettings").get();
+      if(sysDoc.exists) {
+        schoolSettings = sysDoc.data();
+      }
+      // Fetch dynamic page links
+      await fetchPageLinks(schoolCol);
+      
+      // Check roles in teachers/list sub-collection (for teacher and co‑admin)
+      let teachersRef = db.collection(schoolCol).doc("teachers").collection("list");
+      let userEmail = currentUser.email;
+      let roleFound = false;
+      
+      // Reset messages and disable buttons initially
+      document.getElementById("btnMainAdmin").disabled = true;
+      document.getElementById("btnTeacher").disabled = true;
+      document.getElementById("btnCoAdmin").disabled = true;
+      document.getElementById("msgMainAdmin").textContent = "";
+      document.getElementById("msgTeacher").textContent = "";
+      document.getElementById("msgCoAdmin").textContent = "";
+      
+      // 1. Check Main Admin: match with systemSettings.officialEmail
+      if (schoolSettings && schoolSettings.officialEmail &&
+          schoolSettings.officialEmail.toLowerCase() === userEmail.toLowerCase()) {
+        document.getElementById("btnMainAdmin").disabled = false;
+        document.getElementById("msgMainAdmin").textContent = "Authorized.";
+        userRole = "mainAdmin";
+        roleFound = true;
+      } else {
+        document.getElementById("msgMainAdmin").textContent = "Not authorized for Main Admin.";
+      }
+      // 2. Check Teacher and Co‑Admin roles
+      let querySnapshot = await teachersRef.where("email", "==", userEmail).get();
+      querySnapshot.forEach(doc => {
+        if (doc.id.startsWith("teacher")) {
+          document.getElementById("btnTeacher").disabled = false;
+          document.getElementById("msgTeacher").textContent = "Authorized.";
+          userRole = "teacher";
+          roleFound = true;
+        }
+        if (doc.id.startsWith("admin")) {
+          document.getElementById("btnCoAdmin").disabled = false;
+          document.getElementById("msgCoAdmin").textContent = "Authorized.";
+          userRole = "coAdmin";
+          roleFound = true;
+        }
       });
+      
+      if (!roleFound) {
+        document.getElementById("notAuthorized").style.display = "block";
+      } else {
+        document.getElementById("notAuthorized").style.display = "none";
+        // Show the Terms & Conditions section once a role is found
+        document.getElementById("termsSection").style.display = "block";
+        // Check if the user has already accepted the terms
+        await checkTermsAcceptance();
+      }
     }
 
-    let selectedIndex = null;
-    function chooseTemplate(index) {
-      selectedIndex = index;
-      $('#templateModal').modal('show');
-    }
-    function closeModal() {
-      $('#templateModal').modal('hide');
-    }
-
-    // Template 1: Detailed Receipt with Signature Required
-    function printTemplate1(index) {
-      const tx = transactions[index];
-      const printHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Receipt - ${tx.studentName}</title>
-          <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-          <style>
-            body { padding: 20px; font-family: Arial, sans-serif; position: relative; }
-            .logo { position: absolute; top: 20px; left: 20px; width: 60px; height: 60px; }
-            .receipt-container { max-width: 800px; margin: auto; border: 1px solid #000; padding: 20px; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .header h2 { margin-bottom: 5px; }
-            .details { margin-top: 20px; }
-            .details h4 { border-bottom: 1px solid #000; padding-bottom: 5px; }
-            .details p { margin: 5px 0; }
-            .signature { margin-top: 20px; text-align: center; }
-            .signature p { border-top: 1px solid #000; width: 200px; margin: 0 auto; }
-            .notes { margin-top: 20px; font-style: italic; }
-            .footer { text-align: center; margin-top: 20px; }
-            .action-buttons { margin-top: 20px; text-align: center; }
-            @media print { .action-buttons { display: none; } }
-          </style>
-        </head>
-        <body>
-          <img src="${logoURL}" alt="School Logo" class="logo" />
-          <div class="receipt-container">
-            <div class="header">
-              <h2>${schoolDetails.schoolName}</h2>
-              <p>${schoolDetails.address}</p>
-              <p>Contact: ${schoolDetails.contact} | Email: ${schoolDetails.email}</p>
-            </div>
-            <div class="details">
-              <h4>Student Details</h4>
-              <p><strong>Roll No:</strong> ${tx.rollNo}</p>
-              <p><strong>Name:</strong> ${tx.studentName}</p>
-              <p><strong>Class:</strong> ${tx.class}</p>
-            </div>
-            <div class="details">
-              <h4>Transaction Details</h4>
-              <p><strong>Transaction ID:</strong> ${tx.transactionId}</p>
-              <p><strong>Amount Paid:</strong> ₹${tx.amountPaid}</p>
-              <p><strong>Mode:</strong> ${tx.mode}</p>
-              <p><strong>Date & Time:</strong> ${tx.dateTime}</p>
-            </div>
-            <div class="notes">
-              <p>${tx.notes}</p>
-            </div>
-            <div class="signature">
-              <p>Signature Required</p>
-            </div>
-            <div class="footer">
-              <p>Thank you for your payment!</p>
-              <p>This is a computer-generated receipt.</p>
-              <div class="powered">Powered by SquadVertex &amp; EXELIS</div>
-            </div>
-            <div class="action-buttons">
-              <button class="btn btn-success" onclick="window.print()">Save &amp; Print</button>
-              <button class="btn btn-secondary" onclick="window.close()">Close</button>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-      const printWindow = window.open("", "_blank", "width=900,height=700");
-      printWindow.document.open();
-      printWindow.document.write(printHTML);
-      printWindow.document.close();
-      closeModal();
+    // Check if the user has already accepted terms. 
+    // For mainAdmin, check in systemSettings; for teacher/coAdmin, check in teachers/list document.
+    async function checkTermsAcceptance() {
+      let accepted = false;
+      let consentDocRef = null;
+      let userEmail = currentUser.email;
+      if(userRole === "mainAdmin") {
+        // For main admin, consent stored in systemSettings (field: consentAccepted)
+        consentDocRef = db.collection(selectedSchool).doc("systemSettings");
+      } else {
+        // For teacher or coAdmin, consent stored in their own document in teachers/list
+        let teachersRef = db.collection(selectedSchool).doc("teachers").collection("list");
+        // We assume there is exactly one document with matching email
+        let querySnapshot = await teachersRef.where("email", "==", userEmail).get();
+        querySnapshot.forEach(doc => {
+          consentDocRef = doc.ref;
+        });
+      }
+      if (consentDocRef) {
+        let doc = await consentDocRef.get();
+        if(doc.exists && doc.data().consentAccepted === true) {
+          accepted = true;
+        }
+      }
+      // Update the checkbox state accordingly
+      let termsCheckbox = document.getElementById("termsCheckbox");
+      let termsMsg = document.getElementById("termsMsg");
+      if(accepted) {
+        termsCheckbox.checked = true;
+        termsCheckbox.disabled = true;
+        termsMsg.textContent = "You have already accepted the terms.";
+      } else {
+        termsCheckbox.checked = false;
+        termsCheckbox.disabled = false;
+        termsMsg.textContent = "Please accept the terms to proceed.";
+      }
     }
 
-    // Template 2: Duplicate Receipt (Half Page for School & Parent)
-    function printTemplate2(index) {
-      const tx = transactions[index];
-      const receiptPart = `
-        <div style="border: 1px solid #000; padding: 10px; margin-bottom: 10px; position: relative;">
-          <img src="${logoURL}" alt="Logo" style="position: absolute; top: 10px; left: 10px; width:50px; height:50px;" />
-          <div style="text-align: center; margin-left: 70px;">
-            <h4>${schoolDetails.schoolName}</h4>
-            <p>${schoolDetails.address}</p>
-            <p>Contact: ${schoolDetails.contact} | Email: ${schoolDetails.email}</p>
-          </div>
-          <hr style="margin-top: 60px;">
-          <div>
-            <p><strong>Roll No:</strong> ${tx.rollNo} | <strong>Name:</strong> ${tx.studentName} | <strong>Class:</strong> ${tx.class}</p>
-            <p><strong>Txn ID:</strong> ${tx.transactionId} | <strong>Amount:</strong> ₹${tx.amountPaid}</p>
-            <p><strong>Mode:</strong> ${tx.mode} | <strong>Date &amp; Time:</strong> ${tx.dateTime}</p>
-          </div>
-          <div style="text-align: center; margin-top: 10px;">
-            <p>Signature Required</p>
-          </div>
-          <div class="powered">Powered by SquadVertex &amp; EXELIS</div>
-        </div>
-      `;
-      const printHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Duplicate Receipt - ${tx.studentName}</title>
-          <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-          <style>
-            body { padding: 20px; font-family: Arial, sans-serif; }
-            .receipt-container { max-width: 800px; margin: auto; }
-            .action-buttons { margin-top: 20px; text-align: center; }
-            @media print { .action-buttons { display: none; } }
-          </style>
-        </head>
-        <body>
-          <div class="receipt-container">
-            ${receiptPart}
-            ${receiptPart}
-          </div>
-          <div class="action-buttons">
-            <button class="btn btn-success" onclick="window.print()">Save &amp; Print</button>
-            <button class="btn btn-secondary" onclick="window.close()">Close</button>
-          </div>
-        </body>
-        </html>
-      `;
-      const printWindow = window.open("", "_blank", "width=900,height=700");
-      printWindow.document.open();
-      printWindow.document.write(printHTML);
-      printWindow.document.close();
-      closeModal();
-    }
+    // When the user clicks the terms checkbox, update consent in Firestore
+    document.getElementById("termsCheckbox").addEventListener("change", async function(){
+      if(this.checked) {
+        // Update Firestore record to mark consentAccepted = true.
+        let consentDocRef = null;
+        let userEmail = currentUser.email;
+        if(userRole === "mainAdmin") {
+          consentDocRef = db.collection(selectedSchool).doc("systemSettings");
+        } else {
+          let teachersRef = db.collection(selectedSchool).doc("teachers").collection("list");
+          let querySnapshot = await teachersRef.where("email", "==", userEmail).get();
+          querySnapshot.forEach(doc => {
+            consentDocRef = doc.ref;
+          });
+        }
+        if(consentDocRef) {
+          await consentDocRef.update({ consentAccepted: true });
+          // Disable checkbox after update
+          this.disabled = true;
+          document.getElementById("termsMsg").textContent = "You have accepted the terms.";
+        }
+      }
+    });
 
-    // Template 3: Minimal Receipt (Compact with Powered by)
-    function printTemplate3(index) {
-      const tx = transactions[index];
-      const printHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Minimal Receipt - ${tx.studentName}</title>
-          <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-          <style>
-            body { padding: 20px; font-family: Arial, sans-serif; position: relative; }
-            .logo { position: absolute; top: 20px; left: 20px; width: 50px; height: 50px; }
-            .receipt-container { max-width: 600px; margin: auto; border: 1px solid #000; padding: 15px; text-align: center; }
-            .details p { margin: 5px 0; }
-            .action-buttons { margin-top: 20px; text-align: center; }
-            @media print { .action-buttons { display: none; } }
-            .powered { font-size: 0.7em; color: #555; margin-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <img src="${logoURL}" alt="Logo" class="logo" />
-          <div class="receipt-container">
-            <h4>${schoolDetails.schoolName}</h4>
-            <div class="details">
-              <p><strong>${tx.studentName}</strong> (Roll No: ${tx.rollNo})</p>
-              <p>Class: ${tx.class}</p>
-              <p>Txn ID: ${tx.transactionId} | ₹${tx.amountPaid}</p>
-              <p>${tx.mode} | ${tx.dateTime}</p>
-            </div>
-            <div class="action-buttons">
-              <button class="btn btn-success" onclick="window.print()">Save &amp; Print</button>
-              <button class="btn btn-secondary" onclick="window.close()">Close</button>
-            </div>
-            <div class="powered">Powered by SquadVertex &amp; EXELIS</div>
-          </div>
-        </body>
-        </html>
-      `;
-      const printWindow = window.open("", "_blank", "width=900,height=700");
-      printWindow.document.open();
-      printWindow.document.write(printHTML);
-      printWindow.document.close();
-      closeModal();
-    }
+    // Set role button redirection using dynamic page links (fetched earlier)
+    document.getElementById("btnMainAdmin").addEventListener("click", function(){
+      if(pageLinks.adminSignUp) {
+        window.location.href = pageLinks.adminSignUp;
+      } else {
+        alert("Page link not available.");
+      }
+    });
+    document.getElementById("btnTeacher").addEventListener("click", function(){
+      if(pageLinks.teacherSignUp) {
+        window.location.href = pageLinks.teacherSignUp;
+      } else {
+        alert("Page link not available.");
+      }
+    });
+    document.getElementById("btnCoAdmin").addEventListener("click", function(){
+      if(pageLinks.coAdminSignUp) {
+        window.location.href = pageLinks.coAdminSignUp;
+      } else {
+        alert("Page link not available.");
+      }
+    });
 
-    // Template 4: Modern Card Receipt
-    function printTemplate4(index) {
-      const tx = transactions[index];
-      const printHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Modern Receipt - ${tx.studentName}</title>
-          <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-          <style>
-            body { background-color: #f4f7f6; padding: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-            .card { max-width: 700px; margin: auto; border: none; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-            .card-header { background-color: #007bff; color: #fff; border-top-left-radius: 10px; border-top-right-radius: 10px; position: relative; padding: 20px; }
-            .card-header img { position: absolute; top: 20px; left: 20px; width: 60px; height: 60px; }
-            .card-header h2 { margin-left: 90px; }
-            .card-body { padding: 20px; background-color: #fff; }
-            .card-body p { margin: 5px 0; }
-            .card-footer { text-align: center; padding: 10px; background-color: #f1f1f1; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
-            .action-buttons { text-align: center; margin-top: 20px; }
-            @media print { .action-buttons { display: none; } }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="card-header">
-              <img src="${logoURL}" alt="Logo">
-              <h2>${schoolDetails.schoolName}</h2>
-              <p>${schoolDetails.address}</p>
-              <p>Contact: ${schoolDetails.contact} | Email: ${schoolDetails.email}</p>
-            </div>
-            <div class="card-body">
-              <h4>Student Details</h4>
-              <p><strong>Roll No:</strong> ${tx.rollNo}</p>
-              <p><strong>Name:</strong> ${tx.studentName}</p>
-              <p><strong>Class:</strong> ${tx.class}</p>
-              <hr>
-              <h4>Transaction Details</h4>
-              <p><strong>Txn ID:</strong> ${tx.transactionId}</p>
-              <p><strong>Amount Paid:</strong> ₹${tx.amountPaid}</p>
-              <p><strong>Mode:</strong> ${tx.mode}</p>
-              <p><strong>Date & Time:</strong> ${tx.dateTime}</p>
-              <p>${tx.notes}</p>
-            </div>
-            <div class="card-footer">
-              <p>Signature Required</p>
-              <p>Thank you for your payment!</p>
-              <p class="powered">Powered by SquadVertex &amp; EXELIS</p>
-            </div>
-          </div>
-          <div class="action-buttons">
-            <button class="btn btn-success" onclick="window.print()">Save &amp; Print</button>
-            <button class="btn btn-secondary" onclick="window.close()">Close</button>
-          </div>
-        </body>
-        </html>
-      `;
-      const printWindow = window.open("", "_blank", "width=900,height=700");
-      printWindow.document.open();
-      printWindow.document.write(printHTML);
-      printWindow.document.close();
-      closeModal();
-    }
+    // Handle school selection change event
+    document.getElementById("schoolDropdown").addEventListener("change", function(e){
+      let selected = e.target.value;
+      if(selected) {
+        // Show loading screen while checking role and terms acceptance
+        document.getElementById("loadingScreen").style.display = "flex";
+        checkUserRoleForSchool(selected).then(() => {
+          // Ensure minimum 7 seconds loading
+          setTimeout(() => {
+            document.getElementById("loadingScreen").style.display = "none";
+            document.getElementById("content").style.display = "block";
+          }, 7000);
+        });
+      }
+    });
 
-    // Template 5: Compact Vertical Receipt
-    function printTemplate5(index) {
-      const tx = transactions[index];
-      const printHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Vertical Receipt - ${tx.studentName}</title>
-          <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-          <style>
-            body { padding: 20px; font-family: Arial, sans-serif; }
-            .vertical-receipt { max-width: 500px; margin: auto; border: 1px solid #000; padding: 15px; }
-            .vertical-receipt img { display: block; margin: 0 auto 10px auto; width: 50px; height: 50px; }
-            .vertical-receipt h4 { text-align: center; margin-bottom: 10px; }
-            .vertical-receipt .info { margin-bottom: 10px; }
-            .vertical-receipt .info p { margin: 3px 0; }
-            .action-buttons { text-align: center; margin-top: 20px; }
-            @media print { .action-buttons { display: none; } }
-            .powered { font-size: 0.7em; color: #555; text-align: center; margin-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="vertical-receipt">
-            <img src="${logoURL}" alt="Logo">
-            <h4>${schoolDetails.schoolName}</h4>
-            <div class="info">
-              <p><strong>Student:</strong> ${tx.studentName}</p>
-              <p><strong>Roll No:</strong> ${tx.rollNo}</p>
-              <p><strong>Class:</strong> ${tx.class}</p>
-            </div>
-            <div class="info">
-              <p><strong>Txn ID:</strong> ${tx.transactionId}</p>
-              <p><strong>Amount:</strong> ₹${tx.amountPaid}</p>
-              <p><strong>Mode:</strong> ${tx.mode}</p>
-              <p><strong>Date:</strong> ${tx.dateTime}</p>
-            </div>
-            <div class="powered">Powered by SquadVertex &amp; EXELIS</div>
-          </div>
-          <div class="action-buttons">
-            <button class="btn btn-success" onclick="window.print()">Save &amp; Print</button>
-            <button class="btn btn-secondary" onclick="window.close()">Close</button>
-          </div>
-        </body>
-        </html>
-      `;
-      const printWindow = window.open("", "_blank", "width=900,height=700");
-      printWindow.document.open();
-      printWindow.document.write(printHTML);
-      printWindow.document.close();
-      closeModal();
-    }
+    // Listen for authentication state changes
+    auth.onAuthStateChanged(user => {
+      if(user) {
+        currentUser = user;
+        // Fetch schools and then show content after 7 seconds
+        fetchSchools().then(() => {
+          setTimeout(() => {
+            document.getElementById("loadingScreen").style.display = "none";
+            document.getElementById("content").style.display = "block";
+          }, 7000);
+        });
+      } else {
+        // If not signed in, hide loading and show sign-up popup
+        document.getElementById("loadingScreen").style.display = "none";
+        document.getElementById("signUpPopup").style.display = "block";
+      }
+    });
 
-    // Populate table on page load
-    window.onload = populateTable;
+    // Google Sign-In button event
+    document.getElementById("btnSignIn").addEventListener("click", function(){
+      var provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .then(result => { location.reload(); })
+        .catch(error => { console.error("Error during sign-in:", error); });
+    });
   </script>
 </body>
 </html>
