@@ -1,452 +1,282 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SquadVertex Landing Page</title>
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-  <!-- Bootstrap CSS -->
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <style>
-    /* Loading Screen styles */
-    #loadingScreen {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      /* Default background & text color */
-      background-color: #fff;
-      color: #000;
-    }
-    /* First-time animation: dark-to-white transition */
-    .first-animation {
-      background-color: #222;
-      color: #fff;
-      animation: bgTransition 7s forwards;
-    }
-    @keyframes bgTransition {
-      from { background-color: #222; color: #fff; }
-      to { background-color: #fff; color: #000; }
-    }
-    /* Subsequent idle animation (subtle pulse) */
-    .idle-animation {
-      animation: idlePulse 3s infinite;
-    }
-    @keyframes idlePulse {
-      0%, 100% { background-color: #fff; }
-      50% { background-color: #f9f9f9; }
-    }
-    .spinner {
-      border: 8px solid #f3f3f3;
-      border-top: 8px solid #3498db;
-      border-radius: 50%;
-      width: 80px;
-      height: 80px;
-      animation: spin 2s linear infinite;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    /* Hide main content and sign-in popup by default */
-    #content, #signUpPopup { display: none; }
-    /* Role Selection styling */
-    #roleSelection p#roleInstructions {
-      font-style: italic;
-      color: #007bff;
-    }
-    /* Terms & Conditions Section */
-    #termsSection {
-      border: 1px solid #ccc;
-      padding: 15px;
-      margin-top: 20px;
-      background: #f9f9f9;
-    }
-    #termsSection label {
-      margin-left: 5px;
-    }
-    /* Footer */
-    #footer {
-      margin-top: 40px;
-      text-align: center;
-      font-size: 0.9em;
-      color: #777;
-      border-top: 1px solid #ccc;
-      padding-top: 10px;
-    }
-    /* Button styles: enabled vs disabled */
-    button:not([disabled]) {
-      opacity: 1;
-      cursor: pointer;
-    }
-    button[disabled] {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-  </style>
-</head>
-<body>
-  <!-- Loading Screen -->
-  <div id="loadingScreen">
-    <div class="spinner"></div>
-    <h2 class="mt-3">Welcome to SquadVertex</h2>
-    <p id="loadingMsg">Loading... Please wait while we prepare your experience.</p>
-    <p id="themeMsg">Your UI is transitioning from dark to light.</p>
-  </div>
-
-  <!-- Main Content -->
-  <div id="content" class="container mt-4">
-    <!-- School Selection -->
-    <div id="schoolSelection" class="mb-4">
-      <h3>Select Your School</h3>
-      <select id="schoolDropdown" class="form-control">
-        <option value="">-- Select School --</option>
-      </select>
-    </div>
-    <!-- Role Selection & Instructions -->
-    <div id="roleSelection" class="mb-4" style="display:none;">
-      <h3>Choose Your Role</h3>
-      <p id="roleInstructions">Based on your registered email, the corresponding role button will be enabled if you are eligible. (If a button remains disabled, you are not authorized for that role.)</p>
-      <div class="mb-2">
-        <button id="btnMainAdmin" class="btn btn-primary m-2" disabled>Main Admin</button>
-        <span id="msgMainAdmin" class="text-danger"></span>
-      </div>
-      <div class="mb-2">
-        <button id="btnTeacher" class="btn btn-success m-2" disabled>Teacher</button>
-        <span id="msgTeacher" class="text-danger"></span>
-      </div>
-      <div class="mb-2">
-        <button id="btnCoAdmin" class="btn btn-warning m-2" disabled>Co‑Admin</button>
-        <span id="msgCoAdmin" class="text-danger"></span>
-      </div>
-    </div>
-    <!-- Terms & Conditions & Password Instructions -->
-    <div id="termsSection" class="mb-4" style="display:none;">
-      <h4>Terms &amp; Conditions &amp; Password Instructions</h4>
-      <p>
-        Please read and accept the SquadVertex terms and conditions, privacy policy, and related cloud service rules.
-        Your password will be provided by the designated admin (contact support if needed). Only an authorized email
-        can access the system.
-      </p>
-      <div class="form-check">
-        <input type="checkbox" id="termsCheckbox" class="form-check-input">
-        <label for="termsCheckbox" class="form-check-label">
-          I accept the SquadVertex terms and conditions.
-        </label>
-      </div>
-      <small id="termsMsg" class="form-text text-muted"></small>
-    </div>
-    <!-- Not Authorized Message -->
-    <div id="notAuthorized" class="alert alert-danger" style="display:none;">
-      You are not authorized for any role in this school.
-    </div>
-  </div>
-
-  <!-- Sign-In Popup (if not signed in) -->
-  <div id="signUpPopup" class="container mt-4">
-    <div class="alert alert-info">
-      You need to sign in to continue.
-      <button id="btnSignIn" class="btn btn-primary">Sign In with Google</button>
-    </div>
-  </div>
-
-  <!-- Footer -->
-  <div id="footer" class="container">
-    <p>Powered by SquadVertex Cloud Services. © SquadVertex</p>
-    <p>Please ensure you have read and accepted our terms and conditions before proceeding.</p>
-  </div>
-
 <script>
-  // Initialize Firebase (replace with your own config)
-  var firebaseConfig = {
+  // Initialize Firebase
+  const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
     authDomain: "squadvertex2007.firebaseapp.com",
     projectId: "squadvertex2007",
     storageBucket: "squadvertex2007.appspot.com",
     messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
   };
   firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
   const db = firebase.firestore();
+  const storage = firebase.storage();
 
-  // Global variables
-  let currentUser = null;
-  let selectedSchool = null;
-  let schoolSettings = null; // systemSettings document for the chosen school
-  let pageLinks = {}; // dynamic page URLs: adminSignUp, teacherSignUp, coAdminSignUp
-  let userRole = null; // "mainAdmin", "teacher", or "coAdmin"
-  let authorizedMainAdmin = false, authorizedTeacher = false, authorizedCoAdmin = false;
-
-  // Determine if this is the first visit (for animation purposes)
-  const isFirstVisit = !localStorage.getItem("firstTimeLoaded");
-
-  // Apply the proper animation class to the loading screen
-  window.onload = function(){
-    const loadingScreen = document.getElementById("loadingScreen");
-    if(isFirstVisit){
-      loadingScreen.classList.add("first-animation");
-    } else {
-      loadingScreen.classList.add("idle-animation");
-      document.getElementById("loadingMsg").textContent = "Welcome back!";
-      document.getElementById("themeMsg").textContent = "";
+  // Generate document ID based on designation and input number
+  function generateStaffDocId(id, designation) {
+    let prefix = "";
+    if (designation === "Teacher") {
+      prefix = "teacher";
+    } else if (designation === "Administrator") {
+      prefix = "admin";
+    } else if (designation === "Support Staff") {
+      prefix = "staff";
     }
-  };
+    return prefix + id.toString().padStart(5, "0");
+  }
 
-  // For demo, assume these known school collections (adjust as needed)
-  const schoolCollections = ["001-school", "002-school"];
+  // Toggle Subjects multi-select when designation is Teacher
+  document.getElementById("designation").addEventListener("change", function () {
+    if (this.value === "Teacher") {
+      document.getElementById("subjects-field").style.display = "block";
+    } else {
+      document.getElementById("subjects-field").style.display = "none";
+    }
+  });
 
-  // Fetch schools by reading each school's systemSettings document
-  async function fetchSchools() {
-    const dropdown = document.getElementById("schoolDropdown");
-    dropdown.innerHTML = '<option value="">-- Select School --</option>';
-    for (let col of schoolCollections) {
+  // Global edit flag
+  let editMode = false;
+
+  // Form submission: Add or Update staff record
+  document.getElementById("staff-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    if (!confirm(editMode ? "Update this staff record?" : "Add this new record?")) return;
+    
+    const idInput = document.getElementById("staff-id-input").value.trim();
+    const staffName = document.getElementById("staff-name").value.trim();
+    const designation = document.getElementById("designation").value;
+    const department = document.getElementById("department").value.trim();
+    const contact = document.getElementById("staff-contact").value.trim();
+    const email = document.getElementById("staff-email").value.trim();
+    const joiningDate = document.getElementById("joining-date").value;
+    let subjects = [];
+    if (designation === "Teacher") {
+      const subjectsSelect = document.getElementById("subjects");
+      for (let option of subjectsSelect.options) {
+        if (option.selected) {
+          subjects.push(option.value);
+        }
+      }
+    }
+    const timestamp = firebase.firestore.FieldValue.serverTimestamp();
+    let profilePicUrl = "";
+    const fileInput = document.getElementById("profile-pic");
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      const storageRef = storage.ref("staff_profiles/" + file.name);
       try {
-        let doc = await db.collection(col).doc("systemSettings").get();
-        if (doc.exists) {
-          let data = doc.data();
-          let option = document.createElement("option");
-          option.value = col;
-          option.text = data.schoolName || col;
-          dropdown.appendChild(option);
-        }
+        const snapshot = await storageRef.put(file);
+        profilePicUrl = await snapshot.ref.getDownloadURL();
       } catch (error) {
-        console.error("Error fetching school from", col, error);
+        console.error("Error uploading profile picture:", error);
       }
     }
-  }
+    
+    const docId = generateStaffDocId(idInput, designation);
+    const staffData = {
+      staffId: docId,
+      staffName,
+      designation,
+      department,
+      contact,
+      email,
+      joiningDate,
+      subjects: designation === "Teacher" ? subjects : [],
+      profilePicUrl,
+      timestamp
+    };
 
-  // Fetch dynamic page links from the "pages" document in the selected school
-  async function fetchPageLinks(schoolCol) {
-    try {
-      let doc = await db.collection(schoolCol).doc("pages").get();
-      if (doc.exists) {
-        pageLinks = doc.data();
-      }
-    } catch (error) {
-      console.error("Error fetching page links from", schoolCol, error);
-    }
-  }
-
-  // Check user role for the selected school and update UI accordingly
-  async function checkUserRoleForSchool(schoolCol) {
-    selectedSchool = schoolCol;
-    // Get systemSettings
-    let sysDoc = await db.collection(schoolCol).doc("systemSettings").get();
-    if(sysDoc.exists) {
-      schoolSettings = sysDoc.data();
-    }
-    // Fetch dynamic page links
-    await fetchPageLinks(schoolCol);
-
-    // Reset authorized flags
-    authorizedMainAdmin = false; authorizedTeacher = false; authorizedCoAdmin = false;
-
-    // Check roles in the teachers/list sub-collection (for teacher and coAdmin)
-    let teachersRef = db.collection(schoolCol).doc("teachers").collection("list");
-    let userEmail = currentUser.email;
-
-    // 1. Check Main Admin by comparing with systemSettings.officialEmail
-    if (schoolSettings && schoolSettings.officialEmail &&
-        schoolSettings.officialEmail.toLowerCase() === userEmail.toLowerCase()) {
-      authorizedMainAdmin = true;
-      document.getElementById("msgMainAdmin").textContent = "Authorized for Main Admin.";
-    } else {
-      document.getElementById("msgMainAdmin").textContent = "Not authorized for Main Admin.";
-    }
-    // 2. Check Teacher and Co‑Admin roles from teachers/list
-    let querySnapshot = await teachersRef.where("email", "==", userEmail).get();
-    querySnapshot.forEach(doc => {
-      if (doc.id.startsWith("teacher")) {
-        authorizedTeacher = true;
-        document.getElementById("msgTeacher").textContent = "Authorized for Teacher.";
-      }
-      if (doc.id.startsWith("admin")) {
-        authorizedCoAdmin = true;
-        document.getElementById("msgCoAdmin").textContent = "Authorized for Co‑Admin.";
-      }
-    });
-
-    // Initially, regardless of authorization, keep buttons disabled until terms are accepted.
-    document.getElementById("btnMainAdmin").disabled = true;
-    document.getElementById("btnTeacher").disabled = true;
-    document.getElementById("btnCoAdmin").disabled = true;
-
-    // If no role is authorized, show not authorized message
-    if (!authorizedMainAdmin && !authorizedTeacher && !authorizedCoAdmin) {
-      document.getElementById("notAuthorized").style.display = "block";
-    } else {
-      document.getElementById("notAuthorized").style.display = "none";
-    }
-
-    // Show Role Selection and Terms section regardless
-    document.getElementById("roleSelection").style.display = "block";
-    document.getElementById("termsSection").style.display = "block";
-
-    // Check if the user already accepted the terms
-    await checkTermsAcceptance();
-  }
-
-  // Check if the user has already accepted terms in Firestore
-  async function checkTermsAcceptance() {
-    let accepted = false;
-    let consentDocRef = null;
-    let userEmail = currentUser.email;
-    // For Main Admin, use systemSettings; for teacher/coAdmin, use teachers/list document.
-    if(userRole === "mainAdmin") {
-      consentDocRef = db.collection(selectedSchool).doc("systemSettings");
-    } else {
-      let teachersRef = db.collection(selectedSchool).doc("teachers").collection("list");
-      let querySnapshot = await teachersRef.where("email", "==", userEmail).get();
-      querySnapshot.forEach(doc => {
-        consentDocRef = doc.ref;
+    // First, write to the 001-school teachers/list sub-collection
+    db.collection("001-school").doc("teachers").collection("list").doc(docId)
+      .set(staffData, { merge: true })
+      .then(() => {
+        // After successful write, duplicate the same data into "SVX-SaaS-003-users"
+        return db.collection("SVX-SaaS-003-users").doc(docId).set(staffData, { merge: true });
+      })
+      .then(() => {
+        alert(editMode ? "Record updated!" : "New record added!");
+        document.getElementById("staff-form").reset();
+        document.getElementById("form-submit-btn").innerText = "Add Staff";
+        document.getElementById("form-title").innerText = "Add Teacher/Staff";
+        document.getElementById("cancel-edit-btn").classList.add("d-none");
+        editMode = false;
+        loadStaffProfiles();
+      })
+      .catch((error) => {
+        console.error("Error saving data:", error);
+        alert("Error saving data. Please try again.");
       });
-    }
-    if (consentDocRef) {
-      let doc = await consentDocRef.get();
-      if(doc.exists && doc.data().consentAccepted === true) {
-        accepted = true;
-      }
-    }
-    let termsCheckbox = document.getElementById("termsCheckbox");
-    let termsMsg = document.getElementById("termsMsg");
-    if(accepted) {
-      termsCheckbox.checked = true;
-      termsCheckbox.disabled = true;
-      termsMsg.textContent = "You have already accepted the terms.";
-      // Enable authorized buttons now that terms are accepted
-      updateRoleButtonsState(true);
-    } else {
-      termsCheckbox.checked = false;
-      termsCheckbox.disabled = false;
-      termsMsg.textContent = "Please accept the terms to proceed.";
-      // Ensure role buttons remain disabled
-      updateRoleButtonsState(false);
-    }
-  }
+  });
 
-  // Function to update role buttons based on checkbox state and authorization
-  function updateRoleButtonsState(termsAccepted) {
-    if(termsAccepted) {
-      if(authorizedMainAdmin) {
-        document.getElementById("btnMainAdmin").disabled = false;
-      }
-      if(authorizedTeacher) {
-        document.getElementById("btnTeacher").disabled = false;
-      }
-      if(authorizedCoAdmin) {
-        document.getElementById("btnCoAdmin").disabled = false;
-      }
-    } else {
-      document.getElementById("btnMainAdmin").disabled = true;
-      document.getElementById("btnTeacher").disabled = true;
-      document.getElementById("btnCoAdmin").disabled = true;
-    }
-  }
-
-  // Terms checkbox event listener: update Firestore and enable buttons if checked.
-  // Also, duplicate the data to the "SVX-SaaS-003-users" collection if the update is made in a teacher document.
-  document.getElementById("termsCheckbox").addEventListener("change", async function(){
-    if(this.checked) {
-      let consentDocRef = null;
-      let userEmail = currentUser.email;
-      // For Main Admin, use systemSettings; for teacher/coAdmin, use teachers/list.
-      if(authorizedMainAdmin) {
-        consentDocRef = db.collection(selectedSchool).doc("systemSettings");
-      } else {
-        let teachersRef = db.collection(selectedSchool).doc("teachers").collection("list");
-        let querySnapshot = await teachersRef.where("email", "==", userEmail).get();
-        querySnapshot.forEach(doc => {
-          consentDocRef = doc.ref;
+  // Load staff profiles and group them into three tabs
+  function loadStaffProfiles() {
+    const teachersTbody = document.querySelector("#teachers-table tbody");
+    const adminsTbody = document.querySelector("#admins-table tbody");
+    const supportTbody = document.querySelector("#support-table tbody");
+    teachersTbody.innerHTML = "";
+    adminsTbody.innerHTML = "";
+    supportTbody.innerHTML = "";
+    db.collection("001-school").doc("teachers").collection("list")
+      .orderBy("timestamp", "desc")
+      .get()
+      .then((snapshot) => {
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          let rowHtml = "";
+          if (data.designation === "Teacher") {
+            rowHtml = `
+              <tr>
+                <td>${data.staffId || ""}</td>
+                <td>${data.staffName || ""}</td>
+                <td>${data.department || ""}</td>
+                <td>${(data.subjects || []).join(", ")}</td>
+                <td>${data.contact || ""}</td>
+                <td>${data.email || ""}</td>
+                <td>${data.joiningDate || ""}</td>
+                <td>${data.profilePicUrl ? `<img src="${data.profilePicUrl}" alt="Profile" width="50" height="50" style="object-fit:cover;">` : "N/A"}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning" onclick="editStaff('${doc.id}')">Edit</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteStaff('${doc.id}')">Delete</button>
+                </td>
+              </tr>
+            `;
+            teachersTbody.innerHTML += rowHtml;
+          } else if (data.designation === "Administrator") {
+            rowHtml = `
+              <tr>
+                <td>${data.staffId || ""}</td>
+                <td>${data.staffName || ""}</td>
+                <td>${data.department || ""}</td>
+                <td>${data.contact || ""}</td>
+                <td>${data.email || ""}</td>
+                <td>${data.joiningDate || ""}</td>
+                <td>${data.profilePicUrl ? `<img src="${data.profilePicUrl}" alt="Profile" width="50" height="50" style="object-fit:cover;">` : "N/A"}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning" onclick="editStaff('${doc.id}')">Edit</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteStaff('${doc.id}')">Delete</button>
+                </td>
+              </tr>
+            `;
+            adminsTbody.innerHTML += rowHtml;
+          } else if (data.designation === "Support Staff") {
+            rowHtml = `
+              <tr>
+                <td>${data.staffId || ""}</td>
+                <td>${data.staffName || ""}</td>
+                <td>${data.department || ""}</td>
+                <td>${data.contact || ""}</td>
+                <td>${data.email || ""}</td>
+                <td>${data.joiningDate || ""}</td>
+                <td>${data.profilePicUrl ? `<img src="${data.profilePicUrl}" alt="Profile" width="50" height="50" style="object-fit:cover;">` : "N/A"}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning" onclick="editStaff('${doc.id}')">Edit</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteStaff('${doc.id}')">Delete</button>
+                </td>
+              </tr>
+            `;
+            supportTbody.innerHTML += rowHtml;
+          }
         });
-      }
-      if(consentDocRef) {
-        await consentDocRef.update({ consentAccepted: true });
-        // If this update is on a teacher/coAdmin document, duplicate the data in SVX-SaaS-003-users
-        if(!authorizedMainAdmin) {
-          let teacherData = (await consentDocRef.get()).data();
-          await db.collection("SVX-SaaS-003-users").doc(currentUser.uid).set(teacherData, { merge: true });
+        // Show tables if data loaded
+        document.getElementById("teachers-loading").classList.add("d-none");
+        document.getElementById("teachers-table-container").classList.remove("d-none");
+        document.getElementById("admins-loading").classList.add("d-none");
+        document.getElementById("admins-table-container").classList.remove("d-none");
+        document.getElementById("support-loading").classList.add("d-none");
+        document.getElementById("support-table-container").classList.remove("d-none");
+      })
+      .catch((err) => {
+        console.error("Error loading staff profiles:", err);
+      });
+  }
+
+  // Quick search for staff profiles across tabs
+  document.getElementById("staff-search").addEventListener("input", function () {
+    const filter = this.value.toLowerCase();
+    document.querySelectorAll("#staff-table tbody tr").forEach(row => {
+      const cells = row.getElementsByTagName("td");
+      let match = false;
+      for (let i = 0; i < 2; i++) { // check first two cells (ID and Name)
+        if (cells[i].textContent.toLowerCase().indexOf(filter) > -1) {
+          match = true;
+          break;
         }
-        this.disabled = true;
-        document.getElementById("termsMsg").textContent = "You have accepted the terms.";
-        updateRoleButtonsState(true);
       }
-    } else {
-      updateRoleButtonsState(false);
-    }
+      row.style.display = match ? "" : "none";
+    });
   });
 
-  // Set redirection for role buttons using dynamic page links
-  document.getElementById("btnMainAdmin").addEventListener("click", function(){
-    if(pageLinks.adminSignUp) {
-      window.location.href = pageLinks.adminSignUp;
-    } else {
-      alert("Admin page link not available.");
-    }
-  });
-  document.getElementById("btnTeacher").addEventListener("click", function(){
-    if(pageLinks.teacherSignUp) {
-      window.location.href = pageLinks.teacherSignUp;
-    } else {
-      alert("Teacher page link not available.");
-    }
-  });
-  document.getElementById("btnCoAdmin").addEventListener("click", function(){
-    if(pageLinks.coAdminSignUp) {
-      window.location.href = pageLinks.coAdminSignUp;
-    } else {
-      alert("Co‑Admin page link not available.");
-    }
+  // Edit staff record – load data into form (including multi-select subjects)
+  function editStaff(docId) {
+    db.collection("001-school").doc("teachers").collection("list").doc(docId)
+      .get().then(doc => {
+        if (doc.exists) {
+          const data = doc.data();
+          // Remove prefix from staffId for input
+          let numId = data.staffId.replace("teacher", "").replace("admin", "").replace("staff", "");
+          document.getElementById("staff-id-input").value = parseInt(numId);
+          document.getElementById("staff-name").value = data.staffName;
+          document.getElementById("designation").value = data.designation;
+          // Show subjects field if designation is Teacher and pre-select subjects
+          if (data.designation === "Teacher") {
+            document.getElementById("subjects-field").style.display = "block";
+            const subjectsSelect = document.getElementById("subjects");
+            // First, clear any current selections
+            for (let option of subjectsSelect.options) {
+              option.selected = false;
+            }
+            if (data.subjects && Array.isArray(data.subjects)) {
+              data.subjects.forEach(sub => {
+                for (let option of subjectsSelect.options) {
+                  if (option.value === sub) {
+                    option.selected = true;
+                    break;
+                  }
+                }
+              });
+            }
+          } else {
+            document.getElementById("subjects-field").style.display = "none";
+          }
+          document.getElementById("department").value = data.department;
+          document.getElementById("staff-contact").value = data.contact;
+          document.getElementById("staff-email").value = data.email;
+          document.getElementById("joining-date").value = data.joiningDate;
+          document.getElementById("doc-id").value = docId;
+          editMode = true;
+          document.getElementById("form-submit-btn").innerText = "Update Staff";
+          document.getElementById("form-title").innerText = "Edit Teacher/Staff";
+          document.getElementById("cancel-edit-btn").classList.remove("d-none");
+        }
+      }).catch(error => console.error("Error fetching staff data for edit:", error));
+  }
+
+  // Cancel edit mode
+  document.getElementById("cancel-edit-btn").addEventListener("click", function () {
+    document.getElementById("staff-form").reset();
+    document.getElementById("form-submit-btn").innerText = "Add Staff";
+    document.getElementById("form-title").innerText = "Add Teacher/Staff";
+    this.classList.add("d-none");
+    editMode = false;
   });
 
-  // Handle school selection change event
-  document.getElementById("schoolDropdown").addEventListener("change", function(e){
-    let selected = e.target.value;
-    if(selected) {
-      document.getElementById("loadingScreen").style.display = "flex";
-      checkUserRoleForSchool(selected).then(() => {
-        // Use a 7-second delay on first visit; otherwise, a short delay
-        let delay = isFirstVisit ? 7000 : 500;
-        setTimeout(() => {
-          document.getElementById("loadingScreen").style.display = "none";
-          document.getElementById("content").style.display = "block";
-          if(isFirstVisit) localStorage.setItem("firstTimeLoaded", "true");
-        }, delay);
+  // Delete staff record
+  function deleteStaff(docId) {
+    if (!confirm("Are you sure you want to delete this record?")) return;
+    db.collection("001-school").doc("teachers").collection("list").doc(docId).delete()
+      .then(() => {
+        alert("Record deleted.");
+        loadStaffProfiles();
+      })
+      .catch(error => {
+        console.error("Error deleting record:", error);
+        alert("Error deleting record.");
       });
-    }
-  });
+  }
 
-  // Listen for authentication state changes
-  auth.onAuthStateChanged(user => {
-    if(user) {
-      currentUser = user;
-      fetchSchools().then(() => {
-        let delay = isFirstVisit ? 7000 : 500;
-        setTimeout(() => {
-          document.getElementById("loadingScreen").style.display = "none";
-          document.getElementById("content").style.display = "block";
-          if(isFirstVisit) localStorage.setItem("firstTimeLoaded", "true");
-        }, delay);
-      });
-    } else {
-      document.getElementById("loadingScreen").style.display = "none";
-      document.getElementById("signInPopup").style.display = "block";
-    }
-  });
-
-  // Google Sign-In button event
-  document.getElementById("btnSignIn").addEventListener("click", function(){
-    var provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider)
-      .then(result => { location.reload(); })
-      .catch(error => { console.error("Error during sign-in:", error); });
+  // Load staff profiles on page load
+  window.addEventListener("DOMContentLoaded", function () {
+    loadStaffProfiles();
   });
 </script>
-</body>
-</html>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
