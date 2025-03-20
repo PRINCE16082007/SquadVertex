@@ -254,273 +254,287 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-    <script>
-      // Initialize Firebase
-      const firebaseConfig = {
-        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-        authDomain: "squadvertex2007.firebaseapp.com",
-        projectId: "squadvertex2007",
-        storageBucket: "squadvertex2007.appspot.com",
-        messagingSenderId: "168905083514",
-        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-      };
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.firestore();
-      const storage = firebase.storage();
+<script>
+  // Initialize Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const storage = firebase.storage();
 
-      // Generate document ID based on designation and input number
-      function generateStaffDocId(id, designation) {
-        let prefix = "";
-        if (designation === "Teacher") {
-          prefix = "teacher";
-        } else if (designation === "Administrator") {
-          prefix = "admin";
-        } else if (designation === "Support Staff") {
-          prefix = "staff";
+  // Generate document ID based on designation and input number
+  function generateStaffDocId(id, designation) {
+    let prefix = "";
+    if (designation === "Teacher") {
+      prefix = "teacher";
+    } else if (designation === "Administrator") {
+      prefix = "admin";
+    } else if (designation === "Support Staff") {
+      prefix = "staff";
+    }
+    return prefix + id.toString().padStart(5, "0");
+  }
+
+  // Toggle Subjects multi-select when designation is Teacher
+  document.getElementById("designation").addEventListener("change", function () {
+    if (this.value === "Teacher") {
+      document.getElementById("subjects-field").style.display = "block";
+    } else {
+      document.getElementById("subjects-field").style.display = "none";
+    }
+  });
+
+  // Global edit flag
+  let editMode = false;
+
+  // Form submission: Add or Update staff record
+  document.getElementById("staff-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    if (!confirm(editMode ? "Update this staff record?" : "Add this new record?")) return;
+
+    const idInput = document.getElementById("staff-id-input").value.trim();
+    const staffName = document.getElementById("staff-name").value.trim();
+    const designation = document.getElementById("designation").value;
+    const department = document.getElementById("department").value.trim();
+    const contact = document.getElementById("staff-contact").value.trim();
+    const email = document.getElementById("staff-email").value.trim();
+    const joiningDate = document.getElementById("joining-date").value;
+    let subjects = [];
+    if (designation === "Teacher") {
+      const subjectsSelect = document.getElementById("subjects");
+      for (let option of subjectsSelect.options) {
+        if (option.selected) {
+          subjects.push(option.value);
         }
-        return prefix + id.toString().padStart(5, "0");
       }
-
-      // Toggle Subjects multi-select when designation is Teacher
-      document.getElementById("designation").addEventListener("change", function () {
-        if (this.value === "Teacher") {
-          document.getElementById("subjects-field").style.display = "block";
-        } else {
-          document.getElementById("subjects-field").style.display = "none";
-        }
-      });
-
-      // Global edit flag
-      let editMode = false;
-
-      // Form submission: Add or Update staff record
-      document.getElementById("staff-form").addEventListener("submit", async function (e) {
-        e.preventDefault();
-        if (!confirm(editMode ? "Update this staff record?" : "Add this new record?")) return;
-        const idInput = document.getElementById("staff-id-input").value.trim();
-        const staffName = document.getElementById("staff-name").value.trim();
-        const designation = document.getElementById("designation").value;
-        const department = document.getElementById("department").value.trim();
-        const contact = document.getElementById("staff-contact").value.trim();
-        const email = document.getElementById("staff-email").value.trim();
-        const joiningDate = document.getElementById("joining-date").value;
-        let subjects = [];
-        if (designation === "Teacher") {
-          const subjectsSelect = document.getElementById("subjects");
-          for (let option of subjectsSelect.options) {
-            if (option.selected) {
-              subjects.push(option.value);
-            }
-          }
-        }
-        const timestamp = firebase.firestore.FieldValue.serverTimestamp();
-        let profilePicUrl = "";
-        const fileInput = document.getElementById("profile-pic");
-        if (fileInput.files.length > 0) {
-          const file = fileInput.files[0];
-          const storageRef = storage.ref("staff_profiles/" + file.name);
-          try {
-            const snapshot = await storageRef.put(file);
-            profilePicUrl = await snapshot.ref.getDownloadURL();
-          } catch (error) {
-            console.error("Error uploading profile picture:", error);
-          }
-        }
-        const docId = generateStaffDocId(idInput, designation);
-        const staffData = {
-          staffId: docId,
-          staffName,
-          designation,
-          department,
-          contact,
-          email,
-          joiningDate,
-          subjects: designation === "Teacher" ? subjects : [],
-          profilePicUrl,
-          timestamp
-        };
-        db.collection("001-school").doc("teachers").collection("list").doc(docId)
-          .set(staffData, { merge: true })
-          .then(() => {
-            alert(editMode ? "Record updated!" : "New record added!");
-            document.getElementById("staff-form").reset();
-            document.getElementById("form-submit-btn").innerText = "Add Staff";
-            document.getElementById("form-title").innerText = "Add Teacher/Staff";
-            document.getElementById("cancel-edit-btn").classList.add("d-none");
-            editMode = false;
-            loadStaffProfiles();
-          })
-          .catch((error) => {
-            console.error("Error saving data:", error);
-            alert("Error saving data. Please try again.");
-          });
-      });
-
-      // Load staff profiles and group them into three tabs
-      function loadStaffProfiles() {
-        const teachersTbody = document.querySelector("#teachers-table tbody");
-        const adminsTbody = document.querySelector("#admins-table tbody");
-        const supportTbody = document.querySelector("#support-table tbody");
-        teachersTbody.innerHTML = "";
-        adminsTbody.innerHTML = "";
-        supportTbody.innerHTML = "";
-        db.collection("001-school").doc("teachers").collection("list")
-          .orderBy("timestamp", "desc")
-          .get()
-          .then((snapshot) => {
-            snapshot.forEach((doc) => {
-              const data = doc.data();
-              let rowHtml = "";
-              if (data.designation === "Teacher") {
-                rowHtml = `
-                  <tr>
-                    <td>${data.staffId || ""}</td>
-                    <td>${data.staffName || ""}</td>
-                    <td>${data.department || ""}</td>
-                    <td>${(data.subjects || []).join(", ")}</td>
-                    <td>${data.contact || ""}</td>
-                    <td>${data.email || ""}</td>
-                    <td>${data.joiningDate || ""}</td>
-                    <td>${data.profilePicUrl ? `<img src="${data.profilePicUrl}" alt="Profile" width="50" height="50" style="object-fit:cover;">` : "N/A"}</td>
-                    <td>
-                      <button class="btn btn-sm btn-warning" onclick="editStaff('${doc.id}')">Edit</button>
-                      <button class="btn btn-sm btn-danger" onclick="deleteStaff('${doc.id}')">Delete</button>
-                    </td>
-                  </tr>
-                `;
-                teachersTbody.innerHTML += rowHtml;
-              } else if (data.designation === "Administrator") {
-                rowHtml = `
-                  <tr>
-                    <td>${data.staffId || ""}</td>
-                    <td>${data.staffName || ""}</td>
-                    <td>${data.department || ""}</td>
-                    <td>${data.contact || ""}</td>
-                    <td>${data.email || ""}</td>
-                    <td>${data.joiningDate || ""}</td>
-                    <td>${data.profilePicUrl ? `<img src="${data.profilePicUrl}" alt="Profile" width="50" height="50" style="object-fit:cover;">` : "N/A"}</td>
-                    <td>
-                      <button class="btn btn-sm btn-warning" onclick="editStaff('${doc.id}')">Edit</button>
-                      <button class="btn btn-sm btn-danger" onclick="deleteStaff('${doc.id}')">Delete</button>
-                    </td>
-                  </tr>
-                `;
-                adminsTbody.innerHTML += rowHtml;
-              } else if (data.designation === "Support Staff") {
-                rowHtml = `
-                  <tr>
-                    <td>${data.staffId || ""}</td>
-                    <td>${data.staffName || ""}</td>
-                    <td>${data.department || ""}</td>
-                    <td>${data.contact || ""}</td>
-                    <td>${data.email || ""}</td>
-                    <td>${data.joiningDate || ""}</td>
-                    <td>${data.profilePicUrl ? `<img src="${data.profilePicUrl}" alt="Profile" width="50" height="50" style="object-fit:cover;">` : "N/A"}</td>
-                    <td>
-                      <button class="btn btn-sm btn-warning" onclick="editStaff('${doc.id}')">Edit</button>
-                      <button class="btn btn-sm btn-danger" onclick="deleteStaff('${doc.id}')">Delete</button>
-                    </td>
-                  </tr>
-                `;
-                supportTbody.innerHTML += rowHtml;
-              }
-            });
-            // Show tables if data loaded
-            document.getElementById("teachers-loading").classList.add("d-none");
-            document.getElementById("teachers-table-container").classList.remove("d-none");
-            document.getElementById("admins-loading").classList.add("d-none");
-            document.getElementById("admins-table-container").classList.remove("d-none");
-            document.getElementById("support-loading").classList.add("d-none");
-            document.getElementById("support-table-container").classList.remove("d-none");
-          })
-          .catch((err) => {
-            console.error("Error loading staff profiles:", err);
-          });
+    }
+    const timestamp = firebase.firestore.FieldValue.serverTimestamp();
+    let profilePicUrl = "";
+    const fileInput = document.getElementById("profile-pic");
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      const storageRef = storage.ref("staff_profiles/" + file.name);
+      try {
+        const snapshot = await storageRef.put(file);
+        profilePicUrl = await snapshot.ref.getDownloadURL();
+      } catch (error) {
+        console.error("Error uploading profile picture:", error);
       }
+    }
 
-      // Quick search for staff profiles across tabs
-      document.getElementById("staff-search").addEventListener("input", function () {
-        const filter = this.value.toLowerCase();
-        document.querySelectorAll("#staff-table tbody tr").forEach(row => {
-          const cells = row.getElementsByTagName("td");
-          let match = false;
-          for (let i = 0; i < 2; i++) { // check first two cells (ID and Name)
-            if (cells[i].textContent.toLowerCase().indexOf(filter) > -1) {
-              match = true;
-              break;
-            }
-          }
-          row.style.display = match ? "" : "none";
-        });
-      });
+    const docId = generateStaffDocId(idInput, designation);
+    const staffData = {
+      staffId: docId,
+      staffName,
+      designation,
+      department,
+      contact,
+      email,
+      joiningDate,
+      subjects: designation === "Teacher" ? subjects : [],
+      profilePicUrl,
+      timestamp
+    };
 
-      // Edit staff record – load data into form (including multi-select subjects)
-      function editStaff(docId) {
-        db.collection("001-school").doc("teachers").collection("list").doc(docId)
-          .get().then(doc => {
-            if (doc.exists) {
-              const data = doc.data();
-              // Remove prefix from staffId for input
-              let numId = data.staffId.replace("teacher", "").replace("admin", "").replace("staff", "");
-              document.getElementById("staff-id-input").value = parseInt(numId);
-              document.getElementById("staff-name").value = data.staffName;
-              document.getElementById("designation").value = data.designation;
-              // Show subjects field if designation is Teacher and pre-select subjects
-              if (data.designation === "Teacher") {
-                document.getElementById("subjects-field").style.display = "block";
-                const subjectsSelect = document.getElementById("subjects");
-                // First, clear any current selections
-                for (let option of subjectsSelect.options) {
-                  option.selected = false;
-                }
-                if (data.subjects && Array.isArray(data.subjects)) {
-                  data.subjects.forEach(sub => {
-                    for (let option of subjectsSelect.options) {
-                      if (option.value === sub) {
-                        option.selected = true;
-                        break;
-                      }
-                    }
-                  });
-                }
-              } else {
-                document.getElementById("subjects-field").style.display = "none";
-              }
-              document.getElementById("department").value = data.department;
-              document.getElementById("staff-contact").value = data.contact;
-              document.getElementById("staff-email").value = data.email;
-              document.getElementById("joining-date").value = data.joiningDate;
-              document.getElementById("doc-id").value = docId;
-              editMode = true;
-              document.getElementById("form-submit-btn").innerText = "Update Staff";
-              document.getElementById("form-title").innerText = "Edit Teacher/Staff";
-              document.getElementById("cancel-edit-btn").classList.remove("d-none");
-            }
-          }).catch(error => console.error("Error fetching staff data for edit:", error));
-      }
-
-      // Cancel edit mode
-      document.getElementById("cancel-edit-btn").addEventListener("click", function () {
+    // First, write to the 001-school teachers/list sub-collection
+    db.collection("001-school").doc("teachers").collection("list").doc(docId)
+      .set(staffData, { merge: true })
+      .then(() => {
+        // After successful write, duplicate the same data into "SVX-SaaS-003-users"
+        return db.collection("SVX-SaaS-003-users").doc(docId).set(staffData, { merge: true });
+      })
+      .then(() => {
+        alert(editMode ? "Record updated!" : "New record added!");
         document.getElementById("staff-form").reset();
         document.getElementById("form-submit-btn").innerText = "Add Staff";
         document.getElementById("form-title").innerText = "Add Teacher/Staff";
-        this.classList.add("d-none");
+        document.getElementById("cancel-edit-btn").classList.add("d-none");
         editMode = false;
-      });
-
-      // Delete staff record
-      function deleteStaff(docId) {
-        if (!confirm("Are you sure you want to delete this record?")) return;
-        db.collection("001-school").doc("teachers").collection("list").doc(docId).delete()
-          .then(() => { alert("Record deleted."); loadStaffProfiles(); })
-          .catch(error => { console.error("Error deleting record:", error); alert("Error deleting record."); });
-      }
-
-      // Load staff profiles on page load
-      window.addEventListener("DOMContentLoaded", function () {
         loadStaffProfiles();
+      })
+      .catch((error) => {
+        console.error("Error saving data:", error);
+        alert("Error saving data. Please try again.");
       });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  });
+
+  // Load staff profiles and group them into three tabs
+  function loadStaffProfiles() {
+    const teachersTbody = document.querySelector("#teachers-table tbody");
+    const adminsTbody = document.querySelector("#admins-table tbody");
+    const supportTbody = document.querySelector("#support-table tbody");
+    teachersTbody.innerHTML = "";
+    adminsTbody.innerHTML = "";
+    supportTbody.innerHTML = "";
+    db.collection("001-school").doc("teachers").collection("list")
+      .orderBy("timestamp", "desc")
+      .get()
+      .then((snapshot) => {
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          let rowHtml = "";
+          if (data.designation === "Teacher") {
+            rowHtml = `
+              <tr>
+                <td>${data.staffId || ""}</td>
+                <td>${data.staffName || ""}</td>
+                <td>${data.department || ""}</td>
+                <td>${(data.subjects || []).join(", ")}</td>
+                <td>${data.contact || ""}</td>
+                <td>${data.email || ""}</td>
+                <td>${data.joiningDate || ""}</td>
+                <td>${data.profilePicUrl ? `<img src="${data.profilePicUrl}" alt="Profile" width="50" height="50" style="object-fit:cover;">` : "N/A"}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning" onclick="editStaff('${doc.id}')">Edit</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteStaff('${doc.id}')">Delete</button>
+                </td>
+              </tr>
+            `;
+            teachersTbody.innerHTML += rowHtml;
+          } else if (data.designation === "Administrator") {
+            rowHtml = `
+              <tr>
+                <td>${data.staffId || ""}</td>
+                <td>${data.staffName || ""}</td>
+                <td>${data.department || ""}</td>
+                <td>${data.contact || ""}</td>
+                <td>${data.email || ""}</td>
+                <td>${data.joiningDate || ""}</td>
+                <td>${data.profilePicUrl ? `<img src="${data.profilePicUrl}" alt="Profile" width="50" height="50" style="object-fit:cover;">` : "N/A"}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning" onclick="editStaff('${doc.id}')">Edit</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteStaff('${doc.id}')">Delete</button>
+                </td>
+              </tr>
+            `;
+            adminsTbody.innerHTML += rowHtml;
+          } else if (data.designation === "Support Staff") {
+            rowHtml = `
+              <tr>
+                <td>${data.staffId || ""}</td>
+                <td>${data.staffName || ""}</td>
+                <td>${data.department || ""}</td>
+                <td>${data.contact || ""}</td>
+                <td>${data.email || ""}</td>
+                <td>${data.joiningDate || ""}</td>
+                <td>${data.profilePicUrl ? `<img src="${data.profilePicUrl}" alt="Profile" width="50" height="50" style="object-fit:cover;">` : "N/A"}</td>
+                <td>
+                  <button class="btn btn-sm btn-warning" onclick="editStaff('${doc.id}')">Edit</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteStaff('${doc.id}')">Delete</button>
+                </td>
+              </tr>
+            `;
+            supportTbody.innerHTML += rowHtml;
+          }
+        });
+        // Show tables if data loaded
+        document.getElementById("teachers-loading").classList.add("d-none");
+        document.getElementById("teachers-table-container").classList.remove("d-none");
+        document.getElementById("admins-loading").classList.add("d-none");
+        document.getElementById("admins-table-container").classList.remove("d-none");
+        document.getElementById("support-loading").classList.add("d-none");
+        document.getElementById("support-table-container").classList.remove("d-none");
+      })
+      .catch((err) => {
+        console.error("Error loading staff profiles:", err);
+      });
+  }
+
+  // Quick search for staff profiles across tabs
+  document.getElementById("staff-search").addEventListener("input", function () {
+    const filter = this.value.toLowerCase();
+    document.querySelectorAll("#staff-table tbody tr").forEach(row => {
+      const cells = row.getElementsByTagName("td");
+      let match = false;
+      for (let i = 0; i < 2; i++) { // check first two cells (ID and Name)
+        if (cells[i].textContent.toLowerCase().indexOf(filter) > -1) {
+          match = true;
+          break;
+        }
+      }
+      row.style.display = match ? "" : "none";
+    });
+  });
+
+  // Edit staff record – load data into form (including multi-select subjects)
+  function editStaff(docId) {
+    db.collection("001-school").doc("teachers").collection("list").doc(docId)
+      .get().then(doc => {
+        if (doc.exists) {
+          const data = doc.data();
+          // Remove prefix from staffId for input
+          let numId = data.staffId.replace("teacher", "").replace("admin", "").replace("staff", "");
+          document.getElementById("staff-id-input").value = parseInt(numId);
+          document.getElementById("staff-name").value = data.staffName;
+          document.getElementById("designation").value = data.designation;
+          // Show subjects field if designation is Teacher and pre-select subjects
+          if (data.designation === "Teacher") {
+            document.getElementById("subjects-field").style.display = "block";
+            const subjectsSelect = document.getElementById("subjects");
+            // First, clear any current selections
+            for (let option of subjectsSelect.options) {
+              option.selected = false;
+            }
+            if (data.subjects && Array.isArray(data.subjects)) {
+              data.subjects.forEach(sub => {
+                for (let option of subjectsSelect.options) {
+                  if (option.value === sub) {
+                    option.selected = true;
+                    break;
+                  }
+                }
+              });
+            }
+          } else {
+            document.getElementById("subjects-field").style.display = "none";
+          }
+          document.getElementById("department").value = data.department;
+          document.getElementById("staff-contact").value = data.contact;
+          document.getElementById("staff-email").value = data.email;
+          document.getElementById("joining-date").value = data.joiningDate;
+          document.getElementById("doc-id").value = docId;
+          editMode = true;
+          document.getElementById("form-submit-btn").innerText = "Update Staff";
+          document.getElementById("form-title").innerText = "Edit Teacher/Staff";
+          document.getElementById("cancel-edit-btn").classList.remove("d-none");
+        }
+      }).catch(error => console.error("Error fetching staff data for edit:", error));
+  }
+
+  // Cancel edit mode
+  document.getElementById("cancel-edit-btn").addEventListener("click", function () {
+    document.getElementById("staff-form").reset();
+    document.getElementById("form-submit-btn").innerText = "Add Staff";
+    document.getElementById("form-title").innerText = "Add Teacher/Staff";
+    this.classList.add("d-none");
+    editMode = false;
+  });
+
+  // Delete staff record
+  function deleteStaff(docId) {
+    if (!confirm("Are you sure you want to delete this record?")) return;
+    db.collection("001-school").doc("teachers").collection("list").doc(docId).delete()
+      .then(() => {
+        alert("Record deleted.");
+        loadStaffProfiles();
+      })
+      .catch(error => {
+        console.error("Error deleting record:", error);
+        alert("Error deleting record.");
+      });
+  }
+
+  // Load staff profiles on page load
+  window.addEventListener("DOMContentLoaded", function () {
+    loadStaffProfiles();
+  });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
