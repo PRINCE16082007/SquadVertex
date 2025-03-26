@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teacher Attendance - SquadVertex</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <!-- Bootstrap CSS for basic styling -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f7f7f7;
+      padding-top: 60px;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+    }
+    #message {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container text-center">
+    <h1>Teacher Attendance</h1>
+    <p>Please click the button below to mark your attendance.</p>
+    <button id="attendanceBtn" class="btn btn-primary btn-lg">Mark Attendance</button>
+    <div id="message"></div>
+  </div>
+
+  <script>
+    // Firebase configuration
+    var firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Configuration for allowed attendance time window (7:00 AM to 9:00 AM)
+    const allowedStartHour = 7;
+    const allowedEndHour = 9;
+
+    // Define geofence center (e.g., school's location) and radius (in meters)
+    const geofenceCenter = { lat: 28.6139, lng: 77.2090 }; // Example: New Delhi coordinates
+    const geofenceRadius = 500; // 500 meters radius
+
+    // Haversine formula to calculate distance in meters between two coordinates
+    function getDistanceFromLatLonInMeters(lat1, lng1, lat2, lng2) {
+      const R = 6371000; // Radius of the earth in meters
+      const dLat = deg2rad(lat2 - lat1);
+      const dLng = deg2rad(lng2 - lng1);
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+        Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const d = R * c; // Distance in meters
+      return d;
+    }
+    function deg2rad(deg) {
+      return deg * (Math.PI/180);
+    }
+
+    // Check if current time is within the allowed attendance window
+    function isWithinAllowedTime() {
+      const now = new Date();
+      const currentHour = now.getHours();
+      return currentHour >= allowedStartHour && currentHour < allowedEndHour;
+    }
+
+    // Mark attendance: get geolocation, check time and geofence, then save record to Firestore.
+    function markAttendance() {
+      const messageEl = document.getElementById("message");
+      messageEl.innerHTML = ""; // Clear message
+      if (!isWithinAllowedTime()) {
+        messageEl.innerHTML = `<div class="alert alert-warning">Attendance can only be marked between ${allowedStartHour}:00 and ${allowedEndHour}:00.</div>`;
+        return;
+      }
+      if (!navigator.geolocation) {
+        messageEl.innerHTML = `<div class="alert alert-danger">Geolocation is not supported by your browser.</div>`;
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(function(position) {
+        const { latitude, longitude } = position.coords;
+        const distance = getDistanceFromLatLonInMeters(latitude, longitude, geofenceCenter.lat, geofenceCenter.lng);
+        if (distance > geofenceRadius) {
+          messageEl.innerHTML = `<div class="alert alert-danger">You are not within the allowed location to mark attendance.</div>`;
+          return;
+        }
+        // All checks passed. Save attendance record.
+        const attendanceData = {
+          teacherId: auth.currentUser.uid, // Assuming user is authenticated
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          location: { latitude, longitude },
+          distanceFromCenter: distance,
+          status: "Present"
+        };
+        db.collection("attendance").add(attendanceData)
+          .then(() => {
+            messageEl.innerHTML = `<div class="alert alert-success">Attendance marked successfully!</div>`;
+          })
+          .catch(error => {
+            console.error("Error marking attendance:", error);
+            messageEl.innerHTML = `<div class="alert alert-danger">Error marking attendance. Please try again.</div>`;
+          });
+      }, function(error) {
+        console.error("Geolocation error:", error);
+        messageEl.innerHTML = `<div class="alert alert-danger">Unable to retrieve your location. Please try again.</div>`;
+      });
+    }
+
+    // Add click event to the attendance button
+    document.getElementById("attendanceBtn").addEventListener("click", function() {
+      // Ensure user is logged in
+      if (!auth.currentUser) {
+        alert("Please log in first.");
+        return;
+      }
+      markAttendance();
+    });
+
+    // Firebase authentication state listener:
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        // If not logged in, redirect to login page (assume teacherLogin.html)
+        window.location.href = "teacherLogin.html";
+      }
+    });
+  </script>
+  <!-- Bootstrap JS -->
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
