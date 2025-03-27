@@ -3,15 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Teacher Attendance Dashboard - SquadVertex</title>
+  <title>Teacher Dashboard - SquadVertex</title>
   <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      background-color: #f0f2f5;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+      padding-top: 70px;
     }
     .header {
       background-color: #0056b3;
@@ -20,18 +22,24 @@
       text-align: center;
     }
     .container-main {
-      margin: 20px auto;
       max-width: 1200px;
+      margin: 20px auto;
+    }
+    .section {
+      margin-bottom: 30px;
     }
     .card {
-      margin-bottom: 20px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
     }
     #map {
       width: 100%;
       height: 400px;
     }
-    /* Loading screen (for initial demo effect) */
+    #attendanceMessage {
+      margin-top: 10px;
+    }
+    /* Loading Screen */
     #loadingScreen {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -77,98 +85,140 @@
     <h2 class="mt-3">Welcome to SquadVertex</h2>
     <p>Loading your Dashboard...</p>
   </div>
-
+  
   <!-- Header -->
   <div class="header">
     <h1>Teacher Dashboard</h1>
-    <!-- Hardcoded demo teacher info -->
+    <!-- Demo teacher data (hardcoded) -->
     <p id="teacherInfo">ID: TCHR00001 | Name: John Doe</p>
+    <p id="schoolInfoHeader">School: 001-school</p>
     <p id="currentDate"></p>
   </div>
-
-  <div class="container container-main">
-    <!-- Attendance Overview Card -->
-    <div class="card">
-      <div class="card-header bg-primary text-white">
-        Attendance Overview
-      </div>
-      <div class="card-body">
-        <p>Here is your attendance trend for the past week:</p>
-        <canvas id="attendanceChart" height="100"></canvas>
+  
+  <!-- Main Content -->
+  <div class="container-main" id="dashboardContent" style="display:none;">
+    <!-- Attendance Marking Section -->
+    <div class="section">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          Mark Attendance
+        </div>
+        <div class="card-body text-center">
+          <button id="markAttendanceBtn" class="btn btn-success btn-lg">Mark Attendance</button>
+          <div id="attendanceMessage"></div>
+        </div>
       </div>
     </div>
-
-    <!-- Google Map Card -->
-    <div class="card">
-      <div class="card-header bg-info text-white">
-        Location Verification
+    
+    <!-- Google Map Section -->
+    <div class="section">
+      <div class="card">
+        <div class="card-header bg-info text-white">
+          Location Verification
+        </div>
+        <div class="card-body">
+          <p>The allowed location is marked in green, and your current location (if available) is marked in red.</p>
+          <div id="map"></div>
+        </div>
       </div>
-      <div class="card-body">
-        <p>Below is your current location and the allowed attendance area:</p>
-        <div id="map"></div>
+    </div>
+    
+    <!-- Past Week Attendance Chart -->
+    <div class="section">
+      <div class="card">
+        <div class="card-header bg-secondary text-white">
+          Past Week Attendance
+        </div>
+        <div class="card-body">
+          <canvas id="attendanceChart" height="100"></canvas>
+          <p class="mt-2">Green indicates days you marked attendance.</p>
+        </div>
       </div>
     </div>
   </div>
-
+  
   <!-- Footer -->
   <div id="footer">
     <p>Powered by SquadVertex Cloud Services. © SquadVertex</p>
-    <p>This beta version is for demonstration purposes only.</p>
+    <p>This beta version is for presentation purposes.</p>
   </div>
-
+  
   <!-- Scripts -->
   <script>
     // Set current date in header
     document.getElementById("currentDate").textContent = "Date: " + new Date().toLocaleDateString();
 
-    // Initialize Chart.js with dummy attendance data for the past week
-    const ctx = document.getElementById('attendanceChart').getContext('2d');
-    const attendanceChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-        datasets: [{
-          label: "Attendance (%)",
-          data: [95, 90, 92, 88, 94, 91, 93],
-          backgroundColor: "rgba(54, 162, 235, 0.5)",
-          borderColor: "rgba(54, 162, 235, 1)",
-          borderWidth: 2,
-          fill: true,
-        }]
-      },
-      options: {
-        scales: {
-          y: {
-            beginAtZero: true,
-            max: 100
-          }
-        },
-        responsive: true,
-        maintainAspectRatio: false
-      }
+    // Remove loading screen after 7 seconds and show dashboard content
+    window.addEventListener("DOMContentLoaded", function() {
+      setTimeout(function() {
+        document.getElementById("loadingScreen").style.display = "none";
+        document.getElementById("dashboardContent").style.display = "block";
+      }, 7000);
     });
 
-    // Google Map Integration
-    // Fixed location: example school location (latitude, longitude)
-    const fixedLocation = { lat: 28.6139, lng: 77.2090 }; // Example coordinates (New Delhi)
+    // --- Attendance Marking Functionality ---
+    // Allowed attendance time window (for demo, not enforced in this code)
+    // Allowed location: Fixed coordinates (example: school's location)
+    const allowedLocation = { lat: 28.6139, lng: 77.2090 }; // Example: New Delhi
+    const allowedRadius = 500; // in meters
+
+    // Haversine formula to calculate distance (in meters)
+    function getDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371000; // Earth's radius in meters
+      const dLat = deg2rad(lat2 - lat1);
+      const dLng = deg2rad(lng2 - lng1);
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+    function deg2rad(deg) {
+      return deg * (Math.PI / 180);
+    }
+
+    // Mark Attendance button handler
+    document.getElementById("markAttendanceBtn").addEventListener("click", function() {
+      const msgEl = document.getElementById("attendanceMessage");
+      msgEl.innerHTML = "";
+      if (!navigator.geolocation) {
+        msgEl.innerHTML = `<div class="alert alert-danger">Geolocation is not supported by your browser.</div>`;
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const distance = getDistance(latitude, longitude, allowedLocation.lat, allowedLocation.lng);
+          if (distance > allowedRadius) {
+            msgEl.innerHTML = `<div class="alert alert-danger">You are not within the allowed location (Distance: ${Math.round(distance)}m).</div>`;
+            return;
+          }
+          // For demo, we simply show a success message.
+          msgEl.innerHTML = `<div class="alert alert-success">Attendance marked successfully at ${new Date().toLocaleTimeString()}.</div>`;
+          // In a full version, record attendance in your database here.
+        },
+        (error) => {
+          msgEl.innerHTML = `<div class="alert alert-danger">Error retrieving location: ${error.message}</div>`;
+        }
+      );
+    });
+
+    // --- Google Map Integration ---
     let map, fixedMarker, currentMarker;
-    
     function initMap() {
-      // Initialize the map centered at the fixed location
+      // Initialize map centered on the allowed location
       map = new google.maps.Map(document.getElementById("map"), {
-        center: fixedLocation,
-        zoom: 15,
+        center: allowedLocation,
+        zoom: 16,
       });
-      
-      // Add a marker for the allowed location
+      // Marker for allowed location (green)
       fixedMarker = new google.maps.Marker({
-        position: fixedLocation,
+        position: allowedLocation,
         map: map,
-        title: "Allowed Attendance Location",
+        title: "Allowed Location",
         icon: "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
       });
-      
-      // Try to get the teacher's current location
+      // Try to get teacher's current location and add a marker (red)
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -182,29 +232,55 @@
               title: "Your Current Location",
               icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
             });
-            // Adjust map bounds to include both markers
+            // Adjust map bounds to show both markers
             const bounds = new google.maps.LatLngBounds();
-            bounds.extend(fixedLocation);
+            bounds.extend(allowedLocation);
             bounds.extend(currentPos);
             map.fitBounds(bounds);
           },
           () => {
-            console.error("Error: The Geolocation service failed.");
+            console.error("Geolocation service failed.");
           }
         );
-      } else {
-        console.error("Error: Your browser doesn't support geolocation.");
       }
     }
 
-    // Remove the loading screen after 7 seconds and show the dashboard content
+    // --- Attendance Chart using Chart.js ---
     window.addEventListener("DOMContentLoaded", function() {
-      setTimeout(function() {
-        document.getElementById("loadingScreen").style.display = "none";
-      }, 7000);
+      const ctx = document.getElementById("attendanceChart").getContext("2d");
+      // Dummy data: for each day of the past week, 1 means present, 0 means absent.
+      const attendanceData = {
+        labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        datasets: [{
+          label: "Attendance (1 = Present, 0 = Absent)",
+          data: [1, 0, 1, 1, 1, 0, 1],
+          backgroundColor: "rgba(75, 192, 192, 0.5)",
+          borderColor: "rgba(75, 192, 192, 1)",
+          borderWidth: 2,
+          fill: true
+        }]
+      };
+      new Chart(ctx, {
+        type: "bar",
+        data: attendanceData,
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 1,
+              ticks: {
+                stepSize: 1
+              }
+            }
+          },
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
     });
+
   </script>
-  <!-- Google Maps API (replace YOUR_GOOGLE_MAPS_API_KEY with your actual API key) -->
+  <!-- Google Maps API: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual API key -->
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap"></script>
   <!-- Bootstrap JS -->
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
