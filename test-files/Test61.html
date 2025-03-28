@@ -15,12 +15,33 @@
       }
       .calendar {
         width: 100%;
+        margin-top: 20px;
       }
       .calendar th,
       .calendar td {
         text-align: center;
         padding: 10px;
         border: 1px solid #dee2e6;
+        vertical-align: top;
+        height: 100px;
+        position: relative;
+      }
+      .calendar .event-badge {
+        position: absolute;
+        bottom: 2px;
+        left: 2px;
+        right: 2px;
+        background: rgba(40, 167, 69, 0.8);
+        color: #fff;
+        font-size: 0.75rem;
+        padding: 2px;
+        border-radius: 3px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .today {
+        background: #f8f9fa;
       }
     </style>
   </head>
@@ -63,7 +84,17 @@
 
     <!-- Events & Calendar Section -->
     <div class="container events-section">
-      <h2>Upcoming Events</h2>
+      <h2 class="mb-3">Upcoming Events</h2>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <input type="text" id="searchEvent" class="form-control" placeholder="Search Events" />
+        </div>
+        <div class="col-md-6 text-end">
+          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEventModal">
+            Add New Event
+          </button>
+        </div>
+      </div>
       <div class="table-responsive">
         <table class="table table-bordered" id="events-table">
           <thead class="table-dark">
@@ -72,28 +103,18 @@
               <th>Event Name</th>
               <th>Date</th>
               <th>Description</th>
+              <th>Actions</th>
             </tr>
           </thead>
-          <tbody>
-            <!-- Dummy Data -->
-            <tr>
-              <td>EVT101</td>
-              <td>Annual Sports Day</td>
-              <td>2025-05-10</td>
-              <td>Inter-house sports competitions</td>
-            </tr>
-            <tr>
-              <td>EVT102</td>
-              <td>Science Fair</td>
-              <td>2025-06-15</td>
-              <td>Exhibition of science projects</td>
-            </tr>
+          <tbody id="eventsTableBody">
+            <!-- Dynamic event rows -->
           </tbody>
         </table>
       </div>
 
+      <!-- Calendar -->
       <h2 class="mt-5">Calendar</h2>
-      <table class="calendar table table-bordered">
+      <table class="calendar table table-bordered" id="calendar">
         <thead>
           <tr>
             <th>Sun</th>
@@ -105,58 +126,253 @@
             <th>Sat</th>
           </tr>
         </thead>
-        <tbody>
-          <!-- Dummy Calendar Data -->
-          <tr>
-            <td></td>
-            <td>1</td>
-            <td>2</td>
-            <td>3</td>
-            <td>4</td>
-            <td>5</td>
-            <td>6</td>
-          </tr>
-          <tr>
-            <td>7</td>
-            <td>8</td>
-            <td>9</td>
-            <td>10</td>
-            <td>11</td>
-            <td>12</td>
-            <td>13</td>
-          </tr>
-          <tr>
-            <td>14</td>
-            <td>15</td>
-            <td>16</td>
-            <td>17</td>
-            <td>18</td>
-            <td>19</td>
-            <td>20</td>
-          </tr>
-          <tr>
-            <td>21</td>
-            <td>22</td>
-            <td>23</td>
-            <td>24</td>
-            <td>25</td>
-            <td>26</td>
-            <td>27</td>
-          </tr>
-          <tr>
-            <td>28</td>
-            <td>29</td>
-            <td>30</td>
-            <td>31</td>
-            <td></td>
-            <td></td>
-            <td></td>
-          </tr>
+        <tbody id="calendarBody">
+          <!-- Calendar will be generated dynamically -->
         </tbody>
       </table>
     </div>
 
-    <!-- Bootstrap 5 JS Bundle -->
+    <!-- Add Event Modal -->
+    <div class="modal fade" id="addEventModal" tabindex="-1" aria-labelledby="addEventModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="addEventModalLabel" class="modal-title">Add New Event</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="addEventForm">
+              <div class="mb-3">
+                <label for="eventName" class="form-label">Event Name</label>
+                <input type="text" class="form-control" id="eventName" required />
+              </div>
+              <div class="mb-3">
+                <label for="eventDate" class="form-label">Date</label>
+                <input type="date" class="form-control" id="eventDate" required />
+              </div>
+              <div class="mb-3">
+                <label for="eventDescription" class="form-label">Description</label>
+                <textarea class="form-control" id="eventDescription" rows="2"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Add Event</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Event Modal -->
+    <div class="modal fade" id="editEventModal" tabindex="-1" aria-labelledby="editEventModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="editEventModalLabel" class="modal-title">Edit Event</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="editEventForm">
+              <input type="hidden" id="editEventId" />
+              <div class="mb-3">
+                <label for="editEventName" class="form-label">Event Name</label>
+                <input type="text" class="form-control" id="editEventName" required />
+              </div>
+              <div class="mb-3">
+                <label for="editEventDate" class="form-label">Date</label>
+                <input type="date" class="form-control" id="editEventDate" required />
+              </div>
+              <div class="mb-3">
+                <label for="editEventDescription" class="form-label">Description</label>
+                <textarea class="form-control" id="editEventDescription" rows="2"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firebase, Bootstrap JS -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      // Firebase initialization (same config as before)
+      const firebaseConfig = {
+        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+        authDomain: "squadvertex2007.firebaseapp.com",
+        projectId: "squadvertex2007",
+        storageBucket: "squadvertex2007.appspot.com",
+        messagingSenderId: "168905083514",
+        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+      // Reference to events stored under 001-school > events > list
+      const eventsCollection = db.collection("001-school").doc("events").collection("list");
+
+      let events = [];
+
+      // Load events from Firestore
+      const loadEvents = () => {
+        eventsCollection.get().then(snapshot => {
+          events = [];
+          snapshot.forEach(doc => {
+            let data = doc.data();
+            data.id = doc.id;
+            events.push(data);
+          });
+          renderEvents();
+          generateCalendar();
+        }).catch(error => console.error("Error loading events:", error));
+      };
+
+      // Render events table
+      const renderEvents = () => {
+        const tbody = document.getElementById("eventsTableBody");
+        tbody.innerHTML = "";
+        events.forEach(event => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${event.id}</td>
+            <td>${event.name}</td>
+            <td>${event.date}</td>
+            <td>${event.description || ""}</td>
+            <td>
+              <button class="btn btn-sm btn-info" onclick="openEditEventModal('${event.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteEvent('${event.id}')">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      };
+
+      // Search functionality for events table
+      document.getElementById("searchEvent").addEventListener("input", () => {
+        const searchValue = document.getElementById("searchEvent").value.toLowerCase();
+        const filtered = events.filter(event => 
+          event.name.toLowerCase().includes(searchValue) || 
+          event.description?.toLowerCase().includes(searchValue) ||
+          event.date.includes(searchValue)
+        );
+        renderFilteredEvents(filtered);
+      });
+
+      const renderFilteredEvents = (filteredEvents) => {
+        const tbody = document.getElementById("eventsTableBody");
+        tbody.innerHTML = "";
+        filteredEvents.forEach(event => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${event.id}</td>
+            <td>${event.name}</td>
+            <td>${event.date}</td>
+            <td>${event.description || ""}</td>
+            <td>
+              <button class="btn btn-sm btn-info" onclick="openEditEventModal('${event.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteEvent('${event.id}')">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      };
+
+      // Add Event
+      document.getElementById("addEventForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const name = document.getElementById("eventName").value;
+        const date = document.getElementById("eventDate").value;
+        const description = document.getElementById("eventDescription").value;
+        eventsCollection.add({ name, date, description })
+          .then(() => {
+            loadEvents();
+            document.getElementById("addEventForm").reset();
+            bootstrap.Modal.getInstance(document.getElementById("addEventModal")).hide();
+          }).catch(error => console.error("Error adding event:", error));
+      });
+
+      // Open Edit Event Modal
+      function openEditEventModal(eventId) {
+        const event = events.find(ev => ev.id === eventId);
+        if (event) {
+          document.getElementById("editEventId").value = event.id;
+          document.getElementById("editEventName").value = event.name;
+          document.getElementById("editEventDate").value = event.date;
+          document.getElementById("editEventDescription").value = event.description || "";
+          new bootstrap.Modal(document.getElementById("editEventModal")).show();
+        }
+      }
+
+      // Edit Event
+      document.getElementById("editEventForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const id = document.getElementById("editEventId").value;
+        const name = document.getElementById("editEventName").value;
+        const date = document.getElementById("editEventDate").value;
+        const description = document.getElementById("editEventDescription").value;
+        eventsCollection.doc(id).update({ name, date, description })
+          .then(() => {
+            loadEvents();
+            bootstrap.Modal.getInstance(document.getElementById("editEventModal")).hide();
+          }).catch(error => console.error("Error updating event:", error));
+      });
+
+      // Delete Event
+      function deleteEvent(eventId) {
+        if (confirm("Are you sure you want to delete this event?")) {
+          eventsCollection.doc(eventId).delete().then(() => {
+            loadEvents();
+          }).catch(error => console.error("Error deleting event:", error));
+        }
+      }
+
+      // Generate dynamic calendar for the current month
+      function generateCalendar() {
+        const calendarBody = document.getElementById("calendarBody");
+        calendarBody.innerHTML = "";
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth(); // 0-indexed
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        let date = 1;
+        for (let i = 0; i < 6; i++) {
+          let row = document.createElement("tr");
+          for (let j = 0; j < 7; j++) {
+            let cell = document.createElement("td");
+            if (i === 0 && j < firstDay) {
+              cell.innerHTML = "";
+            } else if (date > daysInMonth) {
+              break;
+            } else {
+              cell.innerHTML = date;
+              // Mark today's date
+              if (
+                date === now.getDate() &&
+                month === now.getMonth() &&
+                year === now.getFullYear()
+              ) {
+                cell.classList.add("today");
+              }
+              // Check if there is an event on this date
+              const eventForDate = events.filter(ev => ev.date === `${year}-${(month+1).toString().padStart(2, "0")}-${date.toString().padStart(2, "0")}`);
+              if (eventForDate.length) {
+                const badge = document.createElement("div");
+                badge.classList.add("event-badge");
+                badge.innerText = eventForDate.map(ev => ev.name).join(", ");
+                cell.appendChild(badge);
+              }
+              date++;
+            }
+            row.appendChild(cell);
+          }
+          calendarBody.appendChild(row);
+        }
+      }
+
+      // Initial load
+      loadEvents();
+    </script>
   </body>
 </html>
