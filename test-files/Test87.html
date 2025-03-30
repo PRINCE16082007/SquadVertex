@@ -28,30 +28,9 @@
       .table-responsive {
         margin-bottom: 30px;
       }
-      .loading-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(255, 255, 255, 0.8);
-        display: none;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-      }
-      .loading-overlay .spinner-border {
-        width: 3rem;
-        height: 3rem;
-      }
     </style>
   </head>
   <body>
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-      <div class="spinner-border text-primary"></div>
-    </div>
-
     <!-- Navbar (Same as provided) -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container-fluid">
@@ -159,7 +138,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <!-- You can add more deep info here (e.g. contact, attendance history, etc.) -->
+            <!-- Deep student information goes here -->
             <div id="detailContent"></div>
           </div>
         </div>
@@ -172,7 +151,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-      // Firebase configuration – update if necessary
+      // Firebase Configuration (update if needed)
       const firebaseConfig = {
         apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
         authDomain: "squadvertex2007.firebaseapp.com",
@@ -184,22 +163,13 @@
       firebase.initializeApp(firebaseConfig);
       const db = firebase.firestore();
 
-      // Show/hide loading overlay
-      function showLoading() {
-        document.getElementById("loadingOverlay").style.display = "flex";
-      }
-      function hideLoading() {
-        document.getElementById("loadingOverlay").style.display = "none";
-      }
-
-      // Utility: Format Date to YYYY-MM-DD
+      // Utility function: Format Date to YYYY-MM-DD
       function formatDate(date) {
         return date.toISOString().split("T")[0];
       }
 
       // Load student data from Firestore
       async function loadStudentData() {
-        showLoading();
         const searchText = document.getElementById("searchStudent").value.trim().toLowerCase();
         const classFilter = document.getElementById("classFilter").value;
         const genderFilter = document.getElementById("genderFilter").value;
@@ -216,7 +186,6 @@
           snapshot.forEach((doc) => {
             const data = doc.data();
             // Assume fields: rollNo, studentName, class, gender, presentCount, totalSessions
-            // You can add more fields as needed.
             if (
               (!searchText ||
                 (data.studentName &&
@@ -234,10 +203,9 @@
         }
         renderStudentTable(students);
         updateAnalyticsChart(students);
-        hideLoading();
       }
 
-      // Render student table
+      // Render student table rows
       function renderStudentTable(students) {
         const tbody = document.getElementById("studentTableBody");
         if (students.length === 0) {
@@ -248,17 +216,17 @@
         tbody.innerHTML = students
           .map((student) => {
             return `
-            <tr>
-              <td>${student.rollNo || "N/A"}</td>
-              <td>${student.studentName || "Unknown"}</td>
-              <td>${student.class || "N/A"}</td>
-              <td>${student.gender || "N/A"}</td>
-              <td>${student.presentCount || 0} / ${student.totalSessions || 0}</td>
-              <td>
-                <button class="btn btn-sm btn-primary" onclick="showDetailModal('${student.rollNo}', '${student.studentName || "Unknown"}')">View Details</button>
-              </td>
-            </tr>
-          `;
+              <tr>
+                <td>${student.rollNo || "N/A"}</td>
+                <td>${student.studentName || "Unknown"}</td>
+                <td>${student.class || "N/A"}</td>
+                <td>${student.gender || "N/A"}</td>
+                <td>${student.presentCount || 0} / ${student.totalSessions || 0}</td>
+                <td>
+                  <button class="btn btn-sm btn-primary" onclick="showDetailModal('${student.rollNo}', '${student.studentName || "Unknown"}')">View Details</button>
+                </td>
+              </tr>
+            `;
           })
           .join("");
       }
@@ -291,11 +259,8 @@
         });
       }
 
-      // Detail Modal: Show deep info for a student
+      // Detail Modal: Load deep student info from Firestore
       async function showDetailModal(rollNo, name) {
-        showLoading();
-        // For this demo, we load the full document for the student.
-        // In production, you might load additional attendance history etc.
         try {
           const docSnap = await db
             .collection("001-school")
@@ -313,7 +278,6 @@
               <p><strong>Gender:</strong> ${data.gender || "N/A"}</p>
               <p><strong>Email:</strong> ${data.email || "N/A"}</p>
               <p><strong>Contact:</strong> ${data.contact || "N/A"}</p>
-              <!-- Add more fields as needed -->
             `;
           } else {
             content = "<p>No detailed record found.</p>";
@@ -324,10 +288,9 @@
         } catch (error) {
           console.error("Error loading detail:", error);
         }
-        hideLoading();
       }
 
-      // Initial load when DOM is ready
+      // Initial load
       document.addEventListener("DOMContentLoaded", loadStudentData);
     </script>
   </body>
