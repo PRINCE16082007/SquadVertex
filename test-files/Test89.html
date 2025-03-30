@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SchoolMS - Attendance Management</title>
+    <!-- Bootstrap 5 CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      .attendance-section {
+        margin-top: 20px;
+      }
+      .filter-section {
+        margin-bottom: 30px;
+      }
+      .chart-container {
+        position: relative;
+        height: 350px;
+      }
+      .table-responsive {
+        margin-bottom: 30px;
+      }
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+      .detail-table {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .badge-present {
+        background-color: #28a745;
+      }
+      .badge-absent {
+        background-color: #dc3545;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay">
+      <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+    </div>
+
+    <!-- Details Modal -->
+    <div class="modal fade" id="detailModal" tabindex="-1">
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="detailTitle"></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row">
+              <div class="col-md-4">
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h5 class="card-title">Attendance Summary</h5>
+                    <p>Total Days: <span id="totalDays">0</span></p>
+                    <p>Present: <span id="totalPresent">0</span></p>
+                    <p>Absent: <span id="totalAbsent">0</span></p>
+                    <p>Percentage: <span id="attendancePercent">0</span>%</p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-8">
+                <h5>Daily Records</h5>
+                <div class="detail-table">
+                  <table class="table table-sm">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Session</th>
+                      </tr>
+                    </thead>
+                    <tbody id="detailRecords"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">SchoolMS</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarContent"
+          aria-controls="navbarContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarContent">
+          <ul class="navbar-nav me-auto">
+            <!-- Insert your existing menu items here -->
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container attendance-section">
+      <h2 class="mb-4">Attendance Management</h2>
+
+      <!-- Enhanced Filter Section -->
+      <div class="row filter-section g-3 align-items-center">
+        <div class="col-md-3">
+          <select id="timeRangeSelect" class="form-select">
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 3 Months</option>
+            <option value="180">Last 6 Months</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <select id="classSelect" class="form-select">
+            <option value="all">All Classes</option>
+            <option value="9">Class 9</option>
+            <option value="10">Class 10</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <select id="genderSelect" class="form-select">
+            <option value="all">All Genders</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <input type="text" id="searchAttendance" class="form-control" placeholder="Search Name/ID...">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary w-100" onclick="loadAllData()">Apply</button>
+        </div>
+      </div>
+
+      <!-- Enhanced Tables -->
+      <div id="detailedTables">
+        <!-- Student Table -->
+        <div id="studentTableContainer" class="mb-5">
+          <h3>Student Attendance</h3>
+          <div class="table-responsive">
+            <table class="table table-bordered">
+              <thead class="table-dark">
+                <tr>
+                  <th>Roll No</th>
+                  <th>Name</th>
+                  <th>Class</th>
+                  <th>Gender</th>
+                  <th>Last 7 Days</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="studentAttendanceBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Staff Table -->
+        <div id="staffTableContainer" class="mb-5" style="display:none;">
+          <h3>Staff Attendance</h3>
+          <div class="table-responsive">
+            <table class="table table-bordered">
+              <thead class="table-dark">
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Last 7 Days</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="staffAttendanceBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div id="chartsSection">
+        <div id="studentChartContainer">
+          <h3>Student Attendance Analytics</h3>
+          <div class="chart-container">
+            <canvas id="studentAttendanceChart"></canvas>
+          </div>
+        </div>
+        <div id="staffChartContainer" style="display:none;">
+          <h3>Staff Attendance Analytics</h3>
+          <div class="chart-container">
+            <canvas id="staffAttendanceChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script>
+      // Firebase Configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+        authDomain: "squadvertex2007.firebaseapp.com",
+        projectId: "squadvertex2007",
+        storageBucket: "squadvertex2007.appspot.com",
+        messagingSenderId: "168905083514",
+        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
+      // Global Variables
+      let studentAttendanceChart, staffAttendanceChart;
+      let currentDetailType = '';
+      let currentDetailId = '';
+
+      // Utility Functions
+      function showLoading() {
+        document.querySelector('.loading-overlay').style.display = 'flex';
+      }
+      function hideLoading() {
+        document.querySelector('.loading-overlay').style.display = 'none';
+      }
+      function formatDate(date) {
+        return date.toISOString().split('T')[0];
+      }
+      function getPastDates(days) {
+        const dates = [];
+        const today = new Date();
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          dates.push(formatDate(d));
+        }
+        return dates;
+      }
+
+      // ---------- STUDENT ATTENDANCE TABLE ----------
+      async function loadStudentData(days) {
+        showLoading();
+        const classFilter = document.getElementById('classSelect').value;
+        const genderFilter = document.getElementById('genderSelect').value;
+        const dates = getPastDates(days);
+        let students = {};
+
+        for (const date of dates) {
+          const sessions = ['session1', 'session2'];
+          for (const session of sessions) {
+            try {
+              const snapshot = await db.collection('001-school')
+                .doc('attendance')
+                .collection('student_attendance')
+                .doc(date)
+                .collection(session)
+                .get();
+              snapshot.forEach(doc => {
+                const data = doc.data();
+                const searchText = document.getElementById('searchAttendance').value.trim().toLowerCase();
+                if ((classFilter === 'all' || data.class === classFilter) &&
+                    (genderFilter === 'all' || data.gender === genderFilter) &&
+                    (!searchText || (data.studentName && data.studentName.toLowerCase().includes(searchText)) ||
+                     (data.rollNo && data.rollNo.toLowerCase().includes(searchText)))) {
+                  if (!students[data.rollNo]) {
+                    students[data.rollNo] = {
+                      ...data,
+                      presentCount: 0,
+                      totalSessions: 0,
+                      records: []
+                    };
+                  }
+                  students[data.rollNo].totalSessions++;
+                  if (data.status === 'Present') students[data.rollNo].presentCount++;
+                  students[data.rollNo].records.push({
+                    date,
+                    session: session.toUpperCase(),
+                    status: data.status
+                  });
+                }
+              });
+            } catch (error) {
+              console.error("Error fetching student attendance for", session, error);
+            }
+          }
+        }
+        renderStudentTable(Object.values(students));
+        hideLoading();
+      }
+
+      function renderStudentTable(students) {
+        const tbody = document.getElementById('studentAttendanceBody');
+        if (students.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center">No student attendance data found.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = students.map(student => `
+          <tr>
+            <td>${student.rollNo}</td>
+            <td>${student.studentName || 'Unknown'}</td>
+            <td>Class ${student.class}</td>
+            <td>${student.gender}</td>
+            <td>${student.presentCount}/${student.totalSessions}</td>
+            <td>
+              <button class="btn btn-sm btn-primary" onclick="showDetail('student', '${student.rollNo}', '${student.studentName || 'Unknown'}')">
+                View Details
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      // ---------- STAFF ATTENDANCE TABLE ----------
+      async function loadStaffData(days) {
+        showLoading();
+        const dates = getPastDates(days);
+        let staffMembers = {};
+
+        for (const date of dates) {
+          try {
+            const snapshot = await db.collection('001-school')
+              .doc('attendance')
+              .collection('staff_attendance')
+              .doc(date)
+              .collection('records')
+              .get();
+            snapshot.forEach(doc => {
+              const data = doc.data();
+              const searchText = document.getElementById('searchAttendance').value.trim().toLowerCase();
+              if (!searchText || (data.teacherName && data.teacherName.toLowerCase().includes(searchText)) ||
+                  (data.teacherID && data.teacherID.toLowerCase().includes(searchText))) {
+                if (!staffMembers[data.teacherID]) {
+                  staffMembers[data.teacherID] = {
+                    ...data,
+                    presentCount: 0,
+                    totalDays: 0,
+                    records: []
+                  };
+                }
+                staffMembers[data.teacherID].totalDays++;
+                staffMembers[data.teacherID].presentCount++;
+                staffMembers[data.teacherID].records.push({ date, status: 'Present' });
+              }
+            });
+          } catch (error) {
+            console.error("Error fetching staff attendance for", date, error);
+          }
+        }
+        renderStaffTable(Object.values(staffMembers));
+        hideLoading();
+      }
+
+      function renderStaffTable(staff) {
+        const tbody = document.getElementById('staffAttendanceBody');
+        if (staff.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="text-center">No staff attendance data found.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = staff.map(member => `
+          <tr>
+            <td>${member.teacherID}</td>
+            <td>${member.teacherName}</td>
+            <td>${member.presentCount}/${member.totalDays}</td>
+            <td>
+              <button class="btn btn-sm btn-primary" onclick="showDetail('staff', '${member.teacherID}', '${member.teacherName}')">
+                View Details
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      // ---------- DETAIL MODAL ----------
+      async function showDetail(type, id, name) {
+        showLoading();
+        currentDetailType = type;
+        currentDetailId = id;
+        const days = parseInt(document.getElementById('timeRangeSelect').value);
+        const dates = getPastDates(days);
+        let records = [];
+
+        if (type === 'student') {
+          for (const date of dates) {
+            const sessions = ['session1', 'session2'];
+            for (const session of sessions) {
+              try {
+                const doc = await db.collection('001-school')
+                  .doc('attendance')
+                  .collection('student_attendance')
+                  .doc(date)
+                  .collection(session)
+                  .doc(id)
+                  .get();
+                if (doc.exists) {
+                  records.push({
+                    date,
+                    session: session.toUpperCase(),
+                    status: doc.data().status
+                  });
+                }
+              } catch (error) {
+                console.error("Error fetching detail for student", error);
+              }
+            }
+          }
+        } else {
+          for (const date of dates) {
+            try {
+              const doc = await db.collection('001-school')
+                .doc('attendance')
+                .collection('staff_attendance')
+                .doc(date)
+                .collection('records')
+                .doc(id)
+                .get();
+              if (doc.exists) {
+                records.push({
+                  date,
+                  session: 'FULL DAY',
+                  status: 'Present'
+                });
+              }
+            } catch (error) {
+              console.error("Error fetching detail for staff", error);
+            }
+          }
+        }
+        updateDetailModal(name, records);
+        hideLoading();
+      }
+
+      function updateDetailModal(name, records) {
+        document.getElementById('detailTitle').textContent = `${name}'s Attendance Details`;
+        const presentCount = records.filter(r => r.status === 'Present').length;
+        const totalDays = records.length;
+        document.getElementById('totalDays').textContent = totalDays;
+        document.getElementById('totalPresent').textContent = presentCount;
+        document.getElementById('totalAbsent').textContent = totalDays - presentCount;
+        document.getElementById('attendancePercent').textContent = totalDays > 0 ? ((presentCount / totalDays) * 100).toFixed(1) : 0;
+        const tbody = document.getElementById('detailRecords');
+        tbody.innerHTML = records.map(r => `
+          <tr>
+            <td>${r.date}</td>
+            <td><span class="badge ${r.status === 'Present' ? 'badge-present' : 'badge-absent'}">
+              ${r.status}
+            </span></td>
+            <td>${r.session}</td>
+          </tr>
+        `).join('');
+        new bootstrap.Modal(document.getElementById('detailModal')).show();
+      }
+
+      // ---------- CHARTS ----------
+      async function updateStudentChart(days) {
+        const dates = getPastDates(days);
+        const dataPoints = await Promise.all(dates.map(async date => {
+          let count = 0;
+          const sessions = ['session1', 'session2'];
+          for (const session of sessions) {
+            try {
+              const snapshot = await db.collection('001-school').doc('attendance')
+                .collection('student_attendance').doc(date)
+                .collection(session).get();
+              snapshot.forEach(doc => {
+                if (doc.data().status === 'Present') count++;
+              });
+            } catch (error) {
+              console.error("Error in student chart for", date, session, error);
+            }
+          }
+          return count;
+        }));
+        const ctx = document.getElementById('studentAttendanceChart').getContext('2d');
+        if (studentAttendanceChart) studentAttendanceChart.destroy();
+        studentAttendanceChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dates,
+            datasets: [{
+              label: 'Students Present',
+              data: dataPoints,
+              borderColor: '#28a745',
+              tension: 0.1
+            }]
+          }
+        });
+      }
+
+      async function updateStaffChart(days) {
+        const dates = getPastDates(days);
+        const dataPoints = await Promise.all(dates.map(async date => {
+          try {
+            const snapshot = await db.collection('001-school').doc('attendance')
+              .collection('staff_attendance').doc(date)
+              .collection('records').get();
+            return snapshot.size;
+          } catch (error) {
+            console.error("Error in staff chart for", date, error);
+            return 0;
+          }
+        }));
+        const ctx = document.getElementById('staffAttendanceChart').getContext('2d');
+        if (staffAttendanceChart) staffAttendanceChart.destroy();
+        staffAttendanceChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dates,
+            datasets: [{
+              label: 'Staff Present',
+              data: dataPoints,
+              borderColor: '#17a2b8',
+              tension: 0.1
+            }]
+          }
+        });
+      }
+
+      // ---------- LOAD ALL DATA ----------
+      async function loadAllData() {
+        const days = parseInt(document.getElementById('timeRangeSelect').value);
+        const type = document.getElementById('attendanceTypeSelect').value;
+        if (type === 'student') {
+          await loadStudentData(days);
+          await updateStudentChart(days);
+        } else {
+          await loadStaffData(days);
+          await updateStaffChart(days);
+        }
+      }
+
+      // Initialization
+      document.addEventListener('DOMContentLoaded', () => {
+        new bootstrap.Modal(document.getElementById('detailModal'));
+        loadAllData();
+      });
+    </script>
+  </body>
+</html>
