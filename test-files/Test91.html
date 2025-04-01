@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>File Upload to Backblaze B2</title>
+  <title>File Upload to Backblaze B2 via Worker Proxy</title>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
     input, button { margin: 10px; padding: 10px; }
@@ -27,36 +27,24 @@
       }
       
       const file = fileInput.files[0];
-      const workerUrl = "https://student-upload-003.princegahlot2007.workers.dev/"; // Cloudflare Worker URL
+      const workerUrl = "https://student-upload-003.princegahlot2007.workers.dev/";
       
       try {
-        status.innerText = "Getting upload URL...";
-        // Step 1: Get upload URL from Worker
-        const response = await fetch(workerUrl);
-        if (!response.ok) throw new Error("Failed to get upload URL");
-        
-        const { uploadUrl, uploadAuthToken } = await response.json();
-        
-        status.innerText = "Uploading file...";
-        // Step 2: Upload file to Backblaze B2
-        const uploadResponse = await fetch(uploadUrl, {
+        status.innerText = "Uploading file via proxy...";
+        // Send file directly to the Worker via POST.
+        const response = await fetch(workerUrl, {
           method: "POST",
           headers: {
-            "X-Bz-File-Name": encodeURIComponent(file.name),
-            "Content-Type": file.type,
-            "X-Bz-Content-Sha1": "do_not_verify",
-            "Authorization": uploadAuthToken
+            "X-File-Name": file.name,
+            "Content-Type": file.type
           },
           body: file
         });
         
-        if (!uploadResponse.ok) throw new Error("File upload failed");
+        if (!response.ok) throw new Error("File upload failed");
         
-        const uploadResult = await uploadResponse.json();
-        // Construct file URL (since bucket is private, access might require additional steps if needed)
-        const fileUrl = `https://f001.backblazeb2.com/file/SVX-SaaS-003/${encodeURIComponent(file.name)}`;
-        
-        status.innerHTML = `✅ File uploaded successfully! <a href="${fileUrl}" target="_blank">View File</a>`;
+        const result = await response.json();
+        status.innerHTML = `✅ File uploaded successfully! <br>File URL: <a href="${result.fileUrl}" target="_blank">${result.fileUrl}</a>`;
       } catch (error) {
         status.innerText = "❌ " + error.message;
       }
