@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Upload to Backblaze B2 via Worker Proxy</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
+    input, button { margin: 10px; padding: 10px; }
+    #status { margin-top: 20px; font-weight: bold; }
+    #gallery { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+    #gallery img { max-width: 300px; border: 2px solid #ccc; padding: 5px; }
+  </style>
+</head>
+<body>
+  <h2>Upload File to Backblaze B2</h2>
+  <input type="file" id="fileInput" />
+  <button onclick="uploadFile()">Upload File</button>
+  <p id="status"></p>
+  
+  <div id="gallery">
+    <h3>Uploaded Images</h3>
+    <!-- Uploaded images will appear here -->
+  </div>
+  
+  <script>
+    async function uploadFile() {
+      const fileInput = document.getElementById('fileInput');
+      const status = document.getElementById('status');
+      const gallery = document.getElementById('gallery');
+      
+      if (!fileInput.files.length) {
+        status.innerText = "Please select a file!";
+        return;
+      }
+      
+      const file = fileInput.files[0];
+      const workerUrl = "https://student-upload-003.princegahlot2007.workers.dev/";
+      
+      try {
+        status.innerText = "Uploading file via proxy...";
+        // Send file to Worker (which acts as proxy for B2 upload)
+        const response = await fetch(workerUrl, {
+          method: "POST",
+          headers: {
+            // Pass filename in custom header for worker to use
+            "X-File-Name": file.name,
+            "Content-Type": file.type
+          },
+          body: file
+        });
+        
+        if (!response.ok) throw new Error("File upload failed");
+        
+        const result = await response.json();
+        // Use returned file URL from worker response. Note: Due to load balancing, subdomain may differ.
+        const fileUrl = result.fileUrl;
+        
+        status.innerHTML = `✅ File uploaded successfully!`;
+        
+        // Append the image to the gallery section
+        const img = document.createElement("img");
+        img.src = fileUrl;
+        img.alt = file.name;
+        gallery.appendChild(img);
+      } catch (error) {
+        status.innerText = "❌ " + error.message;
+      }
+    }
+  </script>
+</body>
+</html>
