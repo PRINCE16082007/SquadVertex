@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload & Display Files</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
+        input, button { margin: 10px; padding: 10px; }
+        #status { margin-top: 20px; font-weight: bold; }
+        #uploadedFiles { margin-top: 20px; }
+        img, iframe { max-width: 80%; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Upload File to Backblaze B2</h2>
+    <input type="file" id="fileInput" />
+    <button onclick="uploadFile()">Upload File</button>
+    <p id="status"></p>
+    <div id="uploadedFiles"></div>
+
+    <script>
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const status = document.getElementById('status');
+            const uploadedFiles = document.getElementById('uploadedFiles');
+
+            if (!fileInput.files.length) {
+                status.innerText = "Please select a file!";
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const workerUrl = "https://student-upload-003.princegahlot2007.workers.dev/get-upload-url";
+
+            try {
+                status.innerText = "Getting upload URL...";
+                const response = await fetch(workerUrl);
+                if (!response.ok) throw new Error("Failed to get upload URL");
+
+                const { uploadUrl, uploadAuthToken } = await response.json();
+
+                status.innerText = "Uploading file...";
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: "POST",
+                    headers: {
+                        "X-Bz-File-Name": encodeURIComponent(file.name),
+                        "Content-Type": file.type,
+                        "X-Bz-Content-Sha1": "do_not_verify",
+                        "Authorization": uploadAuthToken
+                    },
+                    body: file
+                });
+
+                if (!uploadResponse.ok) throw new Error("File upload failed");
+
+                status.innerText = "File uploaded successfully!";
+                
+                // Get Signed URL for Display
+                const signedUrlRes = await fetch(`https://student-upload-003.princegahlot2007.workers.dev/get-file-url?file=${encodeURIComponent(file.name)}`);
+                const signedUrlData = await signedUrlRes.json();
+
+                if (file.type.startsWith("image/")) {
+                    uploadedFiles.innerHTML += `<img src="${signedUrlData.signedUrl}" alt="${file.name}"><br>`;
+                } else if (file.type === "application/pdf") {
+                    uploadedFiles.innerHTML += `<iframe src="${signedUrlData.signedUrl}" width="80%" height="400px"></iframe><br>`;
+                } else {
+                    uploadedFiles.innerHTML += `<p>File uploaded: <a href="${signedUrlData.signedUrl}" target="_blank">${file.name}</a></p>`;
+                }
+                
+            } catch (error) {
+                status.innerText = "❌ " + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
