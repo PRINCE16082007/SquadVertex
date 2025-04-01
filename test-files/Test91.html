@@ -1,61 +1,66 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Upload to Backblaze B2</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
-        input, button { margin: 10px; padding: 10px; }
-        #status { margin-top: 20px; font-weight: bold; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Upload to Backblaze B2</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
+    input, button { margin: 10px; padding: 10px; }
+    #status { margin-top: 20px; font-weight: bold; }
+  </style>
 </head>
 <body>
-    <h2>Upload File to Backblaze B2</h2>
-    <input type="file" id="fileInput" />
-    <button onclick="uploadFile()">Upload File</button>
-    <p id="status"></p><script>
+  <h2>Upload File to Backblaze B2</h2>
+  <input type="file" id="fileInput" />
+  <button onclick="uploadFile()">Upload File</button>
+  <p id="status"></p>
+  
+  <script>
     async function uploadFile() {
-        const fileInput = document.getElementById('fileInput');
-        const status = document.getElementById('status');
-
-        if (!fileInput.files.length) {
-            status.innerText = "Please select a file!";
-            return;
-        }
-
-        const file = fileInput.files[0];
-        const workerUrl = "https://student-upload-003.princegahlot2007.workers.dev/";
+      const fileInput = document.getElementById('fileInput');
+      const status = document.getElementById('status');
+      
+      if (!fileInput.files.length) {
+        status.innerText = "Please select a file!";
+        return;
+      }
+      
+      const file = fileInput.files[0];
+      const workerUrl = "https://student-upload-003.princegahlot2007.workers.dev/"; // Cloudflare Worker URL
+      
+      try {
+        status.innerText = "Getting upload URL...";
+        // Step 1: Get upload URL from Worker
+        const response = await fetch(workerUrl);
+        if (!response.ok) throw new Error("Failed to get upload URL");
         
-        try {
-            status.innerText = "Getting upload URL...";
-            const response = await fetch(workerUrl);
-            if (!response.ok) throw new Error("Failed to get upload URL");
-            
-            const { uploadUrl, uploadAuthToken } = await response.json();
-            
-            status.innerText = "Uploading file...";
-            const uploadResponse = await fetch(uploadUrl, {
-                method: "POST",
-                headers: {
-                    "X-Bz-File-Name": encodeURIComponent(file.name),
-                    "Content-Type": file.type,
-                    "X-Bz-Content-Sha1": "do_not_verify", 
-                    "Authorization": uploadAuthToken
-                },
-                body: file
-            });
-            
-            if (!uploadResponse.ok) throw new Error("File upload failed");
-            
-            const uploadResult = await uploadResponse.json();
-            const fileUrl = `https://f001.backblazeb2.com/file/SVX-SaaS-003/${encodeURIComponent(file.name)}`;
-            
-            status.innerHTML = `✅ File uploaded successfully! <a href="${fileUrl}" target="_blank">View File</a>`;
-        } catch (error) {
-            status.innerText = "❌ " + error.message;
-        }
+        const { uploadUrl, uploadAuthToken } = await response.json();
+        
+        status.innerText = "Uploading file...";
+        // Step 2: Upload file to Backblaze B2
+        const uploadResponse = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "X-Bz-File-Name": encodeURIComponent(file.name),
+            "Content-Type": file.type,
+            "X-Bz-Content-Sha1": "do_not_verify",
+            "Authorization": uploadAuthToken
+          },
+          body: file
+        });
+        
+        if (!uploadResponse.ok) throw new Error("File upload failed");
+        
+        const uploadResult = await uploadResponse.json();
+        // Construct file URL (since bucket is private, access might require additional steps if needed)
+        const fileUrl = `https://f001.backblazeb2.com/file/SVX-SaaS-003/${encodeURIComponent(file.name)}`;
+        
+        status.innerHTML = `✅ File uploaded successfully! <a href="${fileUrl}" target="_blank">View File</a>`;
+      } catch (error) {
+        status.innerText = "❌ " + error.message;
+      }
     }
-</script>
-
+  </script>
 </body>
 </html>
