@@ -1,0 +1,56 @@
+<!DOCTYPE html><html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload to Backblaze B2</title>
+</head>
+<body>
+    <h2>Upload File to Backblaze B2</h2>
+    <input type="file" id="fileInput" />
+    <button onclick="uploadFile()">Upload File</button>
+    <p id="status"></p><script>
+    async function uploadFile() {
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+
+        if (!fileInput.files.length) {
+            status.innerText = "Please select a file!";
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const workerUrl = "https://student-upload-003.princegahlot2007.workers.dev/"; // Tumhara Cloudflare Worker URL
+        
+        try {
+            // Step 1: Get Upload URL from Cloudflare Worker
+            const response = await fetch(workerUrl);
+            if (!response.ok) throw new Error("Failed to get upload URL");
+            
+            const { uploadUrl, uploadAuthToken } = await response.json();
+            
+            // Step 2: Upload file to Backblaze B2
+            const uploadResponse = await fetch(uploadUrl, {
+                method: "POST",
+                headers: {
+                    "X-Bz-File-Name": encodeURIComponent(file.name),
+                    "Content-Type": file.type,
+                    "X-Bz-Content-Sha1": "do_not_verify", 
+                    "Authorization": uploadAuthToken
+                },
+                body: file
+            });
+            
+            if (!uploadResponse.ok) throw new Error("File upload failed");
+            
+            const uploadResult = await uploadResponse.json();
+            const fileUrl = `https://f001.backblazeb2.com/file/SVX-SaaS-003/${encodeURIComponent(file.name)}`;
+            
+            status.innerHTML = `✅ File uploaded successfully! <a href="${fileUrl}" target="_blank">View File</a>`;
+        } catch (error) {
+            status.innerText = "❌ " + error.message;
+        }
+    }
+</script>
+
+</body>
+</html>
