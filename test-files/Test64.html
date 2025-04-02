@@ -12,7 +12,7 @@
     </style>
   </head>
   <body>
-     <!-- Navbar -->
+    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container-fluid">
         <a class="navbar-brand" href="#">SchoolMS</a>
@@ -47,17 +47,17 @@
         </div>
       </div>
     </nav>
-    
+
     <div class="container attendance-section">
       <h2>Student Attendance (Session 1)</h2>
-      
+
       <!-- Attendance Date -->
       <div class="mb-3">
         <label for="attendance-date" class="form-label"><strong>Attendance Date</strong></label>
         <input type="date" class="form-control" id="attendance-date" required />
         <small class="text-muted">Attendance will be recorded for this date. You can change it if needed.</small>
       </div>
-      
+
       <!-- Teacher selection -->
       <div class="mb-3">
         <label for="teacher-select" class="form-label"><strong>Select Your Teacher ID</strong></label>
@@ -70,7 +70,7 @@
         <label for="teacher-name" class="form-label"><strong>Teacher Name</strong></label>
         <input type="text" class="form-control" id="teacher-name" placeholder="Teacher name will load automatically" readonly />
       </div>
-      
+
       <!-- Class selection -->
       <div class="mb-3">
         <label for="select-class" class="form-label"><strong>Select Class</strong></label>
@@ -83,7 +83,7 @@
         </select>
       </div>
       <button class="btn btn-primary mb-3" id="load-students-btn">Load Students</button>
-      
+
       <!-- Student Table -->
       <div id="attendance-form-container" class="d-none">
         <div class="mb-2">
@@ -111,10 +111,10 @@
         </form>
         <div id="attendance-status" class="mt-3"></div>
       </div>
-      
+
       <div id="session-message" class="mt-3"></div>
     </div>
-    
+
     <!-- Firebase Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
@@ -132,24 +132,36 @@
         firebase.initializeApp(firebaseConfig);
       }
       const db = firebase.firestore();
-      
+
       // Set default attendance date to today
       document.getElementById("attendance-date").value = new Date().toISOString().split("T")[0];
-      
+
       let attendanceAllowed = false;
       let holidays = [];
-      
+
       // Load attendance settings for Session 1
       function loadAttendanceSettings() {
-        db.collection("001-school").doc("attendanceSettings").get()
-          .then(doc => {
-            if (doc.exists) {
-              const data = doc.data();
-              if (!data.roleControls?.attendance) {
-                document.getElementById("session-message").innerHTML = `<div class="alert alert-danger">Attendance module is disabled by admin.</div>`;
+        // First, check systemSettings document for module.attendance
+        db.collection("001-school").doc("systemSettings").get()
+          .then(sysDoc => {
+            if (sysDoc.exists) {
+              const sysData = sysDoc.data();
+              if (!sysData.modules || sysData.modules.attendance !== true) {
+                document.getElementById("session-message").innerHTML = `<div class="alert alert-danger">Attendance module is disabled in system settings.</div>`;
                 attendanceAllowed = false;
-                return;
+                throw new Error("Attendance module disabled in system settings.");
               }
+              // If systemSettings allow attendance, then load attendanceSettings
+              return db.collection("001-school").doc("attendanceSettings").get();
+            } else {
+              document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">System settings not configured by admin.</div>`;
+              attendanceAllowed = false;
+              throw new Error("System settings not configured.");
+            }
+          })
+          .then(attDoc => {
+            if (attDoc.exists) {
+              const data = attDoc.data();
               const session1 = data.session1;
               holidays = data.holidays || [];
               const today = new Date();
@@ -161,7 +173,7 @@
               }
               const nowStr = today.toTimeString().split(" ")[0];
               if (data.sessionControl === "automatic") {
-                // In automatic mode, only time matters
+                // Automatic mode: Check time range only
                 if (nowStr >= session1.start && nowStr <= session1.end) {
                   attendanceAllowed = true;
                   document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 1 is active (Automatic Mode).</div>`;
@@ -169,7 +181,8 @@
                   attendanceAllowed = false;
                   document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">Attendance is not allowed at this time (Automatic Mode).</div>`;
                 }
-              } else { // manual mode
+              } else { 
+                // Manual mode: Check session1.enabled and time range
                 if (session1.enabled && nowStr >= session1.start && nowStr <= session1.end) {
                   attendanceAllowed = true;
                   document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 1 is active (Manual Mode).</div>`;
@@ -183,10 +196,10 @@
               attendanceAllowed = false;
             }
           })
-          .catch(err => console.error("Error loading attendance settings:", err));
+          .catch(err => console.error("Error loading settings:", err));
       }
       loadAttendanceSettings();
-      
+
       // ---------------------------
       // TEACHER DROPDOWN
       // ---------------------------
@@ -208,7 +221,7 @@
           .catch(err => console.error("Error loading teacher dropdown:", err));
       }
       loadTeacherDropdown();
-      
+
       // Auto-fill teacher name on selection
       document.getElementById("teacher-select").addEventListener("change", function () {
         const teacherId = this.value;
@@ -226,7 +239,7 @@
           })
           .catch(err => console.error("Error fetching teacher name:", err));
       });
-      
+
       // ---------------------------
       // LOAD STUDENTS BASED ON CLASS
       // ---------------------------
@@ -278,7 +291,7 @@
             document.getElementById("attendance-status").innerText = "Error loading students: " + err.message;
           });
       });
-      
+
       // ---------------------------
       // SUBMIT ATTENDANCE RECORDS (Session 1)
       // ---------------------------
@@ -309,7 +322,7 @@
           .collection("session1")
           .doc(classDocId)
           .collection("students");
-        
+
         const selects = document.querySelectorAll(".attendance-select");
         const promises = [];
         selects.forEach(select => {
@@ -328,7 +341,6 @@
                 .then(studentDoc => {
                   if (studentDoc.exists) {
                     const studentData = studentDoc.data();
-                    // Ensure srNumber is defined; otherwise provide a default (e.g., "N/A")
                     const sr = studentData.srNumber || "N/A";
                     return studentAttendanceRef.set({
                       studentDocId: studentDocId,
@@ -353,7 +365,7 @@
           });
           promises.push(p);
         });
-        
+
         Promise.all(promises)
           .then(() => {
             document.getElementById("attendance-status").innerText = "Attendance submitted successfully for Session 1!";
