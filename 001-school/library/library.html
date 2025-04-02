@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SchoolMS - Library Management</title>
+    <!-- Bootstrap 5 CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Chart.js CSS (optional, Chart.js uses canvas styling) -->
+    <style>
+      .library-section {
+        margin-top: 20px;
+      }
+      .analytics-card {
+        margin-bottom: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">SchoolMS</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarContent"
+          aria-controls="navbarContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarContent">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="admissions.html">Admissions</a></li>
+            <li class="nav-item"><a class="nav-link" href="staff.html">Staff</a></li>
+            <li class="nav-item"><a class="nav-link" href="attendance.html">Attendance</a></li>
+            <li class="nav-item"><a class="nav-link" href="classes.html">Classes</a></li>
+            <li class="nav-item"><a class="nav-link" href="exams.html">Exams</a></li>
+            <li class="nav-item active"><a class="nav-link" href="library.html">Library</a></li>
+            <li class="nav-item"><a class="nav-link" href="transport.html">Transport</a></li>
+            <li class="nav-item"><a class="nav-link" href="hostel.html">Hostel</a></li>
+            <li class="nav-item"><a class="nav-link" href="communications.html">Communications</a></li>
+            <li class="nav-item"><a class="nav-link" href="inventory.html">Inventory</a></li>
+            <li class="nav-item"><a class="nav-link" href="events.html">Events</a></li>
+            <li class="nav-item"><a class="nav-link" href="admin.html">Admin</a></li>
+            <li class="nav-item"><a class="nav-link" href="reports.html">Reports</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Library Management Section -->
+    <div class="container library-section">
+      <h2>Library Management</h2>
+
+      <!-- Analytics Section -->
+      <div class="row mb-4">
+        <div class="col-md-4">
+          <div class="card analytics-card">
+            <div class="card-body">
+              <h5 class="card-title">Total Books</h5>
+              <p class="card-text" id="totalBooks">0</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card analytics-card">
+            <div class="card-body">
+              <h5 class="card-title">Available Books</h5>
+              <p class="card-text" id="availableBooks">0</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card analytics-card">
+            <div class="card-body">
+              <h5 class="card-title">Assigned Books</h5>
+              <p class="card-text" id="assignedBooks">0</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row mb-4">
+        <div class="col-md-6 offset-md-3">
+          <canvas id="booksChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Search and Actions -->
+      <div class="row mb-4">
+        <div class="col-md-4">
+          <input
+            type="text"
+            id="searchInput"
+            class="form-control"
+            placeholder="Search Books"
+          />
+        </div>
+        <div class="col-md-4">
+          <!-- Filter dropdown for status -->
+          <select id="statusFilter" class="form-select">
+            <option value="">All Status</option>
+            <option value="Available">Available</option>
+            <option value="Issued">Issued</option>
+          </select>
+        </div>
+        <div class="col-md-4 text-end">
+          <button
+            class="btn btn-primary"
+            data-bs-toggle="modal"
+            data-bs-target="#addBookModal"
+          >
+            Add New Book
+          </button>
+        </div>
+      </div>
+
+      <!-- Books Table -->
+      <div class="table-responsive">
+        <table class="table table-bordered" id="library-table">
+          <thead class="table-dark">
+            <tr>
+              <th>Book ID</th>
+              <th>Title</th>
+              <th>Author</th>
+              <th>ISBN</th>
+              <th>Status</th>
+              <th>Assigned To</th>
+              <th>Due Date</th>
+              <th>Remarks</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="booksTableBody">
+            <!-- Book data will be populated here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Add Book Modal -->
+    <div
+      class="modal fade"
+      id="addBookModal"
+      tabindex="-1"
+      aria-labelledby="addBookModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="addBookModalLabel" class="modal-title">Add New Book</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="addBookForm">
+              <div class="mb-3">
+                <label for="bookTitle" class="form-label">Title</label>
+                <input type="text" class="form-control" id="bookTitle" required />
+              </div>
+              <div class="mb-3">
+                <label for="bookAuthor" class="form-label">Author</label>
+                <input type="text" class="form-control" id="bookAuthor" required />
+              </div>
+              <div class="mb-3">
+                <label for="bookISBN" class="form-label">ISBN</label>
+                <input type="text" class="form-control" id="bookISBN" required />
+              </div>
+              <div class="mb-3">
+                <label for="bookStatus" class="form-label">Status</label>
+                <select id="bookStatus" class="form-select">
+                  <option value="Available" selected>Available</option>
+                  <option value="Issued">Issued</option>
+                </select>
+              </div>
+              <!-- Hidden fields for assignment -->
+              <input type="hidden" id="assignedTo" />
+              <input type="hidden" id="dueDate" />
+              <input type="hidden" id="remarks" />
+              <button type="submit" class="btn btn-primary">Add Book</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Book Modal -->
+    <div
+      class="modal fade"
+      id="editBookModal"
+      tabindex="-1"
+      aria-labelledby="editBookModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="editBookModalLabel" class="modal-title">Edit Book</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="editBookForm">
+              <input type="hidden" id="editBookId" />
+              <div class="mb-3">
+                <label for="editBookTitle" class="form-label">Title</label>
+                <input type="text" class="form-control" id="editBookTitle" required />
+              </div>
+              <div class="mb-3">
+                <label for="editBookAuthor" class="form-label">Author</label>
+                <input type="text" class="form-control" id="editBookAuthor" required />
+              </div>
+              <div class="mb-3">
+                <label for="editBookISBN" class="form-label">ISBN</label>
+                <input type="text" class="form-control" id="editBookISBN" required />
+              </div>
+              <div class="mb-3">
+                <label for="editBookStatus" class="form-label">Status</label>
+                <select id="editBookStatus" class="form-select">
+                  <option value="Available">Available</option>
+                  <option value="Issued">Issued</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Assign Book Modal -->
+    <div
+      class="modal fade"
+      id="assignBookModal"
+      tabindex="-1"
+      aria-labelledby="assignBookModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="assignBookModalLabel" class="modal-title">Assign Book</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="assignBookForm">
+              <input type="hidden" id="assignBookId" />
+              <div class="mb-3">
+                <label for="studentSelect" class="form-label">Select Student</label>
+                <select id="studentSelect" class="form-select" required>
+                  <option value="">Loading...</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="assignDueDate" class="form-label">Due Date</label>
+                <input type="date" class="form-control" id="assignDueDate" required />
+              </div>
+              <div class="mb-3">
+                <label for="assignRemarks" class="form-label">Remarks</label>
+                <textarea class="form-control" id="assignRemarks" rows="2"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Assign</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Firebase, Bootstrap JS, and Chart.js -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+      // Firebase initialization
+      const firebaseConfig = {
+        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+        authDomain: "squadvertex2007.firebaseapp.com",
+        projectId: "squadvertex2007",
+        storageBucket: "squadvertex2007.appspot.com",
+        messagingSenderId: "168905083514",
+        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
+      // Global variable to store books data
+      let books = [];
+      let chart; // Chart.js instance
+
+      // Reference to the books collection in the specified structure
+      const booksCollection = db
+        .collection("001-school")
+        .doc("books")
+        .collection("list");
+
+      // Fetch and display books from Firestore
+      const loadBooks = () => {
+        booksCollection
+          .get()
+          .then((snapshot) => {
+            books = [];
+            snapshot.forEach((doc) => {
+              let data = doc.data();
+              data.id = doc.id;
+              books.push(data);
+            });
+            renderBooks();
+            updateAnalytics();
+          })
+          .catch((error) => console.error("Error loading books:", error));
+      };
+
+      // Render books into table body
+      const renderBooks = () => {
+        const tbody = document.getElementById("booksTableBody");
+        tbody.innerHTML = "";
+        books.forEach((book) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${book.id}</td>
+            <td>${book.title}</td>
+            <td>${book.author}</td>
+            <td>${book.isbn}</td>
+            <td>${book.status}</td>
+            <td>${book.assignedTo || "-"}</td>
+            <td>${book.dueDate || "-"}</td>
+            <td>${book.remarks || "-"}</td>
+            <td>
+              <button class="btn btn-sm btn-info" onclick="openEditModal('${book.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteBook('${book.id}')">Delete</button>
+              ${
+                book.status === "Available"
+                  ? `<button class="btn btn-sm btn-success" onclick="openAssignModal('${book.id}')">Assign</button>`
+                  : `<button class="btn btn-sm btn-warning" onclick="unassignBook('${book.id}')">Unassign</button>`
+              }
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      };
+
+      // Update analytics info and chart
+      const updateAnalytics = () => {
+        const totalBooks = books.length;
+        const assignedBooks = books.filter(b => b.status === "Issued").length;
+        const availableBooks = totalBooks - assignedBooks;
+        document.getElementById("totalBooks").innerText = totalBooks;
+        document.getElementById("availableBooks").innerText = availableBooks;
+        document.getElementById("assignedBooks").innerText = assignedBooks;
+        updateChart(totalBooks, availableBooks, assignedBooks);
+      };
+
+      // Initialize or update Chart.js chart
+      const updateChart = (total, available, assigned) => {
+        const ctx = document.getElementById("booksChart").getContext("2d");
+        const data = {
+          labels: ["Available", "Assigned"],
+          datasets: [{
+            data: [available, assigned],
+            backgroundColor: ["#28a745", "#ffc107"]
+          }]
+        };
+
+        if (chart) {
+          chart.data = data;
+          chart.update();
+        } else {
+          chart = new Chart(ctx, {
+            type: "doughnut",
+            data: data,
+            options: {
+              responsive: true,
+              plugins: {
+                legend: { position: "bottom" }
+              }
+            }
+          });
+        }
+      };
+
+      // Add new book
+      document.getElementById("addBookForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const title = document.getElementById("bookTitle").value;
+        const author = document.getElementById("bookAuthor").value;
+        const isbn = document.getElementById("bookISBN").value;
+        const status = document.getElementById("bookStatus").value;
+        booksCollection
+          .add({
+            title,
+            author,
+            isbn,
+            status,
+            assignedTo: "",
+            dueDate: "",
+            remarks: ""
+          })
+          .then(() => {
+            loadBooks();
+            document.getElementById("addBookForm").reset();
+            const addModalEl = document.getElementById("addBookModal");
+            bootstrap.Modal.getInstance(addModalEl).hide();
+          })
+          .catch((error) => console.error("Error adding book:", error));
+      });
+
+      // Open Edit Book Modal and populate data
+      function openEditModal(bookId) {
+        const book = books.find((b) => b.id === bookId);
+        if (book) {
+          document.getElementById("editBookId").value = book.id;
+          document.getElementById("editBookTitle").value = book.title;
+          document.getElementById("editBookAuthor").value = book.author;
+          document.getElementById("editBookISBN").value = book.isbn;
+          document.getElementById("editBookStatus").value = book.status;
+          new bootstrap.Modal(document.getElementById("editBookModal")).show();
+        }
+      }
+
+      // Save edited book
+      document.getElementById("editBookForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const id = document.getElementById("editBookId").value;
+        const title = document.getElementById("editBookTitle").value;
+        const author = document.getElementById("editBookAuthor").value;
+        const isbn = document.getElementById("editBookISBN").value;
+        const status = document.getElementById("editBookStatus").value;
+        booksCollection
+          .doc(id)
+          .update({
+            title,
+            author,
+            isbn,
+            status
+          })
+          .then(() => {
+            loadBooks();
+            bootstrap.Modal.getInstance(document.getElementById("editBookModal")).hide();
+          })
+          .catch((error) => console.error("Error updating book:", error));
+      });
+
+      // Delete a book
+      function deleteBook(bookId) {
+        if (confirm("Are you sure you want to delete this book?")) {
+          booksCollection
+            .doc(bookId)
+            .delete()
+            .then(() => loadBooks())
+            .catch((error) => console.error("Error deleting book:", error));
+        }
+      }
+
+      // Open Assign Book Modal and load students from Firestore
+      function openAssignModal(bookId) {
+        document.getElementById("assignBookId").value = bookId;
+        const studentSelect = document.getElementById("studentSelect");
+        studentSelect.innerHTML = `<option value="">Loading...</option>`;
+        // Fetch students from the given path: 001-school/students/list
+        db.collection("001-school")
+          .doc("students")
+          .collection("list")
+          .get()
+          .then((snapshot) => {
+            studentSelect.innerHTML = `<option value="">Select Student</option>`;
+            snapshot.forEach((doc) => {
+              const student = doc.data();
+              const option = document.createElement("option");
+              option.value = doc.id;
+              option.text = student.name || doc.id;
+              studentSelect.appendChild(option);
+            });
+          })
+          .catch((error) => console.error("Error fetching students:", error));
+        new bootstrap.Modal(document.getElementById("assignBookModal")).show();
+      }
+
+      // Assign book to selected student
+      document.getElementById("assignBookForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const bookId = document.getElementById("assignBookId").value;
+        const studentId = document.getElementById("studentSelect").value;
+        const dueDate = document.getElementById("assignDueDate").value;
+        const remarks = document.getElementById("assignRemarks").value;
+        if (!studentId) {
+          alert("Please select a student.");
+          return;
+        }
+        booksCollection
+          .doc(bookId)
+          .update({
+            assignedTo: studentId,
+            dueDate: dueDate,
+            remarks: remarks,
+            status: "Issued"
+          })
+          .then(() => {
+            loadBooks();
+            document.getElementById("assignBookForm").reset();
+            bootstrap.Modal.getInstance(document.getElementById("assignBookModal")).hide();
+          })
+          .catch((error) => console.error("Error assigning book:", error));
+      });
+
+      // Unassign a book (set it back to Available)
+      function unassignBook(bookId) {
+        if (confirm("Unassign this book?")) {
+          booksCollection
+            .doc(bookId)
+            .update({
+              assignedTo: "",
+              dueDate: "",
+              remarks: "",
+              status: "Available"
+            })
+            .then(() => loadBooks())
+            .catch((error) => console.error("Error unassigning book:", error));
+        }
+      }
+
+      // Simple client-side search & filter
+      document.getElementById("searchInput").addEventListener("input", filterBooks);
+      document.getElementById("statusFilter").addEventListener("change", filterBooks);
+
+      function filterBooks() {
+        const searchValue = document.getElementById("searchInput").value.toLowerCase();
+        const statusValue = document.getElementById("statusFilter").value;
+        const filtered = books.filter((book) => {
+          const matchesSearch =
+            book.title.toLowerCase().includes(searchValue) ||
+            book.author.toLowerCase().includes(searchValue) ||
+            book.isbn.toLowerCase().includes(searchValue);
+          const matchesStatus = statusValue ? book.status === statusValue : true;
+          return matchesSearch && matchesStatus;
+        });
+        renderFilteredBooks(filtered);
+      }
+
+      function renderFilteredBooks(filteredBooks) {
+        const tbody = document.getElementById("booksTableBody");
+        tbody.innerHTML = "";
+        filteredBooks.forEach((book) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${book.id}</td>
+            <td>${book.title}</td>
+            <td>${book.author}</td>
+            <td>${book.isbn}</td>
+            <td>${book.status}</td>
+            <td>${book.assignedTo || "-"}</td>
+            <td>${book.dueDate || "-"}</td>
+            <td>${book.remarks || "-"}</td>
+            <td>
+              <button class="btn btn-sm btn-info" onclick="openEditModal('${book.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteBook('${book.id}')">Delete</button>
+              ${
+                book.status === "Available"
+                  ? `<button class="btn btn-sm btn-success" onclick="openAssignModal('${book.id}')">Assign</button>`
+                  : `<button class="btn btn-sm btn-warning" onclick="unassignBook('${book.id}')">Unassign</button>`
+              }
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Initial load
+      loadBooks();
+    </script>
+  </body>
+</html>
