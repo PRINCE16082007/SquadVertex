@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SchoolMS - Student Attendance (Session 2)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+      .attendance-section { margin-top: 20px; }
+      .alert { margin-top: 10px; }
+      table { font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+      <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">SchoolMS</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarContent"
+          aria-controls="navbarContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarContent">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="admissions.html">Admissions</a></li>
+            <li class="nav-item"><a class="nav-link" href="staff.html">Staff</a></li>
+            <li class="nav-item active"><a class="nav-link" href="attendance.html">Attendance</a></li>
+            <li class="nav-item"><a class="nav-link" href="classes.html">Classes</a></li>
+            <li class="nav-item"><a class="nav-link" href="exams.html">Exams</a></li>
+            <li class="nav-item"><a class="nav-link" href="library.html">Library</a></li>
+            <li class="nav-item"><a class="nav-link" href="transport.html">Transport</a></li>
+            <li class="nav-item"><a class="nav-link" href="hostel.html">Hostel</a></li>
+            <li class="nav-item"><a class="nav-link" href="communications.html">Communications</a></li>
+            <li class="nav-item"><a class="nav-link" href="inventory.html">Inventory</a></li>
+            <li class="nav-item"><a class="nav-link" href="events.html">Events</a></li>
+            <li class="nav-item"><a class="nav-link" href="admin.html">Admin</a></li>
+            <li class="nav-item"><a class="nav-link" href="reports.html">Reports</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container attendance-section">
+      <h2>Student Attendance (Session 2)</h2>
+
+      <!-- Attendance Date -->
+      <div class="mb-3">
+        <label for="attendance-date" class="form-label"><strong>Attendance Date</strong></label>
+        <input type="date" class="form-control" id="attendance-date" required />
+        <small class="text-muted">Attendance will be recorded for this date. You can change it if needed.</small>
+      </div>
+
+      <!-- Teacher selection -->
+      <div class="mb-3">
+        <label for="teacher-select" class="form-label"><strong>Select Your Teacher ID</strong></label>
+        <select id="teacher-select" class="form-select" required>
+          <option value="">Select Teacher</option>
+          <!-- Options loaded from Firestore -->
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="teacher-name" class="form-label"><strong>Teacher Name</strong></label>
+        <input type="text" class="form-control" id="teacher-name" placeholder="Teacher name will load automatically" readonly />
+      </div>
+
+      <!-- Class selection -->
+      <div class="mb-3">
+        <label for="select-class" class="form-label"><strong>Select Class</strong></label>
+        <select id="select-class" class="form-select" required>
+          <option value="">Select Class</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+          <option value="11">11</option>
+          <option value="12">12</option>
+        </select>
+      </div>
+      <button class="btn btn-primary mb-3" id="load-students-btn">Load Students</button>
+
+      <!-- Student Table -->
+      <div id="attendance-form-container" class="d-none">
+        <div class="mb-2">
+          <small class="text-muted">Review the student details below and mark attendance for Session 2.</small>
+        </div>
+        <form id="attendance-form">
+          <table class="table table-bordered">
+            <thead class="table-dark">
+              <tr>
+                <th>SR No</th>
+                <th>Student Name</th>
+                <th>Class</th>
+                <th>Stream</th>
+                <th>Gender</th>
+                <th>Father Name</th>
+                <th>DOB</th>
+                <th>Mark Attendance</th>
+              </tr>
+            </thead>
+            <tbody id="students-table-body">
+              <!-- Student rows loaded from Firestore -->
+            </tbody>
+          </table>
+          <button type="submit" class="btn btn-success">Submit Attendance</button>
+        </form>
+        <div id="attendance-status" class="mt-3"></div>
+      </div>
+
+      <div id="session-message" class="mt-3"></div>
+    </div>
+
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script>
+      // Initialize Firebase
+      const firebaseConfig = {
+        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+        authDomain: "squadvertex2007.firebaseapp.com",
+        projectId: "squadvertex2007",
+        storageBucket: "squadvertex2007.appspot.com",
+        messagingSenderId: "168905083514",
+        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+      };
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      const db = firebase.firestore();
+
+      // Set default attendance date to today
+      document.getElementById("attendance-date").value = new Date().toISOString().split("T")[0];
+
+      let attendanceAllowed = false;
+      let holidays = [];
+
+      // Load attendance settings for Session 2
+      function loadAttendanceSettings() {
+        db.collection("001-school").doc("attendanceSettings").get()
+          .then(doc => {
+            if (doc.exists) {
+              const data = doc.data();
+              if (!data.roleControls?.attendance) {
+                document.getElementById("session-message").innerHTML = `<div class="alert alert-danger">Attendance module is disabled by admin.</div>`;
+                attendanceAllowed = false;
+                return;
+              }
+              const session2 = data.session2;
+              holidays = data.holidays || [];
+              const today = new Date();
+              const todayStr = today.toISOString().split("T")[0];
+              if (today.getDay() === 0 || holidays.includes(todayStr)) {
+                document.getElementById("session-message").innerHTML = `<div class="alert alert-info">Today is a holiday. Attendance is disabled.</div>`;
+                attendanceAllowed = false;
+                return;
+              }
+              const nowStr = today.toTimeString().split(" ")[0];
+              if (data.sessionControl === "automatic") {
+                if (nowStr >= session2.start && nowStr <= session2.end) {
+                  attendanceAllowed = true;
+                  document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 2 is active (Automatic Mode).</div>`;
+                } else {
+                  attendanceAllowed = false;
+                  document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">Attendance is not allowed at this time (Automatic Mode).</div>`;
+                }
+              } else {
+                if (session2.enabled && nowStr >= session2.start && nowStr <= session2.end) {
+                  attendanceAllowed = true;
+                  document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 2 is active (Manual Mode).</div>`;
+                } else {
+                  attendanceAllowed = false;
+                  document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">Attendance is not allowed at this time (Manual Mode).</div>`;
+                }
+              }
+            } else {
+              document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">Attendance settings not configured by admin.</div>`;
+              attendanceAllowed = false;
+            }
+          })
+          .catch(err => console.error("Error loading attendance settings:", err));
+      }
+      loadAttendanceSettings();
+
+      // ---------------------------
+      // TEACHER DROPDOWN
+      // ---------------------------
+      function loadTeacherDropdown() {
+        const teacherSelect = document.getElementById("teacher-select");
+        teacherSelect.innerHTML = `<option value="">Select Teacher</option>`;
+        db.collection("001-school").doc("teachers").collection("list")
+          .where("designation", "==", "Teacher")
+          .get()
+          .then(snapshot => {
+            snapshot.forEach(doc => {
+              const data = doc.data();
+              const opt = document.createElement("option");
+              opt.value = data.staffId;
+              opt.text = data.staffId + " - " + data.staffName;
+              teacherSelect.appendChild(opt);
+            });
+          })
+          .catch(err => console.error("Error loading teacher dropdown:", err));
+      }
+      loadTeacherDropdown();
+
+      // Auto-fill teacher name on selection
+      document.getElementById("teacher-select").addEventListener("change", function () {
+        const teacherId = this.value;
+        if (!teacherId) {
+          document.getElementById("teacher-name").value = "";
+          return;
+        }
+        db.collection("001-school").doc("teachers").collection("list").doc(teacherId)
+          .get()
+          .then(doc => {
+            if (doc.exists) {
+              const data = doc.data();
+              document.getElementById("teacher-name").value = data.staffName || "";
+            }
+          })
+          .catch(err => console.error("Error fetching teacher name:", err));
+      });
+
+      // ---------------------------
+      // LOAD STUDENTS BASED ON CLASS
+      // ---------------------------
+      document.getElementById("load-students-btn").addEventListener("click", () => {
+        if (!attendanceAllowed) {
+          alert("Attendance is not allowed at this time.");
+          return;
+        }
+        const selectedClass = document.getElementById("select-class").value;
+        if (!selectedClass) { 
+          alert("Please select a class."); 
+          return; 
+        }
+        const tbody = document.getElementById("students-table-body");
+        tbody.innerHTML = "";
+        db.collection("001-school").doc("students").collection("list")
+          .where("class", "==", selectedClass)
+          .get()
+          .then(snapshot => {
+            if (snapshot.empty) {
+              document.getElementById("attendance-status").innerText = "No students found for class " + selectedClass;
+              document.getElementById("attendance-form-container").classList.add("d-none");
+              return;
+            }
+            snapshot.forEach(doc => {
+              const data = doc.data();
+              const tr = document.createElement("tr");
+              tr.innerHTML = `
+                <td>${data.srNumber || "-"}</td>
+                <td>${data.studentName || "-"}</td>
+                <td>${data.class || "-"}</td>
+                <td>${data.stream || "-"}</td>
+                <td>${data.gender || "-"}</td>
+                <td>${data.fatherName || "-"}</td>
+                <td>${data.dob || "-"}</td>
+                <td>
+                  <select class="form-select attendance-select" data-docid="${doc.id}">
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                  </select>
+                </td>
+              `;
+              tbody.appendChild(tr);
+            });
+            document.getElementById("attendance-form-container").classList.remove("d-none");
+          })
+          .catch(err => {
+            console.error("Error loading students:", err);
+            document.getElementById("attendance-status").innerText = "Error loading students: " + err.message;
+          });
+      });
+
+      // ---------------------------
+      // SUBMIT ATTENDANCE RECORDS (Session 2)
+      // ---------------------------
+      document.getElementById("attendance-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!attendanceAllowed) {
+          alert("Attendance is not allowed at this time.");
+          return;
+        }
+        const teacherId = document.getElementById("teacher-select").value;
+        const teacherName = document.getElementById("teacher-name").value.trim();
+        if (!teacherId || !teacherName) {
+          alert("Please select your teacher details.");
+          return;
+        }
+        const attendanceDate = document.getElementById("attendance-date").value;
+        const selectedClass = document.getElementById("select-class").value;
+        if (!selectedClass) {
+          alert("Class not selected.");
+          return;
+        }
+        const classDocId = "class" + selectedClass;
+        // Build path for Session 2 attendance:
+        // 001-school/attendance/student_attendance/{attendanceDate}/session2/{classDocId}/students/{studentDocId}
+        const studentsSubColl = db.collection("001-school")
+          .doc("attendance")
+          .collection("student_attendance")
+          .doc(attendanceDate)
+          .collection("session2")
+          .doc(classDocId)
+          .collection("students");
+
+        const selects = document.querySelectorAll(".attendance-select");
+        const promises = [];
+        selects.forEach(select => {
+          const status = select.value;
+          const studentDocId = select.getAttribute("data-docid");
+          const studentAttendanceRef = studentsSubColl.doc(studentDocId);
+          const p = studentAttendanceRef.get().then(docSnapshot => {
+            if (docSnapshot.exists) {
+              return studentAttendanceRef.update({ status: status });
+            } else {
+              return db.collection("001-school")
+                .doc("students")
+                .collection("list")
+                .doc(studentDocId)
+                .get()
+                .then(studentDoc => {
+                  if (studentDoc.exists) {
+                    const studentData = studentDoc.data();
+                    const sr = studentData.srNumber || "N/A";
+                    return studentAttendanceRef.set({
+                      studentDocId: studentDocId,
+                      srNumber: sr,
+                      studentName: studentData.studentName,
+                      class: studentData.class,
+                      stream: studentData.stream,
+                      gender: studentData.gender,
+                      fatherName: studentData.fatherName,
+                      dob: studentData.dob,
+                      status: status,
+                      teacherId: teacherId,
+                      teacherName: teacherName,
+                      date: attendanceDate,
+                      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                  } else {
+                    return Promise.reject(new Error("Student record not found."));
+                  }
+                });
+            }
+          });
+          promises.push(p);
+        });
+
+        Promise.all(promises)
+          .then(() => {
+            document.getElementById("attendance-status").innerText = "Attendance submitted successfully for Session 2!";
+          })
+          .catch(err => {
+            console.error("Error submitting attendance:", err);
+            document.getElementById("attendance-status").innerText = "Error submitting attendance: " + err.message;
+          });
+      });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
