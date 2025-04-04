@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SchoolMS - Attendance Management</title>
+    <!-- Bootstrap 5 CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      .attendance-section {
+        margin-top: 20px;
+      }
+      .filter-section {
+        margin-bottom: 30px;
+      }
+      .chart-container {
+        position: relative;
+        height: 350px;
+      }
+      .table-responsive {
+        margin-bottom: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navbar (Header) -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">SchoolMS</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarContent"
+          aria-controls="navbarContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarContent">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="admissions.html">Admissions</a></li>
+            <li class="nav-item"><a class="nav-link" href="staff.html">Staff</a></li>
+            <li class="nav-item active"><a class="nav-link" href="attendance.html">Attendance</a></li>
+            <li class="nav-item"><a class="nav-link" href="classes.html">Classes</a></li>
+            <li class="nav-item"><a class="nav-link" href="exams.html">Exams</a></li>
+            <li class="nav-item"><a class="nav-link" href="library.html">Library</a></li>
+            <li class="nav-item"><a class="nav-link" href="transport.html">Transport</a></li>
+            <li class="nav-item"><a class="nav-link" href="hostel.html">Hostel</a></li>
+            <li class="nav-item"><a class="nav-link" href="communications.html">Communications</a></li>
+            <li class="nav-item"><a class="nav-link" href="inventory.html">Inventory</a></li>
+            <li class="nav-item"><a class="nav-link" href="events.html">Events</a></li>
+            <li class="nav-item"><a class="nav-link" href="admin.html">Admin</a></li>
+            <li class="nav-item"><a class="nav-link" href="reports.html">Reports</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Attendance Management Section -->
+    <div class="container attendance-section">
+      <h2 class="mb-4">Attendance Management</h2>
+
+      <!-- Filter Section -->
+      <div class="row filter-section align-items-center">
+        <div class="col-md-4">
+          <label for="timeRangeSelect" class="form-label">Select Time Range:</label>
+          <select id="timeRangeSelect" class="form-select">
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 3 Months</option>
+            <option value="180">Last 6 Months</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="attendanceTypeSelect" class="form-label">Attendance Type:</label>
+          <select id="attendanceTypeSelect" class="form-select">
+            <option value="student">Student Attendance</option>
+            <option value="staff">Teacher/Admin Attendance</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="searchAttendance" class="form-label">Search (Name/ID):</label>
+          <input
+            type="text"
+            id="searchAttendance"
+            class="form-control"
+            placeholder="Enter name or ID..."
+          />
+        </div>
+      </div>
+
+      <!-- Detailed Tables -->
+      <div id="detailedTables">
+        <!-- Student Attendance Table -->
+        <div id="studentTableContainer" class="mb-5">
+          <h3>Student Attendance Details</h3>
+          <div class="table-responsive">
+            <table class="table table-bordered" id="student-attendance-table">
+              <thead class="table-dark">
+                <tr>
+                  <th>Roll No</th>
+                  <th>Name</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="studentAttendanceBody">
+                <!-- Dynamic student attendance records -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Staff Attendance Table -->
+        <div id="staffTableContainer" class="mb-5" style="display:none;">
+          <h3>Staff Attendance Details</h3>
+          <div class="table-responsive">
+            <table class="table table-bordered" id="staff-attendance-table">
+              <thead class="table-dark">
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="staffAttendanceBody">
+                <!-- Dynamic staff attendance records -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Section -->
+      <div id="chartsSection">
+        <div id="studentChartContainer">
+          <h3>Student Attendance Analytics</h3>
+          <div class="chart-container">
+            <canvas id="studentAttendanceChart"></canvas>
+          </div>
+        </div>
+        <div id="staffChartContainer" style="display:none;">
+          <h3>Staff Attendance Analytics</h3>
+          <div class="chart-container">
+            <canvas id="staffAttendanceChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firebase, Bootstrap, and Chart.js Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      // Firebase initialization
+      const firebaseConfig = {
+        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+        authDomain: "squadvertex2007.firebaseapp.com",
+        projectId: "squadvertex2007",
+        storageBucket: "squadvertex2007.appspot.com",
+        messagingSenderId: "168905083514",
+        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+      };
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
+      // DOM Elements
+      const timeRangeSelect = document.getElementById("timeRangeSelect");
+      const attendanceTypeSelect = document.getElementById("attendanceTypeSelect");
+      const searchAttendance = document.getElementById("searchAttendance");
+
+      // Chart instances
+      let studentAttendanceChart, staffAttendanceChart;
+
+      // Helper functions
+      function formatDate(date) {
+        return date.toISOString().split('T')[0];
+      }
+
+      function getPastDates(days) {
+        const dates = [];
+        const today = new Date();
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          dates.push(formatDate(d));
+        }
+        return dates;
+      }
+
+      // Attendance Loaders
+      async function loadStudentAttendance(days = 7) {
+        const tbody = document.getElementById("studentAttendanceBody");
+        tbody.innerHTML = "";
+        const dates = getPastDates(days);
+        let allRecords = [];
+
+        for (const date of dates) {
+          const sessions = ["session1", "session2"];
+          const classDoc = "class9"; // Replace with dynamic class selection if needed
+
+          for (const session of sessions) {
+            try {
+              const studentsSnap = await db
+                .collection("001-school")
+                .doc("attendance")
+                .collection("student_attendance")
+                .doc(date)
+                .collection(session)
+                .doc(classDoc)
+                .collection("students")
+                .get();
+
+              studentsSnap.forEach((doc) => {
+                const data = doc.data();
+                allRecords.push({
+                  rollNo: data.rollNo || doc.id,
+                  name: data.studentName || "Unknown",
+                  date: date,
+                  status: data.status || "Absent",
+                });
+              });
+            } catch (error) {
+              console.error("Error fetching student attendance:", error);
+            }
+          }
+        }
+
+        if (allRecords.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="text-center">No attendance data available.</td></tr>`;
+        } else {
+          allRecords.forEach((record) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${record.rollNo}</td>
+              <td>${record.name}</td>
+              <td>${record.date}</td>
+              <td>
+                <span class="badge ${record.status === 'Present' ? 'bg-success' : 'bg-danger'}">
+                  ${record.status}
+                </span>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+      }
+
+      async function loadStaffAttendance(days = 7) {
+        const tbody = document.getElementById("staffAttendanceBody");
+        tbody.innerHTML = "";
+        const dates = getPastDates(days);
+        let allRecords = [];
+
+        for (const date of dates) {
+          try {
+            const recordsSnap = await db
+              .collection("001-school")
+              .doc("attendance")
+              .collection("staff_attendance")
+              .doc(date)
+              .collection("records")
+              .get();
+
+            recordsSnap.forEach((doc) => {
+              const data = doc.data();
+              allRecords.push({
+                id: data.teacherID || doc.id,
+                name: data.teacherName || "Unknown",
+                date: date,
+                status: "Present",
+              });
+            });
+          } catch (error) {
+            console.error("Error loading staff attendance:", error);
+          }
+        }
+
+        if (allRecords.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="text-center">No staff attendance data available.</td></tr>`;
+        } else {
+          allRecords.forEach((record) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${record.id}</td>
+              <td>${record.name}</td>
+              <td>${record.date}</td>
+              <td><span class="badge bg-success">${record.status}</span></td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+      }
+
+      // Chart Updates
+      async function updateStudentChart(days = 7) {
+        const dates = getPastDates(days);
+        const dataPoints = await Promise.all(dates.map(async date => {
+          let count = 0;
+          const sessions = ["session1", "session2"];
+          const classDoc = "class9";
+
+          for (const session of sessions) {
+            try {
+              const studentsSnap = await db
+                .collection("001-school")
+                .doc("attendance")
+                .collection("student_attendance")
+                .doc(date)
+                .collection(session)
+                .doc(classDoc)
+                .collection("students")
+                .get();
+
+              studentsSnap.forEach(doc => {
+                if (doc.data().status === "Present") count++;
+              });
+            } catch (error) {
+              console.error("Error fetching chart data:", error);
+            }
+          }
+          return count;
+        }));
+
+        const ctx = document.getElementById("studentAttendanceChart").getContext('2d');
+        const chartData = {
+          labels: dates,
+          datasets: [{
+            label: "Students Present",
+            data: dataPoints,
+            backgroundColor: "rgba(40, 167, 69, 0.5)",
+            borderColor: "rgba(40, 167, 69, 1)",
+            borderWidth: 2
+          }]
+        };
+
+        if (studentAttendanceChart) {
+          studentAttendanceChart.data = chartData;
+          studentAttendanceChart.update();
+        } else {
+          studentAttendanceChart = new Chart(ctx, {
+            type: "line",
+            data: chartData,
+            options: { responsive: true, maintainAspectRatio: false }
+          });
+        }
+      }
+
+      async function updateStaffChart(days = 7) {
+        const dates = getPastDates(days);
+        const dataPoints = await Promise.all(dates.map(async date => {
+          try {
+            const recordsSnap = await db
+              .collection("001-school")
+              .doc("attendance")
+              .collection("staff_attendance")
+              .doc(date)
+              .collection("records")
+              .get();
+            return recordsSnap.size;
+          } catch (error) {
+            console.error("Error fetching staff chart data:", error);
+            return 0;
+          }
+        }));
+
+        const ctx = document.getElementById("staffAttendanceChart").getContext('2d');
+        const chartData = {
+          labels: dates,
+          datasets: [{
+            label: "Staff Present",
+            data: dataPoints,
+            backgroundColor: "rgba(75, 192, 192, 0.5)",
+            borderColor: "rgba(75, 192, 192, 1)",
+            borderWidth: 2
+          }]
+        };
+
+        if (staffAttendanceChart) {
+          staffAttendanceChart.data = chartData;
+          staffAttendanceChart.update();
+        } else {
+          staffAttendanceChart = new Chart(ctx, {
+            type: "line",
+            data: chartData,
+            options: { responsive: true, maintainAspectRatio: false }
+          });
+        }
+      }
+
+      // Event Handlers
+      attendanceTypeSelect.addEventListener("change", () => {
+        const isStudent = attendanceTypeSelect.value === "student";
+        document.getElementById("studentTableContainer").style.display = isStudent ? "" : "none";
+        document.getElementById("staffTableContainer").style.display = isStudent ? "none" : "";
+        document.getElementById("studentChartContainer").style.display = isStudent ? "" : "none";
+        document.getElementById("staffChartContainer").style.display = isStudent ? "none" : "";
+        loadAllData();
+      });
+
+      timeRangeSelect.addEventListener("change", loadAllData);
+      searchAttendance.addEventListener("input", filterTable);
+
+      function filterTable() {
+        const searchTerm = searchAttendance.value.toLowerCase();
+        const type = attendanceTypeSelect.value;
+        const selector = type === "student" ? "#studentAttendanceBody tr" : "#staffAttendanceBody tr";
+
+        document.querySelectorAll(selector).forEach(row => {
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(searchTerm) ? "" : "none";
+        });
+      }
+
+      async function loadAllData() {
+        const days = parseInt(timeRangeSelect.value);
+        const type = attendanceTypeSelect.value;
+
+        if (type === "student") {
+          await loadStudentAttendance(days);
+          await updateStudentChart(days);
+        } else {
+          await loadStaffAttendance(days);
+          await updateStaffChart(days);
+        }
+      }
+
+      // Initial Load
+      document.addEventListener("DOMContentLoaded", () => {
+        loadAllData();
+      });
+    </script>
+  </body>
+</html>
