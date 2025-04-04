@@ -2,22 +2,48 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Print Seating Layout</title>
+  <title>Professional Seating Layout Print View</title>
   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    h1, h2 { margin: 0 0 10px 0; }
-    .room { margin-bottom: 30px; }
-    table { border-collapse: collapse; margin-bottom: 20px; }
-    table, td, th { border: 1px solid #000; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; }
+    header { text-align: center; margin-bottom: 20px; }
+    h1 { margin: 0; font-size: 28px; }
+    .instructions { font-size: 14px; color: #555; margin-top: 5px; }
+    #controls { margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; }
+    label { font-weight: bold; }
+    select, button { padding: 8px 12px; font-size: 14px; }
+    button { cursor: pointer; }
+    .room { margin-bottom: 40px; }
+    .room h2 { margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+    table { border-collapse: collapse; margin-bottom: 20px; width: 100%; }
+    table, td, th { border: 1px solid #333; }
     td { width: 120px; height: 120px; text-align: center; vertical-align: middle; padding: 5px; }
-    /* Hide print button when printing */
+    /* Print specific styles */
     @media print {
-      button { display: none; }
+      #controls { display: none; }
+      body { margin: 10mm; }
     }
   </style>
 </head>
 <body>
-  <button onclick="window.print()">Print</button>
+  <header>
+    <h1>School Seating Layout</h1>
+    <div class="instructions">
+      Use the options below to select a print template. Click "Print" for a printer-friendly version.
+    </div>
+  </header>
+
+  <div id="controls">
+    <label for="templateSelect">Template:</label>
+    <select id="templateSelect">
+      <option value="1">Name Only</option>
+      <option value="2">Name + Class</option>
+      <option value="3">Name + Class + Stream</option>
+      <option value="4">Name + Class + Stream + Subjects</option>
+      <option value="5">Name + Father Name</option>
+    </select>
+    <button onclick="window.print()">Print</button>
+  </div>
+
   <div id="printArea">Loading seating layouts…</div>
 
   <!-- Firebase Scripts -->
@@ -25,7 +51,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   
   <script>
-    // Initialize Firebase using your config
+    // Initialize Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -37,19 +63,43 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
+    // Global objects to store fetched data
+    let students = {};
+    let rooms = [];
+    let fileData = null;
+    
+    // Template generator: returns HTML for a seat given a student and the selected template
+    function generateSeatContent(student, templateId) {
+      if (!student) return "";
+      switch (templateId) {
+        case "1":
+          return `<strong>${student.name}</strong>`;
+        case "2":
+          return `<strong>${student.name}</strong><br>${student.class}`;
+        case "3":
+          return `<strong>${student.name}</strong><br>${student.class}<br>${student.stream || ""}`;
+        case "4":
+          return `<strong>${student.name}</strong><br>${student.class}<br>${student.stream || ""}<br>${Array.isArray(student.subjects) ? student.subjects.join(", ") : ""}`;
+        case "5":
+          return `<strong>${student.name}</strong><br>Father: ${student.fatherName || "N/A"}`;
+        default:
+          return `<strong>${student.name}</strong>`;
+      }
+    }
+
     async function loadPrintView() {
       try {
-        // Fetch students from "001-school/students/list"
+        // Fetch students from the collection "001-school/students/list"
         const studentsSnap = await db.collection("001-school").doc("students").collection("list").get();
-        const students = {};
         studentsSnap.docs.forEach(doc => {
           const data = doc.data();
-          // Map studentName to name
           students[doc.id] = {
             name: data.studentName,
             class: data.class,
-            gender: data.gender,
-            subjects: data.subjects
+            stream: data.stream,
+            subjects: data.subjects,
+            fatherName: data.fatherName,
+            gender: data.gender
           };
         });
 
@@ -59,43 +109,52 @@
           document.getElementById("printArea").innerText = "No room files found.";
           return;
         }
-        // For simplicity, use the first file
+        // Use the first file for printing
         const fileDoc = filesSnap.docs[0];
-        const fileData = fileDoc.data();
+        fileData = fileDoc.data();
         const fileId = fileDoc.id;
         
         // Fetch room layouts from the selected file
         const layoutsSnap = await db.collection("001-school").doc("rooms").collection("files").doc(fileId).collection("layouts").get();
-        let html = `<h1>${fileData.name} - Seating Layout</h1>`;
-        layoutsSnap.docs.forEach(layoutDoc => {
-          const room = layoutDoc.data();
-          html += `<div class="room">
-            <h2>${room.name} (${room.type})</h2>
-            <table>`;
-          for (let i = 0; i < room.rows; i++) {
-            html += "<tr>";
-            for (let j = 0; j < room.cols; j++) {
-              const index = i * room.cols + j;
-              let seatContent = "";
-              if (room.seating && room.seating[index]) {
-                const studentId = room.seating[index];
-                if (students[studentId]) {
-                  seatContent = `<strong>${students[studentId].name}</strong><br>${students[studentId].class}`;
-                }
-              }
-              html += `<td>${seatContent}</td>`;
-            }
-            html += "</tr>";
-          }
-          html += `</table>
-          </div>`;
-        });
-        document.getElementById("printArea").innerHTML = html;
+        rooms = layoutsSnap.docs.map(doc => doc.data());
+        
+        renderPrintView();
       } catch (e) {
         console.error("Error loading print view:", e);
         document.getElementById("printArea").innerText = "Error loading seating layouts.";
       }
     }
+    
+    function renderPrintView() {
+      const templateId = document.getElementById("templateSelect").value;
+      let html = `<h1 style="text-align:center;">${fileData.name} - Seating Layout</h1>`;
+      
+      rooms.forEach(room => {
+        html += `<div class="room">
+          <h2>${room.name} (${room.type})</h2>
+          <table>`;
+        for (let i = 0; i < room.rows; i++) {
+          html += "<tr>";
+          for (let j = 0; j < room.cols; j++) {
+            const index = i * room.cols + j;
+            let seatContent = "";
+            if (room.seating && room.seating[index]) {
+              const studentId = room.seating[index];
+              if (students[studentId]) {
+                seatContent = generateSeatContent(students[studentId], templateId);
+              }
+            }
+            html += `<td>${seatContent}</td>`;
+          }
+          html += "</tr>";
+        }
+        html += `</table></div>`;
+      });
+      document.getElementById("printArea").innerHTML = html;
+    }
+    
+    // Listen for template selection changes
+    document.getElementById("templateSelect").addEventListener("change", renderPrintView);
     
     loadPrintView();
   </script>
