@@ -8,7 +8,10 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css"
     />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
     <style>
       /* Navbar override if needed */
       .navbar-brand {
@@ -69,7 +72,7 @@
               <a class="nav-link" href="../admin_dashboard.html">Dashboard</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="../admission/admission.html">Admissions</a>
+              <a class="nav-link active" aria-current="page" href="../admission/admission.html">Admissions</a>
             </li>
             <li class="nav-item">
               <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">
@@ -84,7 +87,7 @@
                 Classes <span class="bi bi-lock"></span>
               </a>
             </li>
-          <li class="nav-item">
+           <li class="nav-item">
               <a class="nav-link" href="../fees_module/fees_module.html">Payment Module</a>
             </li>
             <li class="nav-item">
@@ -220,15 +223,28 @@
 
       // Load attendance settings for Session 2
       function loadAttendanceSettings() {
-        db.collection("001-school").doc("attendanceSettings").get()
-          .then(doc => {
-            if (doc.exists) {
-              const data = doc.data();
-              if (!data.roleControls?.attendance) {
-                document.getElementById("session-message").innerHTML = `<div class="alert alert-danger">Attendance module is disabled by admin.</div>`;
+        // First, check systemSettings document for module.attendance
+        db.collection("001-school").doc("systemSettings").get()
+          .then(sysDoc => {
+            if (sysDoc.exists) {
+              const sysData = sysDoc.data();
+              if (!sysData.modules || sysData.modules.attendance !== true) {
+                document.getElementById("session-message").innerHTML = `<div class="alert alert-danger">Attendance module is disabled in system settings.</div>`;
                 attendanceAllowed = false;
-                return;
+                throw new Error("Attendance module disabled in system settings.");
               }
+              // If systemSettings allow attendance, then load attendanceSettings
+              return db.collection("001-school").doc("attendanceSettings").get();
+            } else {
+              document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">System settings not configured by admin.</div>`;
+              attendanceAllowed = false;
+              throw new Error("System settings not configured.");
+            }
+          })
+          .then(attDoc => {
+            if (attDoc.exists) {
+              const data = attDoc.data();
+              // Use session2 settings instead of session1
               const session2 = data.session2;
               holidays = data.holidays || [];
               const today = new Date();
@@ -240,6 +256,7 @@
               }
               const nowStr = today.toTimeString().split(" ")[0];
               if (data.sessionControl === "automatic") {
+                // Automatic mode: Check time range only
                 if (nowStr >= session2.start && nowStr <= session2.end) {
                   attendanceAllowed = true;
                   document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 2 is active (Automatic Mode).</div>`;
@@ -247,7 +264,8 @@
                   attendanceAllowed = false;
                   document.getElementById("session-message").innerHTML = `<div class="alert alert-warning">Attendance is not allowed at this time (Automatic Mode).</div>`;
                 }
-              } else {
+              } else { 
+                // Manual mode: Check session2.enabled and time range
                 if (session2.enabled && nowStr >= session2.start && nowStr <= session2.end) {
                   attendanceAllowed = true;
                   document.getElementById("session-message").innerHTML = `<div class="alert alert-success">Attendance for Session 2 is active (Manual Mode).</div>`;
@@ -261,7 +279,7 @@
               attendanceAllowed = false;
             }
           })
-          .catch(err => console.error("Error loading attendance settings:", err));
+          .catch(err => console.error("Error loading settings:", err));
       }
       loadAttendanceSettings();
 
@@ -379,8 +397,7 @@
           return;
         }
         const classDocId = "class" + selectedClass;
-        // Build path for Session 2 attendance:
-        // 001-school/attendance/student_attendance/{attendanceDate}/session2/{classDocId}/students/{studentDocId}
+        // Build path for Session 2 attendance (changed from session1 to session2)
         const studentsSubColl = db.collection("001-school")
           .doc("attendance")
           .collection("student_attendance")
