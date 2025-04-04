@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Vibrant Seating Layout Print View</title>
+  <style>
+    /* Global styling */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 20px;
+      background: #f0f8ff;
+      color: #333;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 10px;
+      background: linear-gradient(135deg, #6dd5fa, #2980b9);
+      color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 32px;
+    }
+    .instructions {
+      font-size: 16px;
+      margin-top: 8px;
+    }
+    /* Branding: round container for logo */
+    #branding {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    #branding .logo-container {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 3px solid #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      margin-right: 15px;
+    }
+    #branding .logo-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #branding .school-name {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    /* Controls styling */
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+      margin-bottom: 25px;
+    }
+    #controls label {
+      font-weight: bold;
+      margin-right: 5px;
+    }
+    #controls select, #controls input[type="checkbox"] {
+      padding: 8px 12px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #controls button {
+      padding: 8px 20px;
+      font-size: 14px;
+      background-color: #2980b9;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #controls button:hover {
+      background-color: #1f6391;
+    }
+    /* Print area & room container */
+    #printArea {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .room-container {
+      background: #fff;
+      border: 2px solid #2980b9;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 40px;
+      width: 100%;
+      max-width: 900px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .room-container h2 {
+      text-align: center;
+      margin-bottom: 15px;
+      color: #2980b9;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    table, td, th {
+      border: 1px solid #ddd;
+    }
+    td {
+      width: 120px;
+      height: 120px;
+      text-align: center;
+      vertical-align: middle;
+      padding: 5px;
+      background: #f9f9f9;
+    }
+    .print-room-btn {
+      display: block;
+      width: 200px;
+      margin: 10px auto 0;
+      padding: 10px;
+      font-size: 14px;
+      background-color: #27ae60;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    .print-room-btn:hover {
+      background-color: #1e8c4d;
+    }
+    /* Black & White print mode */
+    .bw {
+      filter: grayscale(100%);
+    }
+    /* Print styles */
+    @media print {
+      #controls, header, #branding {
+        display: none;
+      }
+      body {
+        margin: 10mm;
+        background: #fff;
+      }
+      .print-room-btn {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div id="branding">
+      <div class="logo-container" id="logoContainer">
+        <!-- Logo will be injected here -->
+      </div>
+      <div class="school-name" id="schoolName">Loading School Name...</div>
+    </div>
+    <h1>Seating Layout - Print View</h1>
+    <div class="instructions">
+      Choose a file, select a print template, and toggle between color and black &amp; white.  
+      Use the "Print This Room" button for individual room printing or "Print All" for the entire layout.
+    </div>
+  </header>
+
+  <div id="controls">
+    <label for="fileSelect">Select File:</label>
+    <select id="fileSelect"></select>
+    
+    <label for="templateSelect">Template:</label>
+    <select id="templateSelect">
+      <option value="1">Name Only</option>
+      <option value="2">Name + Class</option>
+      <option value="3">Name + Class + Stream</option>
+      <option value="4">Name + Class + Stream + Subjects</option>
+      <option value="5">Name + Father Name</option>
+    </select>
+    
+    <label for="bwToggle">Black &amp; White:</label>
+    <input type="checkbox" id="bwToggle">
+    
+    <button onclick="window.print()">Print All</button>
+  </div>
+  
+  <div id="printArea">Loading seating layouts…</div>
+  
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  
+  <script>
+    // Initialize Firebase with your config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Global variables
+    let systemSettings = {};   // To store schoolName & logoUrl from "001-school/systemSettings"
+    let students = {};         // Object mapping studentId -> student details
+    let files = [];            // Array of file objects: { id, name }
+    let rooms = [];            // Array of room objects for the selected file
+
+    // Fetch system settings from "001-school/systemSettings"
+    async function loadSystemSettings() {
+      try {
+        const settingsDoc = await db.collection("001-school").doc("systemSettings").get();
+        if (settingsDoc.exists) {
+          systemSettings = settingsDoc.data();
+        } else {
+          systemSettings = { schoolName: "Your School Name", logoUrl: "" };
+        }
+        renderBranding();
+      } catch (e) {
+        console.error("Error loading system settings:", e);
+        systemSettings = { schoolName: "Your School Name", logoUrl: "" };
+        renderBranding();
+      }
+    }
+
+    // Render branding container with round logo and school name
+    function renderBranding() {
+      document.getElementById("schoolName").innerText = systemSettings.schoolName || "Your School Name";
+      if (systemSettings.logoUrl) {
+        document.getElementById("logoContainer").innerHTML = `<img src="${systemSettings.logoUrl}" alt="School Logo">`;
+      } else {
+        document.getElementById("logoContainer").innerHTML = "";
+      }
+    }
+
+    // Load students from "001-school/students/list"
+    async function loadStudents() {
+      try {
+        const studentsSnap = await db.collection("001-school").doc("students").collection("list").get();
+        studentsSnap.docs.forEach(doc => {
+          const data = doc.data();
+          students[doc.id] = {
+            name: data.studentName,
+            class: data.class,
+            stream: data.stream,
+            subjects: data.subjects,
+            fatherName: data.fatherName,
+            gender: data.gender
+          };
+        });
+      } catch (e) {
+        console.error("Error loading students:", e);
+      }
+    }
+
+    // Load available files from "001-school/rooms/files" and populate fileSelect dropdown
+    async function loadFiles() {
+      try {
+        const filesSnap = await db.collection("001-school").doc("rooms").collection("files").get();
+        files = filesSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+        const fileSelect = document.getElementById("fileSelect");
+        fileSelect.innerHTML = files.map(f => `<option value="${f.id}">${f.name}</option>`).join("");
+        if (files.length > 0) {
+          loadRooms(files[0].id);
+        } else {
+          document.getElementById("printArea").innerText = "No room files found.";
+        }
+      } catch (e) {
+        console.error("Error loading files:", e);
+        document.getElementById("printArea").innerText = "Error loading room files.";
+      }
+    }
+
+    // Load rooms from selected file ("001-school/rooms/files/{fileId}/layouts")
+    async function loadRooms(fileId) {
+      try {
+        const layoutsSnap = await db.collection("001-school").doc("rooms").collection("files").doc(fileId).collection("layouts").get();
+        rooms = layoutsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderPrintView();
+      } catch (e) {
+        console.error("Error loading rooms:", e);
+        document.getElementById("printArea").innerText = "Error loading seating layouts.";
+      }
+    }
+
+    // Generate seat content based on selected template
+    function generateSeatContent(student, templateId) {
+      if (!student) return "";
+      switch (templateId) {
+        case "1":
+          return `<strong>${student.name}</strong>`;
+        case "2":
+          return `<strong>${student.name}</strong><br>${student.class}`;
+        case "3":
+          return `<strong>${student.name}</strong><br>${student.class}<br>${student.stream || ""}`;
+        case "4":
+          return `<strong>${student.name}</strong><br>${student.class}<br>${student.stream || ""}<br>${Array.isArray(student.subjects) ? student.subjects.join(", ") : ""}`;
+        case "5":
+          return `<strong>${student.name}</strong><br>Father: ${student.fatherName || "N/A"}`;
+        default:
+          return `<strong>${student.name}</strong>`;
+      }
+    }
+
+    // Render print view for all rooms using the selected file and template
+    function renderPrintView() {
+      const templateId = document.getElementById("templateSelect").value;
+      const isBW = document.getElementById("bwToggle").checked;
+      let html = "";
+      if (rooms.length === 0) {
+        html = "No room layouts found for this file.";
+      } else {
+        rooms.forEach(room => {
+          html += `<div class="room-container ${isBW ? 'bw' : ''}">
+            <h2>${room.name} (${room.type})</h2>
+            <table>`;
+          for (let i = 0; i < room.rows; i++) {
+            html += "<tr>";
+            for (let j = 0; j < room.cols; j++) {
+              const index = i * room.cols + j;
+              let seatContent = "";
+              if (room.seating && room.seating[index]) {
+                const studentId = room.seating[index];
+                if (students[studentId]) {
+                  seatContent = generateSeatContent(students[studentId], templateId);
+                }
+              }
+              html += `<td>${seatContent}</td>`;
+            }
+            html += "</tr>";
+          }
+          html += `</table>
+            <button class="print-room-btn" onclick="printRoom('${room.id}')">Print This Room</button>
+          </div>`;
+        });
+      }
+      document.getElementById("printArea").innerHTML = html;
+    }
+
+    // Print a specific room in a new window
+    function printRoom(roomId) {
+      const templateId = document.getElementById("templateSelect").value;
+      const isBW = document.getElementById("bwToggle").checked;
+      const room = rooms.find(r => r.id === roomId);
+      if (!room) return;
+      
+      let roomHtml = `<html>
+      <head>
+        <title>Print Room: ${room.name}</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background: #f0f8ff; }
+          .branding { text-align: center; margin-bottom: 20px; }
+          .branding .logo-container {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid #2980b9;
+            margin: 0 auto 10px;
+          }
+          .branding .logo-container img { width: 100%; height: 100%; object-fit: cover; }
+          .branding h2 { font-size: 24px; color: #2980b9; }
+          h2 { text-align: center; }
+          table { border-collapse: collapse; margin: auto; width: 90%; }
+          table, td { border: 1px solid #2980b9; }
+          td { width: 120px; height: 120px; text-align: center; vertical-align: middle; padding: 5px; background: #fff; }
+          ${isBW ? "body { filter: grayscale(100%); }" : ""}
+        </style>
+      </head>
+      <body>
+        <div class="branding">
+          <div class="logo-container">
+            ${systemSettings.logoUrl ? `<img src="${systemSettings.logoUrl}" alt="School Logo">` : ""}
+          </div>
+          <h2>${systemSettings.schoolName}</h2>
+        </div>
+        <h2>${room.name} (${room.type})</h2>
+        <table>`;
+      for (let i = 0; i < room.rows; i++) {
+        roomHtml += "<tr>";
+        for (let j = 0; j < room.cols; j++) {
+          const index = i * room.cols + j;
+          let seatContent = "";
+          if (room.seating && room.seating[index]) {
+            const studentId = room.seating[index];
+            if (students[studentId]) {
+              seatContent = generateSeatContent(students[studentId], templateId);
+            }
+          }
+          roomHtml += `<td>${seatContent}</td>`;
+        }
+        roomHtml += "</tr>";
+      }
+      roomHtml += `</table>
+      <script>
+        window.onload = function() { window.print(); }
+      <\/script>
+      </body></html>`;
+      
+      const printWindow = window.open("", "PrintWindow", "width=900,height=700");
+      printWindow.document.write(roomHtml);
+      printWindow.document.close();
+    }
+
+    // Event listeners for control changes
+    document.getElementById("fileSelect").addEventListener("change", function() {
+      loadRooms(this.value);
+    });
+    document.getElementById("templateSelect").addEventListener("change", renderPrintView);
+    document.getElementById("bwToggle").addEventListener("change", renderPrintView);
+
+    // Initialize: load system settings, students, then files
+    async function initialize() {
+      await loadSystemSettings();
+      await loadStudents();
+      await loadFiles();
+    }
+    initialize();
+  </script>
+</body>
+</html>
