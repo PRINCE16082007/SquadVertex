@@ -90,7 +90,7 @@
                 Classes <span class="bi bi-lock"></span>
               </a>
             </li>
-           <li class="nav-item">
+            <li class="nav-item">
               <a class="nav-link active" aria-current="page" href="fees_module.html">Payment Module</a>
             </li>
             <li class="nav-item">
@@ -100,7 +100,7 @@
               <a class="nav-link" href="../library/library.html">Library</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">
+              <a class="nav-link" href="#" tabindex="-1" aria-disabled="true">
                 Transport <span class="bi bi-lock"></span>
               </a>
             </li>
@@ -198,6 +198,13 @@
                 <input type="number" class="form-control" id="payment-amount" required>
               </div>
               <div class="form-group">
+                <label for="payment-type">Payment For</label>
+                <select class="form-control" id="payment-type">
+                  <option value="school fee" selected>School Fee</option>
+                  <option value="vehicle fee">Vehicle Fee</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label for="payment-mode">Payment Mode</label>
                 <select class="form-control" id="payment-mode">
                   <option value="Cash">Cash</option>
@@ -277,14 +284,19 @@
                 <strong>Stream:</strong> <span id="detail-stream"></span>
               </p>
               <p>
-                <strong>Base Fee:</strong> <span id="detail-total-fee"></span> | 
-                <strong>Discount:</strong> <span id="detail-discount"></span>
-                | <strong>Vehicle Rent:</strong> <span id="detail-vehicle-rent"></span>
-                | <strong>Final Fee:</strong> <span id="detail-final"></span>
+                <strong>School Fee:</strong> Base Fee: <span id="detail-base-fee"></span>, Discount: <span id="detail-discount"></span>, Final: <span id="detail-final-school"></span>
               </p>
               <p>
-                <strong>Paid:</strong> <span id="detail-paid"></span> | 
-                <strong>Pending:</strong> <span id="detail-pending"></span>
+                <strong>Vehicle Fee:</strong> <span id="detail-vehicle-fee"></span>
+              </p>
+              <p>
+                <strong>Total Fee:</strong> <span id="detail-total-fee"></span>
+              </p>
+              <p>
+                <strong>Payments:</strong> School Fee Paid: <span id="detail-school-paid"></span>, Vehicle Fee Paid: <span id="detail-vehicle-paid"></span>
+              </p>
+              <p>
+                <strong>Pending:</strong> School Fee Pending: <span id="detail-school-pending"></span>, Vehicle Fee Pending: <span id="detail-vehicle-pending"></span>
               </p>
             </div>
             <hr>
@@ -307,11 +319,11 @@
               <table class="table table-sm table-bordered">
                 <thead>
                   <tr>
-                    <th>Installment</th>
                     <th>Date</th>
                     <th>Amount</th>
                     <th>Mode</th>
                     <th>Transaction ID</th>
+                    <th>Type</th>
                   </tr>
                 </thead>
                 <tbody id="student-transactions">
@@ -326,6 +338,7 @@
         </div>
       </div>
     </div>
+
     <!-- Vehicle Fee Modal -->
     <div class="modal fade" id="vehicleFeeModal" tabindex="-1" role="dialog" aria-labelledby="vehicleFeeModalLabel" aria-hidden="true">
       <div class="modal-dialog" role="document">
@@ -340,14 +353,14 @@
             <div class="modal-body">
               <!-- Hidden field for student ID -->
               <input type="hidden" id="vehicle-student-id">
+              <!-- Changed eligibility to a checkbox -->
               <div class="form-group">
-                <label for="vehicle-eligible">Is Student Eligible for Vehicle Fee?</label>
-                <select class="form-select" id="vehicle-eligible" required>
-                  <option value="">Select</option>
-                  <option value="Yes">Yes</option>
-                  <option value="No">No</option>
-                </select>
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" id="vehicle-eligible-checkbox">
+                  <label class="form-check-label" for="vehicle-eligible-checkbox">Eligible for Vehicle Fee</label>
+                </div>
               </div>
+              <!-- Vehicle details section (will be shown if eligibility checkbox is checked) -->
               <div id="vehicle-details-section" style="display:none;">
                 <div class="form-group">
                   <label for="vehicle-select">Select Vehicle</label>
@@ -364,33 +377,83 @@
                   </select>
                 </div>
                 <div class="form-group">
-                  <label for="vehicle-rent">Rent Amount (auto-calculated)</label>
+                  <label for="vehicle-rent">Rent Amount (per month)</label>
                   <input type="text" class="form-control" id="vehicle-rent" readonly>
                 </div>
                 <div class="form-group">
-                  <label for="vehicle-months">Select Months (Usage Tracking)</label>
-                  <select class="form-select" id="vehicle-months" multiple>
-                    <option value="January">January</option>
-                    <option value="February">February</option>
-                    <option value="March">March</option>
-                    <option value="April">April</option>
-                    <option value="May">May</option>
-                    <option value="June">June</option>
-                    <option value="July">July</option>
-                    <option value="August">August</option>
-                    <option value="September">September</option>
-                    <option value="October">October</option>
-                    <option value="November">November</option>
-                    <option value="December">December</option>
-                  </select>
+                  <label>Fee Option</label>
+                  <div>
+                    <input type="radio" name="vehicle-fee-option" id="fee-option-fixed" value="fixed" checked>
+                    <label for="fee-option-fixed">Fixed Amount</label>
+                  </div>
+                  <div>
+                    <input type="radio" name="vehicle-fee-option" id="fee-option-months" value="months">
+                    <label for="fee-option-months">Calculate by Months</label>
+                  </div>
                 </div>
-                <div class="form-group form-check">
-                  <input type="checkbox" class="form-check-input" id="vehicle-auto-track">
-                  <label class="form-check-label" for="vehicle-auto-track">Enable Auto-Track (automatically record current month)</label>
+                <div class="form-group" id="fixed-amount-section">
+                  <label for="vehicle-fixed-amount">Fixed Amount</label>
+                  <input type="number" class="form-control" id="vehicle-fixed-amount" placeholder="Enter fixed amount">
+                </div>
+                <!-- Months checkboxes instead of a multi-select dropdown -->
+                <div class="form-group" id="months-checkboxes" style="display:none;">
+                  <label>Select Months</label>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="January" id="month-January">
+                    <label class="form-check-label" for="month-January">January</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="February" id="month-February">
+                    <label class="form-check-label" for="month-February">February</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="March" id="month-March">
+                    <label class="form-check-label" for="month-March">March</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="April" id="month-April">
+                    <label class="form-check-label" for="month-April">April</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="May" id="month-May">
+                    <label class="form-check-label" for="month-May">May</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="June" id="month-June">
+                    <label class="form-check-label" for="month-June">June</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="July" id="month-July">
+                    <label class="form-check-label" for="month-July">July</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="August" id="month-August">
+                    <label class="form-check-label" for="month-August">August</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="September" id="month-September">
+                    <label class="form-check-label" for="month-September">September</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="October" id="month-October">
+                    <label class="form-check-label" for="month-October">October</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="November" id="month-November">
+                    <label class="form-check-label" for="month-November">November</label>
+                  </div>
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input month-checkbox" value="December" id="month-December">
+                    <label class="form-check-label" for="month-December">December</label>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="vehicle-last-update">Last Update</label>
+                  <input type="text" class="form-control" id="vehicle-last-update" readonly>
                 </div>
               </div>
               <div class="mt-3">
-                <p><strong>Instructions:</strong> If the student is eligible for vehicle fee, select "Yes" and then choose the appropriate vehicle and location. The rent amount will be auto‑displayed based on your selection. Next, select the months during which the student used the vehicle. If the student is continuously enrolled, enable Auto‑Track to automatically record usage each month. The selected months will be saved and subsequently displayed in the student's details.</p>
+                <p><strong>Instructions:</strong> If the student is eligible for vehicle fee, check the eligibility box and then choose the appropriate vehicle and location. The rent amount (per month) will be auto‑displayed based on your selection. Next, choose your fee option. For a fixed fee, enter the custom amount; for calculation by months, select the months (using the checkboxes) and the amount will be computed as (rent per month × number of months). The last update details are shown below.</p>
               </div>
             </div>
             <div class="modal-footer">
@@ -542,6 +605,7 @@
         e.preventDefault();
         const studentId = document.getElementById("payment-student-id").value;
         const amount = parseFloat(document.getElementById("payment-amount").value);
+        const paymentType = document.getElementById("payment-type").value;
         const mode = document.getElementById("payment-mode").value;
         const txnId = document.getElementById("transaction-id").value;
         const remarks = document.getElementById("payment-remarks").value;
@@ -550,13 +614,13 @@
           installment: 0,
           date: new Date().toLocaleDateString(),
           amount: amount,
+          paymentType: paymentType,
           mode: mode,
           txnId: txnId,
           remarks: remarks,
           timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
-
-        db.collection("001-school").doc("students").collection("list").doc(studentId).get()
+ db.collection("001-school").doc("students").collection("list").doc(studentId).get()
           .then(doc => {
             if (doc.exists) {
               const student = doc.data();
@@ -583,6 +647,7 @@
             alert("Error fetching student record: " + err.message);
           });
       });
+
       // Open Discount Modal – set student ID
       function openDiscountModal(studentId) {
         document.getElementById("discount-student-id").value = studentId;
@@ -614,17 +679,71 @@
         }
       });
 
-      // Open Vehicle Fee Modal – set student ID and reset form
+      // Open Vehicle Fee Modal – set student ID and load existing record if available.
       function openVehicleFeeModal(studentId) {
         document.getElementById("vehicle-student-id").value = studentId;
-        document.getElementById("vehicle-fee-form").reset();
-        document.getElementById("vehicle-details-section").style.display = "none";
-        $("#vehicleFeeModal").modal("show");
+        // Instead of resetting the form, we load existing data (if any) so that the modal stays static.
+        db.collection("001-school").doc("vehicleTransactions").collection("records").doc(studentId).get()
+          .then(doc => {
+            if(doc.exists){
+              const data = doc.data();
+              // Set eligibility checkbox based on stored value ("Yes" means eligible)
+              if(data.eligible === "Yes") {
+                document.getElementById("vehicle-eligible-checkbox").checked = true;
+                document.getElementById("vehicle-details-section").style.display = "block";
+                // Populate vehicle details if available
+                if(data.vehicleData) {
+                  document.getElementById("vehicle-select").value = data.vehicleData.vehicle || "";
+                  document.getElementById("vehicle-location").value = data.vehicleData.location || "";
+                  // Update rent field using systemSettings data if possible
+                  if(data.vehicleData.vehicle) {
+                    const selectedVehicle = data.vehicleData.vehicle;
+                    if(systemSettings.vehicleFeesChart && Array.isArray(systemSettings.vehicleFeesChart)) {
+                      const matchingEntries = systemSettings.vehicleFeesChart.filter(item => item.vehicleName.trim() === selectedVehicle);
+                      if(matchingEntries.length > 0) {
+                        document.getElementById("vehicle-rent").value = "₹" + matchingEntries[0].amount;
+                      }
+                    }
+                  }
+                  // Set fee option radio buttons and corresponding input/checkboxes
+                  if(data.vehicleData.feeOption === "fixed"){
+                    document.getElementById("fee-option-fixed").checked = true;
+                    document.getElementById("fixed-amount-section").style.display = "block";
+                    document.getElementById("months-checkboxes").style.display = "none";
+                    document.getElementById("vehicle-fixed-amount").value = data.vehicleData.fixedAmount || "";
+                  } else if(data.vehicleData.feeOption === "months"){
+                    document.getElementById("fee-option-months").checked = true;
+                    document.getElementById("fixed-amount-section").style.display = "none";
+                    document.getElementById("months-checkboxes").style.display = "block";
+                    // Set the month checkboxes based on stored months array
+                    const storedMonths = data.vehicleData.months || [];
+                    document.querySelectorAll(".month-checkbox").forEach(cb => {
+                      cb.checked = storedMonths.includes(cb.value);
+                    });
+                  }
+                }
+              } else {
+                document.getElementById("vehicle-eligible-checkbox").checked = false;
+                document.getElementById("vehicle-details-section").style.display = "none";
+              }
+              document.getElementById("vehicle-last-update").value = data.lastUpdated || "";
+            } else {
+              // No existing record – clear form fields
+              document.getElementById("vehicle-fee-form").reset();
+              document.getElementById("vehicle-details-section").style.display = "none";
+              document.getElementById("vehicle-last-update").value = "";
+            }
+            $("#vehicleFeeModal").modal("show");
+          })
+          .catch(err => {
+            console.error("Error loading vehicle fee record:", err);
+            $("#vehicleFeeModal").modal("show");
+          });
       }
 
-      // Show/hide vehicle details based on eligibility selection
-      document.getElementById("vehicle-eligible").addEventListener("change", function() {
-        if (this.value === "Yes") {
+      // Show/hide vehicle details based on eligibility checkbox
+      document.getElementById("vehicle-eligible-checkbox").addEventListener("change", function() {
+        if (this.checked) {
           document.getElementById("vehicle-details-section").style.display = "block";
         } else {
           document.getElementById("vehicle-details-section").style.display = "none";
@@ -664,37 +783,62 @@
         }
       });
 
+      // Toggle fee option sections in Vehicle Fee Modal
+      document.getElementById("fee-option-fixed").addEventListener("change", function(){
+        if(this.checked){
+          document.getElementById("fixed-amount-section").style.display = "block";
+          document.getElementById("months-checkboxes").style.display = "none";
+        }
+      });
+      document.getElementById("fee-option-months").addEventListener("change", function(){
+        if(this.checked){
+          document.getElementById("fixed-amount-section").style.display = "none";
+          document.getElementById("months-checkboxes").style.display = "block";
+        }
+      });
+
       // Handle Vehicle Fee Form Submission – store record in "001-school/vehicleTransactions/records/{studentId}"
       document.getElementById("vehicle-fee-form").addEventListener("submit", function(e) {
         e.preventDefault();
         const studentId = document.getElementById("vehicle-student-id").value;
-        const eligible = document.getElementById("vehicle-eligible").value;
+        let eligible = "No";
+        if(document.getElementById("vehicle-eligible-checkbox").checked){
+          eligible = "Yes";
+        }
         let vehicleData = {};
         if (eligible === "Yes") {
           const vehicle = document.getElementById("vehicle-select").value;
           const location = document.getElementById("vehicle-location").value;
           const rent = document.getElementById("vehicle-rent").value.replace("₹", "");
-          const monthsSelect = document.getElementById("vehicle-months");
-          let months = [];
-          for(const option of monthsSelect.options) {
-            if(option.selected) {
-              months.push(option.value);
-            }
+          const feeOption = document.querySelector('input[name="vehicle-fee-option"]:checked').value;
+          vehicleData = { vehicle, location, feeOption };
+          if(feeOption === "fixed"){
+            const fixedAmount = parseFloat(document.getElementById("vehicle-fixed-amount").value) || 0;
+            vehicleData.fixedAmount = fixedAmount;
+          } else if(feeOption === "months"){
+            const months = [];
+            document.querySelectorAll(".month-checkbox").forEach(cb => {
+              if(cb.checked){
+                months.push(cb.value);
+              }
+            });
+            vehicleData.months = months;
+            vehicleData.rent = parseFloat(rent);
           }
-          const autoTrack = document.getElementById("vehicle-auto-track").checked;
-          vehicleData = { vehicle, location, rent: parseFloat(rent), months, autoTrack };
         }
         const record = {
           eligible,
           vehicleData,
+          lastUpdated: new Date().toLocaleString(),
           timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
+        // Vehicle fee data is stored in: 001-school/vehicleTransactions/records/{studentId}
         db.collection("001-school").doc("vehicleTransactions")
           .collection("records").doc(studentId).set(record, { merge: true })
           .then(() => {
             alert("Vehicle fee record saved successfully!");
-            $("#vehicleFeeModal").modal("hide");
             loadStudents();
+            $("#vehicleFeeModal").modal("hide");
           })
           .catch(err => {
             console.error("Error saving vehicle fee record:", err);
@@ -702,7 +846,7 @@
           });
       });
 
-      // View Details – fetch student details, payments, and vehicle fee record; then calculate final fee
+      // View Details – fetch student details, payments, and vehicle fee record; then calculate final fees
       function viewDetails(studentId) {
         db.collection("001-school").doc("students").collection("list").doc(studentId).get()
           .then(doc => {
@@ -714,7 +858,7 @@
               document.getElementById("detail-father").innerText = student.fatherName || "";
               document.getElementById("detail-class").innerText = student.class || "";
               document.getElementById("detail-stream").innerText = student.stream || "";
-              // Compute base fee from universalFeesChart
+              // Compute school fee from universalFeesChart
               let baseFee = 0;
               if (systemSettings.universalFeesChart && Array.isArray(systemSettings.universalFeesChart)) {
                 systemSettings.universalFeesChart.forEach(feeRow => {
@@ -724,8 +868,8 @@
                 });
               }
               const discount = student.discount || 0;
-              const feeWithoutVehicle = baseFee - discount;
-              // Load payment records
+              const finalSchoolFee = baseFee - discount;
+              // Load payment records and separate by type
               db.collection("001-school").doc("transactions")
                 .collection("class" + student.class)
                 .doc(studentId)
@@ -733,7 +877,7 @@
                 .orderBy("timestamp", "asc")
                 .get()
                 .then(querySnapshot => {
-                  let paid = 0;
+                  let schoolPaid = 0, vehiclePaid = 0;
                   const transTable = document.getElementById("student-transactions");
                   transTable.innerHTML = "";
                   querySnapshot.forEach((paymentDoc, index) => {
@@ -742,14 +886,18 @@
                     if (tx.timestamp && tx.timestamp.toDate) {
                       txDate = tx.timestamp.toDate().toLocaleDateString();
                     }
-                    paid += tx.amount;
+                    if(tx.paymentType === "school fee"){
+                      schoolPaid += tx.amount;
+                    } else if(tx.paymentType === "vehicle fee"){
+                      vehiclePaid += tx.amount;
+                    }
                     const row = document.createElement("tr");
                     row.innerHTML = `
-                      <td>${tx.installment || (index + 1)}</td>
                       <td>${txDate}</td>
                       <td>₹${tx.amount || 0}</td>
                       <td>${tx.mode || ""}</td>
                       <td>${tx.txnId || ""}</td>
+                      <td>${tx.paymentType || "school fee"}</td>
                     `;
                     transTable.appendChild(row);
                   });
@@ -757,32 +905,39 @@
                   db.collection("001-school").doc("vehicleTransactions")
                     .collection("records").doc(studentId).get()
                     .then(vehicleDoc => {
-                      let vehicleRentTotal = 0;
+                      let vehicleFeeTotal = 0;
                       let vRec = null;
                       if (vehicleDoc.exists) {
                         vRec = vehicleDoc.data();
                         if(vRec.eligible === "Yes" && vRec.vehicleData) {
-                          const rent = parseFloat(vRec.vehicleData.rent) || 0;
-                          const monthsCount = vRec.vehicleData.months ? vRec.vehicleData.months.length : 0;
-                          vehicleRentTotal = rent * monthsCount;
+                          if(vRec.vehicleData.feeOption === "fixed"){
+                            vehicleFeeTotal = vRec.vehicleData.fixedAmount || 0;
+                          } else if(vRec.vehicleData.feeOption === "months"){
+                            const rent = parseFloat(vRec.vehicleData.rent) || 0;
+                            const monthsCount = vRec.vehicleData.months ? vRec.vehicleData.months.length : 0;
+                            vehicleFeeTotal = rent * monthsCount;
+                          }
                         }
                       }
-                      // Final fee = (base fee - discount) + vehicle rent total
-                      const finalCalculatedFee = feeWithoutVehicle + vehicleRentTotal;
-                      const pending = finalCalculatedFee - paid;
+                      const totalFee = finalSchoolFee + vehicleFeeTotal;
+                      const schoolPending = finalSchoolFee - schoolPaid;
+                      const vehiclePending = vehicleFeeTotal - vehiclePaid;
                       // Populate modal details
-                      document.getElementById("detail-total-fee").innerText = "₹" + baseFee;
+                      document.getElementById("detail-base-fee").innerText = "₹" + baseFee;
                       document.getElementById("detail-discount").innerText = "₹" + discount;
-                      document.getElementById("detail-vehicle-rent").innerText = "₹" + vehicleRentTotal;
-                      document.getElementById("detail-final").innerText = "₹" + finalCalculatedFee;
-                      document.getElementById("detail-paid").innerText = "₹" + paid;
-                      document.getElementById("detail-pending").innerText = "₹" + pending;
+                      document.getElementById("detail-final-school").innerText = "₹" + finalSchoolFee;
+                      document.getElementById("detail-vehicle-fee").innerText = "₹" + vehicleFeeTotal;
+                      document.getElementById("detail-total-fee").innerText = "₹" + totalFee;
+                      document.getElementById("detail-school-paid").innerText = "₹" + schoolPaid;
+                      document.getElementById("detail-vehicle-paid").innerText = "₹" + vehiclePaid;
+                      document.getElementById("detail-school-pending").innerText = "₹" + schoolPending;
+                      document.getElementById("detail-vehicle-pending").innerText = "₹" + vehiclePending;
                       // Universal Fee Chart section
                       document.getElementById("ufc-class").innerText = student.class || "";
                       document.getElementById("ufc-stream").innerText = student.stream || "";
                       document.getElementById("ufc-fee").innerText = baseFee;
-                      if(vRec && vRec.eligible === "Yes" && vRec.vehicleData) {
-                        document.getElementById("ufc-vehicle-fee").innerText = "₹" + vehicleRentTotal;
+                      if(vRec && vRec.eligible === "Yes" && vRec.vehicleData){
+                        document.getElementById("ufc-vehicle-fee").innerText = "₹" + vehicleFeeTotal;
                       } else {
                         document.getElementById("ufc-vehicle-fee").innerText = "N/A";
                       }
@@ -821,3 +976,4 @@
     </script>
   </body>
 </html>
+            
