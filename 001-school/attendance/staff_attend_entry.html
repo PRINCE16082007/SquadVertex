@@ -19,10 +19,8 @@
       body {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         background-color: #f0f2f5;
-        /* Removed padding-top to eliminate blank space above navbar */
       }
-      /* Navbar styling will be as per Bootstrap defaults */
-            /* Navbar override if needed */
+      /* Navbar override */
       .navbar-brand {
         font-weight: bold;
         font-size: 1.5rem;
@@ -60,7 +58,7 @@
         background: #fff;
         box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       }
-      /* Section styling */
+      /* Main container styling */
       .container-main {
         max-width: 1200px;
         margin: 20px auto;
@@ -72,19 +70,21 @@
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         margin-bottom: 20px;
       }
-      #map {
+      /* Instead of dynamic API map, we use the embed snippet below */
+      .mapouter {
+        position: relative;
+        text-align: right;
         width: 100%;
-        height: 400px;
-        position: relative; /* Added for positioning image */
+        height: 352px;
       }
-      #map img {
-        position: absolute;
-        top: 0;
-        left: 0;
+      .gmap_canvas {
+        overflow: hidden;
+        background: none!important;
         width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: none; /* Initially hidden */
+        height: 352px;
+      }
+      .gmap_iframe {
+        height: 352px!important;
       }
       #attendanceMessage {
         margin-top: 10px;
@@ -105,7 +105,7 @@
     </style>
   </head>
   <body>
-     <!-- Navbar -->
+    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container-fluid">
         <a class="navbar-brand" href="#">SchoolMS</a>
@@ -141,7 +141,7 @@
                 Classes <span class="bi bi-lock"></span>
               </a>
             </li>
-          <li class="nav-item">
+            <li class="nav-item">
               <a class="nav-link" href="../fees_module/fees_module.html">Payment Module</a>
             </li>
             <li class="nav-item">
@@ -219,7 +219,7 @@
         </div>
       </div>
 
-      <!-- Google Map Section -->
+      <!-- Google Map Section (Embed Only) -->
       <div class="section">
         <div class="card">
           <div class="card-header bg-info text-white">
@@ -227,12 +227,18 @@
           </div>
           <div class="card-body">
             <p>
-              The allowed location is marked in green, and your current location (if available)
-              is marked in red.
+              Your current location is captured and stored when you mark attendance.
             </p>
-            <div id="map">
-              <!-- Image placeholder for map area -->
-              <img id="mapImage" src="" alt="Map Image" />
+            <div class="mapouter">
+              <div class="gmap_canvas">
+                <iframe class="gmap_iframe" width="100%" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="https://maps.google.com/maps?width=305&amp;height=352&amp;hl=en&amp;q=Shishu shiksha sadan senior secondary school, Hanumangarh Town, rajasthan, india&amp;t=&amp;z=14&amp;ie=UTF8&amp;iwloc=B&amp;output=embed"></iframe>
+                <a href="https://embed-googlemap.com">embed-googlemap.com</a>
+              </div>
+              <style>
+                .mapouter {position:relative;text-align:right;width:100%;height:352px;}
+                .gmap_canvas {overflow:hidden;background:none!important;width:100%;height:352px;}
+                .gmap_iframe {height:352px!important;}
+              </style>
             </div>
           </div>
         </div>
@@ -265,18 +271,13 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Google Maps API: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual API key -->
-    <script
-      async
-      defer
-      src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap"
-    ></script>
+    <!-- (Google Maps API integration is hidden in favor of the static embed) -->
 
     <script>
       // Set current date in header
       document.getElementById("currentDate").textContent =
         "Date: " + new Date().toLocaleDateString();
-
+      
       // --- Firebase Initialization ---
       const firebaseConfig = {
         apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -311,26 +312,6 @@
       loadTeachers();
 
       // --- Attendance Marking Functionality ---
-      const allowedLocation = { lat: 29.554215, lng: 74.332605 }; // Adjust as needed
-      const allowedRadius = 500; // in meters
-
-      function getDistance(lat1, lng1, lat2, lng2) {
-        const R = 6371000;
-        const dLat = deg2rad(lat2 - lat1);
-        const dLng = deg2rad(lng2 - lng1);
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(deg2rad(lat1)) *
-            Math.cos(deg2rad(lat2)) *
-            Math.sin(dLng / 2) *
-            Math.sin(dLng / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-      }
-      function deg2rad(deg) {
-        return deg * (Math.PI / 180);
-      }
-
       document
         .getElementById("markAttendanceBtn")
         .addEventListener("click", function () {
@@ -356,27 +337,15 @@
               const teacherData = doc.data();
               const teacherID = teacherData.staffId;
               const teacherName = teacherData.staffName;
-
               if (!navigator.geolocation) {
                 msgEl.innerHTML =
                   '<div class="alert alert-danger">Geolocation is not supported by your browser.</div>';
                 return;
               }
+              // Simply capture the current location without any allowed location check.
               navigator.geolocation.getCurrentPosition(
                 (position) => {
                   const { latitude, longitude } = position.coords;
-                  const distance = getDistance(
-                    latitude,
-                    longitude,
-                    allowedLocation.lat,
-                    allowedLocation.lng
-                  );
-                  if (distance > allowedRadius) {
-                    msgEl.innerHTML = `<div class="alert alert-danger">You are not within the allowed location (Distance: ${Math.round(
-                      distance
-                    )}m).</div>`;
-                    return;
-                  }
                   const today = new Date().toISOString().split("T")[0];
                   const attendanceRef = db
                     .collection("001-school")
@@ -413,44 +382,6 @@
                 '<div class="alert alert-danger">Error fetching teacher data.</div>';
             });
         });
-
-      // --- Google Map Integration ---
-      let map, fixedMarker, currentMarker;
-      function initMap() {
-        map = new google.maps.Map(document.getElementById("map"), {
-          center: allowedLocation,
-          zoom: 16,
-        });
-        fixedMarker = new google.maps.Marker({
-          position: allowedLocation,
-          map: map,
-          title: "Allowed Location",
-          icon: "http://maps.google.com/mapfiles/ms/icons/green-dot.png",
-        });
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const currentPos = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-              };
-              currentMarker = new google.maps.Marker({
-                position: currentPos,
-                map: map,
-                title: "Your Current Location",
-                icon: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-              });
-              const bounds = new google.maps.LatLngBounds();
-              bounds.extend(allowedLocation);
-              bounds.extend(currentPos);
-              map.fitBounds(bounds);
-            },
-            () => {
-              console.error("Geolocation service failed.");
-            }
-          );
-        }
-      }
 
       // --- Weekly Attendance Analytics ---
       let attendanceChart;
