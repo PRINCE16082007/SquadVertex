@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Upload & Display via Worker Proxy</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
+    input, button { margin: 10px; padding: 10px; }
+    #status { margin-top: 20px; font-weight: bold; }
+    #gallery img { max-width: 300px; margin: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Upload File to Backblaze B2</h2>
+  <input type="file" id="fileInput" />
+  <button onclick="uploadFile()">Upload File</button>
+  <p id="status"></p>
+  <div id="gallery"></div>
+  
+  <script>
+    async function uploadFile() {
+      const fileInput = document.getElementById('fileInput');
+      const status = document.getElementById('status');
+      const gallery = document.getElementById('gallery');
+      
+      if (!fileInput.files.length) {
+        status.innerText = "Please select a file!";
+        return;
+      }
+      
+      const file = fileInput.files[0];
+      const workerUrl = "https://student-upload-003.princegahlot2007.workers.dev/";
+      
+      try {
+        status.innerText = "Uploading file via proxy...";
+        // Send file to Worker (POST)
+        const uploadResponse = await fetch(workerUrl, {
+          method: "POST",
+          headers: {
+            "X-File-Name": file.name,
+            "Content-Type": file.type
+          },
+          body: file
+        });
+        
+        if (!uploadResponse.ok) throw new Error("File upload failed");
+        
+        const uploadResult = await uploadResponse.json();
+        status.innerHTML = `✅ File uploaded successfully! <br>File URL: <a href="${uploadResult.fileUrl}" target="_blank">${uploadResult.fileUrl}</a>`;
+        
+        // Now get signed URL via GET request to display the image
+        const signedUrlResponse = await fetch(workerUrl + "?file=" + encodeURIComponent(file.name));
+        if (!signedUrlResponse.ok) throw new Error("Failed to get download authorization");
+        const signedUrlData = await signedUrlResponse.json();
+        
+        // Append image to gallery (for images)
+        if (file.type.startsWith("image/")) {
+          const img = document.createElement("img");
+          img.src = signedUrlData.signedUrl;
+          img.alt = file.name;
+          gallery.appendChild(img);
+        } else {
+          // For non-image files, display a link
+          const p = document.createElement("p");
+          p.innerHTML = `<a href="${signedUrlData.signedUrl}" target="_blank">Download ${file.name}</a>`;
+          gallery.appendChild(p);
+        }
+        
+      } catch (error) {
+        status.innerText = "❌ " + error.message;
+      }
+    }
+  </script>
+</body>
+</html>
