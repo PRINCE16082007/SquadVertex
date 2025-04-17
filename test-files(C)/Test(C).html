@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal Routine Tracker</title>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f9f9f9; color: #333; margin: 0; padding:0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    #main, #login { width: 90%; max-width: 500px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    h1 { text-align: center; margin-bottom: 10px; }
+    #quote { font-style: italic; text-align: center; margin: 15px 0; opacity: 0; animation: fadeIn 2s forwards; }
+    @keyframes fadeIn { to { opacity: 1; } }
+    #streak { text-align: center; margin-bottom: 15px; font-size: 1.2em; }
+    #toggleSection { text-align: center; margin-bottom: 20px; }
+    #toggleSection button { margin: 0 10px; padding: 8px 16px; border:none; border-radius:4px; cursor: pointer; }
+    #toggleSection button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #history { max-height: 200px; overflow-y: auto; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { padding: 6px; border-bottom: 1px solid #ddd; text-align: center; }
+    #chartContainer { width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="login">
+    <h1>Welcome</h1>
+    <p>Please sign in with your Google account to access this page.</p>
+    <button id="btnLogin">Sign in with Google</button>
+  </div>
+  <div id="main" style="display:none;">
+    <h1>Daily Routine Tracker</h1>
+    <div id="quote"></div>
+    <div id="streak">Loading streak...</div>
+    <div id="toggleSection">
+      <p>Did you follow your routine today?</p>
+      <button id="markYes">Yes</button>
+      <button id="markNo">No</button>
+      <div id="timeMsg" style="color:#a00; margin-top:8px;"></div>
+    </div>
+    <div id="history">
+      <h3>Recent Records</h3>
+      <table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody id="historyBody"></tbody></table>
+    </div>
+    <div id="chartContainer">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiI...",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const quotes = [
+      "No matter what we build—let's never forget who we’re building it for.",
+      "Some people seek peace in silence. I found mine in a smile I’ve never met.",
+      "Every evening, I carry your hope like a lantern through the night.",
+      "In each sunrise I see the promise of a new reason to smile for you."
+    ];
+    let chart;
+    // Helpers
+    function formatDate(date){ return date.toISOString().split('T')[0]; }
+    function canMark(){ const h=new Date().getHours(); return (h>=19||h<1); }
+    function randomQuote(){ return quotes[Math.floor(Math.random()*quotes.length)]; }// Authentication
+document.getElementById('btnLogin').onclick = ()=>{
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider);
+};
+auth.onAuthStateChanged(user=>{
+  if(!user){ return; }
+  const email = user.email;
+  // Check authUsers collection
+  db.collection('authUsers').doc(email).get().then(doc=>{
+    if(doc.exists){ initPage(email); }
+    else { document.getElementById('login').innerHTML = '<p>Sorry, access denied.</p>'; }
+  });
+});
+
+async function initPage(email){
+  document.getElementById('login').style.display='none';
+  document.getElementById('main').style.display='block';
+  document.getElementById('quote').innerText = randomQuote();
+  // Load history
+  const recRef = db.collection('routines').doc(email).collection('records');
+  const snap = await recRef.orderBy('date','desc').limit(7).get();
+  const records = snap.docs.map(d=>d.data());
+  const today = formatDate(new Date());
+  // Populate history
+  const tbody = document.getElementById('historyBody'); tbody.innerHTML='';
+  records.forEach(r=>{ tbody.innerHTML += `<tr><td>${r.date}</td><td>${r.status}</td></tr>`; });
+  // Compute streak
+  let streak=0, d=new Date();
+  while(true){ const dd=formatDate(d);
+    const found=records.find(r=>r.date===dd&&r.status==='Yes');
+    if(found){ streak++; d.setDate(d.getDate()-1); } else break;
+  }
+  document.getElementById('streak').innerText = `Current Streak: ${streak} day${streak!==1?'s':''}`;
+  // Setup buttons
+  ['markYes','markNo'].forEach(id=>{
+    document.getElementById(id).onclick=()=>markRoutine(email, id==='markYes'?'Yes':'No');
+  });
+  document.getElementById('markYes').disabled=!canMark();
+  document.getElementById('markNo').disabled=!canMark();
+  document.getElementById('timeMsg').innerText = canMark()?'':'You can mark only between 7PM and 1AM.';
+  // Chart
+  const labels = records.map(r=>r.date).reverse();
+  const data = records.map(r=> r.status==='Yes'?1:0 ).reverse();
+  const ctx = document.getElementById('chart').getContext('2d');
+  chart = new Chart(ctx, { type:'bar', data:{ labels, datasets:[{ label:'Routine Followed', data, backgroundColor:data.map(v=>v?'#4caf50':'#f44336')] }] }, options:{ scales:{ y:{ ticks:{ stepSize:1 }, suggestedMax:1 } }} });
+}
+// Mark routine
+function markRoutine(email,status){ if(!canMark()) return;
+  const date = formatDate(new Date());
+  const recRef = db.collection('routines').doc(email).collection('records').doc(date);
+  recRef.set({ status, date, timestamp: firebase.firestore.FieldValue.serverTimestamp() })
+    .then(()=>location.reload());
+}
+
+  </script>
+</body>
+</html>
