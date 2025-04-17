@@ -2,48 +2,101 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Personal Routine Tracker</title>
+  <title>Daily Inspiration & Routine Tracker</title>
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f9f9f9; color: #333; margin: 0; padding:0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    #main, #login { width: 90%; max-width: 500px; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    h1 { text-align: center; margin-bottom: 10px; }
-    #quote { font-style: italic; text-align: center; margin: 15px 0; opacity: 0; animation: fadeIn 2s forwards; }
-    @keyframes fadeIn { to { opacity: 1; } }
-    #streak { text-align: center; margin-bottom: 15px; font-size: 1.2em; }
-    #toggleSection { text-align: center; margin-bottom: 20px; }
-    #toggleSection button { margin: 0 10px; padding: 8px 16px; border:none; border-radius:4px; cursor: pointer; }
-    #toggleSection button:disabled { opacity: 0.5; cursor: not-allowed; }
-    #history { max-height: 200px; overflow-y: auto; margin-bottom: 20px; }
-    table { width: 100%; border-collapse: collapse; }
-    td, th { padding: 6px; border-bottom: 1px solid #ddd; text-align: center; }
-    #chartContainer { width: 100%; }
+    :root {
+      --primary: #4e54c8;
+      --secondary: #8f94fb;
+      --accent: #ff6a88;
+      --text: #333;
+      --bg: #f5f7fa;
+      --card-bg: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: 'Montserrat', sans-serif;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+    }
+    #main {
+      width: 90%; max-width: 520px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      overflow: hidden;
+      animation: popIn 0.6s ease-out;
+    }
+    @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .header {
+      background: var(--accent);
+      color: #fff; padding: 20px; text-align: center;
+    }
+    .header h1 { margin: 0; font-weight: 400; }
+    .quote {
+      margin: 20px; font-style: italic; font-size: 1.1em;
+      text-align: center; position: relative;
+    }
+    .quote::before, .quote::after {
+      content: '“'; position: absolute; font-size: 2em;
+      color: var(--accent);
+    }
+    .quote::after { content: '”'; right: 20px; bottom: -10px; }
+    #streak {
+      text-align: center; font-size: 1.2em; margin: 10px 0; font-weight: 600;
+    }
+    .actions {
+      display: flex; justify-content: space-around; margin: 20px;
+    }
+    .actions button {
+      flex: 1; margin: 0 10px; padding: 12px;
+      border: none; border-radius: 6px;
+      font-size: 1em; font-weight: 600;
+      cursor: pointer; transition: transform 0.2s;
+    }
+    .actions button:hover { transform: translateY(-3px); }
+    .yes { background: #4caf50; color: #fff; }
+    .no { background: #f44336; color: #fff; }
+    .actions button:disabled {
+      background: #ccc; cursor: not-allowed; transform: none;
+    }
+    #history {
+      max-height: 180px; overflow-y: auto; margin: 0 20px 20px;
+      border-radius: 6px; background: var(--bg);
+    }
+    #history table { width: 100%; border-collapse: collapse; }
+    #history th, #history td { padding: 8px; text-align: center; }
+    #history tr:nth-child(even) { background: #e9ecef; }
+    #chartContainer {
+      padding: 0 20px 20px;
+    }
   </style>
 </head>
 <body>
-  <div id="login">
-    <h1>Welcome</h1>
-    <p>Please sign in with your Google account to access this page.</p>
-    <button id="btnLogin">Sign in with Google</button>
-  </div>
-  <div id="main" style="display:none;">
-    <h1>Daily Routine Tracker</h1>
-    <div id="quote"></div>
-    <div id="streak">Loading streak...</div>
-    <div id="toggleSection">
-      <p>Did you follow your routine today?</p>
-      <button id="markYes">Yes</button>
-      <button id="markNo">No</button>
-      <div id="timeMsg" style="color:#a00; margin-top:8px;"></div>
+  <div id="main">
+    <div class="header">
+      <h1>Daily Inspiration</h1>
+    </div>
+    <div class="quote" id="quote">Loading inspiration...</div>
+    <div id="streak">Your current streak: <span id="streakCount">0</span> days</div>
+    <div class="actions">
+      <button class="yes" id="markYes">Yes</button>
+      <button class="no" id="markNo">No</button>
     </div>
     <div id="history">
-      <h3>Recent Records</h3>
-      <table><thead><tr><th>Date</th><th>Status</th></tr></thead><tbody id="historyBody"></tbody></table>
+      <table>
+        <thead><tr><th>Date</th><th>Status</th></tr></thead>
+        <tbody id="historyBody"></tbody>
+      </table>
     </div>
     <div id="chartContainer">
       <canvas id="chart"></canvas>
@@ -51,81 +104,57 @@
   </div>
   <script>
     // Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiI...",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
+    const firebaseConfig = { apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiI...", authDomain: "squadvertex2007.firebaseapp.com", projectId: "squadvertex2007", storageBucket: "squadvertex2007.appspot.com", messagingSenderId: "168905083514", appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3" };
     firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-    const quotes = [
-      "No matter what we build—let's never forget who we’re building it for.",
-      "Some people seek peace in silence. I found mine in a smile I’ve never met.",
-      "Every evening, I carry your hope like a lantern through the night.",
-      "In each sunrise I see the promise of a new reason to smile for you."
-    ];
-    let chart;
-    // Helpers
-    function formatDate(date){ return date.toISOString().split('T')[0]; }
-    function canMark(){ const h=new Date().getHours(); return (h>=19||h<1); }
-    function randomQuote(){ return quotes[Math.floor(Math.random()*quotes.length)]; }// Authentication
-document.getElementById('btnLogin').onclick = ()=>{
-  const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider);
-};
-auth.onAuthStateChanged(user=>{
-  if(!user){ return; }
-  const email = user.email;
-  // Check authUsers collection
-  db.collection('authUsers').doc(email).get().then(doc=>{
-    if(doc.exists){ initPage(email); }
-    else { document.getElementById('login').innerHTML = '<p>Sorry, access denied.</p>'; }
-  });
-});
+    const db = firebase.firestore();const email = 'me@myemail.com'; // personal use only
+const quotes = [
+  "No matter what we build—let's never forget who we’re building it for.",
+  "Some people seek peace in silence. I found mine in a smile I’ve never met.",
+  "Every evening, I carry your hope like a lantern through the night.",
+  "In each sunrise I see the promise of a new reason to smile for you."
+];
 
-async function initPage(email){
-  document.getElementById('login').style.display='none';
-  document.getElementById('main').style.display='block';
+function formatDate(d) { return d.toISOString().split('T')[0]; }
+function randomQuote() { return quotes[Math.floor(Math.random()*quotes.length)]; }
+
+async function loadData() {
   document.getElementById('quote').innerText = randomQuote();
-  // Load history
   const recRef = db.collection('routines').doc(email).collection('records');
   const snap = await recRef.orderBy('date','desc').limit(7).get();
   const records = snap.docs.map(d=>d.data());
-  const today = formatDate(new Date());
-  // Populate history
-  const tbody = document.getElementById('historyBody'); tbody.innerHTML='';
-  records.forEach(r=>{ tbody.innerHTML += `<tr><td>${r.date}</td><td>${r.status}</td></tr>`; });
-  // Compute streak
+  // history
+  const tbody = document.getElementById('historyBody'); tbody.innerHTML = '';
+  records.forEach(r=> tbody.innerHTML += `<tr><td>${r.date}</td><td>${r.status}</td></tr>`);
+  // streak
   let streak=0, d=new Date();
-  while(true){ const dd=formatDate(d);
-    const found=records.find(r=>r.date===dd&&r.status==='Yes');
-    if(found){ streak++; d.setDate(d.getDate()-1); } else break;
+  while(true) {
+    const key = formatDate(d);
+    if(records.find(r=>r.date===key && r.status==='Yes')) {
+      streak++; d.setDate(d.getDate()-1);
+    } else break;
   }
-  document.getElementById('streak').innerText = `Current Streak: ${streak} day${streak!==1?'s':''}`;
-  // Setup buttons
-  ['markYes','markNo'].forEach(id=>{
-    document.getElementById(id).onclick=()=>markRoutine(email, id==='markYes'?'Yes':'No');
-  });
-  document.getElementById('markYes').disabled=!canMark();
-  document.getElementById('markNo').disabled=!canMark();
-  document.getElementById('timeMsg').innerText = canMark()?'':'You can mark only between 7PM and 1AM.';
-  // Chart
+  document.getElementById('streakCount').innerText = streak;
+  // chart
   const labels = records.map(r=>r.date).reverse();
-  const data = records.map(r=> r.status==='Yes'?1:0 ).reverse();
-  const ctx = document.getElementById('chart').getContext('2d');
-  chart = new Chart(ctx, { type:'bar', data:{ labels, datasets:[{ label:'Routine Followed', data, backgroundColor:data.map(v=>v?'#4caf50':'#f44336')] }] }, options:{ scales:{ y:{ ticks:{ stepSize:1 }, suggestedMax:1 } }} });
+  const data = records.map(r=> r.status==='Yes'?1:0).reverse();
+  new Chart(document.getElementById('chart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: data.map(v=> v?'#4caf50':'#f44336') }] },
+    options: { scales:{ y:{ beginAtZero:true, max:1, ticks:{ stepSize:1 } } }, plugins:{ legend:{ display:false } } }
+  });
 }
-// Mark routine
-function markRoutine(email,status){ if(!canMark()) return;
+
+function mark(status) {
   const date = formatDate(new Date());
-  const recRef = db.collection('routines').doc(email).collection('records').doc(date);
-  recRef.set({ status, date, timestamp: firebase.firestore.FieldValue.serverTimestamp() })
-    .then(()=>location.reload());
+  db.collection('routines').doc(email).collection('records').doc(date)
+    .set({ date, status, timestamp: firebase.firestore.FieldValue.serverTimestamp() })
+    .then(loadData);
 }
+
+document.getElementById('markYes').onclick = ()=>mark('Yes');
+document.getElementById('markNo').onclick = ()=>mark('No');
+
+window.onload = loadData;
 
   </script>
 </body>
