@@ -40,10 +40,17 @@
     .gallery img:hover{transform:scale(1.05);}
     .floating-heart{position:fixed;pointer-events:none;animation:float 3s ease-in-out infinite;font-size:1.5rem;}
     @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-20px);}}
+    .auth-container{text-align:center;padding:2rem;}
+    .user-info{position:fixed;top:10px;right:10px;background:white;padding:10px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);}
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="auth-container" id="authContainer" style="display:none;">
+    <button id="signInBtn">Sign in with Google 🌸</button>
+  </div>
+
+  <div class="container" id="mainContainer" style="display:none;">
+    <div class="user-info" id="userInfo"></div>
     <div class="header"><h1>🌹 My Eternal Growth Journey 🌹</h1></div>
     <div class="quote-container animate__animated animate__fadeIn"><p class="quote" id="dynamicQuote"></p></div>
 
@@ -67,16 +74,29 @@
     <div class="chart-container"><canvas id="progressChart"></canvas></div>
 
     <div class="gallery">
-      <!-- Keep all your original <img> tags here -->
+                  <img src="https://dl.dropboxusercontent.com/scl/fi/zhvuv6098pxqexclylyxr/1744702103477.jpg?rlkey=hv7zjumzyggtyn0bsjecqu6te&st=txjpjxaj&dl=0" alt="Love 1">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/yd5t9umsft1reuna9nq1x/8699159.jpg?rlkey=5p045rpx6in7mk3tftvotc8h9&st=jdjqjij2&dl=0" alt="Love 2">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/da76w8evpz85ypmbmwx0i/Screenshot_20250418-122054.jpg?rlkey=3w70fb5i5khn07mufhcclliqr&st=t19bm95l&dl=0" alt="Love 3">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/kycfs8otmnay4ohui1546/1744702120067.jpg?rlkey=gsg5ieebdk1001f4gqs70uwys&st=zl4uumzl&dl=0" alt="Love 4">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/fs8m03izpb5zuilxm307o/1744702130999.png?rlkey=hu0os1g9f3fjmo7a8ljyv9akh&st=ervmrg8l&dl=0" alt="Love 5">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/ih79814t1c2od22jmdbfw/8699161.jpg?rlkey=vxrzhkc3id3njeli1xza6gitc&st=nl3i6xwk&dl=0" alt="Love 6">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/tgfz0bdpfs8r7emm6xqdo/8699158.jpg?rlkey=769ayec8274jsb4c1ms2ojpeh&st=rf5539yv&dl=0" alt="Love 7">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/kr9qit5eg6nw7we78njaa/8699165.jpg?rlkey=ct51cdmu3dd4yugauml8cz9mx&st=oe1walp5&dl=0" alt="Love 8">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/uq2tr7ysg68sw3wg9cp8o/8699171.jpg?rlkey=49bamw7i8v4a0763cm53ulbep&st=k4sb9hmt&dl=0" alt="Love 9">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/6e0xw24a0041ty4j1dpzi/8699187.jpg?rlkey=1cqdrqrl1mrus5tr1fm24whad&st=5nuwdmmm&dl=0" alt="Love 10">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/kxk9ygzkb8cifldgrvkc6/1744890781016.jpg?rlkey=y0w5gtdtpcwqwswb6dfa1goms&st=54xlxh5s&dl=0" alt="Love 11">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/wrnriv9lpzf8jdqhe4uvg/1744890792508.jpg?rlkey=5qso4du36eywey8gq0fetlo09&st=41d7lm12&dl=0" alt="Love 12">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/cmlg55e1l39b1q4kda1fy/Screenshot_20250418-121943.jpg?rlkey=81ge3a58inlmzng70ix5lfhl3&st=390sjdoy&dl=0" alt="Love 13">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/da76w8evpz85ypmbmwx0i/Screenshot_20250418-122054.jpg?rlkey=3w70fb5i5khn07mufhcclliqr&st=bf160vl8&dl=0" alt="Love 14">
+            <img src="https://dl.dropboxusercontent.com/scl/fi/orf6i07ebo705jnq5tkx7/1744702095638.png?rlkey=6jvqg2lrucvw5c8vst71rg5kl&st=kjv4g96e&dl=0" alt="Love 15">
     </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
     import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
-    import Chart from 'https://cdn.jsdelivr.net/npm/chart.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
 
-    // Firebase initialization
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -87,15 +107,11 @@
     };
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-
-    let userId = localStorage.getItem('userId');
-    if (!userId) {
-      userId = 'user_' + Math.random().toString(36).substr(2,9);
-      localStorage.setItem('userId', userId);
-    }
+    const auth = getAuth();
+    const provider = new GoogleAuthProvider();
 
     let currentDate = new Date();
-    let chart;
+    let chart = null;
     const quotes = [
       "No matter what we build—let's never forget who we’re building it for.",
       "Some people seek peace in silence. I found mine in a smile I’ve never met.",
@@ -107,59 +123,185 @@
       "Your love is my eternal motivation to grow better every day 🌸"
     ];
 
-    async function generateCalendar(year, month) {
-      const cal = document.getElementById('calendar'); cal.innerHTML = '';
-      const first = new Date(year, month, 1), last = new Date(year, month+1,0);
-      const start = first.toISOString().split('T')[0], end = last.toISOString().split('T')[0];
-      const q = query(collection(db,'streaks',userId,'dailyRecords'), where('date','>=',start), where('date','<=',end));
-      const snap = await getDocs(q);
-      const done = snap.docs.map(d=>d.data().date);
-      ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{ let h=document.createElement('div');h.textContent=d;h.style.fontWeight='bold';cal.appendChild(h); });
-      for(let i=0;i<first.getDay();i++) cal.appendChild(document.createElement('div'));
-      for(let d=1;d<=last.getDate();d++){ const ds = `${year}-${(month+1).toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
-        let cell = document.createElement('div'); cell.className='day-cell'+(done.includes(ds)?' completed-day':''); cell.textContent=d; cal.appendChild(cell);
+    // Authentication handling
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById('mainContainer').style.display = 'block';
+        document.getElementById('authContainer').style.display = 'none';
+        document.getElementById('userInfo').innerHTML = `
+          👤 ${user.email}<br>
+          <button onclick="auth.signOut()">Sign out</button>
+        `;
+        initializeAppData(user);
+      } else {
+        document.getElementById('mainContainer').style.display = 'none';
+        document.getElementById('authContainer').style.display = 'block';
       }
-      document.getElementById('currentMonth').textContent = first.toLocaleString('default',{month:'long',year:'numeric'});
+    });
+
+    document.getElementById('signInBtn').addEventListener('click', () => {
+      signInWithPopup(auth, provider).catch((error) => {
+        console.error('Sign in error:', error);
+      });
+    });
+
+    async function initializeAppData(user) {
+      showRandomQuote();
+      initChart();
+      await generateCalendar(currentDate.getFullYear(), currentDate.getMonth());
+      await updateChart(user);
+      await updateStreakDisplay(user);
+    }
+
+    async function generateCalendar(year, month) {
+      const cal = document.getElementById('calendar'); 
+      cal.innerHTML = '';
+      const first = new Date(year, month, 1);
+      const last = new Date(year, month + 1, 0);
+      const start = first.toISOString().split('T')[0];
+      const end = last.toISOString().split('T')[0];
+
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const q = query(collection(db, 'users', user.uid, 'dailyRecords'), 
+        where('date', '>=', start), 
+        where('date', '<=', end)
+      );
+      const snap = await getDocs(q);
+      const doneDates = snap.docs.map(d => d.data().date);
+
+      // Create calendar headers
+      ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+        const header = document.createElement('div');
+        header.textContent = d;
+        header.style.fontWeight = 'bold';
+        cal.appendChild(header);
+      });
+
+      // Fill empty days
+      for (let i = 0; i < first.getDay(); i++) {
+        cal.appendChild(document.createElement('div'));
+      }
+
+      // Create day cells
+      for (let d = 1; d <= last.getDate(); d++) {
+        const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+        const cell = document.createElement('div');
+        cell.className = `day-cell ${doneDates.includes(dateStr) ? 'completed-day' : ''}`;
+        cell.textContent = d;
+        cal.appendChild(cell);
+      }
+
+      document.getElementById('currentMonth').textContent = 
+        first.toLocaleString('default', { month: 'long', year: 'numeric' });
     }
 
     function showRandomQuote() {
-      document.getElementById('dynamicQuote').innerText = quotes[Math.floor(Math.random()*quotes.length)];
+      document.getElementById('dynamicQuote').innerText = 
+        quotes[Math.floor(Math.random() * quotes.length)];
     }
 
     function initChart() {
       const ctx = document.getElementById('progressChart').getContext('2d');
-      chart = new Chart(ctx,{ type:'line', data:{ labels:[], datasets:[{ label:'Streak', data:[], borderColor:'#ff758c', tension:0.1 }]}, options:{ responsive:true, scales:{ y:{ display:false }}} });
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Streak Progress',
+            data: [],
+            borderColor: '#ff758c',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { display: false }
+          }
+        }
+      });
     }
 
-    async function updateChart() {
-      const snap = await getDocs(query(collection(db,'streaks',userId,'dailyRecords'), orderBy('date')));
-      const data = snap.docs.map(d=>d.data());
-      chart.data.labels = data.map(d=>d.date);
-      chart.data.datasets[0].data = data.map(d=> d.status==='Yes'?1:0);
+    async function updateChart(user) {
+      const q = query(collection(db, 'users', user.uid, 'dailyRecords'), orderBy('date'));
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => d.data());
+
+      chart.data.labels = data.map(d => d.date);
+      chart.data.datasets[0].data = data.map(d => d.status === 'Yes' ? 1 : 0);
       chart.update();
     }
 
     async function updateStreak(isCompleted) {
+      const user = auth.currentUser;
+      if (!user) return;
+
       const today = new Date().toISOString().split('T')[0];
-      const userRef = doc(db,'streaks',userId);
-      const docSnap = await getDoc(userRef);
-      let curr=0, best=0;
-      if(docSnap.exists()){ const dt=docSnap.data(); curr=dt.currentStreak; best=dt.longestStreak; if(dt.lastUpdate!==today){ curr = isCompleted?curr+1:0; best=Math.max(best,curr);} }
-      else { curr = isCompleted?1:0; best=curr; }
-      await setDoc(userRef,{currentStreak:curr,longestStreak:best,lastUpdate:today});
-      const dr = doc(db,'streaks',userId,'dailyRecords',today);
-      await setDoc(dr,{date:today,status:isCompleted?'Yes':'No'});
-      document.getElementById('currentStreak').innerText=curr;
-      document.getElementById('longestStreak').innerText=best;
-      showRandomQuote(); generateCalendar(currentDate.getFullYear(),currentDate.getMonth()); updateChart();
+      const userRef = doc(db, 'users', user.uid);
+      const streakRef = doc(db, 'users', user.uid, 'dailyRecords', today);
+
+      const userDoc = await getDoc(userRef);
+      let currentStreak = 0;
+      let longestStreak = 0;
+      let lastUpdate = null;
+
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        currentStreak = data.currentStreak || 0;
+        longestStreak = data.longestStreak || 0;
+        lastUpdate = data.lastUpdate || null;
+      }
+
+      if (lastUpdate !== today) {
+        currentStreak = isCompleted ? currentStreak + 1 : 0;
+        longestStreak = Math.max(longestStreak, currentStreak);
+      }
+
+      await setDoc(userRef, {
+        currentStreak,
+        longestStreak,
+        lastUpdate: today,
+        email: user.email
+      });
+
+      await setDoc(streakRef, {
+        date: today,
+        status: isCompleted ? 'Yes' : 'No'
+      });
+
+      document.getElementById('currentStreak').textContent = currentStreak;
+      document.getElementById('longestStreak').textContent = longestStreak;
+
+      showRandomQuote();
+      generateCalendar(currentDate.getFullYear(), currentDate.getMonth());
+      updateChart(user);
     }
 
-    document.getElementById('markBtn').addEventListener('click',()=>updateStreak(true));
-    document.getElementById('resetBtn').addEventListener('click',()=>updateStreak(false));
-    document.getElementById('prevMonth').addEventListener('click',()=>{ currentDate.setMonth(currentDate.getMonth()-1); generateCalendar(currentDate.getFullYear(),currentDate.getMonth()); });
-    document.getElementById('nextMonth').addEventListener('click',()=>{ currentDate.setMonth(currentDate.getMonth()+1); generateCalendar(currentDate.getFullYear(),currentDate.getMonth()); });
+    async function updateStreakDisplay(user) {
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
 
-    (async function init(){ showRandomQuote(); initChart(); generateCalendar(currentDate.getFullYear(),currentDate.getMonth()); updateChart(); })();
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        document.getElementById('currentStreak').textContent = data.currentStreak || 0;
+        document.getElementById('longestStreak').textContent = data.longestStreak || 0;
+      }
+    }
+
+    // Event Listeners
+    document.getElementById('markBtn').addEventListener('click', () => updateStreak(true));
+    document.getElementById('resetBtn').addEventListener('click', () => updateStreak(false));
+    document.getElementById('prevMonth').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      generateCalendar(currentDate.getFullYear(), currentDate.getMonth());
+    });
+    document.getElementById('nextMonth').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      generateCalendar(currentDate.getFullYear(), currentDate.getMonth());
+    });
   </script>
 </body>
 </html>
