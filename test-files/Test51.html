@@ -930,6 +930,77 @@
   }  
 
 
+// logic.js
+class AutoSeating {
+  constructor(students, rooms) {
+    this.students = students;
+    this.rooms = rooms;
+  }
+
+  async generateLayout(rules) {
+    // Clear existing seating
+    this.rooms.forEach(room => room.seating.fill(null));
+    
+    // Apply rule-based sorting
+    let sortedStudents = this.sortStudents(rules);
+    
+    // Distribute students according to rules
+    return this.distributeStudents(sortedStudents, rules);
+  }
+
+  sortStudents(rules) {
+    let students = [...this.students];
+    
+    // Multi-level sorting based on active rules
+    return students.sort((a, b) => {
+      if(rules.genderBalance) {
+        if(a.gender !== b.gender) return rules.genderOrder === 'male-first' ? -1 : 1;
+      }
+      if(rules.groupBy === 'subjects') {
+        const aSubj = a.subjects.join('');
+        const bSubj = b.subjects.join('');
+        return bSubj.localeCompare(aSubj);
+      }
+      if(rules.groupBy === 'class') {
+        return a.class.localeCompare(b.class);
+      }
+      return 0;
+    });
+  }
+
+  distributeStudents(students, rules) {
+    let studentPtr = 0;
+    
+    this.rooms.forEach(room => {
+      const capacity = room.rows * room.cols;
+      let seats = Array(capacity).fill().map((_,i) => i);
+      
+      if(rules.seatingPattern === 'snake') {
+        seats = this.createSnakePattern(room.rows, room.cols);
+      }
+      
+      seats.forEach(seatIndex => {
+        if(studentPtr < students.length) {
+          room.seating[seatIndex] = students[studentPtr++].id;
+        }
+      });
+    });
+    
+    return this.rooms;
+  }
+
+  createSnakePattern(rows, cols) {
+    return Array.from({length: rows}, (_,i) => 
+      i % 2 === 0 
+        ? Array.from({length: cols}, (_,j) => i*cols + j)
+        : Array.from({length: cols}, (_,j) => i*cols + (cols - j - 1))
+      .flat();
+  }
+}
+
+
+
+
 // Modal control
 function showAutoLayoutModal() {
   document.getElementById('autoLayoutModal').style.display = 'block';
