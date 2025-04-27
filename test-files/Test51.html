@@ -27,6 +27,43 @@
             color: var(--text-color);
         }
 
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1001;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+  background: white;
+  margin: 15% auto;
+  padding: 20px;
+  width: 50%;
+  border-radius: 10px;
+  position: relative;
+}
+
+.rule-section {
+  margin: 15px 0;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.close {
+  position: absolute;
+  right: 20px;
+  top: 10px;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+
       /* Navbar override */
       .navbar-brand {
         font-weight: bold;
@@ -272,6 +309,54 @@
   <button onclick="createNewFile()">📁 New File</button>  
   <select id="fileSelector" onchange="loadFile(this.value)"></select>  
 </div>  
+
+
+<div class="auto-layout">
+  <button onclick="showAutoLayoutModal()" class="btn btn-success">
+    <i class="bi bi-magic"></i> Auto Arrange
+  </button>
+</div>
+
+<!-- Add Modal -->
+<div id="autoLayoutModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeAutoLayoutModal()">&times;</span>
+    <h3>🤖 Auto Layout Configuration</h3>
+    <div class="rule-section">
+      <label>Primary Grouping:</label>
+      <select id="groupBy">
+        <option value="none">None</option>
+        <option value="class">Class</option>
+        <option value="subjects">Subjects</option>
+        <option value="stream">Stream</option>
+      </select>
+    </div>
+    
+    <div class="rule-section">
+      <label><input type="checkbox" id="genderBalance"> Gender Balance</label>
+      <select id="genderOrder" disabled>
+        <option value="alternate">Alternate</option>
+        <option value="male-first">Male First</option>
+        <option value="female-first">Female First</option>
+      </select>
+    </div>
+
+    <div class="rule-section">
+      <label>Seating Pattern:</label>
+      <select id="seatingPattern">
+        <option value="row-wise">Row Wise</option>
+        <option value="snake">Snake Pattern</option>
+        <option value="spiral">Spiral</option>
+      </select>
+    </div>
+
+    <button onclick="applyAutoLayout()" class="btn btn-primary">
+      Generate Layout
+    </button>
+  </div>
+</div>
+
+
 <div class="settings-panel">  
   <h2 style="margin:10px 0;">⚙️ Room Configuration</h2>  
   <div id="room-settings-container"></div>  
@@ -843,6 +928,52 @@
     }  
     return true;  
   }  
+
+
+// Modal control
+function showAutoLayoutModal() {
+  document.getElementById('autoLayoutModal').style.display = 'block';
+}
+
+function closeAutoLayoutModal() {
+  document.getElementById('autoLayoutModal').style.display = 'none';
+}
+
+// Rule configuration handler
+document.getElementById('genderBalance').addEventListener('change', function(e) {
+  document.getElementById('genderOrder').disabled = !e.target.checked;
+});
+
+async function applyAutoLayout() {
+  const rules = {
+    groupBy: document.getElementById('groupBy').value,
+    genderBalance: document.getElementById('genderBalance').checked,
+    genderOrder: document.getElementById('genderOrder').value,
+    seatingPattern: document.getElementById('seatingPattern').value
+  };
+
+  const autoSeating = new AutoSeating(config.students, config.rooms);
+  const updatedRooms = await autoSeating.generateLayout(rules);
+  
+  // Update Firebase
+  const batch = db.batch();
+  updatedRooms.forEach(room => {
+    const ref = db.collection("001-school").doc("rooms")
+      .collection("files").doc(currentFile)
+      .collection("layouts").doc(room.id);
+    batch.update(ref, { seating: room.seating });
+  });
+  
+  await batch.commit();
+  
+  // Refresh UI
+  createRooms();
+  generateStudentsList();
+  updateStats();
+  closeAutoLayoutModal();
+  alert('Auto layout applied successfully!');
+}
+
 
   init();  
 
