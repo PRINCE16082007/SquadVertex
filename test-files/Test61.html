@@ -1,27 +1,69 @@
 <!DOCTYPE html><html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SV Schedule Tracker</title>
   <!-- Bootstrap CSS -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-    integrity="sha384-9ndCyUa6mY5h+0Q5YbY4Qe+pwYdNm4pLZ0I1EzOz1XQ7PM3/pfXhF7Lb6V8hXKcp"
-    crossorigin="anonymous"
-  />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-  <div class="container py-4">
-    <div id="root"></div>
-  </div>  <script type="module">
-    import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0?bundle';
-    import ReactDOM from 'https://esm.sh/react-dom@18.2.0?bundle';
+  <div class="d-flex justify-content-end p-3" id="authContainer">
+    <button id="signInBtn" class="btn btn-outline-primary">Sign in with Google</button>
+  </div>
+  <div class="container my-4" id="mainContainer" style="display:none;">
+    <div class="text-end mb-3">
+      <span id="userEmail" class="me-2"></span>
+      <button id="signOutBtn" class="btn btn-sm btn-outline-danger">Sign Out</button>
+    </div>
+    <h1 class="text-center mb-4">📅 SV Schedule Tracker</h1>
+    <!-- Task Creator -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Add Daily Task</h5>
+        <div class="row g-2 align-items-center">
+          <div class="col-auto">
+            <input type="time" id="taskTime" class="form-control" />
+          </div>
+          <div class="col-auto">
+            <input type="number" id="taskDuration" class="form-control" placeholder="Duration (min)" />
+          </div>
+          <div class="col">
+            <input type="text" id="taskText" class="form-control" placeholder="Task description" />
+          </div>
+          <div class="col-auto">
+            <button id="addTaskBtn" class="btn btn-primary">Add Task</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Rule Creator -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Add Routine Rule</h5>
+        <div class="input-group">
+          <input type="text" id="ruleText" class="form-control" placeholder="Rule description" />
+          <button id="addRuleBtn" class="btn btn-secondary">Add Rule</button>
+        </div>
+      </div>
+    </div>
+    <!-- Lists -->
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <h6>Tasks</h6>
+        <ul id="taskList" class="list-group"></ul>
+      </div>
+      <div class="col-md-6">
+        <h6>Routine Rules</h6>
+        <ul id="ruleList" class="list-group"></ul>
+      </div>
+    </div>
+    <!-- Mark Day -->
+    <button id="markDayBtn" class="btn btn-success w-100 mb-4" disabled>Mark Day Complete ✅</button>
+  </div>  <!-- Firebase -->  <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
-    import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
-    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js';
+    import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js';
 
-    // Firebase initialization
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -35,172 +77,106 @@
     const auth = getAuth();
     const provider = new GoogleAuthProvider();
 
-    function App() {
-      const [user, setUser] = useState(null);
-      const [tasks, setTasks] = useState([]);
-      const [rules, setRules] = useState([]);
-      const [form, setForm] = useState({ time: '', duration: '', text: '' });
-      const [ruleText, setRuleText] = useState('');
-      const [markedDates, setMarkedDates] = useState([]);
+    // DOM elements
+    const authContainer = document.getElementById('authContainer');
+    const mainContainer = document.getElementById('mainContainer');
+    const signInBtn = document.getElementById('signInBtn');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const userEmail = document.getElementById('userEmail');
+    const addTaskBtn = document.getElementById('addTaskBtn');
+    const addRuleBtn = document.getElementById('addRuleBtn');
+    const markDayBtn = document.getElementById('markDayBtn');
+    const taskList = document.getElementById('taskList');
+    const ruleList = document.getElementById('ruleList');
+    let tasks = [];
+    let rules = [];
+    const today = new Date().toISOString().split('T')[0];
 
-      const today = new Date().toISOString().split('T')[0];
-      const allDone = tasks.length && tasks.every(t => t.done) && rules.every(r => r.done);
-      const alreadyMarked = markedDates.includes(today);
-
-      useEffect(() => {
-        onAuthStateChanged(auth, async (u) => {
-          if (u) {
-            setUser(u);
-            const snap = await getDoc(doc(db, 'schedules', u.uid));
-            if (snap.exists()) {
-              const data = snap.data();
-              setTasks(data.tasks || []);
-              setRules(data.rules || []);
-              setMarkedDates(data.markedDates || []);
-            }
-          } else {
-            signInWithPopup(auth, provider).catch(console.error);
-          }
-        });
-      }, []);
-
-      const saveData = async (newTasks, newRules, newMarked) => {
-        if (!user) return;
-        await setDoc(doc(db, 'schedules', user.uid), {
-          tasks: newTasks,
-          rules: newRules,
-          markedDates: newMarked
-        });
-      };
-
-      const addTask = async () => {
-        if (!form.time || !form.duration || !form.text) return;
-        const newTasks = [...tasks, { ...form, done: false }];
-        setTasks(newTasks);
-        setForm({ time: '', duration: '', text: '' });
-        await saveData(newTasks, rules, markedDates);
-      };
-
-      const addRule = async () => {
-        if (!ruleText) return;
-        const newRules = [...rules, { text: ruleText, done: false }];
-        setRules(newRules);
-        setRuleText('');
-        await saveData(tasks, newRules, markedDates);
-      };
-
-      const toggleTask = async (i) => {
-        const newTasks = [...tasks];
-        newTasks[i].done = !newTasks[i].done;
-        setTasks(newTasks);
-        await saveData(newTasks, rules, markedDates);
-      };
-
-      const toggleRule = async (i) => {
-        const newRules = [...rules];
-        newRules[i].done = !newRules[i].done;
-        setRules(newRules);
-        await saveData(tasks, newRules, markedDates);
-      };
-
-      const markDay = async () => {
-        if (!allDone || alreadyMarked) return;
-        const newMarked = [...markedDates, today];
-        setMarkedDates(newMarked);
-        await saveData(tasks, rules, newMarked);
-        alert('🎉 You have completed all items! Day marked.');
-      };
-
-      if (!user) return <div>Loading...</div>;
-
-      return (
-        <div className="card p-4">
-          <h1 className="card-title text-center mb-4">📅 SV Schedule Tracker</h1>
-
-          <div className="mb-3">
-            <h5>Create Daily Task</h5>
-            <div className="d-flex gap-2 mb-2">
-              <input
-                type="time"
-                className="form-control"
-                value={form.time}
-                onChange={e => setForm({ ...form, time: e.target.value })}
-              />
-              <input
-                type="number"
-                className="form-control"
-                placeholder="Duration"
-                value={form.duration}
-                onChange={e => setForm({ ...form, duration: e.target.value })}
-              />
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Task description"
-                value={form.text}
-                onChange={e => setForm({ ...form, text: e.target.value })}
-              />
-            </div>
-            <button className="btn btn-primary" onClick={addTask}>Add Task</button>
-          </div>
-
-          <div className="mb-3">
-            <h5>Define Routine Rule</h5>
-            <div className="d-flex gap-2 mb-2">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Rule description"
-                value={ruleText}
-                onChange={e => setRuleText(e.target.value)}
-              />
-              <button className="btn btn-secondary" onClick={addRule}>Add Rule</button>
-            </div>
-          </div>
-
-          <div className="row">
-            <div className="col-md-6">
-              <h6>Tasks</h6>
-              <ul className="list-group mb-3">
-                {tasks.map((t, i) => (
-                  <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
-                    <span>{t.time} - {t.text} ({t.duration}min)</span>
-                    <input type="checkbox" checked={t.done} onChange={() => toggleTask(i)} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="col-md-6">
-              <h6>Routine Rules</n
-              ><ul className="list-group mb-3">
-                {rules.map((r, i) => (
-                  <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
-                    <span>{r.text}</span>
-                    <input type="checkbox" checked={r.done} onChange={() => toggleRule(i)} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <button
-            className="btn btn-success w-100 mb-3"
-            disabled={!allDone || alreadyMarked}
-            onClick={markDay}
-          >
-            {alreadyMarked ? 'Already Marked Today' : 'Mark Day Complete'}
-          </button>
-
-          <div>
-            <h6>Completed Dates</h6>
-            <div className="history d-flex flex-wrap gap-1">
-              {markedDates.map((d, i) => <span key={i} className="badge bg-success">{d}</span>)}
-            </div>
-          </div>
-        </div>
-      );
+    // Render functions
+    function renderList() {
+      taskList.innerHTML = '';
+      tasks.forEach((t,i) => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        li.innerHTML = `<span>${t.time} - ${t.text} (${t.duration}m)</span><input type="checkbox" ${t.done?'checked':''} data-type="task" data-index="${i}">`;
+        taskList.appendChild(li);
+      });
+      ruleList.innerHTML = '';
+      rules.forEach((r,i) => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        li.innerHTML = `<span>${r.text}</span><input type="checkbox" ${r.done?'checked':''} data-type="rule" data-index="${i}">`;
+        ruleList.appendChild(li);
+      });
+      markDayBtn.disabled = !(tasks.length && tasks.every(t=>t.done) && rules.every(r=>r.done));
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+    // Load & save
+    async function loadData(uid) {
+      const docRef = doc(db, 'users', uid, 'schedules', today);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        tasks = data.tasks || [];
+        rules = data.rules || [];
+      } else {
+        tasks = [];
+        rules = [];
+      }
+      renderList();
+    }
+    async function saveData(uid) {
+      const docRef = doc(db, 'users', uid, 'schedules', today);
+      await setDoc(docRef, { tasks, rules });
+    }
+
+    // Auth state
+    onAuthStateChanged(auth, user=>{
+      if (user) {
+        authContainer.style.display = 'none';
+        mainContainer.style.display = 'block';
+        userEmail.textContent = user.email;
+        loadData(user.uid);
+      } else {
+        authContainer.style.display = 'flex';
+        mainContainer.style.display = 'none';
+      }
+    });
+    signInBtn.onclick = ()=> signInWithPopup(auth, provider).catch(console.error);
+    signOutBtn.onclick = ()=> signOut(auth);
+
+    // Handlers
+    addTaskBtn.onclick = async ()=>{
+      const time = document.getElementById('taskTime').value;
+      const duration = document.getElementById('taskDuration').value;
+      const text = document.getElementById('taskText').value.trim();
+      if (!time||!duration||!text) return;
+      tasks.push({ time, duration, text, done:false });
+      await saveData(auth.currentUser.uid);
+      renderList();
+      document.getElementById('taskTime').value='';
+      document.getElementById('taskDuration').value='';
+      document.getElementById('taskText').value='';
+    };
+    addRuleBtn.onclick = async ()=>{
+      const text = document.getElementById('ruleText').value.trim();
+      if (!text) return;
+      rules.push({ text, done:false });
+      await saveData(auth.currentUser.uid);
+      renderList();
+      document.getElementById('ruleText').value='';
+    };
+    [taskList, ruleList].forEach(list=>{
+      list.onclick = async e=>{
+        if (e.target.tagName==='INPUT') {
+          const i = e.target.dataset.index, type=e.target.dataset.type;
+          if (type==='task') tasks[i].done = e.target.checked;
+          else rules[i].done = e.target.checked;
+          await saveData(auth.currentUser.uid);
+          renderList();
+        }
+      };
+    });
+    markDayBtn.onclick = ()=> alert('🎉 All tasks & rules done for '+today);
   </script></body>
 </html>
