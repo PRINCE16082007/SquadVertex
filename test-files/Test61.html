@@ -1,121 +1,202 @@
 <!DOCTYPE html><html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SV Schedule Tracker</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React & ReactDOM from unpkg -->
-  <script type="module" crossorigin src="https://esm.sh/react@18.2.0?bundle"></script>
-  <script type="module" crossorigin src="https://esm.sh/react-dom@18.2.0?bundle"></script>
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-9ndCyUa6mY5h+0Q5YbY4Qe+pwYdNm4pLZ0I1EzOz1XQ7PM3/pfXhF7Lb6V8hXKcp"
+    crossorigin="anonymous"
+  />
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
-  <div id="root" class="w-full max-w-3xl"></div>  <script type="module">
-    import React, { useState } from 'https://esm.sh/react@18.2.0';
-    import ReactDOM from 'https://esm.sh/react-dom@18.2.0';
+<body>
+  <div class="container py-4">
+    <div id="root"></div>
+  </div>  <script type="module">
+    import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0?bundle';
+    import ReactDOM from 'https://esm.sh/react-dom@18.2.0?bundle';
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
+    import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js';
+
+    // Firebase initialization
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth();
+    const provider = new GoogleAuthProvider();
 
     function App() {
+      const [user, setUser] = useState(null);
       const [tasks, setTasks] = useState([]);
       const [rules, setRules] = useState([]);
       const [form, setForm] = useState({ time: '', duration: '', text: '' });
       const [ruleText, setRuleText] = useState('');
+      const [markedDates, setMarkedDates] = useState([]);
+
+      const today = new Date().toISOString().split('T')[0];
       const allDone = tasks.length && tasks.every(t => t.done) && rules.every(r => r.done);
+      const alreadyMarked = markedDates.includes(today);
 
-      const addTask = () => {
+      useEffect(() => {
+        onAuthStateChanged(auth, async (u) => {
+          if (u) {
+            setUser(u);
+            const snap = await getDoc(doc(db, 'schedules', u.uid));
+            if (snap.exists()) {
+              const data = snap.data();
+              setTasks(data.tasks || []);
+              setRules(data.rules || []);
+              setMarkedDates(data.markedDates || []);
+            }
+          } else {
+            signInWithPopup(auth, provider).catch(console.error);
+          }
+        });
+      }, []);
+
+      const saveData = async (newTasks, newRules, newMarked) => {
+        if (!user) return;
+        await setDoc(doc(db, 'schedules', user.uid), {
+          tasks: newTasks,
+          rules: newRules,
+          markedDates: newMarked
+        });
+      };
+
+      const addTask = async () => {
         if (!form.time || !form.duration || !form.text) return;
-        setTasks([...tasks, { ...form, done: false }]);
-        setForm({ time: '', duration: '', text: '' });
-      };
-
-      const addRule = () => {
-        if (!ruleText) return;
-        setRules([...rules, { text: ruleText, done: false }]);
-        setRuleText('');
-      };
-
-      const toggleTask = idx => {
-        const newTasks = [...tasks]; newTasks[idx].done = !newTasks[idx].done;
+        const newTasks = [...tasks, { ...form, done: false }];
         setTasks(newTasks);
-      };
-      const toggleRule = idx => {
-        const newRules = [...rules]; newRules[idx].done = !newRules[idx].done;
-        setRules(newRules);
+        setForm({ time: '', duration: '', text: '' });
+        await saveData(newTasks, rules, markedDates);
       };
 
-      const markDay = () => {
-        if (!allDone) return;
-        alert('🎉 You have completed all items! Day marked.');
-        // reset lists or push to storage
+      const addRule = async () => {
+        if (!ruleText) return;
+        const newRules = [...rules, { text: ruleText, done: false }];
+        setRules(newRules);
+        setRuleText('');
+        await saveData(tasks, newRules, markedDates);
       };
+
+      const toggleTask = async (i) => {
+        const newTasks = [...tasks];
+        newTasks[i].done = !newTasks[i].done;
+        setTasks(newTasks);
+        await saveData(newTasks, rules, markedDates);
+      };
+
+      const toggleRule = async (i) => {
+        const newRules = [...rules];
+        newRules[i].done = !newRules[i].done;
+        setRules(newRules);
+        await saveData(tasks, newRules, markedDates);
+      };
+
+      const markDay = async () => {
+        if (!allDone || alreadyMarked) return;
+        const newMarked = [...markedDates, today];
+        setMarkedDates(newMarked);
+        await saveData(tasks, rules, newMarked);
+        alert('🎉 You have completed all items! Day marked.');
+      };
+
+      if (!user) return <div>Loading...</div>;
 
       return (
-        <div className="bg-white shadow-lg rounded-xl p-6 space-y-6">
-          <h1 className="text-3xl font-bold text-pink-500 text-center">📅 SV Schedule Tracker</h1>
+        <div className="card p-4">
+          <h1 className="card-title text-center mb-4">📅 SV Schedule Tracker</h1>
 
-          {/* Task Creator */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold">Create Daily Task</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <input type="time" className="border p-2 rounded" placeholder="Time" value={form.time}
-                onChange={e => setForm({ ...form, time: e.target.value })} />
-              <input type="number" min="1" className="border p-2 rounded" placeholder="Duration (min)"
-                value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} />
-              <input type="text" className="border p-2 rounded" placeholder="Task description"
-                value={form.text} onChange={e => setForm({ ...form, text: e.target.value })} />
+          <div className="mb-3">
+            <h5>Create Daily Task</h5>
+            <div className="d-flex gap-2 mb-2">
+              <input
+                type="time"
+                className="form-control"
+                value={form.time}
+                onChange={e => setForm({ ...form, time: e.target.value })}
+              />
+              <input
+                type="number"
+                className="form-control"
+                placeholder="Duration"
+                value={form.duration}
+                onChange={e => setForm({ ...form, duration: e.target.value })}
+              />
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Task description"
+                value={form.text}
+                onChange={e => setForm({ ...form, text: e.target.value })}
+              />
             </div>
-            <button onClick={addTask} className="bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600">
-              + Add Task
-            </button>
-          </section>
+            <button className="btn btn-primary" onClick={addTask}>Add Task</button>
+          </div>
 
-          {/* Routine Rules */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold">Define Routine Rules</h2>
-            <div className="flex gap-2">
-              <input type="text" className="border p-2 rounded flex-1" placeholder="Rule description"
-                value={ruleText} onChange={e => setRuleText(e.target.value)} />
-              <button onClick={addRule} className="bg-indigo-500 text-white px-4 py-2 rounded-full hover:bg-indigo-600">
-                + Add Rule
-              </button>
+          <div className="mb-3">
+            <h5>Define Routine Rule</h5>
+            <div className="d-flex gap-2 mb-2">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Rule description"
+                value={ruleText}
+                onChange={e => setRuleText(e.target.value)}
+              />
+              <button className="btn btn-secondary" onClick={addRule}>Add Rule</button>
             </div>
-          </section>
+          </div>
 
-          {/* Lists */}
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-semibold">Tasks</h3>
-              <ul className="mt-2 space-y-2">
+          <div className="row">
+            <div className="col-md-6">
+              <h6>Tasks</h6>
+              <ul className="list-group mb-3">
                 {tasks.map((t, i) => (
-                  <li key={i} className="flex items-center justify-between bg-gray-100 p-2 rounded">
-                    <div>
-                      <span className="font-medium">{t.time}</span> - {t.text} ({t.duration} min)
-                    </div>
+                  <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
+                    <span>{t.time} - {t.text} ({t.duration}min)</span>
                     <input type="checkbox" checked={t.done} onChange={() => toggleTask(i)} />
                   </li>
                 ))}
-                {!tasks.length && <li className="text-gray-400">No tasks yet.</li>}
               </ul>
             </div>
-            <div>
-              <h3 className="font-semibold">Routine Rules</h3>
-              <ul className="mt-2 space-y-2">
+            <div className="col-md-6">
+              <h6>Routine Rules</n
+              ><ul className="list-group mb-3">
                 {rules.map((r, i) => (
-                  <li key={i} className="flex items-center justify-between bg-gray-100 p-2 rounded">
-                    <div>{r.text}</div>
+                  <li key={i} className="list-group-item d-flex justify-content-between align-items-center">
+                    <span>{r.text}</span>
                     <input type="checkbox" checked={r.done} onChange={() => toggleRule(i)} />
                   </li>
                 ))}
-                {!rules.length && <li className="text-gray-400">No rules defined.</li>}
               </ul>
             </div>
-          </section>
+          </div>
 
-          {/* Mark Day */}
-          <button onClick={markDay} disabled={!allDone}
-            className={`w-full py-3 font-semibold rounded-full transition disabled:opacity-50
-              ${allDone ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-300 text-gray-600'}`}>
-            Mark Day Complete ✅
+          <button
+            className="btn btn-success w-100 mb-3"
+            disabled={!allDone || alreadyMarked}
+            onClick={markDay}
+          >
+            {alreadyMarked ? 'Already Marked Today' : 'Mark Day Complete'}
           </button>
+
+          <div>
+            <h6>Completed Dates</h6>
+            <div className="history d-flex flex-wrap gap-1">
+              {markedDates.map((d, i) => <span key={i} className="badge bg-success">{d}</span>)}
+            </div>
+          </div>
         </div>
       );
     }
