@@ -272,6 +272,13 @@
   <button onclick="createNewFile()">📁 New File</button>  
   <select id="fileSelector" onchange="loadFile(this.value)"></select>  
 </div>  
+
+<body>
+  <nav class="navbar …">…</nav>
+  <div class="toolbar">•••</div>
+  <!-- ... rest of your page ... -->
+</body>
+
 <div class="settings-panel">  
   <h2 style="margin:10px 0;">⚙️ Room Configuration</h2>  
   <div id="room-settings-container"></div>  
@@ -858,6 +865,40 @@
     setTimeout(() => { tooltip.style.display = "none"; }, 3000);  
   });  
 </script>
+<!-- somewhere after your own <script>…init();…</script> -->
+
+<script>
+  // 1) Expose for logic.js
+  window.rooms = config.rooms;
+  window.students = config.students;
+  // build a quick lookup of rows/cols
+  window.roomConfig = {};
+  config.rooms.forEach(r => {
+    window.roomConfig[r.id] = { rows: r.rows, cols: r.cols };
+  });
+
+  // 2) Hook to apply the computed arrangement
+  window.applySeatingArrangement = function(roomId, grid2D) {
+    const room = config.rooms.find(r => r.id === roomId);
+    if (!room) return;
+    // flatten grid to seating array
+    const flat = [];
+    grid2D.forEach(row => row.forEach(cell => {
+      flat.push(cell ? cell.id : null);
+    }));
+    room.seating = flat;
+    // update Firestore
+    db.collection("001-school")
+      .doc("rooms").collection("files")
+      .doc(currentFile).collection("layouts")
+      .doc(roomId).update({ seating: flat });
+    // re-render
+    generateGrid(roomId);
+  };
+</script>
+
+<!-- 3) Finally, load your logic module -->
+<script src="logic1.js"></script>
 <!-- Bootstrap JS Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
