@@ -270,7 +270,9 @@
 <h1 style="color: var(--primary-color); text-align: center; margin: 30px 0;">🪑 Smart Seat Manager Pro</h1>  
 <div class="file-manager">  
   <button onclick="createNewFile()">📁 New File</button>  
-  <select id="fileSelector" onchange="loadFile(this.value)"></select>  
+  <select id="fileSelector" onchange="loadFile(this.value)"></select>
+<!-- Global Auto Arrange -->
+      <button onclick="autoArrangeAll()" style="margin-left: 10px;">🤖 Auto Arrange All</button>  
 </div>  
 <div class="settings-panel">  
   <h2 style="margin:10px 0;">⚙️ Room Configuration</h2>  
@@ -383,8 +385,9 @@
     return subjectIcons[subject] || subject;  
   }  
 
+  // Enhanced room properties
+  let config = { students: [], rooms: [], files: [] };
   let currentFile = null;  
-  const config = { students: [], rooms: [], files: [] };  
 
   function updateSeatingArray(oldSeating, oldRows, oldCols, newRows, newCols) {  
     const newSeating = Array(newRows * newCols).fill(null);  
@@ -843,15 +846,139 @@
     return true;  
   }  
 
+// New validation rules
+  function validateDiagonal(room, student, row, col) {
+    if (!room.diagonalCheck) return true;
+    const dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+    for (let [dx,dy] of dirs) {
+      const x = row + dx, y = col + dy;
+      if (x>=0 && x<room.rows && y>=0 && y<room.cols) {
+        const idx = x*room.cols + y;
+        if (room.seating[idx]) {
+          const neighbor = config.students.find(s=>s.id===room.seating[idx]);
+          if (neighbor.class === student.class) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+function validateStream(room, student, row, col) {
+    if (!room.streamCheck) return true;
+    const dirs = [[0,1],[1,0],[0,-1],[-1,0]];
+    for (let [dx,dy] of dirs) {
+      const x = row + dx, y = col + dy;
+      if (x>=0 && x<room.rows && y>=0 && y<room.cols) {
+        const idx = x*room.cols + y;
+        if (room.seating[idx]) {
+          const neighbor = config.students.find(s=>s.id===room.seating[idx]);
+          if (neighbor.stream === student.stream) return false;
+        }
+      }
+    }
+    return true;
+  }
+
+// Auto-arrange functions
+  async function autoArrangeRoom(roomId) {
+    const room = config.rooms.find(r=>r.id===roomId);
+    const seats = Array(room.rows * room.cols).fill(null);
+    let unassigned = config.students.filter(s =>
+      !config.rooms.some(r=>r.seating.includes(s.id))
+    );
+    for (let i = 0; i < room.rows; i++) {
+      for (let j = 0; j < room.cols; j++) {
+        for (let k = 0; k < unassigned.length; k++) {
+          const student = unassigned[k];
+          if (
+            validateGender(room, student) &&
+            validateNeighbors(room, student, i, j) &&
+            validateDiagonal(room, student, i, j) &&
+            validateStream(room, student, i, j)
+          ) {
+            seats[i*room.cols + j] = student.id;
+            unassigned.splice(k,1);
+            break;
+          }
+        }
+      }
+    }
+    room.seating = seats;
+    await updateDoc(doc(db, "001-school", "rooms", "files", currentFile, "layouts", roomId), { seating: seats });
+    createRooms();
+    updateStats();
+  }
+
+  function autoArrangeAll() {
+    for (let r of config.rooms) {
+      autoArrangeRoom(r.id);
+    }
+  }
+
+  // Override loadFile to include new flags
+  async function loadFile(fileId) {
+    currentFile = fileId;
+    const layouts = await getDocs(collection(doc(collection(doc(db, "001-school"), "rooms"), "files"), fileId, "layouts"));
+    config.rooms = layouts.docs.map(d=>{
+      const data = d.data();
+      return {
+        id: d.id,
+        diagonalCheck: data.diagonalCheck||false,
+        streamCheck: data.streamCheck||false,
+        ...data
+      };
+    });
+// existing render calls
+    createSettingsPanel(); createRooms(); generateStudentsList(); updateStats();
+  }
+
+  function createSettingsPanel() {
+    document.getElementById("room-settings-container").innerHTML = config.rooms.map(room => `
+      <div class="room-settings">
+        <h3>🚪 ${room.name}</h3>
+        <div>
+          <input type="text" value="${room.name}" onchange="updateRoomField('${room.id}','name',this.value)">
+          <button onclick="saveRoom('${room.id}')">💾 Save</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px;">
+          <!-- existing fields -->
+          <div>
+            <label>Neighbor Check:</label>
+            <select onchange="updateRoomField('${room.id}','neighborCheck',this.value)">
+              <option value="none" ${room.neighborCheck==='none'? 'selected':''}>None</option>
+              <option value="horizontal" ${room.neighborCheck==='horizontal'? 'selected':''}>Horizontal</option>
+              <option value="vertical" ${room.neighborCheck==='vertical'? 'selected':''}>Vertical</option>
+              <option value="both" ${room.neighborCheck==='both'? 'selected':''}>Both</option>
+            </select>
+          </div>
+          <div>
+            <label><input type="checkbox" onchange="updateRoomField('${room.id}','diagonalCheck',this.checked)" ${room.diagonalCheck? 'checked':''}> Avoid same-class diagonally</label>
+          </div>
+          <div>
+            <label><input type="checkbox" onchange="updateRoomField('${room.id}','streamCheck',this.checked)" ${room.streamCheck? 'checked':''}> Avoid same-stream adjacent</label>
+          </div>
+        </div>
+        <button onclick="autoArrangeRoom('${room.id}')">🤖 Auto Arrange</button>
+        <button onclick="deleteRoom('${room.id}')" style="background:var(--danger-color);margin-top:10px;">🗑️ Delete</button>
+      </div>
+    `).join("");
+  }
+
   init();  
 
-  window.createNewFile = createNewFile;  
-  window.loadFile = loadFile;  
-  window.addNewRoom = addNewRoom;  
-  window.saveRoom = saveRoom;  
-  window.updateRoomField = updateRoomField;  
-  window.updateRoomGrid = updateRoomGrid;  
-  window.deleteRoom = deleteRoom;  
+  // Attach window functions
+  window.createNewFile = createNewFile;
+  window.loadFile = loadFile;
+  window.addNewRoom = addNewRoom;
+  window.saveRoom = saveRoom;
+  window.updateRoomField = updateRoomField;
+  window.updateRoomGrid = updateRoomGrid;
+  window.deleteRoom = deleteRoom;
+  window.autoArrangeRoom = autoArrangeRoom;
+  window.autoArrangeAll = autoArrangeAll;
+
+// Initialize
+  init();
   document.getElementById("exelisBrand").addEventListener("click", function() {  
     const tooltip = document.getElementById("exelisTooltip");  
     tooltip.style.display = (tooltip.style.display === "block") ? "none" : "block";  
