@@ -129,13 +129,13 @@
       if (user) {
         // show UI
         editingTaskId = null; // ensure fresh state
-/*document.getElementById('mainContainer').style.display = 'block';
+document.getElementById('mainContainer').style.display = 'block';
         document.getElementById('authContainer').style.display = 'none';
-        document.getElementById('userInfo').innerHTML = `👤 ${user.email} <br><button class="btn" onclick="signOut(auth)">Sign out</button>`;*/
+        document.getElementById('userInfo').innerHTML = `👤 ${user.email} <br><button class="btn" onclick="signOut(auth)">Sign out</button>`;
         await initApp(user);
-     /* } else {
+      } else {
         document.getElementById('mainContainer').style.display = 'none';
-        document.getElementById('authContainer').style.display = 'block';*/
+        document.getElementById('authContainer').style.display = 'block';
       }
     });
 
@@ -211,12 +211,6 @@
       chart.update();
     }
 
-    // Simple missed-days checker stub
-    async function checkMissedDays(uid) {
-      // Implement missed-days logic if needed
-      return;
-    }
-
     // Load gallery images
     function loadGallery() {
       const imgs = [
@@ -229,23 +223,38 @@
 
     // Modal open/close handlers
     const taskModal = document.getElementById('taskModal'), routineModal = document.getElementById('routineModal');
-    document.getElementById('addTaskBtn').onclick = () => taskModal.style.display = 'flex';
+    document.getElementById('addTaskBtn').onclick = () => {
+      editingTaskId = null; // reset edit state on new add
+      document.getElementById('taskModal').style.display = 'flex';
+    };
     document.getElementById('addRoutineBtn').onclick = () => routineModal.style.display = 'flex';
     document.getElementById('closeTaskModal').onclick = () => taskModal.style.display = 'none';
     document.getElementById('closeRoutineModal').onclick = () => routineModal.style.display = 'none';
 
-    // Task save handler
+    // Save Task: ensure new vs edit
     document.getElementById('saveTaskBtn').onclick = async () => {
       const user = auth.currentUser;
-      const taskData = { time: document.getElementById('taskTime').value, duration: document.getElementById('taskDuration').value, desc: document.getElementById('taskDesc').value, done: false };
-      if(editingTaskId) {
-        await updateDoc(doc(db, 'users', user.uid, 'tasks', editingTaskId), taskData);
-        editingTaskId = null;
+      const today = currentDate.toISOString().split('T')[0];
+      const data = {
+        time: document.getElementById('taskTime').value,
+        duration: document.getElementById('taskDuration').value,
+        desc: document.getElementById('taskDesc').value,
+        done: false,
+        date: today
+      };
+      if (editingTaskId) {
+        await updateDoc(doc(db, 'users', user.uid, 'tasks', editingTaskId), data);
       } else {
-        await addDoc(collection(db, 'users', user.uid, 'tasks'), {...taskData, date: currentDate.toISOString().split('T')[0]});
+        await addDoc(collection(db, 'users', user.uid, 'tasks'), data);
       }
-      taskModal.style.display = 'none';
+      editingTaskId = null;
+      document.getElementById('taskModal').style.display = 'none';
       loadTasks(user.uid);
+    };
+        }
+        await updateStreakDisplay(user.uid);
+        await renderCalendar(user.uid);
+      }
     };
 
     // Routine save handler
@@ -256,20 +265,44 @@
       loadRoutines(user.uid);
     };
 
-    // Streak mark/reset handlers
+    // Mark Today: only one record per day + require all tasks & routines done
     document.getElementById('markBtn').onclick = async () => {
       const user = auth.currentUser;
-      const tasksSnap = await getDocs(collection(db, 'users', user.uid, 'tasks'));
-      const incomplete = tasksSnap.docs.some(d => !d.data().done);
-      if(incomplete) { alert('Complete all tasks before marking the day!'); return; }
-      await addDoc(collection(db, 'users', user.uid, 'dailyRecords'), { date: currentDate.toISOString().split('T')[0], status: 'Yes' });
+      const today = currentDate.toISOString().split('T')[0];
+      // Check tasks
+      const tasksSnap = await getDocs(query(collection(db, 'users', user.uid, 'tasks'), where('date', '==', today)));
+      const incompleteTasks = tasksSnap.docs.some(d => !d.data().done);
+      // Check routines
+      const routinesSnap = await getDocs(query(collection(db, 'users', user.uid, 'rules'), where('date', '==', today)));
+      const incompleteRoutines = routinesSnap.docs.some(d => !d.data().active);
+      if (incompleteTasks || incompleteRoutines) {
+        alert('Please complete all tasks and routines before marking today!');
+        return;
+      }
+      // Check existing dailyRecords
+      const recSnap = await getDocs(query(collection(db, 'users', user.uid, 'dailyRecords'), where('date', '==', today)));
+      if (recSnap.empty) {
+        await addDoc(collection(db, 'users', user.uid, 'dailyRecords'), { date: today, status: 'Yes' });
+      } else {
+        const docRef = recSnap.docs[0].ref;
+        await updateDoc(docRef, { status: 'Yes' });
+      }
       await updateStreakDisplay(user.uid);
+      await renderCalendar(user.uid);
     };
+    // Reset button: same record update
     document.getElementById('resetBtn').onclick = async () => {
-      if(confirm('Are you sure you want to reset your streak?')) {
-        const user = auth.currentUser;
-        await addDoc(collection(db, 'users', user.uid, 'dailyRecords'), { date: currentDate.toISOString().split('T')[0], status: 'No' });
+      const user = auth.currentUser;
+      if (confirm('Are you sure you want to reset your streak for today?')) {
+        const today = currentDate.toISOString().split('T')[0];
+        const recSnap = await getDocs(query(collection(db, 'users', user.uid, 'dailyRecords'), where('date', '==', today)));
+        if (recSnap.empty) {
+          await addDoc(collection(db, 'users', user.uid, 'dailyRecords'), { date: today, status: 'No' });
+        } else {
+          await updateDoc(recSnap.docs[0].ref, { status: 'No' });
+        }
         await updateStreakDisplay(user.uid);
+        await renderCalendar(user.uid);
       }
     };
 
