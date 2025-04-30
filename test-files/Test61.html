@@ -3,180 +3,235 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SV Schedule Tracker</title>
-  <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
+  <meta name="theme-color" content="#2a2a2a">  <!-- Fonts & Icons -->  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">  <!-- Chart.js -->  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>  <style>
+    :root {
+      --primary: #3f51b5;
+      --accent: #f50057;
+      --bg: #f5f5f5;
+      --card: #ffffff;
+      --text: #333333;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+    h1 {
+      text-align: center;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--primary);
+    }
+    .section {
+      background: var(--card);
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+    }
+    .section h2 {
+      margin-top: 0;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      align-items: end;
+    }
+    label {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    input, button {
+      padding: 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: darken(var(--primary), 10%);
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0.5rem 0;
+    }
+    li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      padding: 0.8rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+    .task-info {
+      display: flex;
+      gap: 1rem;
+      flex: 1;
+      font-size: 0.9rem;
+    }
+    .task-info span { min-width: 60px; }
+    .calendar, .rules-list { display: grid; gap: 0.5rem; }
+    .checkbox { transform: scale(1.2); margin-left: 1rem; }
+  </style></head>
 <body>
-  <div class="d-flex justify-content-end p-3" id="authContainer">
-    <button id="signInBtn" class="btn btn-outline-primary">Sign in with Google</button>
-  </div>
-  <div class="container my-4" id="mainContainer" style="display:none;">
-    <div class="text-end mb-3">
-      <span id="userEmail" class="me-2"></span>
-      <button id="signOutBtn" class="btn btn-sm btn-outline-danger">Sign Out</button>
+  <div class="container">
+    <h1>SV Schedule Tracker</h1><!-- Task Creator -->
+<div class="section">
+  <h2>Create Today's Tasks</h2>
+  <form id="taskForm">
+    <div>
+      <label for="taskTime">Time</label>
+      <input type="time" id="taskTime" required>
     </div>
-    <h1 class="text-center mb-4">📅 SV Schedule Tracker</h1>
-    <!-- Task Creator -->
-    <div class="card mb-3">
-      <div class="card-body">
-        <h5 class="card-title">Add Daily Task</h5>
-        <div class="row g-2 align-items-center">
-          <div class="col-auto">
-            <input type="time" id="taskTime" class="form-control" />
-          </div>
-          <div class="col-auto">
-            <input type="number" id="taskDuration" class="form-control" placeholder="Duration (min)" />
-          </div>
-          <div class="col">
-            <input type="text" id="taskText" class="form-control" placeholder="Task description" />
-          </div>
-          <div class="col-auto">
-            <button id="addTaskBtn" class="btn btn-primary">Add Task</button>
-          </div>
-        </div>
-      </div>
+    <div>
+      <label for="taskDuration">Duration</label>
+      <input type="text" id="taskDuration" placeholder="e.g. 30m" required>
     </div>
-    <!-- Rule Creator -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <h5 class="card-title">Add Routine Rule</h5>
-        <div class="input-group">
-          <input type="text" id="ruleText" class="form-control" placeholder="Rule description" />
-          <button id="addRuleBtn" class="btn btn-secondary">Add Rule</button>
-        </div>
-      </div>
+    <div style="grid-column: span 2;">
+      <label for="taskDesc">Task Description</label>
+      <input type="text" id="taskDesc" placeholder="What to do?" required>
     </div>
-    <!-- Lists -->
-    <div class="row mb-4">
-      <div class="col-md-6">
-        <h6>Tasks</h6>
-        <ul id="taskList" class="list-group"></ul>
-      </div>
-      <div class="col-md-6">
-        <h6>Routine Rules</h6>
-        <ul id="ruleList" class="list-group"></ul>
-      </div>
-    </div>
-    <!-- Mark Day -->
-    <button id="markDayBtn" class="btn btn-success w-100 mb-4" disabled>Mark Day Complete ✅</button>
-  </div>  <!-- Firebase -->  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
-    import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js';
+    <button type="submit">Add Task</button>
+  </form>
+  <ul id="taskList"></ul>
+</div>
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
+<!-- Rules Creator -->
+<div class="section">
+  <h2>Define Your Rules</h2>
+  <form id="ruleForm">
+    <div style="flex:1">
+      <label for="ruleDesc">Rule</label>
+      <input type="text" id="ruleDesc" placeholder="e.g. No phone after 9pm" required>
+    </div>
+    <button type="submit">Add Rule</button>
+  </form>
+  <ul id="ruleList"></ul>
+</div>
+
+<!-- Summary & Day Mark -->
+<div class="section" style="text-align:center;">
+  <button id="markDayBtn">Mark Day Complete</button>
+</div>
+
+  </div>  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, where, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+
+    const firebaseConfig = { /* your config */ };
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth();
-    const provider = new GoogleAuthProvider();
 
-    // DOM elements
-    const authContainer = document.getElementById('authContainer');
-    const mainContainer = document.getElementById('mainContainer');
-    const signInBtn = document.getElementById('signInBtn');
-    const signOutBtn = document.getElementById('signOutBtn');
-    const userEmail = document.getElementById('userEmail');
-    const addTaskBtn = document.getElementById('addTaskBtn');
-    const addRuleBtn = document.getElementById('addRuleBtn');
-    const markDayBtn = document.getElementById('markDayBtn');
-    const taskList = document.getElementById('taskList');
-    const ruleList = document.getElementById('ruleList');
-    let tasks = [];
-    let rules = [];
+    let userId;
     const today = new Date().toISOString().split('T')[0];
 
-    // Render functions
-    function renderList() {
-      taskList.innerHTML = '';
-      tasks.forEach((t,i) => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item d-flex justify-content-between align-items-center';
-        li.innerHTML = `<span>${t.time} - ${t.text} (${t.duration}m)</span><input type="checkbox" ${t.done?'checked':''} data-type="task" data-index="${i}">`;
-        taskList.appendChild(li);
-      });
-      ruleList.innerHTML = '';
-      rules.forEach((r,i) => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item d-flex justify-content-between align-items-center';
-        li.innerHTML = `<span>${r.text}</span><input type="checkbox" ${r.done?'checked':''} data-type="rule" data-index="${i}">`;
-        ruleList.appendChild(li);
-      });
-      markDayBtn.disabled = !(tasks.length && tasks.every(t=>t.done) && rules.every(r=>r.done));
-    }
-
-    // Load & save
-    async function loadData(uid) {
-      const docRef = doc(db, 'users', uid, 'schedules', today);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        tasks = data.tasks || [];
-        rules = data.rules || [];
-      } else {
-        tasks = [];
-        rules = [];
-      }
-      renderList();
-    }
-    async function saveData(uid) {
-      const docRef = doc(db, 'users', uid, 'schedules', today);
-      await setDoc(docRef, { tasks, rules });
-    }
-
-    // Auth state
-    onAuthStateChanged(auth, user=>{
+    onAuthStateChanged(auth, user => {
       if (user) {
-        authContainer.style.display = 'none';
-        mainContainer.style.display = 'block';
-        userEmail.textContent = user.email;
-        loadData(user.uid);
-      } else {
-        authContainer.style.display = 'flex';
-        mainContainer.style.display = 'none';
+        userId = user.uid;
+        loadTasks();
+        loadRules();
       }
     });
-    signInBtn.onclick = ()=> signInWithPopup(auth, provider).catch(console.error);
-    signOutBtn.onclick = ()=> signOut(auth);
 
-    // Handlers
-    addTaskBtn.onclick = async ()=>{
+    // Task handlers
+    document.getElementById('taskForm').addEventListener('submit', async e => {
+      e.preventDefault();
       const time = document.getElementById('taskTime').value;
-      const duration = document.getElementById('taskDuration').value;
-      const text = document.getElementById('taskText').value.trim();
-      if (!time||!duration||!text) return;
-      tasks.push({ time, duration, text, done:false });
-      await saveData(auth.currentUser.uid);
-      renderList();
-      document.getElementById('taskTime').value='';
-      document.getElementById('taskDuration').value='';
-      document.getElementById('taskText').value='';
-    };
-    addRuleBtn.onclick = async ()=>{
-      const text = document.getElementById('ruleText').value.trim();
-      if (!text) return;
-      rules.push({ text, done:false });
-      await saveData(auth.currentUser.uid);
-      renderList();
-      document.getElementById('ruleText').value='';
-    };
-    [taskList, ruleList].forEach(list=>{
-      list.onclick = async e=>{
-        if (e.target.tagName==='INPUT') {
-          const i = e.target.dataset.index, type=e.target.dataset.type;
-          if (type==='task') tasks[i].done = e.target.checked;
-          else rules[i].done = e.target.checked;
-          await saveData(auth.currentUser.uid);
-          renderList();
-        }
-      };
+      const duration = document.getElementById('taskDuration').value.trim();
+      const desc = document.getElementById('taskDesc').value.trim();
+      if (!time || !duration || !desc) return;
+
+      await addDoc(collection(db, 'users', userId, 'tasks'), { date: today, time, duration, desc, done: false });
+      e.target.reset();
+      loadTasks();
     });
-    markDayBtn.onclick = ()=> alert('🎉 All tasks & rules done for '+today);
+
+    async function loadTasks() {
+      const list = document.getElementById('taskList'); list.innerHTML = '';
+      const q = query(collection(db, 'users', userId, 'tasks'), where('date', '==', today));
+      const snap = await getDocs(q);
+      snap.forEach(docSnap => {
+        const data = docSnap.data();
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <div class="task-info">
+            <span>${data.time}</span>
+            <span>${data.duration}</span>
+            <span>${data.desc}</span>
+          </div>
+          <input type="checkbox" class="checkbox" ${data.done ? 'checked' : ''} data-id="${docSnap.id}">
+        `;
+        list.appendChild(li);
+        li.querySelector('.checkbox').addEventListener('change', e => updateTaskStatus(e));
+      });
+    }
+
+    async function updateTaskStatus(e) {
+      const id = e.target.dataset.id;
+      await updateDoc(doc(db, 'users', userId, 'tasks', id), { done: e.target.checked });
+      checkAllDone();
+    }
+
+    function checkAllDone() {
+      const allBoxes = document.querySelectorAll('#taskList .checkbox');
+      const doneAll = Array.from(allBoxes).every(cb => cb.checked) && allBoxes.length > 0;
+      document.getElementById('markDayBtn').disabled = !doneAll;
+    }
+
+    // Rule handlers
+    document.getElementById('ruleForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const desc = document.getElementById('ruleDesc').value.trim();
+      if (!desc) return;
+      await addDoc(collection(db, 'users', userId, 'rules'), { date: today, desc, active: false });
+      e.target.reset();
+      loadRules();
+    });
+
+    async function loadRules() {
+      const list = document.getElementById('ruleList'); list.innerHTML = '';
+      const q = query(collection(db, 'users', userId, 'rules'), where('date','==',today));
+      const snap = await getDocs(q);
+      snap.forEach(docSnap => {
+        const data = docSnap.data();
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <span>${data.desc}</span>
+          <input type="checkbox" class="checkbox" data-id="${docSnap.id}">
+        `;
+        list.appendChild(li);
+        li.querySelector('.checkbox').addEventListener('change', async e => {
+          await updateDoc(doc(db, 'users', userId, 'rules', docSnap.id), { active: e.target.checked });
+        });
+      });
+    }
+
+    // Mark day complete
+    document.getElementById('markDayBtn').addEventListener('click', () => {
+      // integrate with streak logic here or custom behavior
+      alert('Day marked complete!');
+    });
   </script></body>
 </html>
