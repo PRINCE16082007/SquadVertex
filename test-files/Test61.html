@@ -1,225 +1,46 @@
-<!DOCTYPE html><html lang="en">
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SV Schedule Tracker</title>
-  <meta name="theme-color" content="#000000">  <!-- Fonts & Animations -->  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Pacifico&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">  <!-- Chart.js -->  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>  <style>
-    :root { --primary-color: #ff758c; }
-    body { background: linear-gradient(135deg,#fff5f5,#ffe3e3); font-family:'Pacifico',cursive; margin:0; min-height:100vh; }
-    .container{max-width:1200px;margin:0 auto;padding:2rem;}
-    .header{ text-align:center;padding:2rem; background:url('https://dl.dropboxusercontent.com/scl/fi/g7uokxp1jcb5xfunpnj0b/wp12130683-alice-in-borderland-netflix-wallpapers-1-1.jpg?rlkey=7c0qemn5qis2d4flmlt27rhz1&st=dxfrgghv&dl=0') center/cover;border-radius:20px;margin-bottom:2rem;box-shadow:0 8px 32px rgba(255,118,117,0.2); }
-    .btn { background:#fff;color:var(--primary-color);border:2px solid var(--primary-color);padding:0.8rem 1.5rem;border-radius:30px;font-size:1rem;cursor:pointer;transition:all 0.3s ease;margin:0.5rem; }
-    .btn:hover{background:var(--primary-color);color:#fff;box-shadow:0 4px 15px rgba(255,117,140,0.4);}
-    .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:1000;}
-    .modal{background:#fff;padding:2rem;border-radius:8px;max-width:400px;width:90%;position:relative;}
-    .modal h3{margin-top:0;color:var(--primary-color);}
-    .modal label{display:block;margin:0.5rem 0 0.2rem;font-size:0.9rem;}
-    .modal input{width:100%;padding:0.5rem;border:1px solid #ccc;border-radius:4px;}
-    .modal .actions{text-align:right;margin-top:1rem;}
-    .close-btn{position:absolute;top:10px;right:10px;background:none;border:none;font-size:1.2rem;cursor:pointer;}
-    .quote-container{background:rgba(255,255,255,0.9);padding:2rem;border-radius:15px;margin:2rem 0;border:2px solid var(--primary-color);}    
-    .quote{font-family:'Great Vibes',cursive;font-size:2.2rem;color:#ff4d6d;text-shadow:2px 2px 4px rgba(255,77,109,0.2);margin:0;}
-    .streak-box, .chart-container, .gallery {margin:2rem 0;}
-    .streak-box{background:linear-gradient(45deg,#ff758c,#ff7eb3);padding:2rem;border-radius:20px;color:#fff;text-align:center;box-shadow:0 4px 30px rgba(255,118,117,0.3);}
-    .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;background:#fff;padding:1rem;border-radius:15px;}
-    .calendar-header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:1rem;}
-    .day-cell{padding:10px;text-align:center;border-radius:8px;background:#ffe8ec;min-height:50px;display:flex;align-items:center;justify-content:center;}
-    .completed-day{background:#ff758c;color:#fff;}
-    .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1.5rem;}
-    .gallery img{width:100%;height:300px;object-fit:cover;border-radius:15px;transition:transform .3s;box-shadow:0 8px 24px rgba(0,0,0,0.1);}    
-    .gallery img:hover{transform:scale(1.05);}
-  </style></head>
+  <meta charset="UTF-8" />
+  <title>SVX File Uploader</title>
+</head>
 <body>
-  <div class="auth-container" id="authContainer" style="display:none; text-align:center; padding:2rem;">
-    <button class="btn" id="signInBtn">Sign in with Google 🌸</button>
-  </div>  <div class="container" id="mainContainer" style="display:none;">
-    <div class="user-info" id="userInfo"></div>
-    <div class="header"><h1>🌹 My Eternal Growth Journey 🌹</h1></div>
-    <div style="text-align:center;">
-      <button class="btn" id="addTaskBtn">Add Task</button>
-      <button class="btn" id="addRoutineBtn">Add Routine</button>
-    </div><div class="quote-container animate__animated animate__fadeIn"><p class="quote" id="dynamicQuote"></p></div>
+  <h2>Upload to Dropbox (SVX)</h2>
+  <input type="file" id="fileInput" />
+  <button id="uploadBtn">Upload</button>
+  <pre id="status"></pre>
 
-<div class="streak-box">
-  🔥 Current Streak: <span id="currentStreak">0</span> days &nbsp;&nbsp; 🌸 Longest Streak: <span id="longestStreak">0</span> days<br><br>
-  <button class="btn" id="markBtn">Mark Today 💖</button>
-  <button class="btn" id="resetBtn">Reset 🌼</button>
-</div>
+  <script>
+    const UPLOAD_URL = 'https://svx-003-067.princegahlot2007.workers.dev/';
+    const WORKER_SECRET = 'SVX-SaaS-003_v0.1.1_067SSS';
 
-<div class="calendar" id="calendar"></div>
-<div class="chart-container"><canvas id="progressChart"></canvas></div>
+    document.getElementById('uploadBtn').addEventListener('click', async () => {
+      const fileEl = document.getElementById('fileInput');
+      if (!fileEl.files.length) return alert('Choose a file!');
 
-<div class="gallery" id="gallery">
-  <!-- Gallery images here -->
-</div>
+      const form = new FormData();
+      form.append('file', fileEl.files[0]);
+      document.getElementById('status').textContent = 'Uploading…';
 
-  </div>  <!-- Task Modal -->  <div class="modal-overlay" id="taskModal">
-    <div class="modal">
-      <button class="close-btn" id="closeTaskModal">&times;</button>
-      <h3>Add Task</h3>
-      <label for="taskTime">Time</label>
-      <input type="time" id="taskTime">
-      <label for="taskDuration">Duration</label>
-      <input type="text" id="taskDuration" placeholder="e.g. 30m">
-      <label for="taskDesc">Description</label>
-      <input type="text" id="taskDesc">
-      <div class="actions">
-        <button class="btn" id="saveTaskBtn">Save Task</button>
-      </div>
-    </div>
-  </div>  <!-- Routine Modal -->  <div class="modal-overlay" id="routineModal">
-    <div class="modal">
-      <button class="close-btn" id="closeRoutineModal">&times;</button>
-      <h3>Add Routine</h3>
-      <label for="routineDesc">Routine</label>
-      <input type="text" id="routineDesc" placeholder="e.g. No phone after 9pm">
-      <div class="actions">
-        <button class="btn" id="saveRoutineBtn">Save Routine</button>
-      </div>
-    </div>
-  </div>  <script type="module">
-    // Firebase initialization
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
-
-    let currentDate = new Date();
-    let chart;
-    const quotes = [
-      "No matter what we build—let's never forget who we’re building it for.",
-      "Some people seek peace in silence. I found mine in a smile I’ve never met.",
-      "You are my today and all of my tomorrows.",
-      "In your light I learn how to love. In your beauty, how to make poems.",
-      "I love you not because of who you are, but because of who I am when I am with you.",
-      "Every atom of my being is in love with every atom of yours.",
-      "I would rather spend one lifetime with you, than face all the ages of this world alone.",
-      "Your love is my eternal motivation to grow better every day 🌸"
-    ];
-
-    // Auth state handler
-    onAuthStateChanged(auth, user => {
-      if (user) {
-        document.getElementById('mainContainer').style.display = 'block';
-        document.getElementById('authContainer').style.display = 'none';
-        document.getElementById('userInfo').innerHTML = `👤 ${user.email} <br><button class="btn" onclick="signOut(auth)">Sign out</button>`;
-        initApp(user);
-      } else {
-        document.getElementById('mainContainer').style.display = 'none';
-        document.getElementById('authContainer').style.display = 'block';
+      try {
+        const res = await fetch(UPLOAD_URL, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${WORKER_SECRET}` },
+          body: form
+        });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('status').textContent =
+            `✔ Uploaded: ${data.path_display}`;
+        } else {
+          document.getElementById('status').textContent =
+            `✖ Error: ${data.error_summary || JSON.stringify(data)}`;
+        }
+      } catch (e) {
+        document.getElementById('status').textContent = 'Fetch error: ' + e;
       }
     });
-    document.getElementById('signInBtn').addEventListener('click', () => signInWithPopup(auth, provider));
-
-    // Initialize app data
-    async function initApp(user) {
-      showRandomQuote();
-      initChart();
-      await renderCalendar(user.uid);
-      updateStreakDisplay(user.uid);
-      loadGallery();
-    }
-
-    function showRandomQuote() {
-      document.getElementById('dynamicQuote').innerText = quotes[Math.floor(Math.random() * quotes.length)];
-    }
-
-    function initChart() {
-      const ctx = document.getElementById('progressChart').getContext('2d');
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: 'line',
-        data: { labels: [], datasets: [{ label: 'Streak', data: [], borderColor: '#ff758c', tension: 0.1 }] },
-        options: { responsive: true, scales: { y: { display: false } } }
-      });
-    }
-
-    async function renderCalendar(uid) {
-      const year = currentDate.getFullYear(), month = currentDate.getMonth();
-      const first = new Date(year, month, 1), last = new Date(year, month + 1, 0);
-      const start = first.toISOString().split('T')[0], end = last.toISOString().split('T')[0];
-
-      const q = query(collection(db, 'users', uid, 'dailyRecords'), where('date', '>=', start), where('date', '<=', end));
-      const snap = await getDocs(q);
-      const doneDates = snap.docs.map(d => d.data().date);
-
-      const cal = document.getElementById('calendar'); cal.innerHTML = '';
-      ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => { const h = document.createElement('div'); h.textContent = d; h.style.fontWeight = 'bold'; cal.appendChild(h); });
-      for (let i = 0; i < first.getDay(); i++) cal.appendChild(document.createElement('div'));
-      for (let d = 1; d <= last.getDate(); d++) {
-        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        const cell = document.createElement('div');
-        cell.className = `day-cell ${doneDates.includes(dateStr)?'completed-day':''}`;
-        cell.textContent = d;
-        cal.appendChild(cell);
-      }
-    }
-
-    async function updateStreakDisplay(uid) {
-      const ref = collection(db, 'users', uid, 'dailyRecords');
-      const snap = await getDocs(query(ref, orderBy('date')));
-      const data = snap.docs.map(d => d.data());
-      document.getElementById('currentStreak').textContent = data.filter(d=>d.status==='Yes').length;
-      chart.data.labels = data.map(d=>d.date);
-      chart.data.datasets[0].data = data.map(d=>d.status==='Yes'?1:0);
-      chart.update();
-    }
-
-    // Task & Routine modals
-    const taskModal = document.getElementById('taskModal'), routineModal = document.getElementById('routineModal');
-    document.getElementById('addTaskBtn').onclick = ()=> taskModal.style.display='flex';
-    document.getElementById('addRoutineBtn').onclick = ()=> routineModal.style.display='flex';
-    document.getElementById('closeTaskModal').onclick = ()=> taskModal.style.display='none';
-    document.getElementById('closeRoutineModal').onclick = ()=> routineModal.style.display='none';
-
-    document.getElementById('saveTaskBtn').onclick = async ()=>{
-      const user = auth.currentUser;
-      const date = currentDate.toISOString().split('T')[0];
-      await addDoc(collection(db,'users',user.uid,'tasks'),{date, time:document.getElementById('taskTime').value, duration:document.getElementById('taskDuration').value, desc:document.getElementById('taskDesc').value, done:false});
-      taskModal.style.display='none';
-      await renderCalendar(user.uid);
-    };
-
-    document.getElementById('saveRoutineBtn').onclick = async ()=>{
-      const user = auth.currentUser;
-      const date = currentDate.toISOString().split('T')[0];
-      await addDoc(collection(db,'users',user.uid,'rules'),{date, desc:document.getElementById('routineDesc').value, active:false});
-      routineModal.style.display='none';
-    };
-
-    // Streak buttons
-    document.getElementById('markBtn').onclick = async ()=> {
-      const user = auth.currentUser, date = currentDate.toISOString().split('T')[0];
-      await addDoc(collection(db,'users',user.uid,'dailyRecords'),{date,status:'Yes'});
-      await updateStreakDisplay(user.uid);
-    };
-    document.getElementById('resetBtn').onclick = async ()=> {
-      const user = auth.currentUser, date = currentDate.toISOString().split('T')[0];
-      await addDoc(collection(db,'users',user.uid,'dailyRecords'),{date,status:'No'});
-      await updateStreakDisplay(user.uid);
-    };
-
-    function loadGallery() {
-      const imgs = [
-        'https://dl.dropboxusercontent.com/scl/fi/zhvuv6098pxqexclylyxr/1744702103477.jpg',
-        'https://dl.dropboxusercontent.com/scl/fi/yd5t9umsft1reuna9nq1x/8699159.jpg',
-        // add rest...
-      ];
-      const g = document.getElementById('gallery');
-      imgs.forEach(src=>{ const img=document.createElement('img'); img.src=src; g.appendChild(img); });
-    }
-  </script></body>
+  </script>
+</body>
 </html>
