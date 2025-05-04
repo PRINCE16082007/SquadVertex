@@ -7,48 +7,57 @@
 <body>
   <h2>Upload to Dropbox (SVX)</h2>
   <button id="checkBtn">Check Worker</button>
-  <div id="health"></div>
+  <div id="health" style="margin: .5em 0;"></div>
   <input type="file" id="fileInput" />
   <button id="uploadBtn">Upload</button>
-  <pre id="status"></pre>
+  <pre id="status" style="background:#f4f4f4; padding:1em;"></pre>
 
   <script>
-    const UPLOAD_URL  = 'https://svx-003-067.princegahlot2007.workers.dev/'
-    const WORKER_SECRET = 'SVX-SaaS-003_v0.1.1_067SSS'
+    const UPLOAD_URL    = 'https://svx-003-067.princegahlot2007.workers.dev/';
+    const WORKER_SECRET = 'SVX-SaaS-003_v0.1.1_067SSS';
 
-    // health check
+    // 1) Health-check so you know it's up
     document.getElementById('checkBtn').addEventListener('click', async () => {
-      const res = await fetch(UPLOAD_URL, { method: 'GET' })
-      const txt = await res.text()
-      document.getElementById('health').textContent = `${res.status}: ${txt}`
-    })
+      try {
+        const res  = await fetch(UPLOAD_URL, { method: 'GET' });
+        const txt  = await res.text();
+        document.getElementById('health').textContent = `${res.status}: ${txt}`;
+      } catch(e) {
+        document.getElementById('health').textContent = 'Health-check failed: ' + e;
+      }
+    });
 
+    // 2) Upload flow with text-first parsing
     document.getElementById('uploadBtn').addEventListener('click', async () => {
-      const fileEl = document.getElementById('fileInput')
-      if (!fileEl.files.length) return alert('Choose a file!')
+      const fileEl = document.getElementById('fileInput');
+      if (!fileEl.files.length) return alert('Choose a file first!');
 
-      const form = new FormData()
-      form.append('file', fileEl.files[0])
-      document.getElementById('status').textContent = 'Uploading…'
+      const form = new FormData();
+      form.append('file', fileEl.files[0]);
+      document.getElementById('status').textContent = 'Uploading…';
 
       try {
-        const res = await fetch(UPLOAD_URL, {
+        const res  = await fetch(UPLOAD_URL, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${WORKER_SECRET}` },
           body: form
-        })
-        const data = await res.json()
+        });
+
+        const text = await res.text();       // always grab text
         if (res.ok) {
+          // only parse JSON on success
+          const data = JSON.parse(text);
           document.getElementById('status').textContent =
-            `✔ Uploaded: ${data.path_display}`
+            `✔ Uploaded: ${data.path_display}`;
         } else {
+          // show whatever error string came back
           document.getElementById('status').textContent =
-            `✖ Error: ${data.error_summary || JSON.stringify(data)}`
+            `✖ Error: ${text}`;
         }
       } catch (e) {
-        document.getElementById('status').textContent = 'Fetch error: ' + e
+        document.getElementById('status').textContent = 'Fetch error: ' + e;
       }
-    })
+    });
   </script>
 </body>
 </html>
