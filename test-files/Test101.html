@@ -1,112 +1,107 @@
-<!-- chat.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-  <title>SLN Chat</title>
-  <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.4.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safe Listening - Chat</title>  <!-- Bootstrap CSS (valid version) -->  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { background-color: #121212; color: #E0E0E0; }
-    .noise {
-      background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAABlBMVEUAAAD///+l2Z/dAAAAAXRSTlMAQObYZgAAAApJREFUCNdjYAAAAAIAAeIhvDMAAAAASUVORK5CYII=');
-      opacity: 0.015;
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: 'Segoe UI', sans-serif;
     }
-    #chatWindow { overflow-y: auto; flex: 1; }
-    .input-group textarea { resize: none; }
+    .chat-box {
+      max-height: 70vh;
+      overflow-y: auto;
+      padding: 1rem;
+      border-radius: 10px;
+      background: #161b22;
+    }
+    .message {
+      padding: 10px 15px;
+      border-radius: 15px;
+      margin-bottom: 10px;
+      background: #21262d;
+    }
+    .message.user {
+      background: #1f6feb;
+      color: #fff;
+      align-self: flex-end;
+    }
+    .message.ai {
+      background: #30363d;
+      color: #c9d1d9;
+      align-self: flex-start;
+    }
+    .chat-input {
+      resize: none;
+    }
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .msg-wrapper {
+      display: flex;
+      align-items: center;
+    }
   </style>
-</head>
-<body class="d-flex flex-column vh-100 noise">
-  <!-- Safe exit -->
-  <div class="d-flex justify-end p-2">
-    <button id="exitBtn" class="btn btn-sm btn-outline-light">🚪 Exit</button>
-  </div>
-
-  <!-- Chat Window -->
-  <div id="chatWindow" class="flex-grow-1 px-3 pb-3">
-    <!-- Messages appended here -->
-  </div>
-
-  <!-- Input Bar -->
-  <div class="p-3 border-top border-secondary">
-    <div class="input-group">
-      <textarea id="messageInput" class="form-control bg-secondary text-white" rows="2" placeholder="Yahan apni kahani likho..."></textarea>
-      <button id="sendBtn" class="btn btn-primary ms-2">Send</button>
+</head><body>
+  <div class="container py-4">
+    <h3 class="text-center mb-4">You're Safe Here.</h3>
+    <div class="chat-box d-flex flex-column mb-3" id="chatBox">
+      <!-- Messages will appear here -->
     </div>
-  </div>
+    <div class="input-group">
+      <textarea id="chatInput" class="form-control chat-input" rows="2" placeholder="Type what you feel..."></textarea>
+      <button id="sendBtn" class="btn btn-primary">Send</button>
+    </div>
+  </div>  <!-- Bootstrap JS -->  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>  <script>
+    // Anonymous user ID setup (localStorage)
+    const userId = localStorage.getItem("sln_user_id") || (() => {
+      const id = "SilentSoul" + Math.floor(Math.random() * 1000);
+      localStorage.setItem("sln_user_id", id);
+      return id;
+    })();
 
-  <!-- Bootstrap JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.4.3/dist/js/bootstrap.bundle.min.js"></script>
-
-  <script>
-    // Generate or retrieve anonymous ID
-    let userId = localStorage.getItem('sln_userId');
-    if (!userId) {
-      userId = 'SilentSoul' + Math.floor(Math.random() * 900 + 100);
-      localStorage.setItem('sln_userId', userId);
+    // Avatar Generator (based on ID hash or random)
+    function getAvatarUrl(id) {
+      const hash = id.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+      const color = ["#6f42c1", "#d63384", "#fd7e14", "#20c997"][hash % 4];
+      return `https://ui-avatars.com/api/?name=${id}&background=${color.slice(1)}&color=fff&size=64`;
     }
 
-    // Elements
-    const chatWindow = document.getElementById('chatWindow');
-    const input = document.getElementById('messageInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const exitBtn = document.getElementById('exitBtn');
+    const chatBox = document.getElementById("chatBox");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
 
-    // Exit handler
-    exitBtn.addEventListener('click', () => {
-      window.location.href = 'https://duckduckgo.com';
-    });
+    function appendMessage(text, isUser = true) {
+      const msgDiv = document.createElement("div");
+      msgDiv.classList.add("message", isUser ? "user" : "ai");
 
-    // Send on click or Enter
-    function sendMessage() {
-      const text = input.value.trim();
+      const wrapper = document.createElement("div");
+      wrapper.classList.add("msg-wrapper");
+
+      const avatar = document.createElement("img");
+      avatar.src = getAvatarUrl(userId);
+      avatar.className = "avatar";
+
+      wrapper.appendChild(avatar);
+      msgDiv.appendChild(document.createTextNode(text));
+      wrapper.appendChild(msgDiv);
+
+      chatBox.appendChild(wrapper);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    sendBtn.onclick = () => {
+      const text = chatInput.value.trim();
       if (!text) return;
-      appendMessage(userId, text);
-      input.value = '';
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
+      appendMessage(text, true);
+      chatInput.value = "";
 
-    sendBtn.addEventListener('click', sendMessage);
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-
-    // Append message to UI
-    function appendMessage(id, text) {
-      const card = document.createElement('div');
-      card.className = 'card bg-dark border-0 mb-2';
-      card.innerHTML = `
-        <div class="card-body d-flex align-items-start">
-          <img src="https://i.pravatar.cc/40?u=${id}" class="rounded-circle me-3" alt="Avatar">
-          <div>
-            <div class="small text-muted mb-1">${id}</div>
-            <div class="bg-secondary text-white p-2 rounded">${escapeHtml(text)}</div>
-          </div>
-        </div>`;
-      chatWindow.appendChild(card);
-    }
-
-    // Simple escape
-    function escapeHtml(s) {
-      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    // Load from localStorage (if any)
-    const history = JSON.parse(localStorage.getItem('sln_history') || '[]');
-    history.forEach(msg => appendMessage(msg.id, msg.text));
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-
-    // Persist on send
-    const originalAppend = appendMessage;
-    appendMessage = (id, text) => {
-      originalAppend(id, text);
-      history.push({ id, text });
-      localStorage.setItem('sln_history', JSON.stringify(history));
+      // Placeholder response from EXELIS
+      setTimeout(() => {
+        appendMessage("You're not alone. I’m listening in the silence.", false);
+      }, 1000);
     };
-  </script>
-</body>
-</html>
+  </script></body></html>
