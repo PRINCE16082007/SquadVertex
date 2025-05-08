@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Upload to Dropbox via Cloudflare Worker</title>
+  <title>Upload to Dropbox</title>
 </head>
 <body>
-  <h2>Upload File</h2>
+  <h2>Upload File to Dropbox</h2>
   <form id="uploadForm">
     <input type="file" name="file" required />
     <button type="submit">Upload</button>
@@ -13,23 +13,32 @@
   <div id="result"></div>
 
   <script>
-    const workerUrl = "https://your-worker-name.workers.dev"; // Replace with your deployed worker URL
+    const workerUrl = "https://your-worker-name.workers.dev"; // <-- CHANGE THIS
 
     document.getElementById("uploadForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const form = e.target;
       const formData = new FormData(form);
-      const res = await fetch(workerUrl, {
-        method: "POST",
-        body: formData,
-      });
 
       const resultDiv = document.getElementById("result");
-      const result = await res.json();
-      if (res.ok) {
-        resultDiv.innerText = "Upload successful: " + result.file.name;
-      } else {
-        resultDiv.innerText = "Error: " + JSON.stringify(result);
+      resultDiv.textContent = "Uploading...";
+
+      try {
+        const response = await fetch(workerUrl, {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          resultDiv.textContent = `Uploaded successfully: ${result.file.name}`;
+        } else {
+          resultDiv.textContent = `Upload failed: ${result.message || JSON.stringify(result)}`;
+        }
+
+      } catch (err) {
+        resultDiv.textContent = "Network or server error: " + err.message;
       }
     });
   </script>
