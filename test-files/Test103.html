@@ -1,204 +1,173 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SLN Chat</title>
+  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
   <style>
-    :root {
-      --primary-hue: 260;
-      --bs-primary-bg-subtle: hsl(var(--primary-hue), 52%, 16%);
-      --bs-border-color: hsl(var(--primary-hue), 30%, 25%);
-      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    :root { --primary: #6f42c1; --accent: #ffc107; }
+    /* Theme variables */
+    body.dark {
+      --bg: #1e1e2f;
+      --text: #fff;
+      --header: #2c2c3d;
+      --input: #2c2c3d;
     }
-
-    /* Theme System */
-    [data-bs-theme="dark"] {
-      --bs-body-bg: #1e1e2f;
-      --bs-body-color: #e9ecef;
-      --header-bg: #2c2c3d;
-      --input-bg: #2d2d40;
-      --message-bg: #3a3a4d;
-      --accent: #ffc107;
+    body.candle {
+      --bg: #3e2f2f;
+      --text: #f8f0e3;
+      --header: #5a4132;
+      --input: #7b5e57;
     }
-
-    [data-bs-theme="candle"] {
-      --bs-body-bg: #3e2f2f;
-      --bs-body-color: #f8f0e3;
-      --header-bg: #5a4132;
-      --input-bg: #7b5e57;
-      --message-bg: #6d4f47;
-      --accent: #ffab00;
+    body.rain {
+      --bg: #2f3e4f;
+      --text: #e3f0f8;
+      --header: #34566e;
+      --input: #4a708a;
     }
-
-    [data-bs-theme="rain"] {
-      --bs-body-bg: #2f3e4f;
-      --bs-body-color: #e3f0f8;
-      --header-bg: #34566e;
-      --input-bg: #4a708a;
-      --message-bg: #3e607b;
-      --accent: #4dabf7;
+    body.blank {
+      --bg: #fafafa;
+      --text: #333;
+      --header: #e0e0e0;
+      --input: #f5f5f5;
     }
-
-    [data-bs-theme="blank"] {
-      --bs-body-bg: #fafafa;
-      --bs-body-color: #212529;
-      --header-bg: #e0e0e0;
-      --input-bg: #ffffff;
-      --message-bg: #f1f3f5;
-      --accent: #7950f2;
+    /* Apply vars */
+    body {
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
     }
-
-    /* Chat Structure */
-    .chat-container {
-      height: 100vh;
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      background: var(--bs-body-bg);
-      transition: var(--transition);
+    .header-bar {
+      background: var(--header) !important;
     }
-
-    .chat-messages {
+    .chat-box {
+      flex: 1;
       overflow-y: auto;
-      padding: 1.5rem;
-      scroll-behavior: smooth;
+      padding: 1rem;
+      background: rgba(0,0,0,0.05);
     }
-
-    .message-bubble {
+    .mode-banner.mode-chat { background: #198754; color: #fff; }
+    .mode-banner.mode-ritual { background: #0d6efd; color: #fff; }
+    .msg-wrapper { display: flex; align-items: flex-end; margin-bottom: 1rem; }
+    .msg-wrapper.user { justify-content: flex-end; }
+    .msg-wrapper.ai { justify-content: flex-start; }
+    .message {
+      padding: .75rem 1rem;
+      border-radius: 1rem;
       max-width: 75%;
-      padding: 1rem 1.25rem;
-      border-radius: 1.25rem;
-      position: relative;
-      opacity: 0;
-      transform: translateY(20px);
-      animation: messageAppear 0.3s ease-out forwards;
+      word-break: break-word;
+      background: var(--input);
+      color: var(--text);
     }
-
-    @keyframes messageAppear {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .user-message {
-      background: var(--accent);
-      color: #000;
-      border-end-end-radius: 4px;
-    }
-
-    .ai-message {
-      background: var(--message-bg);
-      border-end-start-radius: 4px;
-    }
-
+    .user .message { background: var(--accent); color: #000; }
+    .ai .message { opacity: .8; }
     .avatar {
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       border: 2px solid var(--accent);
-      flex-shrink: 0;
+      object-fit: cover;
+      margin: 0 .5rem;
     }
-
-    /* Custom Components */
-    .settings-panel {
-      width: 280px;
-      right: 1rem;
-      top: 4rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      transform-origin: top right;
-      transition: opacity 0.2s, transform 0.2s;
+    .input-area {
+      background: var(--input);
+      padding: 1rem;
     }
-
-    .settings-panel.show {
-      opacity: 1;
-      transform: scale(1);
-    }
-
-    .mode-banner {
-      font-size: 0.9rem;
-      letter-spacing: 0.5px;
-      padding: 0.75rem;
-      text-transform: uppercase;
-      font-weight: 500;
-    }
-
-    .chat-input {
+    .input-area textarea {
       resize: none;
-      border-radius: 0.75rem;
-      padding-right: 4.5rem !important;
+      border-radius: .5rem;
+      border: 1px solid #ccc;
     }
-
-    .send-btn {
+    .settings-icon {
+      background: var(--accent);
+      border: none;
+      color: #000;
+      padding: .2rem .6rem;
+      border-radius: .3rem;
+      cursor: pointer;
+    }
+    .settings-panel {
       position: absolute;
-      bottom: 1.25rem;
-      right: 1.25rem;
-      width: 42px;
-      height: 42px;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      top: 60px;
+      right: 20px;
+      background: var(--header);
+      padding: 1rem;
+      border-radius: .5rem;
+      width: 220px;
+      display: none;
     }
+    .settings-panel.show { display: block; }
+    .mode-banner {
+      text-align: center;
+      padding: .5rem;
+      font-size: .9rem;
+    }
+    .fixed-input {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+    }
+    .content { display: flex; flex-direction: column; height: 100vh; }
+    .firestore-link { font-size: .8rem; color: #aaa; text-align: center; margin-top: .5rem; }
   </style>
 </head>
-<body>
-  <div class="chat-container">
-    <!-- Header -->
-    <header class="d-flex justify-content-between align-items-center p-3 bg-header">
-      <div class="d-flex gap-2 align-items-center">
-        <button class="btn btn-sm btn-accent" id="settingsBtn">⚙️</button>
-        <select class="form-select form-select-sm bg-input border-accent" id="modeSelect">
+<body class="dark">
+  <div class="content">
+    <!-- Top Bar -->
+    <div id="headerBar" class="header-bar dark d-flex justify-content-between align-items-center px-4 py-2">
+      <div class="d-flex align-items-center gap-2">
+        <button id="settingsBtn" class="settings-icon">⚙️</button>
+        <select id="modeSelect" class="form-select form-select-sm">
           <option value="chat">Chat (Private)</option>
           <option value="ritual">Ritual (Public)</option>
         </select>
       </div>
-      <div class="d-flex gap-2 align-items-center">
-        <select class="form-select form-select-sm bg-input border-accent" id="langSelect"></select>
-        <select class="form-select form-select-sm bg-input border-accent" id="themeSelect">
-          <option value="dark">Night Sky</option>
+      <div class="d-flex align-items-center gap-2">
+        <select id="langSelect" class="form-select form-select-sm"></select>
+        <select id="themeSelect" class="form-select form-select-sm">
+          <option value="dark" selected>Night Sky</option>
           <option value="candle">Warm Candle</option>
           <option value="rain">Rain Window</option>
           <option value="blank">Blank Page</option>
         </select>
       </div>
-    </header>
-
+    </div>
     <!-- Mode Banner -->
-    <div class="mode-banner bg-primary text-white text-center">Private Chat Mode</div>
-
-    <!-- Chat Messages -->
-    <main class="chat-messages" id="chatBox"></main>
-
-    <!-- Input Area -->
-    <footer class="border-top bg-input p-3 position-relative">
-      <div class="position-relative">
-        <textarea id="chatInput" class="form-control chat-input bg-input border-accent" 
-                 rows="1" placeholder="Type your message..."></textarea>
-        <button id="sendBtn" class="btn btn-primary send-btn rounded-circle">↑</button>
+    <div id="modeBanner" class="mode-banner mode-chat">Private Chat mode</div>
+    <!-- Chat Box -->
+    <div id="chatBox" class="chat-box dark flex-grow-1 px-4 py-3"></div>
+    <!-- Firestore hint -->
+    <div class="firestore-link">Messages powered by Firebase Firestore</div>
+    <!-- Input -->
+    <div id="inputArea" class="input-area dark fixed-input">
+      <div class="input-group">
+        <textarea id="chatInput" class="form-control" placeholder=""></textarea>
+        <button id="sendBtn" class="btn btn-primary ms-2"></button>
       </div>
-    </footer>
+    </div>
   </div>
-
   <!-- Settings Panel -->
-  <div class="settings-panel position-fixed bg-header rounded-3 p-3 opacity-0 transform-scale-0" id="settingsPanel">
-    <h6 class="text-accent mb-3">Chat Settings</h6>
-    <div class="mb-3">
-      <label class="form-label text-muted">Auto-delete After</label>
-      <input type="number" class="form-control bg-input border-accent" 
-             id="ttlInput" min="1" max="48" value="12">
+  <div id="settingsPanel" class="settings-panel dark">
+    <h6 class="text-light">Settings</h6>
+    <div class="mb-2">
+      <label class="form-label text-light">Auto-delete (hrs)</label>
+      <input type="number" id="ttlInput" class="form-control form-control-sm" value="12" min="1" max="48">
     </div>
-    <div class="form-check form-switch">
+    <div class="form-check form-switch text-light">
       <input class="form-check-input" type="checkbox" id="aiReplyToggle" checked>
-      <label class="form-check-label text-muted">Enable AI Responses</label>
+      <label class="form-check-label" for="aiReplyToggle">AI Replies</label>
     </div>
   </div>
-
+  <!-- Firebase & App Logic -->
   <script>
-    // Firebase Configuration
+    // Firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -209,92 +178,91 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-
-    // Localization
+    // I18n
     const i18n = {
       en: { placeholder: 'Type what you feel...', send: 'Send', chat: 'Chat', ritual: 'Ritual' },
       hi: { placeholder: 'जो महसूस करते हो यहाँ लिखो...', send: 'भेजें', chat: 'चैट', ritual: 'रिचुअल' }
     };
-
-    // DOM Elements
-    const elements = {
-      chatInput: document.getElementById('chatInput'),
-      sendBtn: document.getElementById('sendBtn'),
-      modeSelect: document.getElementById('modeSelect'),
-      themeSelect: document.getElementById('themeSelect'),
-      settingsBtn: document.getElementById('settingsBtn'),
-      settingsPanel: document.getElementById('settingsPanel'),
-      modeBanner: document.querySelector('.mode-banner'),
-      chatBox: document.getElementById('chatBox'),
-      langSelect: document.getElementById('langSelect')
-    };
-
-    // Theme Management
-    function applyTheme(theme) {
-      document.documentElement.setAttribute('data-bs-theme', theme);
+    const langSelect = document.getElementById('langSelect');
+    Object.keys(i18n).forEach(code => {
+      const opt = document.createElement('option'); opt.value = code; opt.textContent = code.toUpperCase();
+      langSelect.appendChild(opt);
+    }); langSelect.value = 'en';
+    // Elements
+    const chatInput = document.getElementById('chatInput'),
+          sendBtn = document.getElementById('sendBtn'),
+          modeSelect = document.getElementById('modeSelect'),
+          themeSelect = document.getElementById('themeSelect'),
+          settingsBtn = document.getElementById('settingsBtn'),
+          settingsPanel = document.getElementById('settingsPanel'),
+          modeBanner = document.getElementById('modeBanner'),
+          chatBox = document.getElementById('chatBox');
+    // Language & UI
+    function applyLanguage() {
+      const d = i18n[langSelect.value];
+      chatInput.placeholder = d.placeholder;
+      sendBtn.textContent = d.send;
+      modeSelect.options[0].text = d.chat + ' (Private)';
+      modeSelect.options[1].text = d.ritual + ' (Public)';
     }
-
-    // Language Management
-    function setupLanguageSelector() {
-      Object.keys(i18n).forEach(lang => {
-        const option = document.createElement('option');
-        option.value = lang;
-        option.textContent = lang.toUpperCase();
-        elements.langSelect.appendChild(option);
-      });
-      elements.langSelect.value = 'en';
+    langSelect.onchange = applyLanguage; applyLanguage();
+    function applyTheme() {
+      document.body.classList.remove('dark','candle','rain','blank');
+      document.body.classList.add(themeSelect.value);
     }
-
-    // Message Handling
-    function createMessageElement(message, isUser) {
-      const messageDiv = document.createElement('div');
-      messageDiv.className = `d-flex align-items-end gap-2 mb-3 ${isUser ? 'justify-content-end' : 'justify-content-start'}`;
-
-      const avatar = document.createElement('img');
-      avatar.className = 'avatar';
-      avatar.src = `https://ui-avatars.com/api/?name=${message.uid}&background=random`;
-
-      const bubble = document.createElement('div');
-      bubble.className = `message-bubble ${isUser ? 'user-message' : 'ai-message'}`;
-      bubble.textContent = message.text;
-
-      if (isUser) {
-        messageDiv.append(bubble, avatar);
-      } else {
-        messageDiv.append(avatar, bubble);
-      }
-
-      return messageDiv;
-    }
-
-    // Event Listeners
-    function setupEventListeners() {
-      elements.themeSelect.addEventListener('change', (e) => applyTheme(e.target.value));
-      elements.settingsBtn.addEventListener('click', () => elements.settingsPanel.classList.toggle('show'));
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('#settingsBtn') && !e.target.closest('#settingsPanel')) {
-          elements.settingsPanel.classList.remove('show');
-        }
-      });
-
-      elements.sendBtn.addEventListener('click', sendMessage);
-      elements.chatInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          sendMessage();
-        }
-      });
-    }
-
-    // Initialization
-    function init() {
-      setupLanguageSelector();
-      applyTheme('dark');
-      setupEventListeners();
+    themeSelect.onchange = applyTheme; applyTheme();
+    settingsBtn.onclick = () => settingsPanel.classList.toggle('show');
+    modeSelect.onchange = () => {
+      modeBanner.textContent = modeSelect.value === 'chat' ? 'Private Chat mode' : 'Public Ritual mode';
+      modeBanner.className = `mode-banner ${modeSelect.value === 'chat' ? 'mode-chat' : 'mode-ritual'}`;
       loadMessages();
+    };
+    // User ID & avatar
+    const userId = localStorage.getItem('sln_user_id') || (() => { const id = 'SilentSoul' + Math.floor(Math.random() * 1000); localStorage.setItem('sln_user_id', id); return id; })();
+    function getAvatar(id) {
+      const cols = ['ff6b6b','54a0ff','1dd1a1','feca57'];
+      const hash = id.split('').reduce((a,b) => a + b.charCodeAt(0), 0);
+      return `https://ui-avatars.com/api/?name=${id}&background=${cols[hash%4]}&color=000&size=64`;
     }
-
-    init();
+    // Firestore listener
+    let unsubscribe;
+    function loadMessages() {
+      if (unsubscribe) unsubscribe();
+      chatBox.innerHTML = '';
+      unsubscribe = db.collection('messages')
+        .where('mode','==',modeSelect.value)
+        .orderBy('ts')
+        .onSnapshot(snap => {
+          chatBox.innerHTML = ''; snap.forEach(doc => {
+            const m = doc.data();
+            addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai');
+          });
+        });
+    }
+    loadMessages();
+    // Send message
+    function sendMessage() {
+      const txt = chatInput.value.trim(); if (!txt) return;
+      const mode = modeSelect.value;
+      db.collection('messages').add({ uid: userId, text: txt, mode: mode, ts: firebase.firestore.FieldValue.serverTimestamp() });
+      chatInput.value = '';
+      if (document.getElementById('aiReplyToggle').checked) {
+        setTimeout(() => {
+          const reply = mode === 'ritual' ? i18n[langSelect.value].ritual + ' received.' : 'You’re heard quietly.';
+          db.collection('messages').add({ uid: 'EXELIS', text: reply, mode: mode, ts: firebase.firestore.FieldValue.serverTimestamp() });
+        }, 800);
+      }
+    }
+    sendBtn.onclick = sendMessage;
+    chatInput.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }};
+    function addMessage(uid, text, cls) {
+      const w = document.createElement('div'); w.className = `msg-wrapper ${cls}`;
+      const img = document.createElement('img'); img.src = getAvatar(uid); img.className = 'avatar';
+      const msg = document.createElement('div'); msg.className = 'message'; msg.textContent = text;
+      if (cls === 'user') w.append(msg, img);
+      else w.append(img, msg);
+      chatBox.appendChild(w); chatBox.scrollTop = chatBox.scrollHeight;
+    }
   </script>
 </body>
 </html>
