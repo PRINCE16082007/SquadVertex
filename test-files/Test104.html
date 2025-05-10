@@ -1,18 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SLN Chat</title>
   <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Firebase SDKs -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-
   <style>
     :root { --primary: #6f42c1; --accent: #ffc107; }
+    /* Theme variables */
     body.dark    { --bg:#1e1e2f; --text:#fff; --header:#2c2c3d; --input:#2c2c3d; }
     body.candle  { --bg:#3e2f2f; --text:#f8f0e3; --header:#5a4132; --input:#7b5e57; }
     body.rain    { --bg:#2f3e4f; --text:#e3f0f8; --header:#34566e; --input:#4a708a; }
@@ -35,14 +33,14 @@
     .ai .message   { opacity:.8; }
     .avatar         { width:36px; height:36px; border-radius:50%; border:2px solid var(--accent); object-fit:cover; margin:0 .5rem; }
     .input-area     { background: var(--input); padding:1rem; }
+    .input-area textarea { resize:none; border-radius:.5rem; border:1px solid #ccc; }
     .fixed-input    { position:fixed; bottom:0; left:0; right:0; z-index:1000; }
-    .settings-icon  { background:var(--accent);border:none;color:#000;padding:.2rem .6rem;border-radius:.3rem;cursor:pointer; }
+    .settings-icon  { background:var(--accent); border:none; color:#000; padding:.2rem .6rem; border-radius:.3rem; cursor:pointer; }
     .settings-panel { position:absolute; top:60px; right:20px; background:var(--header); padding:1rem; border-radius:.5rem; width:220px; display:none; }
     .settings-panel.show { display:block; }
     .firestore-link { font-size:.8rem; color:#aaa; text-align:center; margin-top:.5rem; }
   </style>
 </head>
-
 <body class="dark">
   <div class="content d-flex flex-column" style="height:100vh">
     <!-- Top Bar -->
@@ -57,39 +55,33 @@
       <div class="d-flex align-items-center gap-2">
         <select id="langSelect" class="form-select form-select-sm"></select>
         <select id="themeSelect" class="form-select form-select-sm">
-          <option value="dark"  selected>Night Sky</option>
+          <option value="dark" selected>Night Sky</option>
           <option value="candle">Warm Candle</option>
-          <option value="rain"  >Rain Window</option>
-          <option value="blank" >Blank Page</option>
+          <option value="rain">Rain Window</option>
+          <option value="blank">Blank Page</option>
         </select>
       </div>
-    </div>
+    </div><!-- Mode Banner -->
+<div id="modeBanner" class="mode-banner mode-chat">Private Chat mode</div>
 
-    <!-- Mode Banner -->
-    <div id="modeBanner" class="mode-banner mode-chat">Private Chat mode</div>
+<!-- Chat Box -->
+<div id="chatBox" class="chat-box dark flex-grow-1 px-4 py-3"></div>
+<div class="firestore-link">Messages powered by Firebase Firestore</div>
 
-    <!-- Chat Box -->
-    <div id="chatBox" class="chat-box dark flex-grow-1 px-4 py-3"></div>
-    <div class="firestore-link">Messages powered by Firebase Firestore</div>
+<!-- Download CSV -->
+<div class="text-center my-1">
+  <button id="downloadCsvBtn" class="btn btn-sm btn-outline-light" style="display:none;">Download CSV</button>
+</div>
 
-    <!-- Download CSV (only in Ritual mode) -->
-    <div class="text-center my-1">
-      <button id="downloadCsvBtn" class="btn btn-sm btn-outline-light" style="display:none;">
-        Download Ritual CSV
-      </button>
-    </div>
-
-    <!-- Input -->
-    <div id="inputArea" class="input-area dark fixed-input">
-      <div class="input-group">
-        <textarea id="chatInput" class="form-control" placeholder=""></textarea>
-        <button id="sendBtn" class="btn btn-primary ms-2"></button>
-      </div>
-    </div>
+<!-- Input -->
+<div id="inputArea" class="input-area dark fixed-input">
+  <div class="input-group">
+    <textarea id="chatInput" class="form-control" placeholder=""></textarea>
+    <button id="sendBtn" class="btn btn-primary ms-2"></button>
   </div>
+</div>
 
-  <!-- Settings Panel -->
-  <div id="settingsPanel" class="settings-panel dark">
+  </div>  <!-- Settings Panel -->  <div id="settingsPanel" class="settings-panel dark">
     <h6 class="text-light">Settings</h6>
     <div class="mb-2">
       <label class="form-label text-light">Auto-delete (hrs)</label>
@@ -99,13 +91,9 @@
       <input class="form-check-input" type="checkbox" id="aiReplyToggle" checked>
       <label class="form-check-label" for="aiReplyToggle">AI Replies</label>
     </div>
-    <!-- CSV export note -->
-    <small class="text-muted">CSV only exports public Ritual messages.</small>
-  </div>
-
-  <!-- Firebase & App Logic -->
-  <script>
-    // 1) Firebase init
+    <small class="text-muted">CSV exports both private & public chats.</small>
+  </div>  <!-- Firebase & App Logic -->  <script>
+    // Firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -115,26 +103,28 @@
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
     firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db   = firebase.firestore();
+    const db = firebase.firestore();
 
-    // 2) Sign in anonymously
-    auth.signInAnonymously().catch(console.error);
+    // Generate or retrieve anon ID
+    let userId = localStorage.getItem('sln_userId');
+    if (!userId) {
+      userId = 'SilentSoul' + Math.floor(Math.random()*1000 + 1);
+      localStorage.setItem('sln_userId', userId);
+    }
 
-    // 3) i18n
+    // i18n
     const i18n = {
       en: { placeholder:'Type what you feel...', send:'Send', chat:'Chat', ritual:'Ritual' },
       hi: { placeholder:'जो महसूस करते हो यहाँ लिखो...', send:'भेजें', chat:'चैट', ritual:'रिचुअल' }
     };
-    const langSelect    = document.getElementById('langSelect');
+    const langSelect = document.getElementById('langSelect');
     Object.keys(i18n).forEach(code => {
-      const o = document.createElement('option');
-      o.value = code; o.textContent = code.toUpperCase();
+      const o = document.createElement('option'); o.value = code; o.textContent = code.toUpperCase();
       langSelect.appendChild(o);
     });
     langSelect.value = 'en';
 
-    // 4) Element refs
+    // Elements
     const chatBox       = document.getElementById('chatBox');
     const chatInput     = document.getElementById('chatInput');
     const sendBtn       = document.getElementById('sendBtn');
@@ -145,18 +135,18 @@
     const modeBanner    = document.getElementById('modeBanner');
     const downloadCsvBtn= document.getElementById('downloadCsvBtn');
 
-    // 5) Language UI
+    // Language UI
     function applyLanguage() {
       const d = i18n[langSelect.value];
-      chatInput.placeholder = d.placeholder;
-      sendBtn.textContent    = d.send;
-      modeSelect.options[0].text = `${d.chat} (Private)`;
-      modeSelect.options[1].text = `${d.ritual} (Public)`;
+      chatInput.placeholder       = d.placeholder;
+      sendBtn.textContent         = d.send;
+      modeSelect.options[0].text  = d.chat + ' (Private)';
+      modeSelect.options[1].text  = d.ritual + ' (Public)';
     }
     langSelect.onchange = applyLanguage;
     applyLanguage();
 
-    // 6) Theme switcher
+    // Theme switcher
     function applyTheme() {
       document.body.classList.remove('dark','candle','rain','blank');
       document.body.classList.add(themeSelect.value);
@@ -164,37 +154,26 @@
     themeSelect.onchange = applyTheme;
     applyTheme();
 
-    // 7) Settings toggle
+    // Settings toggle
     settingsBtn.onclick = () => settingsPanel.classList.toggle('show');
 
-    // 8) Mode change: reload & CSV button
+    // Mode change & CSV button
     modeSelect.onchange = () => {
       const m = modeSelect.value;
-      modeBanner.textContent = m==='chat'? 'Private Chat mode':'Public Ritual mode';
-      modeBanner.className   = `mode-banner ${m==='chat'?'mode-chat':'mode-ritual'}`;
-      downloadCsvBtn.style.display = m==='ritual' ? 'inline-block' : 'none';
+      modeBanner.textContent       = m==='chat'? 'Private Chat mode':'Public Ritual mode';
+      modeBanner.className         = `mode-banner ${m==='chat'?'mode-chat':'mode-ritual'}`;
+      downloadCsvBtn.style.display = m==='ritual'? 'inline-block':'none';
       loadMessages();
     };
 
-    // 9) Get current Firebase userId
-    let userId = null;
-    auth.onAuthStateChanged(u => {
-      if (!u) return console.error('Auth failed');
-      userId = u.uid;
-      // Initial load
-      loadMessages();
-    });
-
-    // 10) Firestore listeners & Local storage helpers
-    let unsubscribe = null;
-
+    // Firestore listeners
+    let unsubscribe;
     function loadMessages() {
       if (unsubscribe) unsubscribe();
       chatBox.innerHTML = '';
       if (modeSelect.value === 'chat') {
-        // PRIVATE → Firestore subcollection per user
-        unsubscribe = db
-          .collection('private')
+        // PRIVATE messages stored in `/private/{userId}/messages`
+        unsubscribe = db.collection('private')
           .doc(userId)
           .collection('messages')
           .orderBy('ts')
@@ -202,99 +181,83 @@
             chatBox.innerHTML = '';
             snap.forEach(doc => {
               const m = doc.data();
-              addMessage(m.uid, m.text, m.uid===userId?'user':'ai');
+              addMessage(m.uid, m.text, (m.uid===userId)?'user':'ai');
             });
           });
       } else {
-        // RITUAL → public top‐level
-        unsubscribe = db
-          .collection('messages')
+        // PUBLIC rituals
+        unsubscribe = db.collection('messages')
           .where('mode','==','ritual')
           .orderBy('ts')
           .onSnapshot(snap => {
             chatBox.innerHTML = '';
             snap.forEach(doc => {
               const m = doc.data();
-              addMessage(m.uid, m.text, m.uid===userId?'user':'ai');
+              addMessage(m.uid, m.text, (m.uid===userId)?'user':'ai');
             });
           });
       }
     }
+    loadMessages();
 
-    // 11) Send handler
+    // Send message
     function sendMessage() {
-      const txt = chatInput.value.trim();
-      if (!txt || !userId) return;
+      const txt = chatInput.value.trim(); if (!txt) return;
       const now = firebase.firestore.FieldValue.serverTimestamp();
       if (modeSelect.value === 'chat') {
-        // PRIVATE
+        // write to private
         db.collection('private')
           .doc(userId)
           .collection('messages')
           .add({ uid:userId, text:txt, ts:now });
       } else {
-        // PUBLIC
+        // write to public
         db.collection('messages')
           .add({ uid:userId, text:txt, mode:'ritual', ts:now });
       }
       chatInput.value = '';
-      // AI reply?
+      // AI reply
       if (document.getElementById('aiReplyToggle').checked) {
         setTimeout(() => {
-          const replyText = modeSelect.value==='ritual'
-            ? `${i18n[langSelect.value].ritual} received.`
+          const reply = modeSelect.value==='ritual'
+            ? i18n[langSelect.value].ritual + ' received.'
             : 'You’re heard quietly.';
-          const target = modeSelect.value==='chat'
+          const target = (modeSelect.value==='chat')
             ? db.collection('private').doc(userId).collection('messages')
             : db.collection('messages');
-          target.add({ uid:'EXELIS', text:replyText, mode:'ritual', ts:now });
+          target.add({ uid:'EXELIS', text:reply, mode:'ritual', ts:now });
         }, 700);
       }
     }
     sendBtn.onclick = sendMessage;
-    chatInput.onkeydown = e => {
-      if (e.key==='Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    };
+    chatInput.onkeydown = e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }};
 
-    // 12) Add message to UI
+    // Add to UI
     function addMessage(uid, text, cls) {
-      const w = document.createElement('div');
-      w.className = `msg-wrapper ${cls}`;
-      const img = document.createElement('img');
-      img.src = `https://ui-avatars.com/api/?name=${uid}&background=ffc107&color=000&size=64`;
+      const w = document.createElement('div'); w.className = `msg-wrapper ${cls}`;
+      const img = document.createElement('img'); img.src = `https://ui-avatars.com/api/?name=${uid}&background=ffc107&color=000&size=64`;
       img.className = 'avatar';
-      const msg = document.createElement('div');
-      msg.className = 'message';
-      msg.textContent = text;
-      if (cls==='user') w.append(msg, img);
-      else w.append(img, msg);
-      chatBox.appendChild(w);
-      chatBox.scrollTop = chatBox.scrollHeight;
+      const m = document.createElement('div'); m.className = 'message'; m.textContent = text;
+      if (cls==='user') w.append(m, img); else w.append(img, m);
+      chatBox.appendChild(w); chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // 13) Download Ritual CSV
+    // Download both private & public as CSV
     downloadCsvBtn.onclick = async () => {
-      const snap = await db.collection('messages')
-        .where('mode','==','ritual')
-        .orderBy('ts')
-        .get();
-      const rows = [['UID','Text','Timestamp']];
-      snap.forEach(doc => {
-        const m = doc.data();
-        rows.push([m.uid, `"${m.text.replace(/"/g,'""')}"`, m.ts.toDate().toISOString()]);
-      });
-      const csv = rows.map(r => r.join(',')).join('\n');
+      // fetch public
+      const pub = await db.collection('messages').where('mode','==','ritual').orderBy('ts').get();
+      // fetch private
+      const pri = await db.collection('private').doc(userId).collection('messages').orderBy('ts').get();
+
+      const rows = [['Mode','UID','Text','Timestamp']];
+      pub.forEach(d=>{ const m=d.data(); rows.push(['Public', m.uid, `"${m.text.replace(/"/g,'""')}"`, m.ts.toDate().toISOString()]); });
+      pri.forEach(d=>{ const m=d.data(); rows.push(['Private', m.uid, `"${m.text.replace(/"/g,'""')}"`, m.ts.toDate().toISOString()]); });
+
+      const csv = rows.map(r=>r.join(',')).join('\n');
       const blob = new Blob([csv], {type:'text/csv'});
       const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url;
-      a.download = 'ritual_messages.csv';
-      a.click();
+      const a    = document.createElement('a'); a.href=url; a.download='sln_chats.csv'; a.click();
       URL.revokeObjectURL(url);
     };
-  </script>
-</body>
+  </script></body>
 </html>
