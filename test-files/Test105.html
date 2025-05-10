@@ -1,0 +1,262 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SLN Chat</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <style>
+    :root { --primary: #6f42c1; --accent: #ffc107; }
+    /* Theme variables */
+    body.dark    { --bg:#1e1e2f; --text:#fff; --header:#2c2c3d; --input:#2c2c3d; }
+    body.candle  { --bg:#3e2f2f; --text:#f8f0e3; --header:#5a4132; --input:#7b5e57; }
+    body.rain    { --bg:#2f3e4f; --text:#e3f0f8; --header:#34566e; --input:#4a708a; }
+    body.blank   { --bg:#fafafa; --text:#333; --header:#e0e0e0; --input:#f5f5f5; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      margin:0;
+      font-family:'Segoe UI',sans-serif;
+    }
+    .header-bar     { background: var(--header) !important; }
+    .chat-box       { flex:1; overflow-y:auto; padding:1rem; background: rgba(0,0,0,0.05); }
+    .mode-banner    { text-align:center; padding:.5rem; font-size:.9rem; }
+    .mode-chat      { background:#198754; color:#fff; }
+    .mode-ritual    { background:#0d6efd;    color:#fff; }
+    .msg-wrapper    { display:flex; align-items:flex-end; margin-bottom:1rem; }
+    .msg-wrapper.user { justify-content:flex-end; }
+    .message        { padding:.75rem 1rem; border-radius:1rem; max-width:75%; word-break:break-word; background: var(--input); color: var(--text); }
+    .user .message { background: var(--accent); color:#000; }
+    .ai .message   { opacity:.8; }
+    .avatar         { width:36px; height:36px; border-radius:50%; border:2px solid var(--accent); object-fit:cover; margin:0 .5rem; }
+    .input-area     { background: var(--input); padding:1rem; }
+    .input-area textarea { resize:none; border-radius:.5rem; border:1px solid #ccc; }
+    .fixed-input    { position:fixed; bottom:0; left:0; right:0; z-index:1000; }
+    .settings-icon  { background:var(--accent); border:none; color:#000; padding:.2rem .6rem; border-radius:.3rem; cursor:pointer; }
+    .settings-panel { position:absolute; top:60px; right:20px; background:var(--header); padding:1rem; border-radius:.5rem; width:220px; display:none; }
+    .settings-panel.show { display:block; }
+    .firestore-link { font-size:.8rem; color:#aaa; text-align:center; margin-top:.5rem; }
+  </style>
+</head>
+<body class="dark">
+  <div class="content d-flex flex-column" style="height:100vh">
+    <!-- Top Bar -->
+    <div id="headerBar" class="header-bar dark d-flex justify-content-between align-items-center px-4 py-2">
+      <div class="d-flex align-items-center gap-2">
+        <button id="settingsBtn" class="settings-icon">⚙️</button>
+        <select id="modeSelect" class="form-select form-select-sm">
+          <option value="chat">Chat (Private)</option>
+          <option value="ritual">Ritual (Public)</option>
+        </select>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <select id="langSelect" class="form-select form-select-sm"></select>
+        <select id="themeSelect" class="form-select form-select-sm">
+          <option value="dark" selected>Night Sky</option>
+          <option value="candle">Warm Candle</option>
+          <option value="rain">Rain Window</option>
+          <option value="blank">Blank Page</option>
+        </select>
+      </div>
+    </div><!-- Mode Banner -->
+<div id="modeBanner" class="mode-banner mode-chat">Private Chat mode</div>
+
+<!-- Chat Box -->
+<div id="chatBox" class="chat-box dark flex-grow-1 px-4 py-3"></div>
+<div class="firestore-link">Messages powered by Firebase Firestore</div>
+
+<!-- Download CSV -->
+<div class="text-center my-1">
+  <button id="downloadCsvBtn" class="btn btn-sm btn-outline-light" style="display:none;">Download CSV</button>
+</div>
+
+<!-- Input -->
+<div id="inputArea" class="input-area dark fixed-input">
+  <div class="input-group">
+    <textarea id="chatInput" class="form-control" placeholder=""></textarea>
+    <button id="sendBtn" class="btn btn-primary ms-2"></button>
+  </div>
+</div>
+
+  </div>  <!-- Settings Panel -->  <div id="settingsPanel" class="settings-panel dark">
+    <h6 class="text-light">Settings</h6>
+    <div class="mb-2">
+      <label class="form-label text-light">Auto-delete (hrs)</label>
+      <input type="number" id="ttlInput" class="form-control form-control-sm" value="12" min="1" max="48">
+    </div>
+    <div class="form-check form-switch text-light mb-2">
+      <input class="form-check-input" type="checkbox" id="aiReplyToggle" checked>
+      <label class="form-check-label" for="aiReplyToggle">AI Replies</label>
+    </div>
+    <small class="text-muted">CSV exports both private & public chats.</small>
+  </div>  <!-- Firebase & App Logic -->  <script>
+    // Firebase init
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Worker URL
+    const AI_PROXY_URL = 'https://sln-ai-proxy.princegahlot2007.workers.dev/';
+
+    // Generate or retrieve anon ID
+    let userId = localStorage.getItem('sln_userId');
+    if (!userId) {
+      userId = 'SilentSoul' + Math.floor(Math.random()*1000 + 1);
+      localStorage.setItem('sln_userId', userId);
+    }
+
+    // i18n
+    const i18n = {
+      en: { placeholder:'Type what you feel...', send:'Send', chat:'Chat', ritual:'Ritual' },
+      hi: { placeholder:'जो महसूस करते हो यहाँ लिखो...', send:'भेजें', chat:'चैट', ritual:'रिचुअल' }
+    };
+    const langSelect = document.getElementById('langSelect');
+    Object.keys(i18n).forEach(code => {
+      const o = document.createElement('option'); o.value = code; o.textContent = code.toUpperCase();
+      langSelect.appendChild(o);
+    });
+    langSelect.value = 'en';
+
+    // Elements
+    const chatBox       = document.getElementById('chatBox');
+    const chatInput     = document.getElementById('chatInput');
+    const sendBtn       = document.getElementById('sendBtn');
+    const modeSelect    = document.getElementById('modeSelect');
+    const themeSelect   = document.getElementById('themeSelect');
+    const settingsBtn   = document.getElementById('settingsBtn');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const modeBanner    = document.getElementById('modeBanner');
+    const downloadCsvBtn= document.getElementById('downloadCsvBtn');
+
+    // Language UI
+    function applyLanguage() {
+      const d = i18n[langSelect.value];
+      chatInput.placeholder       = d.placeholder;
+      sendBtn.textContent         = d.send;
+      modeSelect.options[0].text  = d.chat + ' (Private)';
+      modeSelect.options[1].text  = d.ritual + ' (Public)';
+    }
+    langSelect.onchange = applyLanguage;
+    applyLanguage();
+
+    // Theme switcher
+    function applyTheme() {
+      document.body.classList.remove('dark','candle','rain','blank');
+      document.body.classList.add(themeSelect.value);
+    }
+    themeSelect.onchange = applyTheme;
+    applyTheme();
+
+    // Settings toggle
+    settingsBtn.onclick = () => settingsPanel.classList.toggle('show');
+
+    // Mode change & CSV button
+    modeSelect.onchange = () => {
+      const m = modeSelect.value;
+      modeBanner.textContent       = m==='chat'? 'Private Chat mode':'Public Ritual mode';
+      modeBanner.className         = `mode-banner ${m==='chat'?'mode-chat':'mode-ritual'}`;
+      downloadCsvBtn.style.display = m==='ritual'? 'inline-block':'none';
+      loadMessages();
+    };
+
+    // AI proxy caller
+    async function callComfortAI(msg) {
+      try {
+        const resp = await fetch(AI_PROXY_URL, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ prompt: msg })
+        });
+        const { reply } = await resp.json();
+        return reply.trim();
+      } catch(e) {
+        console.error('AI proxy error', e);
+        return 'I’m here, but something went wrong.';
+      }
+    }
+
+    // Firestore listeners
+    let unsubscribe;
+    function loadMessages() {
+      if (unsubscribe) unsubscribe();
+      chatBox.innerHTML = '';
+      if (modeSelect.value === 'chat') {
+        unsubscribe = db.collection('private')
+          .doc(userId)
+          .collection('messages')
+          .orderBy('ts')
+          .onSnapshot(snap => {
+            chatBox.innerHTML = '';
+            snap.forEach(doc => {
+              const m = doc.data();
+              addMessage(m.uid, m.text, (m.uid===userId)?'user':'ai');
+            });
+          });
+      } else {
+        unsubscribe = db.collection('messages')
+          .where('mode','==','ritual')
+          .orderBy('ts')
+          .onSnapshot(snap => {
+            chatBox.innerHTML = '';
+            snap.forEach(doc => {
+              const m = doc.data();
+              addMessage(m.uid, m.text, (m.uid===userId)?'user':'ai');
+            });
+          });
+      }
+    }
+    loadMessages();
+
+    // Send message
+    const triggers = ['sad','alone','help','anxious','depress'];
+    async function sendMessage() {
+      const txt = chatInput.value.trim(); if (!txt) return;
+      const now = firebase.firestore.FieldValue.serverTimestamp();
+      if (modeSelect.value === 'chat') {
+        const ref = db.collection('private').doc(userId).collection('messages');
+        await ref.add({ uid:userId, text:txt, ts:now });
+        if (document.getElementById('aiReplyToggle').checked && triggers.some(w=>txt.toLowerCase().includes(w))) {
+          const aiText = await callComfortAI(txt);
+          await ref.add({ uid:'EXELIS', text:aiText, ts:now });
+        }
+      } else {
+        const ref = db.collection('messages');
+        await ref.add({ uid:userId, text:txt, mode:'ritual', ts:now });
+      }
+      chatInput.value = '';
+    }
+    sendBtn.onclick = sendMessage;
+    chatInput.onkeydown = e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }};
+
+    // Add to UI
+    function addMessage(uid, text, cls) {
+      const w = document.createElement('div'); w.className = `msg-wrapper ${cls}`;
+      const img = document.createElement('img'); img.src = `https://ui-avatars.com/api/?name=${uid}&background=ffc107&color=000&size=64`; img.className='avatar';
+      const m = document.createElement('div'); m.className='message'; m.textContent=text;
+      if (cls==='user') w.append(m,img); else w.append(img,m);
+      chatBox.appendChild(w); chatBox.scrollTop=chatBox.scrollHeight;
+    }
+
+    // Download both private & public as CSV
+    downloadCsvBtn.onclick = async () => {
+      const pub = await db.collection('messages').where('mode','==','ritual').orderBy('ts').get();
+      const pri = await db.collection('private').doc(userId).collection('messages').orderBy('ts').get();
+      const rows = [['Mode','UID','Text','Timestamp']];
+      pub.forEach(d=>{ const m=d.data(); rows.push(['Public',m.uid,`"${m.text.replace(/"/g,'""')}"`,m.ts.toDate().toISOString()]); });
+      pri.forEach(d=>{ const m=d.data(); rows.push(['Private',m.uid,`"${m.text.replace(/"/g,'""')}"`,m.ts.toDate().toISOString()]); });
+      const csv = rows.map(r=>r.join(',')).join('\n');
+      const blob = new Blob([csv],{type:'text/csv'}); const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download='sln_chats.csv'; a.click(); URL.revokeObjectURL(url);
+    };
+  </script></body>
+</html>
