@@ -51,7 +51,7 @@
     const adminInput = document.getElementById('adminInput');
     const adminSend = document.getElementById('adminSend');
 
-    // Populate user list via get()
+    // Populate user list
     async function loadUserList() {
       const snap = await db.collection('private').get();
       privateUserId.innerHTML = '<option value="">-- select user --</option>';
@@ -63,7 +63,7 @@
       });
     }
 
-    // Mode toggle handler
+    // Toggle mode
     adminMode.addEventListener('change', () => {
       const isPriv = adminMode.value === 'private';
       privateUserId.style.display = isPriv ? 'inline-block' : 'none';
@@ -73,7 +73,7 @@
     });
     privateUserId.addEventListener('change', loadAdminMessages);
 
-    // CSV exporter
+    // CSV export
     async function exportCollection(ref, mapFn) {
       const snap = await ref.get();
       const rows = [];
@@ -81,72 +81,72 @@
       const csv = [Object.keys(rows[0]||{}).join(','), ...rows.map(r=>Object.values(r).map(v=>`"${v}"`).join(','))].join('\n');
       return csv;
     }
-
     downloadPublicBtn.addEventListener('click', async () => {
       const csv = await exportCollection(db.collection('messages'), (id,d)=>({id,uid:d.uid,text:d.text,mode:d.mode||'',ts:d.ts?.toDate()}));
       const blob = new Blob([csv], {type:'text/csv'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download='public_chats.csv'; a.click();
     });
-
     downloadPrivateBtn.addEventListener('click', async () => {
       const usersSnap = await db.collection('private').get();
-      let all=[];
+      let all = [];
       for (let doc of usersSnap.docs) {
-        const userId = doc.id;
-        const msgs = await db.collection('private').doc(userId).collection('messages').get();
-        msgs.forEach(m=> all.push({user:userId,id:m.id,uid:m.data().uid,text:m.data().text,ts:m.data().ts?.toDate()}));
+        const uid = doc.id;
+        const msgsSnap = await db.collection('private').doc(uid).collection('mesaages').get();
+        msgsSnap.forEach(m=> all.push({user:uid,id:m.id,uid:m.data().uid,text:m.data().text,ts:m.data().ts?.toDate()}));
       }
-      const header=['user','id','uid','text','ts'];
-      const csv=[header.join(','),...all.map(r=>header.map(h=>`"${r[h]||''}"`).join(','))].join('\n');
-      const blob=new Blob([csv],{type:'text/csv'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url; a.download='private_chats.csv'; a.click();
+      const header = ['user','id','uid','text','ts'];
+      const csv = [header.join(','), ...all.map(r=>header.map(h=>`"${r[h]||''}"`).join(','))].join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download='private_chats.csv'; a.click();
     });
 
-    // Load and display messages
+    // Load messages
     let unsub;
     function loadAdminMessages() {
-      if (unsub) unsub(); chatArea.innerHTML='';
-      if (adminMode.value==='public') {
+      if (unsub) unsub();
+      chatArea.innerHTML = '';
+      if (adminMode.value === 'public') {
         unsub = db.collection('messages').orderBy('ts')
-          .onSnapshot(snap=>{
-            chatArea.innerHTML=''; snap.forEach(d=> addMsg(d.data()));
+          .onSnapshot(snap => {
+            chatArea.innerHTML = '';
+            snap.forEach(d => addMsg(d.data()));
           });
       } else {
         const uid = privateUserId.value;
         if (!uid) return;
-        unsub = db.collection('private').doc(uid).collection('messages').orderBy('ts')
-          .onSnapshot(snap=>{
-            chatArea.innerHTML=''; snap.forEach(d=> addMsg(d.data(), uid));
+        unsub = db.collection('private').doc(uid).collection('mesaages').orderBy('ts')
+          .onSnapshot(snap => {
+            chatArea.innerHTML = '';
+            snap.forEach(d => addMsg(d.data(), uid));
           });
       }
     }
-    function addMsg(m, sel) {
+    function addMsg(msg, sel) {
       const div = document.createElement('div');
-      let disp = m.uid;
-      if (adminMode.value==='private' && m.uid!==sel && m.uid!=='EXELIS' && m.uid!==adminId) disp='SoulKeeper';
-      div.textContent = `${disp}: ${m.text}`;
+      let disp = msg.uid;
+      if (adminMode.value === 'private' && msg.uid !== sel && msg.uid !== 'EXELIS' && msg.uid !== adminId) disp = 'SoulKeeper';
+      div.textContent = `${disp}: ${msg.text}`;
       chatArea.appendChild(div);
       chatArea.scrollTop = chatArea.scrollHeight;
     }
 
-    // Send as admin
-    adminSend.addEventListener('click', async ()=>{
+    // Send message
+    adminSend.addEventListener('click', async () => {
       const txt = adminInput.value.trim(); if (!txt) return;
       const now = firebase.firestore.FieldValue.serverTimestamp();
-      if (adminMode.value==='public') {
-        await db.collection('messages').add({uid:adminId,text:txt,mode:'ritual',ts:now});
+      if (adminMode.value === 'public') {
+        await db.collection('messages').add({uid:adminId, text:txt, mode:'ritual', ts:now});
       } else {
         const uid = privateUserId.value; if (!uid) return;
-        await db.collection('private').doc(uid).collection('messages').add({uid:adminId,text:txt,ts:now});
+        await db.collection('private').doc(uid).collection('mesaages').add({uid:adminId, text:txt, ts:now});
       }
-      adminInput.value='';
+      adminInput.value = '';
     });
 
-    // Initialize dropdown with private users
+    // Initial load
     loadUserList();
-    // Default message load
     loadAdminMessages();
   </script></body>
 </html>
