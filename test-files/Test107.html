@@ -1,6 +1,4 @@
-<!-- admin.html (enhanced user selection) -->
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -29,9 +27,7 @@
   <div class="mt-2 d-flex">
     <textarea id="adminInput" class="form-control me-2" placeholder="Your message..."></textarea>
     <button id="adminSend" class="btn btn-success">Send</button>
-  </div>
-
-  <script>
+  </div>  <script>
     // Firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -54,16 +50,16 @@
     const adminInput = document.getElementById('adminInput');
     const adminSend = document.getElementById('adminSend');
 
-    // Populate user list
+    // Populate user list via get()
     async function loadUserList() {
-      const docs = await db.collection('private').listDocuments();
+      const snap = await db.collection('private').get();
       privateUserId.innerHTML = '<option value="">-- select user --</option>';
-      for (let doc of docs) {
+      snap.forEach(doc => {
         const opt = document.createElement('option');
         opt.value = doc.id;
         opt.textContent = doc.id;
         privateUserId.appendChild(opt);
-      }
+      });
     }
 
     // Mode toggle
@@ -84,21 +80,24 @@
       const csv = [Object.keys(rows[0]||{}).join(','), ...rows.map(r=>Object.values(r).map(v=>`"${v}"`).join(','))].join('\n');
       return csv;
     }
+
     downloadPublicBtn.onclick = async () => {
       const csv = await exportCollection(db.collection('messages'), (id,d)=>({id,uid:d.uid,text:d.text,mode:d.mode||'',ts:d.ts?.toDate()}));
       const blob = new Blob([csv], {type:'text/csv'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href=url; a.download='public_chats.csv'; a.click();
     };
+
     downloadPrivateBtn.onclick = async () => {
-      const users = await db.collection('private').listDocuments();
+      const usersSnap = await db.collection('private').get();
       let all=[];
-      for (let u of users) {
-        const snap = await u.collection('messages').get();
-        snap.forEach(doc=> all.push({user:u.id,id:doc.id,...doc.data()}));
+      for (let userDoc of usersSnap.docs) {
+        const userId = userDoc.id;
+        const msgsSnap = await db.collection('private').doc(userId).collection('messages').get();
+        msgsSnap.forEach(doc => all.push({user:userId,id:doc.id,uid:doc.data().uid,text:doc.data().text,ts:doc.data().ts?.toDate()}));
       }
       const header=['user','id','uid','text','ts'];
-      const csv=[header.join(','),...all.map(r=>header.map(h=>`"${r[h]?(h==='ts'? r[h].toDate():r[h]):''}"`).join(','))].join('\n');
+      const csv=[header.join(','),...all.map(r=>header.map(h=>`"${r[h]||''}"`).join(','))].join('\n');
       const blob=new Blob([csv],{type:'text/csv'});
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a'); a.href=url; a.download='private_chats.csv'; a.click();
@@ -125,7 +124,7 @@
     }
     function addMsg(m, sel) {
       const div=document.createElement('div');
-      let disp=m.uid;
+      let disp = m.uid;
       if (adminMode.value==='private' && m.uid!==sel && m.uid!=='EXELIS' && m.uid!==adminId) disp='SoulKeeper';
       div.textContent=`${disp}: ${m.text}`;
       chatArea.appendChild(div);
@@ -146,6 +145,5 @@
 
     // init
     loadAdminMessages();
-  </script>
-</body>
+  </script></body>
 </html>
