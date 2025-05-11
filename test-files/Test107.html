@@ -1,4 +1,4 @@
-<!-- admin.html -->
+<!-- admin.html (enhanced user selection) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,17 +16,18 @@
     <button id="downloadPrivate" class="btn btn-primary">Download All Private Chats CSV</button>
   </div>
   <hr />
-  <div class="mb-3">
-    <label class="form-label">Select Mode:</label>
-    <select id="adminMode" class="form-select w-auto d-inline-block">
+  <div class="mb-3 d-flex align-items-center">
+    <label for="adminMode" class="form-label me-2 mb-0">Select Mode:</label>
+    <select id="adminMode" class="form-select w-auto me-3">
       <option value="public">Public</option>
       <option value="private">Private</option>
     </select>
-    <input id="privateUserId" class="form-control d-inline-block ms-2 w-auto" placeholder="User ID (for private)" style="display:none;" />
+    <label for="privateUserId" class="form-label me-2 mb-0" id="userLabel" style="display:none;">Select User:</label>
+    <select id="privateUserId" class="form-select w-auto" style="display:none;"></select>
   </div>
-  <div id="chatArea" class="border p-3" style="height:60vh; overflow-y:auto;"></div>
-  <div class="mt-2">
-    <textarea id="adminInput" class="form-control mb-2" placeholder="Your message..."></textarea>
+  <div id="chatArea" class="border p-3 mb-2" style="height:60vh; overflow-y:auto;"></div>
+  <div class="mt-2 d-flex">
+    <textarea id="adminInput" class="form-control me-2" placeholder="Your message..."></textarea>
     <button id="adminSend" class="btn btn-success">Send</button>
   </div>
 
@@ -47,19 +48,35 @@
     const downloadPublicBtn = document.getElementById('downloadPublic');
     const downloadPrivateBtn = document.getElementById('downloadPrivate');
     const adminMode = document.getElementById('adminMode');
-    const privateUserIdInput = document.getElementById('privateUserId');
+    const privateUserId = document.getElementById('privateUserId');
+    const userLabel = document.getElementById('userLabel');
     const chatArea = document.getElementById('chatArea');
     const adminInput = document.getElementById('adminInput');
     const adminSend = document.getElementById('adminSend');
 
-    // Toggle private user field
+    // Populate user list
+    async function loadUserList() {
+      const docs = await db.collection('private').listDocuments();
+      privateUserId.innerHTML = '<option value="">-- select user --</option>';
+      for (let doc of docs) {
+        const opt = document.createElement('option');
+        opt.value = doc.id;
+        opt.textContent = doc.id;
+        privateUserId.appendChild(opt);
+      }
+    }
+
+    // Mode toggle
     adminMode.onchange = () => {
-      privateUserIdInput.style.display = adminMode.value === 'private' ? 'inline-block' : 'none';
+      const isPriv = adminMode.value === 'private';
+      privateUserId.style.display = isPriv ? 'inline-block' : 'none';
+      userLabel.style.display = isPriv ? 'inline-block' : 'none';
+      if (isPriv) loadUserList();
       loadAdminMessages();
     };
-    privateUserIdInput.onchange = loadAdminMessages;
+    privateUserId.onchange = loadAdminMessages;
 
-    // Generate CSV and download
+    // CSV export helpers
     async function exportCollection(ref, mapFn) {
       const snap = await ref.get();
       const rows = [];
@@ -68,65 +85,60 @@
       return csv;
     }
     downloadPublicBtn.onclick = async () => {
-      const csv = await exportCollection(db.collection('messages'), (id, d) => ({id, uid:d.uid, text:d.text, mode:d.mode||'', ts:d.ts?.toDate()}));
+      const csv = await exportCollection(db.collection('messages'), (id,d)=>({id,uid:d.uid,text:d.text,mode:d.mode||'',ts:d.ts?.toDate()}));
       const blob = new Blob([csv], {type:'text/csv'});
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download='public_chats.csv'; a.click();
+      const a = document.createElement('a'); a.href=url; a.download='public_chats.csv'; a.click();
     };
     downloadPrivateBtn.onclick = async () => {
-      // get all user docs
       const users = await db.collection('private').listDocuments();
-      let allRows = [];
-      for (let uDoc of users) {
-        const snap = await uDoc.collection('messages').get();
-        snap.forEach(doc=> allRows.push({user:uDoc.id, id:doc.id, ...doc.data()}));
+      let all=[];
+      for (let u of users) {
+        const snap = await u.collection('messages').get();
+        snap.forEach(doc=> all.push({user:u.id,id:doc.id,...doc.data()}));
       }
-      const header = ['user','id','uid','text','ts'];
-      const csv = [header.join(','), ...allRows.map(r=>header.map(h=>`"${r[h]? (h==='ts'? r[h].toDate() : r[h]) : ''}"`).join(','))].join('\n');
-      const blob = new Blob([csv], {type:'text/csv'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download='private_chats.csv'; a.click();
+      const header=['user','id','uid','text','ts'];
+      const csv=[header.join(','),...all.map(r=>header.map(h=>`"${r[h]?(h==='ts'? r[h].toDate():r[h]):''}"`).join(','))].join('\n');
+      const blob=new Blob([csv],{type:'text/csv'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download='private_chats.csv'; a.click();
     };
 
     // Load and display messages
     let unsub;
     function loadAdminMessages() {
       if (unsub) unsub();
-      chatArea.innerHTML='';
-      if (adminMode.value === 'public') {
-        unsub = db.collection('messages').orderBy('ts').onSnapshot(snap=>{
-          chatArea.innerHTML='';
-          snap.forEach(doc=> addMsg(doc.data()));
-        });
+      chatArea.innerHTML = '';
+      if (adminMode.value==='public') {
+        unsub = db.collection('messages').orderBy('ts')
+          .onSnapshot(snap=>{
+            chatArea.innerHTML=''; snap.forEach(d=> addMsg(d.data()));
+          });
       } else {
-        const uid = privateUserIdInput.value.trim();
+        const uid = privateUserId.value;
         if (!uid) return;
-        const ref = db.collection('private').doc(uid).collection('messages').orderBy('ts');
-        unsub = ref.onSnapshot(snap=>{
-          chatArea.innerHTML='';
-          snap.forEach(doc=> addMsg(doc.data(), uid));
-        });
+        unsub = db.collection('private').doc(uid).collection('messages').orderBy('ts')
+          .onSnapshot(snap=>{
+            chatArea.innerHTML=''; snap.forEach(d=> addMsg(d.data(), uid));
+          });
       }
     }
-
-    function addMsg(m, selectedUid) {
-      const div = document.createElement('div');
-      let dispUid = m.uid;
-      if (adminMode.value==='private' && m.uid !== selectedUid && m.uid !== adminId && m.uid !== 'EXELIS') {
-        dispUid='SoulKeeper';
-      }
-      div.textContent = `${dispUid}: ${m.text}`;
+    function addMsg(m, sel) {
+      const div=document.createElement('div');
+      let disp=m.uid;
+      if (adminMode.value==='private' && m.uid!==sel && m.uid!=='EXELIS' && m.uid!==adminId) disp='SoulKeeper';
+      div.textContent=`${disp}: ${m.text}`;
       chatArea.appendChild(div);
-      chatArea.scrollTop = chatArea.scrollHeight;
+      chatArea.scrollTop=chatArea.scrollHeight;
     }
 
     adminSend.onclick = async ()=>{
-      const txt = adminInput.value.trim(); if(!txt) return;
+      const txt = adminInput.value.trim(); if (!txt) return;
       const now = firebase.firestore.FieldValue.serverTimestamp();
       if (adminMode.value==='public') {
         await db.collection('messages').add({uid:adminId,text:txt,mode:'ritual',ts:now});
       } else {
-        const uid = privateUserIdInput.value.trim(); if(!uid) return;
+        const uid = privateUserId.value; if (!uid) return;
         await db.collection('private').doc(uid).collection('messages').add({uid:adminId,text:txt,ts:now});
       }
       adminInput.value='';
