@@ -1,90 +1,140 @@
 <!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SLN Chat</title>
   <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
   <style>
-    :root { 
-      --primary: #6f42c1; 
-      --accent:  #ffc107;
-      /* background image placeholders */
-      --bg-img-dark:   url('');
-      --bg-img-candle: url('');
-      --bg-img-rain:   url('');
-      --bg-img-blank:  url('');
+    :root {
+      --primary: #6f42c1;
+      --accent: #ffc107;
+    }
+    body.dark {
+      --bg: #1e1e2f;
+      --text: #fff;
+      --header: #2c2c3d;
+      --input: #2c2c3d;
+    }
+    body.candle {
+      --bg: #3e2f2f;
+      --text: #f8f0e3;
+      --header: #5a4132;
+      --input: #7b5e57;
+    }
+    body.rain {
+      --bg: #2f3e4f;
+      --text: #e3f0f8;
+      --header: #34566e;
+      --input: #4a708a;
+    }
+    body.blank {
+      --bg: #fafafa;
+      --text: #333;
+      --header: #e0e0e0;
+      --input: #f5f5f5;
     }
     body {
+      background: var(--bg);
+      color: var(--text);
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
-      background: var(--bg-img-dark) no-repeat center/cover;
-      color: var(--text, #fff);
     }
-    body.dark   { --bg-img: var(--bg-img-dark); }
-    body.candle { --bg-img: var(--bg-img-candle); }
-    body.rain   { --bg-img: var(--bg-img-rain); }
-    body.blank  { --bg-img: var(--bg-img-blank); --text: #333; }.header-bar { background: var(--header, rgba(0,0,0,0.5)) !important; }
-.mode-banner { text-align:center; padding:.5rem; font-size:.9rem; }
-.mode-chat   { background:#198754; color:#fff; }
-.mode-ritual { background:#0d6efd; color:#fff; }
-
-.chat-box {
-  flex:1; overflow-y:auto; padding:1rem; background:rgba(0,0,0,0.05);
-  margin-bottom:4rem;
-}
-.msg-wrapper { display:flex; align-items:flex-end; margin-bottom:1rem; }
-.msg-wrapper.user { justify-content:flex-end; }
-.message {
-  padding:.75rem 1rem; border-radius:1rem; max-width:75%; word-break:break-word;
-  background: var(--input, rgba(0,0,0,0.5)); color: var(--text);
-}
-.user .message { background: var(--accent); color: #000; }
-.avatar { width:36px; height:36px; border-radius:50%; border:2px solid var(--accent); object-fit:cover; margin:0 .5rem; }
-
-.input-area {
-  position:fixed; bottom:0; left:0; right:0; background:var(--input, rgba(0,0,0,0.7)); padding:1rem; display:flex; z-index:1000;
-}
-textarea { resize:none; border-radius:.5rem; border:1px solid #ccc; width:100%; padding:.5rem; font-size:1rem; }
-button { transition:transform .2s, box-shadow .2s; }
-button:active { transform:scale(.95); box-shadow:0 .5rem 1rem rgba(0,0,0,.2); }
-
-/* Settings disabled */
-#settingsBtn, #settingsPanel { display:none; }
-
+    .header-bar { background: var(--header) !important; }
+    .chat-box {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.05);
+    }
+    .mode-banner {
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .mode-chat { background: #198754; color: #fff; }
+    .mode-ritual { background: #0d6efd; color: #fff; }
+    .msg-wrapper { display: flex; align-items: flex-end; margin-bottom: 1rem; }
+    .msg-wrapper.user { justify-content: flex-end; }
+    .message {
+      padding: 0.75rem 1rem;
+      border-radius: 1rem;
+      max-width: 75%;
+      word-break: break-word;
+      background: var(--input);
+      color: var(--text);
+      /* placeholder for background images */
+      background-image: var(--bg-image, none);
+      background-size: cover;
+    }
+    .user .message { background: var(--accent); color: #000; }
+    .ai .message { opacity: 0.8; }
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      object-fit: cover;
+      margin: 0 0.5rem;
+      background: var(--accent);
+    }
+    .input-area {
+      background: var(--input);
+      padding: 1rem;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+    }
+    .input-area textarea { resize: none; border-radius: 0.5rem; border: 1px solid #ccc; }
   </style>
 </head>
 <body class="dark">
-  <div class="d-flex flex-column" style="height:100vh">
-    <div class="header-bar d-flex justify-content-between align-items-center px-4 py-2">
-      <div class="d-flex align-items-center gap-2">
-        <select id="modeSelect" class="form-select form-select-sm">
-          <option value="chat">Chat (Private)</option>
-          <option value="ritual">Ritual (Public)</option>
-        </select>
-      </div>
-      <div class="d-flex align-items-center gap-2">
-        <select id="langSelect" class="form-select form-select-sm"></select>
-        <select id="themeSelect" class="form-select form-select-sm">
-          <option value="dark">Night Sky</option>
-          <option value="candle">Warm Candle</option>
-          <option value="rain">Rain Window</option>
-          <option value="blank">Blank Page</option>
-        </select>
-      </div>
+  <div class="content d-flex flex-column" style="height:100vh">
+    <!-- Top Bar -->
+    <div
+      id="headerBar"
+      class="header-bar dark d-flex justify-content-between align-items-center px-4 py-2"
+    >
+      <select id="modeSelect" class="form-select form-select-sm">
+        <option value="chat">Chat (Private)</option>
+        <option value="ritual">Ritual (Public)</option>
+      </select>
+      <select id="themeSelect" class="form-select form-select-sm">
+        <option value="dark" selected>Night Sky</option>
+        <option value="candle">Warm Candle</option>
+        <option value="rain">Rain Window</option>
+        <option value="blank">Blank Page</option>
+      </select>
     </div>
-    <div id="modeBanner" class="mode-banner mode-chat">Private Chat mode</div>
-    <div id="chatBox" class="chat-box flex-grow-1"></div>
-    <div class="input-area">
-      <textarea id="chatInput" placeholder="Type what you feel..."></textarea>
-      <button id="sendBtn" class="btn btn-primary ms-2">Send</button>
-    </div>
+    <div id="modeBanner" class="mode-banner mode-chat">
+      Private Chat mode
+    </div><div id="chatBox" class="chat-box dark flex-grow-1"></div>
+<div class="firestore-link text-center my-1 text-muted" style="font-size:.8rem">
+  Messages powered by Firebase Firestore
+</div>
+
+<div id="inputArea" class="input-area dark">
+  <div class="input-group">
+    <textarea
+      id="chatInput"
+      class="form-control"
+      placeholder="Type what you feel..."
+    ></textarea>
+    <button id="sendBtn" class="btn btn-primary ms-2">Send</button>
+  </div>
+</div>
+
   </div>  <script>
     // Firebase init
-        const firebaseConfig = {
+    const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
       projectId: "squadvertex2007",
@@ -95,81 +145,115 @@ button:active { transform:scale(.95); box-shadow:0 .5rem 1rem rgba(0,0,0,.2); }
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // User ID
-    let userId = localStorage.getItem('sln_userId') || (()=>{
-      const id = 'SilentSoul'+Math.floor(Math.random()*1000);
-      localStorage.setItem('sln_userId', id);
-      return id;
-    })();
+    // Generate or retrieve anon ID
+    let userId = localStorage.getItem('sln_userId');
+    if (!userId) {
+      userId = 'SilentSoul' + Math.floor(Math.random() * 1000 + 1);
+      localStorage.setItem('sln_userId', userId);
+    }
 
-    // i18n
-    const i18n = { en:{ph:'Type what you feel...',send:'Send',chat:'Chat',ritual:'Ritual'}, hi:{ph:'जो महसूस करते हो यहाँ लिखो...',send:'भेजें',chat:'चैट',ritual:'रिचुअल'} };
-    const langSelect = document.getElementById('langSelect');
-    Object.entries(i18n).forEach(([k,v])=>{ let o=new Option(k.toUpperCase(),k); langSelect.add(o); });
-    langSelect.value='en';
-    function applyLang(){ let d=i18n[langSelect.value]; chatInput.placeholder=d.ph; sendBtn.textContent=d.send; modeSelect.options[0].text=d.chat+' (Private)'; modeSelect.options[1].text=d.ritual+' (Public)'; }
-    langSelect.onchange=applyLang; applyLang();
+    // Elements
+    const chatBox = document.getElementById('chatBox');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const modeSelect = document.getElementById('modeSelect');
+    const themeSelect = document.getElementById('themeSelect');
 
-    // Theme
-    const themeSelect=document.getElementById('themeSelect');
-    themeSelect.onchange=()=>document.body.className=themeSelect.value;
+    // Theme switcher
+    function applyTheme() {
+      document.body.classList.remove('dark', 'candle', 'rain', 'blank');
+      document.body.classList.add(themeSelect.value);
+    }
+    themeSelect.onchange = applyTheme;
+    applyTheme();
 
-    // Censor
-    const banned=['fuck','shit','damn','bitch','asshole','dick','piss','bastard','crap'];
-    function censor(t){ return t.replace(new RegExp(`\\b(${banned.join('|')})\\b`,'gi'),w=>'*'.repeat(w.length)); }
+    // Censor abusive words
+    const abusiveWords = ['abuse1', 'abuse2', 'badword']; // extend list as needed
+    function censor(text) {
+      const pattern = new RegExp(`\\b(${abusiveWords.join('|')})\\b`, 'gi');
+      return text.replace(pattern, match => '*'.repeat(match.length));
+    }
 
-    // Mode listener
-    const chatBox=document.getElementById('chatBox');
-    const modeSelect=document.getElementById('modeSelect');
-    modeSelect.onchange=loadMessages;
+    // Welcome logic
+    let welcomedPrivate = false;
+    const welcomedPublic = new Set();
+    function sendWelcomePublic(newUserId) {
+      const w = { uid: 'EXELIS', text: `Welcome @${newUserId}! Feel free to join in.`, mode: 'ritual', ts: firebase.firestore.FieldValue.serverTimestamp() };
+      db.collection('messages').add(w);
+    }
+    function sendWelcomePrivate() {
+      const ref = db.collection('private').doc(userId).collection('messages');
+      ref.add({ uid: 'EXELIS', text: `Hey ${userId}, welcome back! I'm here to chat.`, ts: firebase.firestore.FieldValue.serverTimestamp() });
+      welcomedPrivate = true;
+    }
 
-    // Welcome flags
-    let welcomedPrivate=false, welcomedPublic={};
-
-    function loadMessages(){
-      if(modeSelect.value==='chat'){
-        if(!welcomedPrivate){ addMessage('EXELIS','Welcome! Feel free to share.',false); welcomedPrivate=true; }
-        db.collection('private').doc(userId).collection('messages')
-          .orderBy('ts').onSnapshot(snap=>renderMsgs(snap));
+    // Firestore listeners
+    let unsubscribe;
+    function loadMessages() {
+      if (unsubscribe) unsubscribe();
+      chatBox.innerHTML = '';
+      if (modeSelect.value === 'chat') {
+        if (!welcomedPrivate) sendWelcomePrivate();
+        const ref = db.collection('private').doc(userId).collection('messages').orderBy('ts');
+        unsubscribe = ref.onSnapshot(snap => {
+          chatBox.innerHTML = '';
+          snap.forEach(doc => {
+            const m = doc.data();
+            addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai');
+          });
+        });
       } else {
-        db.collection('messages').where('mode','==','ritual')
-          .orderBy('ts').onSnapshot(snap=>{
-            snap.docChanges().forEach(ch=>{
-              if(ch.type==='added' && !welcomedPublic[ch.doc.id]){
-                addMessage('EXELIS','Welcome to the chat! You're in a safe space.',false);
-                welcomedPublic[ch.doc.id]=true;
+        unsubscribe = db.collection('messages')
+          .where('mode', '==', 'ritual')
+          .orderBy('ts')
+          .onSnapshot(snap => {
+            snap.docChanges().forEach(change => {
+              if (change.type === 'added') {
+                const m = change.doc.data();
+                if (m.uid !== userId && m.uid !== 'EXELIS' && !welcomedPublic.has(m.uid)) {
+                  sendWelcomePublic(m.uid);
+                  welcomedPublic.add(m.uid);
+                }
+                addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai');
               }
             });
-            renderMsgs(snap);
           });
       }
     }
     loadMessages();
+    modeSelect.onchange = loadMessages;
 
-    function renderMsgs(snap){
-      chatBox.innerHTML='';
-      snap.forEach(d=>{ const {uid,text}=d.data(); addMessage(uid,censor(text),uid===userId); });
+    // Send message
+    async function sendMessage() {
+      const txt = chatInput.value.trim();
+      if (!txt) return;
+      const now = firebase.firestore.FieldValue.serverTimestamp();
+      if (modeSelect.value === 'chat') {
+        const ref = db.collection('private').doc(userId).collection('messages');
+        await ref.add({ uid: userId, text: txt, ts: now });
+      } else {
+        await db.collection('messages').add({ uid: userId, text: txt, mode: 'ritual', ts: now });
+      }
+      chatInput.value = '';
     }
+    sendBtn.onclick = sendMessage;
+    chatInput.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }};
 
-    // Send
-    const chatInput=document.getElementById('chatInput');
-    const sendBtn=document.getElementById('sendBtn');
-    sendBtn.onclick=async()=>{
-      let txt=chatInput.value.trim(); if(!txt) return;
-      await (modeSelect.value==='chat'
-        ? db.collection('private').doc(userId).collection('messages')
-        : db.collection('messages'))
-        .add({ uid:userId, text:txt, mode:modeSelect.value, ts:firebase.firestore.FieldValue.serverTimestamp() });
-      chatInput.value='';
-    };
-    chatInput.onkeydown=e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendBtn.click(); }};
-
-    function addMessage(uid, text, isUser){
-      const w=document.createElement('div'); w.className=`msg-wrapper ${isUser?'user':'ai'}`;
-      const img=document.createElement('img'); img.src=`https://ui-avatars.com/api/?name=${uid}&background=ffc107&color=000&size=64`; img.className='avatar';
-      const m=document.createElement('div'); m.className='message'; m.textContent=text;
-      isUser? w.append(m,img): w.append(img,m);
-      chatBox.appendChild(w); chatBox.scrollTop=chatBox.scrollHeight;
+    // Add to UI
+    function addMessage(uid, text, cls) {
+      const w = document.createElement('div');
+      w.className = `msg-wrapper ${cls}`;
+      const img = document.createElement('img');
+      img.className = 'avatar';
+      img.src = `https://ui-avatars.com/api/?name=${uid}&background=ffc107&color=000&size=64`;
+      img.onerror = () => { img.src = ''; };
+      const m = document.createElement('div');
+      m.className = 'message';
+      m.textContent = censor(text);
+      if (cls === 'user') w.append(m, img);
+      else w.append(img, m);
+      chatBox.appendChild(w);
+      chatBox.scrollTop = chatBox.scrollHeight;
     }
   </script></body>
 </html>
