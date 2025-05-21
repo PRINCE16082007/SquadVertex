@@ -33,7 +33,7 @@
       margin: auto;
       padding: var(--gap) 0;
     }
-    h1, h2 { margin-bottom: .5em; }
+    h1, h2 { margin-bottom: 0.5em; }
     .card {
       background: var(--card-bg);
       border-radius: var(--radius);
@@ -50,14 +50,14 @@
       border-radius: var(--radius);
       background: var(--card-bg);
     }
-    .status p { margin-bottom: .5em; }
+    .status p { margin-bottom: 0.5em; }
     .status span { font-weight: bold; color: var(--accent); }
     label { display: block; margin-bottom: 4px; color: var(--muted); }
     input, textarea, button {
       width: 100%; padding: 10px; margin-bottom: var(--gap);
       border: 1px solid #ddd; border-radius: var(--radius);
       font-size: 1rem; color: var(--text); background: #fff;
-      transition: all .2s;
+      transition: all 0.2s;
     }
     input:focus, textarea:focus {
       outline: none;
@@ -75,6 +75,7 @@
     }
     button:active {
       background: #a01d5b;
+      color: #fff;
     }
     .flex { display: flex; gap: var(--gap); }
     .flex > * { flex: 1; }
@@ -99,6 +100,10 @@
     .header-info .title {
       font-size: 1.2rem; color: var(--accent);
     }
+    .id-tag {
+      text-align: center; font-size: .9rem;
+      color: var(--muted); margin-bottom: var(--gap);
+    }
   </style>
 </head>
 <body>
@@ -106,7 +111,7 @@
   <div class="container">
     <h1>📡 Channel Management - SVX-VPP-007</h1>
     <div class="header-info">
-      <img id="channelLogo" src="" alt="Channel Logo">
+      <img id="channelLogo" src="" alt="Channel Logo" />
       <div class="title" id="channelName">Loading channel name...</div>
     </div>
     <div class="status">
@@ -114,49 +119,54 @@
       <p>Channel ID: <span id="displayID">Loading...</span></p>
     </div>
 
+    <!-- Channel Settings -->
     <div class="card">
       <h2>Channel Setup</h2>
       <label for="channelURL">YouTube Channel URL</label>
-      <input type="text" id="channelURL" placeholder="https://www.youtube.com/...">
+      <input type="text" id="channelURL" placeholder="https://www.youtube.com/..." />
       <button id="resolveChannelBtn">🔍 Resolve & Save</button>
 
       <label for="desc">Channel Description</label>
       <textarea id="desc" rows="3" placeholder="Enter your channel description"></textarea>
 
       <label for="instaCount">Instagram Followers</label>
-      <input type="number" id="instaCount" placeholder="e.g. 128">
+      <input type="number" id="instaCount" placeholder="e.g. 128" />
 
       <label for="instaLink">Instagram Profile URL</label>
-      <input type="text" id="instaLink" placeholder="https://instagram.com/...">
+      <input type="text" id="instaLink" placeholder="https://www.instagram.com/..." />
 
       <button id="saveSettingsBtn">💾 Save Settings</button>
     </div>
 
+    <!-- Video Management -->
     <div class="card">
       <h2>Fan Shorts</h2>
       <div class="flex">
-        <input type="text" id="newShortURL" placeholder="YouTube Short URL">
+        <input type="text" id="newShortURL" placeholder="YouTube Short URL" />
         <button id="addShortBtn">Add</button>
       </div>
       <div id="shortsList"></div>
 
       <h2>Fan Replays</h2>
       <div class="flex">
-        <input type="text" id="newVideoURL" placeholder="YouTube Video URL">
+        <input type="text" id="newVideoURL" placeholder="YouTube Video URL" />
         <button id="addVideoBtn">Add</button>
       </div>
       <div id="videoList"></div>
     </div>
+
   </div>
 
+  <!-- Particles.js -->
   <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.9.4/tsparticles.bundle.min.js"></script>
   <script>
     tsParticles.load("tsparticles", {
-      particles: { number: { value:80 }, size:{value:3}, move:{speed:1} },
-      interactivity:{ events:{ onhover:{ enable:true, mode:"grab" } } }
+      particles: { number: { value: 80 }, size: { value: 3 }, move: { speed: 1 } },
+      interactivity: { events: { onhover: { enable: true, mode: "grab" } } }
     });
   </script>
 
+  <!-- Firebase & YouTube API -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
     import {
@@ -176,13 +186,14 @@
     const db = getFirestore(app);
     const col = "003-channel";
 
-    // helpers
+    // ---------------- Extractors ----------------
     function extractChannelID(url) {
-      const m = url.match(/youtube\\.com\\/channel\\/([A-Za-z0-9_-]+)/);
-      return m ? m[1] : null;
+      let m = url.match(/youtube\.com\/channel\/([A-Za-z0-9_-]+)/);
+      if (m) return m[1];
+      return null;
     }
     function extractUsername(url) {
-      const m = url.match(/youtube\\.com\\/(c\\/|@)([A-Za-z0-9_-]+)/);
+      let m = url.match(/youtube\.com\/(c\/|@)([A-Za-z0-9_-]+)/);
       return m ? m[2] : null;
     }
     async function getChannelIDFromUsername(username) {
@@ -196,27 +207,28 @@
     async function fetchChannelDetails(id) {
       const key = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
       const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${id}&key=${key}`
+        `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${id}&key=${key}`
       );
-      const json = await res.json();
-      return json.items?.[0];
+      const data = await res.json();
+      return data.items?.[0]?.snippet || null;
     }
 
-    // render helpers
+    // ---------------- UI Renders ----------------
     function mkItem(text, onDel) {
-      const d = document.createElement("div"); d.className = "list-item";
-      d.textContent = text;
+      const div = document.createElement("div"); div.className = "list-item";
+      div.textContent = text;
       const btn = document.createElement("button"); btn.textContent = "Remove";
-      btn.onclick = onDel;
-      d.appendChild(btn);
-      return d;
+      btn.onclick = onDel; div.appendChild(btn);
+      return div;
     }
-    function renderShort(u) { document.getElementById("shortsList").append(mkItem(u, () => removeFromArray("shorts", u))); }
-    function renderVideo(u) { document.getElementById("videoList").append(mkItem(u, () => removeFromArray("videos", u))); }
+    function renderShort(u) { document.getElementById("shortsList").appendChild(
+      mkItem(u, () => removeFromArray("shorts", u)) ); }
+    function renderVideo(u) { document.getElementById("videoList").appendChild(
+      mkItem(u, () => removeFromArray("videos", u)) ); }
 
-    // Firestore CRUD
+    // ---------------- Firestore CRUD ----------------
     async function loadSettings() {
-      const snap = await getDoc(doc(db, col, "settings"));
+      const snap = await getDoc(doc(db,col,"settings"));
       if (!snap.exists()) return;
       const s = snap.data();
       document.getElementById("displayLink").textContent = s.channelLink || "-";
@@ -225,64 +237,59 @@
       document.getElementById("instaCount").value = s.instaCount || "";
       document.getElementById("instaLink").value = s.instaLink || "";
       if (s.channelId) {
-        const info = await fetchChannelDetails(s.channelId);
-        if (info) {
-          document.getElementById("channelName").textContent = info.snippet.title;
-          document.getElementById("channelLogo").src = info.snippet.thumbnails.default.url;
+        const details = await fetchChannelDetails(s.channelId);
+        if (details) {
+          document.getElementById("channelName").textContent = details.title;
+          document.getElementById("channelLogo").src = details.thumbnails.default.url;
         }
       }
     }
     async function loadList(id, fn) {
-      const snap = await getDoc(doc(db, col, id));
-      (snap.exists() ? snap.data().content : []).forEach(fn);
+      const snap = await getDoc(doc(db,col,id));
+      (snap.exists()?snap.data().content:[]).forEach(fn);
     }
     async function saveSettings() {
+      const link = document.getElementById("channelURL").value.trim();
       const data = {
-        channelLink: document.getElementById("channelURL").value.trim(),
+        channelLink: link,
         desc: document.getElementById("desc").value.trim(),
         instaCount: parseInt(document.getElementById("instaCount").value,10),
         instaLink: document.getElementById("instaLink").value.trim()
       };
-      await setDoc(doc(db, col, "settings"), data, { merge: true });
-      alert("✅ Settings saved");
-      loadSettings();
+      await setDoc(doc(db,col,"settings"),data,{merge:true});
+      alert("✅ Settings saved"); loadSettings();
     }
     async function resolveChannel() {
-      const url = document.getElementById("channelURL").value.trim();
-      if (!url) return alert("Enter YouTube URL");
+      let url = document.getElementById("channelURL").value.trim();
+      if(!url) return alert("Enter YouTube URL");
       let id = extractChannelID(url) || await getChannelIDFromUsername(extractUsername(url));
-      if (!id) return alert("Can't resolve ID");
-      await updateDoc(doc(db, col, "settings"), { channelId: id, channelLink: url });
-      alert(`✅ Saved ID: ${id}`);
-      loadSettings();
+      if(!id) return alert("Can't resolve ID");
+      await updateDoc(doc(db,col,"settings"),{channelId:id, channelLink:url});
+      alert(`✅ Saved ID: ${id}`); loadSettings();
     }
-    async function addToArray(id, val, fn) {
-      if (!val) return;
-      await updateDoc(doc(db, col, id), { content: arrayUnion(val) }).catch(async () => {
-        await setDoc(doc(db, col, id), { content: [val] });
+    async function addToArray(id,val,fn) {
+      if(!val) return;
+      await updateDoc(doc(db,col,id),{content: arrayUnion(val)}).catch(async()=>{
+        await setDoc(doc(db,col,id),{content:[val]});
       });
       fn(val);
     }
-    async function removeFromArray(id, val) {
-      await updateDoc(doc(db, col, id), { content: arrayRemove(val) });
+    async function removeFromArray(id,val) {
+      await updateDoc(doc(db,col,id),{content: arrayRemove(val)});
       location.reload();
     }
 
-    // hooks
+    // ---------------- Hooks & Init ----------------
     document.getElementById("saveSettingsBtn").onclick = saveSettings;
     document.getElementById("resolveChannelBtn").onclick = resolveChannel;
     document.getElementById("addShortBtn").onclick = () => {
-      const v = document.getElementById("newShortURL").value.trim();
-      addToArray("shorts", v, renderShort);
+      const v = document.getElementById("newShortURL").value.trim(); addToArray("shorts",v,renderShort);
     };
     document.getElementById("addVideoBtn").onclick = () => {
-      const v = document.getElementById("newVideoURL").value.trim();
-      addToArray("videos", v, renderVideo);
+      const v = document.getElementById("newVideoURL").value.trim(); addToArray("videos",v,renderVideo);
     };
-    window.addEventListener("DOMContentLoaded", async () => {
-      await loadSettings();
-      await loadList("shorts", renderShort);
-      await loadList("videos", renderVideo);
+    window.addEventListener("DOMContentLoaded",async()=>{
+      await loadSettings(); await loadList("shorts",renderShort); await loadList("videos",renderVideo);
     });
   </script>
 </body>
