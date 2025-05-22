@@ -56,8 +56,8 @@
   </div>
   <canvas id="watermarkCanvas" width="1920" height="1080"></canvas>
 
-  <!-- Whammy.js (pure-JS WebM encoder) -->
-  <script src="https://unpkg.com/whammy@0.0.2/whammy.js"></script>
+  <!-- Whammy.js from cdnjs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/whammy/0.0.2/whammy.min.js"></script>
 
   <script>
     // DOM refs
@@ -73,7 +73,7 @@
     const resSel   = document.getElementById('resSelect');
     const startB   = document.getElementById('startBtn');
 
-    // Custom font loader
+    // Load custom font
     fontFile.addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -108,11 +108,11 @@
       canvas.width = w;
       canvas.height = h;
 
-      // Create Whammy encoder
+      // Create Whammy encoder (60fps)
       const fps = 60;
       const encoder = new Whammy.Video(fps);
 
-      // Run animation & capture
+      // Kick off animation + capture
       runAnimation(encoder, performance.now());
     });
 
@@ -124,7 +124,7 @@
       let phase       = 'reveal';
       let t0          = startTS;
 
-      // Pre-calc
+      // Pre-calc text metrics
       ctx.font = `bold ${canvas.height/5}px "${fontSel.value}"`;
       const textW  = ctx.measureText(text).width;
       const margin = 5;
@@ -135,11 +135,11 @@
 
       function frame(now) {
         const dt = now - t0;
-        // background
+        // Clear BG
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // text style
+        // Text setup
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
         ctx.font         = `bold ${canvas.height/5}px "${fontSel.value}"`;
@@ -151,58 +151,56 @@
         if (phase === 'reveal') {
           pct   = Math.min(dt / revealDur, 1);
           lineX = startX + ease(pct, easing) * fullW;
-          // reveal clip
+          // Clip & draw
           ctx.save();
-          ctx.beginPath();
-          ctx.rect(startX, 0, lineX - startX, canvas.height);
-          ctx.clip();
-          ctx.fillText(text, canvas.width/2, midY);
+            ctx.beginPath();
+            ctx.rect(startX, 0, lineX - startX, canvas.height);
+            ctx.clip();
+            ctx.fillText(text, canvas.width/2, midY);
           ctx.restore();
-          // scan‐line
+          // Scan line
           ctx.beginPath();
-          ctx.moveTo(lineX, midY - canvas.height/5);
-          ctx.lineTo(lineX, midY + canvas.height/5);
+            ctx.moveTo(lineX, midY - canvas.height/5);
+            ctx.lineTo(lineX, midY + canvas.height/5);
           ctx.stroke();
           if (pct === 1) {
             phase = 'hide';
             t0    = now;
           }
         } else {
-          // full text
+          // Full text
           ctx.fillText(text, canvas.width/2, midY);
           pct   = Math.min(dt / hideDur, 1);
           lineX = endX - ease(pct, easing) * fullW;
-          // hide clip
+          // Clip hide
           ctx.save();
-          ctx.beginPath();
-          ctx.rect(lineX, 0, endX - lineX, canvas.height);
-          ctx.clip();
-          ctx.fillStyle = '#000';
-          ctx.fillRect(startX, 0, fullW, canvas.height);
+            ctx.beginPath();
+            ctx.rect(lineX, 0, endX - lineX, canvas.height);
+            ctx.clip();
+            ctx.fillStyle = '#000';
+            ctx.fillRect(startX, 0, fullW, canvas.height);
           ctx.restore();
-          // scan‐line
+          // Scan line
           ctx.beginPath();
-          ctx.moveTo(lineX, midY - canvas.height/5);
-          ctx.lineTo(lineX, midY + canvas.height/5);
+            ctx.moveTo(lineX, midY - canvas.height/5);
+            ctx.lineTo(lineX, midY + canvas.height/5);
           ctx.stroke();
           if (pct === 1) {
-            // done → compile & download
-            const output = encoder.compile();             // WebM Blob
-            const url    = URL.createObjectURL(output);
-            const a      = document.createElement('a');
-            a.href = url; a.download = 'ghostmark_overlay.webm';
+            // Compile & download
+            const blob = encoder.compile();
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url;
+            a.download = 'ghostmark_overlay.webm';
             a.click();
             return;
           }
         }
 
-        // capture this frame
+        // Capture this frame
         encoder.add(canvas);
-
-        // next
         requestAnimationFrame(frame);
       }
-
       requestAnimationFrame(frame);
     }
   </script>
