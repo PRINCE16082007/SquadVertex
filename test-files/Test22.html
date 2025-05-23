@@ -1,208 +1,276 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GhostMark Overlay Generator</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GhostMark Trilogy Reveal</title>
   <style>
-    body, html { margin:0; padding:0; background:#111; color:#fff; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; padding:20px; }
-    #controls { display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:10px; width:100%; max-width:800px; margin-bottom:20px; }
+    body, html { margin:0; padding:0; background:#111; color:#fff; font-family:sans-serif; 
+                display:flex; flex-direction:column; align-items:center; padding:20px; }
+    #controls { display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); 
+                gap:10px; width:100%; max-width:800px; margin-bottom:20px; }
     label { display:flex; flex-direction:column; font-size:14px; }
-    input, select, button { margin-top:4px; padding:8px; border:1px solid #444; border-radius:4px; background:#222; color:#fff; font-size:16px; }
+    input, select, button { margin-top:4px; padding:8px; border:1px solid #444; 
+                           border-radius:4px; background:#222; color:#fff; font-size:16px; }
     button { background:#2a2; cursor:pointer; margin-top:18px; border:none; }
     canvas { background:#000; border:1px solid #444; max-width:100%; }
   </style>
 </head>
 <body>
-  <h1>GhostMark Overlay Generator</h1>
+  <h1>GhostMark Trilogy Reveal</h1>
   <div id="controls">
-    <label>Watermark Text
-      <input id="watermarkText" type="text" value="GhostMark">
-    </label>
-    <label>Font Family
-      <select id="fontSelect">
-        <option>Arial</option><option>Roboto</option><option>Open Sans</option><option>Lora</option><option>Monospace</option><option>Serif</option>
-      </select>
-    </label>
-    <label>Import Custom Font
-      <input id="fontFile" type="file" accept=".ttf,.woff,.otf">
-    </label>
-    <label>Text Color
-      <input id="colorPicker" type="color" value="#ffffff">
-    </label>
-    <label>Reveal Duration (ms)
-      <input id="revealDur" type="number" value="2000" min="100" step="100">
-    </label>
-    <label>Hide Duration (ms)
-      <input id="hideDur" type="number" value="2000" min="100" step="100">
-    </label>
-    <label>Easing
-      <select id="easingSelect">
-        <option value="linear">Linear</option>
-        <option value="easeInQuad">Ease In</option>
-        <option value="easeOutQuad">Ease Out</option>
-        <option value="easeInOutQuad" selected>Ease In-Out</option>
-      </select>
-    </label>
-    <label>Resolution
-      <select id="resSelect">
-        <option value="640x360">360p</option>
-        <option value="1280x720">720p</option>
-        <option value="1920x1080" selected>1080p</option>
-        <option value="3840x2160">4K</option>
-      </select>
-    </label>
-    <button id="startBtn">Generate & Download Video</button>
+    <label>Watermark Text<input id="watermarkText" type="text" value="GhostMark"></label>
+    <label>Font Family<select id="fontSelect">
+      <option>Arial</option><option>Roboto</option><option>Open Sans</option>
+      <option>Lora</option><option>Monospace</option><option>Serif</option>
+    </select></label>
+    <label>Import Custom Font<input id="fontFile" type="file" accept=".ttf,.woff,.otf"></label>
+    <label>Text Color<input id="colorPicker" type="color" value="#ffffff"></label>
+    
+    <label>Subtitle Text<input id="subtitleText" type="text" value="Your Subtitle Here"></label>
+    <label>Subtitle Font<select id="subtitleFontSelect">
+      <option>Arial</option><option>Roboto</option><option>Open Sans</option>
+      <option>Lora</option><option>Monospace</option><option>Serif</option>
+    </select></label>
+    <label>Subtitle Color<input id="subtitleColorPicker" type="color" value="#ffffff"></label>
+    
+    <label>Reveal Duration (ms)<input id="revealDur" type="number" value="2000" min="100" step="100"></label>
+    <label>Hide Duration (ms)<input id="hideDur" type="number" value="2000" min="100" step="100"></label>
+    <label>Resolution<select id="resSelect">
+      <option value="640x360">360p</option>
+      <option value="1280x720">720p</option>
+      <option value="1920x1080" selected>1080p</option>
+      <option value="3840x2160">4K</option>
+    </select></label>
+    
+    <button id="startBtn">Start Animation</button>
+    <button id="downloadBtn" style="background:#22a">Download Video</button>
   </div>
   <canvas id="watermarkCanvas" width="1920" height="1080"></canvas>
 
-  <!-- Whammy.js from cdnjs -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/whammy/0.0.2/whammy.min.js"></script>
-
   <script>
-    // DOM refs
-    const canvas   = document.getElementById('watermarkCanvas');
-    const ctx      = canvas.getContext('2d');
-    const txtIn    = document.getElementById('watermarkText');
-    const fontSel  = document.getElementById('fontSelect');
-    const fontFile = document.getElementById('fontFile');
-    const colorIn  = document.getElementById('colorPicker');
-    const revIn    = document.getElementById('revealDur');
-    const hideIn   = document.getElementById('hideDur');
-    const easeSel  = document.getElementById('easingSelect');
-    const resSel   = document.getElementById('resSelect');
-    const startB   = document.getElementById('startBtn');
+    const canvas = document.getElementById('watermarkCanvas');
+    const ctx = canvas.getContext('2d');
+    const controls = {
+      textInput: document.getElementById('watermarkText'),
+      fontSelect: document.getElementById('fontSelect'),
+      fontFile: document.getElementById('fontFile'),
+      colorPicker: document.getElementById('colorPicker'),
+      subtitleText: document.getElementById('subtitleText'),
+      subtitleFontSelect: document.getElementById('subtitleFontSelect'),
+      subtitleColorPicker: document.getElementById('subtitleColorPicker'),
+      revealDur: document.getElementById('revealDur'),
+      hideDur: document.getElementById('hideDur'),
+      resSelect: document.getElementById('resSelect'),
+      startBtn: document.getElementById('startBtn'),
+      downloadBtn: document.getElementById('downloadBtn')
+    };
 
-    // Load custom font
-    fontFile.addEventListener('change', e => {
+    let animationState = {
+      phase: 0,
+      startTime: 0,
+      text: controls.textInput.value,
+      currentFont: controls.fontSelect.value,
+      color: controls.colorPicker.value,
+      subtitleText: controls.subtitleText.value,
+      subtitleFont: controls.subtitleFontSelect.value,
+      subtitleColor: controls.subtitleColorPicker.value,
+      durations: [2000, 2000, 2000],
+      resolution: controls.resSelect.value,
+      recorder: null,
+      stream: null
+    };
+
+    // Font Loading
+    controls.fontFile.addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
       const name = file.name.split('.').shift();
       const reader = new FileReader();
       reader.onload = evt => {
-        new FontFace(name, evt.target.result).load().then(f => {
-          document.fonts.add(f);
-          fontSel.add(new Option(name, name));
-          fontSel.value = name;
-        });
+        (new FontFace(name, evt.target.result))
+          .load()
+          .then(f => {
+            document.fonts.add(f);
+            controls.fontSelect.add(new Option(name, name));
+            controls.fontSelect.value = name;
+            animationState.currentFont = name;
+          });
       };
       reader.readAsArrayBuffer(file);
     });
 
-    function parseRes(val) {
-      const [w,h] = val.split('x').map(n=>+n);
-      return {w,h};
-    }
-    function ease(t,type) {
-      switch(type) {
-        case 'easeInQuad':    return t*t;
-        case 'easeOutQuad':   return t*(2-t);
-        case 'easeInOutQuad': return t<0.5 ? 2*t*t : -1+(4-2*t)*t;
-        default:              return t;
-      }
-    }
-
-    startB.addEventListener('click', () => {
-      // Resize canvas
-      const {w,h} = parseRes(resSel.value);
+    function updateResolution() {
+      const [w,h] = animationState.resolution.split('x').map(Number);
       canvas.width = w;
       canvas.height = h;
+    }
 
-      // Create Whammy encoder (60fps)
-      const fps = 60;
-      const encoder = new Whammy.Video(fps);
+    // Event Listeners
+    controls.textInput.addEventListener('input', () => animationState.text = controls.textInput.value);
+    controls.subtitleText.addEventListener('input', () => animationState.subtitleText = controls.subtitleText.value);
+    controls.subtitleFontSelect.addEventListener('change', () => animationState.subtitleFont = controls.subtitleFontSelect.value);
+    controls.subtitleColorPicker.addEventListener('input', () => animationState.subtitleColor = controls.subtitleColorPicker.value);
 
-      // Kick off animation + capture
-      runAnimation(encoder, performance.now());
+    controls.startBtn.addEventListener('click', () => {
+      if (!animationState.text) return;
+      animationState.phase = 1;
+      animationState.startTime = performance.now();
+      updateResolution();
+      requestAnimationFrame(draw);
     });
 
-    function runAnimation(encoder, startTS) {
-      const revealDur = +revIn.value;
-      const hideDur   = +hideIn.value;
-      const easing    = easeSel.value;
-      const text      = txtIn.value;
-      let phase       = 'reveal';
-      let t0          = startTS;
+    controls.downloadBtn.addEventListener('click', () => {
+      if (!animationState.text) return;
 
-      // Pre-calc text metrics
-      ctx.font = `bold ${canvas.height/5}px "${fontSel.value}"`;
-      const textW  = ctx.measureText(text).width;
-      const margin = 5;
-      const fullW  = textW + margin*2;
-      const midY   = canvas.height/2;
-      const startX = canvas.width/2 - textW/2 - margin;
-      const endX   = startX + fullW;
+      animationState.stream = canvas.captureStream(60);
+      animationState.recorder = new MediaRecorder(animationState.stream, { mimeType: 'video/webm' });
+      const chunks = [];
+      
+      animationState.recorder.ondataavailable = e => chunks.push(e.data);
+      animationState.recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ghostmark_animation.webm';
+        a.click();
+        URL.revokeObjectURL(url);
+        animationState.stream.getTracks().forEach(track => track.stop());
+      };
 
-      function frame(now) {
-        const dt = now - t0;
-        // Clear BG
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      animationState.recorder.start();
+      animationState.phase = 1;
+      animationState.startTime = performance.now();
+      updateResolution();
+      requestAnimationFrame(draw);
+    });
 
-        // Text setup
-        ctx.textAlign    = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font         = `bold ${canvas.height/5}px "${fontSel.value}"`;
-        ctx.fillStyle    = colorIn.value;
-        ctx.strokeStyle  = colorIn.value;
-        ctx.lineWidth    = 2;
+    function draw(timestamp) {
+      const W = canvas.width, H = canvas.height;
+      const midX = W/2, midY = H/2;
+      const mainSize = 100, subSize = mainSize/3;
+      const gap = 5;
+      const subtitleY = midY - mainSize/2 - subSize;
+      
+      // New Line Settings
+      const lineWidth = 6;
+      const lineHeight = mainSize + subSize + 10;
+      const lineStartY = subtitleY - 5;
+      const lineEndY = lineStartY + lineHeight;
 
-        let pct, lineX;
-        if (phase === 'reveal') {
-          pct   = Math.min(dt / revealDur, 1);
-          lineX = startX + ease(pct, easing) * fullW;
-          // Clip & draw
-          ctx.save();
-            ctx.beginPath();
-            ctx.rect(startX, 0, lineX - startX, canvas.height);
-            ctx.clip();
-            ctx.fillText(text, canvas.width/2, midY);
-          ctx.restore();
-          // Scan line
-          ctx.beginPath();
-            ctx.moveTo(lineX, midY - canvas.height/5);
-            ctx.lineTo(lineX, midY + canvas.height/5);
-          ctx.stroke();
-          if (pct === 1) {
-            phase = 'hide';
-            t0    = now;
-          }
-        } else {
-          // Full text
-          ctx.fillText(text, canvas.width/2, midY);
-          pct   = Math.min(dt / hideDur, 1);
-          lineX = endX - ease(pct, easing) * fullW;
-          // Clip hide
-          ctx.save();
-            ctx.beginPath();
-            ctx.rect(lineX, 0, endX - lineX, canvas.height);
-            ctx.clip();
-            ctx.fillStyle = '#000';
-            ctx.fillRect(startX, 0, fullW, canvas.height);
-          ctx.restore();
-          // Scan line
-          ctx.beginPath();
-            ctx.moveTo(lineX, midY - canvas.height/5);
-            ctx.lineTo(lineX, midY + canvas.height/5);
-          ctx.stroke();
-          if (pct === 1) {
-            // Compile & download
-            const blob = encoder.compile();
-            const url  = URL.createObjectURL(blob);
-            const a    = document.createElement('a');
-            a.href = url;
-            a.download = 'ghostmark_overlay.webm';
-            a.click();
-            return;
-          }
+      ctx.clearRect(0, 0, W, H);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `bold ${mainSize}px "${animationState.currentFont}"`;
+      ctx.fillStyle = animationState.color;
+      ctx.strokeStyle = animationState.color;
+
+      const txtW = ctx.measureText(animationState.text).width;
+      const totalWidth = txtW + gap*2;
+      const startX = midX - totalWidth/2;
+      const endX = midX + totalWidth/2;
+
+      if (animationState.phase === 1) {
+        const t = Math.min((timestamp - animationState.startTime) / animationState.durations[0], 1);
+        const clipX = startX + t * (endX - startX);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(startX, midY - mainSize/2, clipX - startX, mainSize);
+        ctx.clip();
+        ctx.fillText(animationState.text, midX, midY);
+        ctx.restore();
+
+        // Draw Line
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+        ctx.moveTo(clipX - gap, lineStartY);
+        ctx.lineTo(clipX - gap, lineEndY);
+        ctx.stroke();
+
+        if (t === 1) {
+          animationState.phase = 2;
+          animationState.startTime = timestamp;
         }
-
-        // Capture this frame
-        encoder.add(canvas);
-        requestAnimationFrame(frame);
       }
-      requestAnimationFrame(frame);
+      else if (animationState.phase === 2) {
+        const t = Math.min((timestamp - animationState.startTime) / animationState.durations[1], 1);
+        const clipX = endX - t * (endX - startX);
+
+        ctx.fillStyle = animationState.color;
+        ctx.fillText(animationState.text, midX, midY);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(clipX, midY - mainSize/2, endX - clipX, mainSize);
+        ctx.clip();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(clipX, midY - mainSize/2, endX - clipX, mainSize);
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(clipX, subtitleY, endX - clipX, mainSize + subSize*2);
+        ctx.clip();
+        ctx.lineWidth = 4;
+        ctx.strokeText(animationState.text, midX, midY);
+        ctx.fillStyle = '#000';
+        ctx.fillText(animationState.text, midX, midY);
+        ctx.font = `bold ${subSize}px "${animationState.subtitleFont}"`;
+        ctx.fillStyle = animationState.subtitleColor;
+        ctx.fillText(animationState.subtitleText, midX, subtitleY + subSize/2);
+        ctx.restore();
+
+        // Draw Line
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+        ctx.moveTo(clipX - gap, lineStartY);
+        ctx.lineTo(clipX - gap, lineEndY);
+        ctx.stroke();
+
+        if (t === 1) {
+          animationState.phase = 3;
+          animationState.startTime = timestamp;
+        }
+      }
+      else if (animationState.phase === 3) {
+        const t = Math.min((timestamp - animationState.startTime) / animationState.durations[2], 1);
+        const clipX = startX + t * (endX - startX);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(clipX, subtitleY, endX - clipX, mainSize + subSize*2);
+        ctx.clip();
+        ctx.lineWidth = 4;
+        ctx.strokeText(animationState.text, midX, midY);
+        ctx.fillStyle = '#000';
+        ctx.fillText(animationState.text, midX, midY);
+        ctx.font = `bold ${subSize}px "${animationState.subtitleFont}"`;
+        ctx.fillStyle = animationState.subtitleColor;
+        ctx.fillText(animationState.subtitleText, midX, subtitleY + subSize/2);
+        ctx.restore();
+
+        // Draw Line
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+        ctx.moveTo(clipX - gap, lineStartY);
+        ctx.lineTo(clipX - gap, lineEndY);
+        ctx.stroke();
+
+        if (t === 1) animationState.phase = 0;
+      }
+
+      if (animationState.phase !== 0) {
+        requestAnimationFrame(draw);
+      } else if (animationState.recorder) {
+        animationState.recorder.stop();
+        animationState.recorder = null;
+        animationState.stream = null;
+      }
     }
+
+    updateResolution();
   </script>
 </body>
 </html>
