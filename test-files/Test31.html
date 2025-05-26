@@ -1,50 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Upload & Display Image</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload & Display Images</title>
   <style>
-    body { background:#111; color:#fff; font-family:sans-serif;
-           display:flex; flex-direction:column; align-items:center; padding:20px; }
-    input, button { margin:10px; padding:10px; }
-    img { max-width:80%; margin-top:20px; border:2px solid #444; }
+    body { 
+      background: #111; color: #fff; font-family: sans-serif;
+      display: flex; flex-direction: column; align-items: center; padding: 20px; 
+    }
+    input, button, select { margin: 10px; padding: 10px; }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill,150px);
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .gallery img {
+      width: 150px; height: 150px; object-fit: cover;
+      border: 2px solid #444;
+    }
   </style>
 </head>
 <body>
-  <h1>Upload & Display Image</h1>
+  <h1>Upload &amp; Display Images</h1>
+
+  <label>
+    Choose slot (1–10):
+    <select id="slotSelect">
+      ${Array.from({length:10},(_,i)=>`<option value="${i+1}">Slot ${i+1}</option>`).join('')}
+    </select>
+  </label>
+
   <input id="fileInput" type="file" accept="image/*" />
-  <button id="uploadBtn">Upload & Show</button>
-  <img id="preview" hidden />
+  <button id="uploadBtn">Upload &amp; Show</button>
+
+  <div class="gallery" id="gallery"></div>
 
   <script>
+    // Your Supabase public URL root (no trailing slash)
+    const SUPABASE_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
+    // Your Edge Function endpoint (still used only for upload)
     const FUNCTION_URL = 'https://dvjihjkyenzkacviywgk.functions.supabase.co/upload-image';
-    const input = document.getElementById('fileInput');
-    const btn   = document.getElementById('uploadBtn');
-    const img   = document.getElementById('preview');
+
+    const input   = document.getElementById('fileInput');
+    const btn     = document.getElementById('uploadBtn');
+    const slotSel = document.getElementById('slotSelect');
+    const gallery = document.getElementById('gallery');
+
+    // track last 10 slots shown
+    const urls = [];
 
     btn.addEventListener('click', () => {
       const file = input.files[0];
       if (!file) return alert('Pick an image first');
+      if (file.size > 3 * 1024 * 1024) {
+        return alert('Max 3 MB per image—please choose a smaller file.');
+      }
       const reader = new FileReader();
       reader.onload = async () => {
         const base64 = reader.result.split(',')[1];
-        const fileName = `user-${Date.now()}.png`;
+        const slot = slotSel.value;
+        const fileName = `slot${slot}.png`;
+
         try {
+          // upload via your existing function
           const res = await fetch(FUNCTION_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fileName, base64 })
           });
-          const { url, error } = await res.json();
-          if (error) throw new Error(error);
-          img.src = url;
-          img.hidden = false;
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+
+          // build public URL (no expiry)
+          const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${fileName}?v=${Date.now()}`;
+
+          // update gallery
+          urls.unshift(publicUrl);
+          if (urls.length > 10) urls.pop();
+          renderGallery();
         } catch (e) {
           alert('Upload failed: ' + e.message);
         }
       };
       reader.readAsDataURL(file);
     });
+
+    function renderGallery() {
+      gallery.innerHTML = urls
+        .map(u => `<img src="${u}" alt="Uploaded Image"/>`)
+        .join('');
+    }
   </script>
 </body>
 </html>
