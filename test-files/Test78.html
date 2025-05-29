@@ -7,6 +7,7 @@
     body { font-family: sans-serif; max-width: 900px; margin: auto; padding: 1rem; }
     #login, #controls { margin-bottom: 2rem; }
     button { margin: .25rem; padding: .5rem 1rem; }
+    input { margin: .5rem 0; padding: .5rem; width: 100%; box-sizing: border-box; }
     .video-card { display: flex; align-items: center; border: 1px solid #ddd; padding: .5rem; margin: .5rem 0; }
     .video-card img { width: 120px; height: 68px; object-fit: cover; margin-right: 1rem; }
     .video-meta { flex: 1; }
@@ -16,7 +17,6 @@
 
   <!-- Wistia Player script -->
   <script src="https://fast.wistia.com/assets/external/E-v1.js" async></script>
-
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
@@ -33,11 +33,18 @@
 
   <!-- 2) Controls & Video List -->
   <div id="controls" style="display:none;">
+
+    <!-- Add new Wistia ID -->
+    <h2>Add Video</h2>
+    <input id="addVideoId" placeholder="Enter new Wistia Video ID">
+    <button id="btnAddVideo">➕ Add to Event</button>
+
     <p>
       <strong>Total videos:</strong>
       <span id="totalCount">0</span>
       <button id="btnClearActive">🛑 Clear Active</button>
     </p>
+
     <div id="videoList"></div>
     <div id="previewContainer"></div>
   </div>
@@ -56,21 +63,26 @@
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db   = firebase.firestore();
+  const FieldValue = firebase.firestore.FieldValue;
 
-  const EVENT_ID    = 'SpringLaunch2025';
-  const eventRef    = db.collection('events').doc(EVENT_ID);
-  const authRef     = db.collection('authUsers').doc(); // for checking existence
-  let videoList     = [];
-  let currentVideo  = null;
+  const EVENT_ID   = 'SpringLaunch2025';
+  const eventRef   = db.collection('events').doc(EVENT_ID);
+  const authUsers  = db.collection('authUsers');
 
-  // ── 2) Google Sign-In & Auth-Check ───────────────────────────────────────────
+  let videoList   = [];
+  let currentVideo= null;
+
+  // ── 2) Google Sign-In & Admin Check ─────────────────────────────────────────
   document.getElementById('btnGoogle').onclick = async () => {
     try {
       const provider = new firebase.auth.GoogleAuthProvider();
       const { user } = await auth.signInWithPopup(provider);
-      const doc = await db.collection('authUsers').doc(email.email).get();
-      if (!doc.exists) throw new Error('Not an admin.');
-      // show controls
+
+      // Check authUsers/{email} exists
+      const adminDoc = await authUsers.doc(user.email).get();
+      if (!adminDoc.exists) throw new Error('You are not authorized.');
+
+      // Show controls
       document.getElementById('login').style.display    = 'none';
       document.getElementById('controls').style.display = 'block';
       initAdmin();
@@ -79,32 +91,51 @@
     }
   };
 
-  // ── 3) Init: Listen for videoList & activeVideo ──────────────────────────────
+  // ── 3) Initialize Admin Listeners ───────────────────────────────────────────
   function initAdmin() {
-    // Listen for videoList array
+    // Listen for videoList array changes
     eventRef.onSnapshot(snap => {
       videoList = snap.data()?.videoList || [];
       renderList();
     });
     // Listen for activeVideo
     eventRef.collection('settings').doc('activeVideo')
-      .onSnapshot(snap => currentVideo = snap.data()?.videoId || null);
-    // Clear active button
+      .onSnapshot(snap => {
+        currentVideo = snap.data()?.videoId || null;
+        renderList(); // update active indicators
+      });
+
+    // Clear active video
     document.getElementById('btnClearActive').onclick = () =>
       eventRef.collection('settings').doc('activeVideo')
-              .set({ videoId: '', setAt: Date.now() });
+        .set({ videoId: '', setAt: Date.now() });
+
+    // Add new video
+    document.getElementById('btnAddVideo').onclick = async () => {
+      const vid = document.getElementById('addVideoId').value.trim();
+      if (!vid) return alert('Enter a Video ID');
+      await eventRef.update({
+        videoList: FieldValue.arrayUnion(vid)
+      });
+      document.getElementById('addVideoId').value = '';
+    };
   }
 
-  // ── 4) Render the video roster ───────────────────────────────────────────────
+  // ── 4) Render Video Roster ──────────────────────────────────────────────────
   async function renderList() {
     const container = document.getElementById('videoList');
     container.innerHTML = '';
     document.getElementById('totalCount').innerText = videoList.length;
-    videoList.forEach(async vid => {
-      // Fetch metadata via oEmbed
-      const res = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
-      const meta = await res.json(); // includes title, thumbnail_url
-      // Fetch analytics counts
+
+    for (const vid of videoList) {
+      // Fetch oEmbed metadata
+      let meta = { title: vid, thumbnail_url: '' };
+      try {
+        const r = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
+        meta = await r.json();
+      } catch {}
+
+      // Fetch votes & comment count
       const [voteSnap, commentsSnap] = await Promise.all([
         eventRef.collection('votes').doc(vid).get(),
         eventRef.collection('comments').where('videoId','==',vid).get()
@@ -112,7 +143,7 @@
       const votes = voteSnap.exists? voteSnap.data() : { likes:0, dislikes:0 };
       const commentsCount = commentsSnap.size;
 
-      // Build card
+      // Video card
       const card = document.createElement('div');
       card.className = 'video-card';
       card.innerHTML = `
@@ -123,34 +154,38 @@
           <p>👍 ${votes.likes}   👎 ${votes.dislikes}   💬 ${commentsCount}</p>
         </div>
       `;
+
       // Actions
       const actions = document.createElement('div');
       actions.className = 'video-actions';
+      // Set active
       const btnSet = document.createElement('button');
-      btnSet.innerText = vid===currentVideo? '✅ Active' : '▶️ Set Active';
+      btnSet.innerText = (vid === currentVideo) ? '✅ Active' : '▶️ Set Active';
       btnSet.onclick = () => {
         eventRef.collection('settings').doc('activeVideo')
           .set({ videoId: vid, setAt: Date.now() });
       };
+      // Preview
       const btnPlay = document.createElement('button');
       btnPlay.innerText = '🔍 Preview';
       btnPlay.onclick = () => previewVideo(vid);
+      // Remove
       const btnRemove = document.createElement('button');
       btnRemove.innerText = '🗑️ Remove';
       btnRemove.onclick = async () => {
-        const arr = videoList.filter(x=>x!==vid);
-        await eventRef.update({ videoList: arr });
+        const newList = videoList.filter(x => x !== vid);
+        await eventRef.update({ videoList: newList });
       };
+
       actions.append(btnSet, btnPlay, btnRemove);
       card.append(actions);
       container.append(card);
-    });
+    }
   }
 
-  // ── 5) Preview embed ─────────────────────────────────────────────────────────
+  // ── 5) Preview Embed ─────────────────────────────────────────────────────────
   function previewVideo(vid) {
-    const pc = document.getElementById('previewContainer');
-    pc.innerHTML = `
+    document.getElementById('previewContainer').innerHTML = `
       <h2>Preview: ${vid}</h2>
       <div class="wistia_embed wistia_async_${vid}" style="width:640px;height:360px;"></div>
     `;
