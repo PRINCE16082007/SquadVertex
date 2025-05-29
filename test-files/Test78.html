@@ -13,9 +13,12 @@
     .video-meta { flex: 1; }
     .video-actions button { margin-right: .5rem; }
     #previewContainer { margin-top: 1rem; }
+    #userLogoContainer { width:50px; height:50px; border-radius:25px; background:#ccc; cursor:pointer; }
+    #userLogoContainer.default-logo { background-image: url('default-logo.png'); background-size:cover; }
+    #userLogoContainer.disabled { pointer-events:none; opacity:.6; }
   </style>
 
-  <!-- Wistia Player script -->
+  <!-- Wistia Player -->
   <script src="https://fast.wistia.com/assets/external/E-v1.js" async></script>
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -25,6 +28,9 @@
 <body>
 
   <h1>🎮 SquadVertex Admin Panel</h1>
+
+  <!-- User Logo / Sign-Up Redirect -->
+  <div id="userLogoContainer" class="default-logo"></div>
 
   <!-- 1) Google Sign-In -->
   <div id="login">
@@ -50,6 +56,26 @@
   </div>
 
   <script>
+  // ── 0) Your onAuthStateChanged snippet ──────────────────────────────────────
+  const auth = firebase.auth();
+  onAuthStateChanged(auth, user => {
+    const logo = document.getElementById("userLogoContainer");
+    if (user) {
+      logo.style.backgroundImage = `url(${user.photoURL})`;
+      logo.classList.remove("default-logo");
+      logo.classList.add("disabled");
+    } else {
+      logo.classList.add("default-logo");
+      logo.classList.remove("disabled");
+    }
+  });
+  document.getElementById("userLogoContainer").addEventListener("click", () => {
+    const logo = document.getElementById("userLogoContainer");
+    if (!logo.classList.contains("disabled")) {
+      window.location.href = "Sign-Up.html";
+    }
+  });
+
   // ── 1) Init Firebase ─────────────────────────────────────────────────────────
     // Firebase initialization
   const firebaseConfig = {
@@ -61,16 +87,15 @@
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
   };
   firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
   const db   = firebase.firestore();
   const FieldValue = firebase.firestore.FieldValue;
 
-  const EVENT_ID   = 'SpringLaunch2025';
-  const eventRef   = db.collection('events').doc(EVENT_ID);
-  const authUsers  = db.collection('authUsers');
+  const EVENT_ID = 'SpringLaunch2025';
+  const eventRef = db.collection('events').doc(EVENT_ID);
+  const authUsersRef = db.collection('authUsers').doc('email');
 
-  let videoList   = [];
-  let currentVideo= null;
+  let videoList    = [];
+  let currentVideo = null;
 
   // ── 2) Google Sign-In & Admin Check ─────────────────────────────────────────
   document.getElementById('btnGoogle').onclick = async () => {
@@ -78,72 +103,75 @@
       const provider = new firebase.auth.GoogleAuthProvider();
       const { user } = await auth.signInWithPopup(provider);
 
-      // Check authUsers/{email} exists
-      const adminDoc = await authUsers.doc(user.email).get();
-      if (!adminDoc.exists) throw new Error('You are not authorized.');
+      // Fetch your single 'email' doc
+      const authDoc = await authUsersRef.get();
+      if (!authDoc.exists) throw new Error('No authUsers/email doc!');
+      const allowed = authDoc.data().email
+                        .split(',')
+                        .map(e=>e.trim().toLowerCase());
+      if (!allowed.includes(user.email.toLowerCase())) {
+        throw new Error('Not authorized');
+      }
 
-      // Show controls
+      // Authenticated & authorized!
       document.getElementById('login').style.display    = 'none';
       document.getElementById('controls').style.display = 'block';
       initAdmin();
     } catch (e) {
       alert('Auth failed: ' + e.message);
+      await auth.signOut();
     }
   };
 
-  // ── 3) Initialize Admin Listeners ───────────────────────────────────────────
+  // ── 3) Init: Listeners ───────────────────────────────────────────────────────
   function initAdmin() {
-    // Listen for videoList array changes
+    // videoList
     eventRef.onSnapshot(snap => {
       videoList = snap.data()?.videoList || [];
       renderList();
     });
-    // Listen for activeVideo
+    // activeVideo
     eventRef.collection('settings').doc('activeVideo')
       .onSnapshot(snap => {
         currentVideo = snap.data()?.videoId || null;
-        renderList(); // update active indicators
+        renderList();
       });
-
-    // Clear active video
+    // clear
     document.getElementById('btnClearActive').onclick = () =>
       eventRef.collection('settings').doc('activeVideo')
-        .set({ videoId: '', setAt: Date.now() });
-
-    // Add new video
+        .set({ videoId:'', setAt: Date.now() });
+    // add video
     document.getElementById('btnAddVideo').onclick = async () => {
       const vid = document.getElementById('addVideoId').value.trim();
       if (!vid) return alert('Enter a Video ID');
-      await eventRef.update({
-        videoList: FieldValue.arrayUnion(vid)
-      });
+      await eventRef.update({ videoList: FieldValue.arrayUnion(vid) });
       document.getElementById('addVideoId').value = '';
     };
   }
 
-  // ── 4) Render Video Roster ──────────────────────────────────────────────────
+  // ── 4) Render roster ─────────────────────────────────────────────────────────
   async function renderList() {
     const container = document.getElementById('videoList');
     container.innerHTML = '';
     document.getElementById('totalCount').innerText = videoList.length;
 
     for (const vid of videoList) {
-      // Fetch oEmbed metadata
-      let meta = { title: vid, thumbnail_url: '' };
+      // oEmbed
+      let meta = { title:vid, thumbnail_url:'' };
       try {
         const r = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
         meta = await r.json();
       } catch {}
 
-      // Fetch votes & comment count
-      const [voteSnap, commentsSnap] = await Promise.all([
+      // votes & comments
+      const [vSnap, cSnap] = await Promise.all([
         eventRef.collection('votes').doc(vid).get(),
         eventRef.collection('comments').where('videoId','==',vid).get()
       ]);
-      const votes = voteSnap.exists? voteSnap.data() : { likes:0, dislikes:0 };
-      const commentsCount = commentsSnap.size;
+      const votes = vSnap.exists? vSnap.data() : { likes:0, dislikes:0 };
+      const commentsCount = cSnap.size;
 
-      // Video card
+      // card
       const card = document.createElement('div');
       card.className = 'video-card';
       card.innerHTML = `
@@ -155,26 +183,26 @@
         </div>
       `;
 
-      // Actions
+      // actions
       const actions = document.createElement('div');
       actions.className = 'video-actions';
-      // Set active
+
       const btnSet = document.createElement('button');
-      btnSet.innerText = (vid === currentVideo) ? '✅ Active' : '▶️ Set Active';
+      btnSet.innerText = (vid===currentVideo)? '✅ Active' : '▶️ Set Active';
       btnSet.onclick = () => {
         eventRef.collection('settings').doc('activeVideo')
-          .set({ videoId: vid, setAt: Date.now() });
+          .set({ videoId:vid, setAt:Date.now() });
       };
-      // Preview
+
       const btnPlay = document.createElement('button');
       btnPlay.innerText = '🔍 Preview';
       btnPlay.onclick = () => previewVideo(vid);
-      // Remove
+
       const btnRemove = document.createElement('button');
       btnRemove.innerText = '🗑️ Remove';
       btnRemove.onclick = async () => {
-        const newList = videoList.filter(x => x !== vid);
-        await eventRef.update({ videoList: newList });
+        const newList = videoList.filter(x=>x!==vid);
+        await eventRef.update({ videoList:newList });
       };
 
       actions.append(btnSet, btnPlay, btnRemove);
@@ -183,7 +211,7 @@
     }
   }
 
-  // ── 5) Preview Embed ─────────────────────────────────────────────────────────
+  // ── 5) Preview ───────────────────────────────────────────────────────────────
   function previewVideo(vid) {
     document.getElementById('previewContainer').innerHTML = `
       <h2>Preview: ${vid}</h2>
