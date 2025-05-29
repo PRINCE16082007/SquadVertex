@@ -1,89 +1,193 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Admin – SquadVertex Video Control</title>
+  <meta charset="UTF-8">
+  <title>SquadVertex Live Stream</title>
   <style>
-    body { font-family: sans-serif; padding: 2rem; max-width: 500px; margin: auto; }
-    button { display: block; width: 100%; margin: .5rem 0; padding: .5rem; }
-    input { display: block; width: 100%; margin: .5rem 0; padding: .5rem; }
+    body { font-family: sans-serif; padding: 2rem; max-width: 800px; margin: auto; }
+    #videoContainer { margin-bottom: 1rem; }
+    #metadata { margin-bottom: 1rem; font-style: italic; }
+    #commentsList p { border-bottom: 1px solid #ddd; padding: .5rem 0; }
+    button { padding: .5rem 1rem; margin: .5rem 0; }
+    textarea { width: 100%; height: 4rem; margin-bottom: .5rem; }
   </style>
+
+  <!-- Wistia Player script will be injected when needed -->
+  <!-- Vimeo iframe needs no extra script -->
+
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
-  <h1>🎮 Admin Panel</h1>
+  <h1>▶️ SquadVertex Live Stream</h1>
 
-  <!-- 1) Google Sign-in button -->
-  <div id="login">
-    <button id="btnGoogle">Sign in with Google</button>
-  </div>
+  <!-- Video slot -->
+  <div id="videoContainer">Loading live stream…</div>
+  <div id="metadata"></div>
 
-  <!-- 2) Controls shown only after sign-in -->
-  <div id="controls" style="display:none;">
-    <h2>Set Active Video</h2>
-    <input id="videoId" placeholder="Enter Wistia Video ID">
-    <button id="btnSet">Update Live Stream</button>
-    <p>Currently Live: <strong><span id="current">–</span></strong></p>
-  </div>
+  <hr>
+
+  <!-- Voting UI -->
+  <h2>👍/👎 Voting</h2>
+  <button id="btnLike">Like (<span id="likeCount">0</span>)</button>
+  <button id="btnDislike">Dislike (<span id="dislikeCount">0</span>)</button>
+
+  <hr>
+
+  <!-- Comments UI -->
+  <h2>💬 Comments</h2>
+  <div id="commentsList">Loading comments…</div>
+  <textarea id="commentInput" placeholder="Write a comment"></textarea><br>
+  <button id="btnComment">Post Comment</button>
 
   <script>
-    // ── Initialize Firebase ─────────────────────────────────────────────────────
-      // Firebase initialization
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-  };
+    // ── 1) Firebase init ─────────────────────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey:     "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId:  "YOUR_PROJECT",
+    };
     firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db   = firebase.firestore();
+    const db = firebase.firestore();
 
-    // References
+    // ── 2) Constants & refs ──────────────────────────────────────────────────────
     const EVENT_ID    = 'SpringLaunch2025';
     const eventRef    = db.collection('events').doc(EVENT_ID);
     const settingsRef = eventRef.collection('settings').doc('activeVideo');
+    const commentsCol = eventRef.collection('comments');
+    const votesCol    = eventRef.collection('votes');
 
-    // ── 1) Sign in with Google ───────────────────────────────────────────────────
-    document.getElementById('btnGoogle').onclick = () => {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider)
-        .then(result => {
-          const user = result.user;
-          // Optional: restrict to specific emails
-          const allowed = ['gahlotmanan0@gmail.com'];
-          if (!allowed.includes(user.email)) {
-            alert('You are not an admin.');
-            auth.signOut();
-            return;
+    let current = { provider: null, id: null };
+
+    // ── 3) Listen for activeVideo changes ───────────────────────────────────────
+    settingsRef.onSnapshot(snap => {
+      const data = snap.data() || {};
+      current.provider = data.provider || null;
+      current.id       = data.id || null;
+      renderVideo(current);
+      loadVotes(current);
+      loadComments(current);
+    });
+
+    // ── 4) Render embed + metadata ──────────────────────────────────────────────
+    function renderVideo({ provider, id }) {
+      const vc = document.getElementById('videoContainer');
+      const md = document.getElementById('metadata');
+      vc.innerHTML = '';
+      md.innerHTML = '';
+
+      if (!provider || !id) {
+        vc.textContent = 'No live stream currently.';
+        return;
+      }
+
+      // Metadata line
+      md.textContent = `Now Streaming: ${provider.toUpperCase()} – ${id}`;
+
+      if (provider === 'wistia') {
+        // inject Wistia player script once
+        if (!window._wq) {
+          const s = document.createElement('script');
+          s.src = 'https://fast.wistia.com/assets/external/E-v1.js';
+          s.async = true;
+          document.head.appendChild(s);
+          window._wq = [];
+        }
+        // insert embed div
+        const div = document.createElement('div');
+        div.className = `wistia_embed wistia_async_${id}`;
+        div.style.width  = '640px';
+        div.style.height = '360px';
+        vc.appendChild(div);
+        // disable replay on end
+        window._wq.push({
+          id,
+          onReady(video) {
+            video.bind('end', () => {
+              video.pause();
+              video.controls(false);
+              alert('Stream ended — come back for the next video!');
+            });
           }
-          // Show controls
-          document.getElementById('login').style.display    = 'none';
-          document.getElementById('controls').style.display = 'block';
-          loadCurrent();
-        })
-        .catch(err => alert('Auth failed: ' + err.message));
-    };
-
-    // ── 2) Load current activeVideo ─────────────────────────────────────────────
-    function loadCurrent() {
-      settingsRef.onSnapshot(doc => {
-        document.getElementById('current').innerText = doc.data()?.videoId || 'None';
-      });
+        });
+      }
+      else if (provider === 'vimeo') {
+        // Vimeo embed via iframe
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://player.vimeo.com/video/${id}`
+                   + `?badge=0&title=0&byline=0&portrait=0`;
+        iframe.width  = '640';
+        iframe.height = '360';
+        iframe.frameBorder = '0';
+        iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+        iframe.allowFullscreen = true;
+        vc.appendChild(iframe);
+      }
     }
 
-    // ── 3) Update activeVideo ──────────────────────────────────────────────────
-    document.getElementById('btnSet').onclick = () => {
-      const vid = document.getElementById('videoId').value.trim();
-      if (!vid) return alert('Enter a Wistia Video ID');
-      settingsRef.set({ videoId: vid, setAt: Date.now() })
-        .then(() => alert('Live video updated!'))
-        .catch(err => alert('Error: ' + err.message));
+    // ── 5) Voting logic ─────────────────────────────────────────────────────────
+    function loadVotes({ provider, id }) {
+      const likeCt = document.getElementById('likeCount');
+      const disCt  = document.getElementById('dislikeCount');
+      if (!provider || !id) {
+        likeCt.textContent = disCt.textContent = '0';
+        return;
+      }
+      const key = `${provider}_${id}`;
+      votesCol.doc(key)
+        .onSnapshot(snap => {
+          const v = snap.data() || { likes:0, dislikes:0 };
+          likeCt.textContent = v.likes;
+          disCt.textContent  = v.dislikes;
+        });
+    }
+    function vote(isLike) {
+      if (!current.provider || !current.id) return;
+      const key = `${current.provider}_${current.id}`;
+      const docRef = votesCol.doc(key);
+      db.runTransaction(tx => {
+        return tx.get(docRef).then(doc => {
+          const v = doc.exists? doc.data() : { likes:0, dislikes:0 };
+          v[isLike? 'likes':'dislikes']++;
+          v.lastUpdated = Date.now();
+          tx.set(docRef, v);
+        });
+      });
+    }
+    document.getElementById('btnLike').onclick    = () => vote(true);
+    document.getElementById('btnDislike').onclick = () => vote(false);
+
+    // ── 6) Comments logic ───────────────────────────────────────────────────────
+    function loadComments({ provider, id }) {
+      const list = document.getElementById('commentsList');
+      if (!provider || !id) {
+        list.innerHTML = '<p>No comments.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      commentsCol
+        .where('videoKey','==', `${provider}_${id}`)
+        .orderBy('timestamp')
+        .onSnapshot(snap => {
+          list.innerHTML = '';
+          snap.forEach(d => {
+            const c = d.data();
+            const p = document.createElement('p');
+            p.textContent = `[${new Date(c.timestamp).toLocaleTimeString()}] ${c.text}`;
+            list.appendChild(p);
+          });
+        });
+    }
+    document.getElementById('btnComment').onclick = () => {
+      const txt = document.getElementById('commentInput').value.trim();
+      if (!txt || !current.provider || !current.id) return;
+      commentsCol.add({
+        videoKey: `${current.provider}_${current.id}`,
+        text: txt,
+        timestamp: Date.now()
+      });
+      document.getElementById('commentInput').value = '';
     };
   </script>
 </body>
