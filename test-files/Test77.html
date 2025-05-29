@@ -6,14 +6,13 @@
   <style>
     body { font-family: sans-serif; padding: 2rem; max-width: 800px; margin: auto; }
     #videoContainer { margin-bottom: 1rem; }
-    #metadata { margin-bottom: 1rem; font-style: italic; }
+    #metadata { margin-bottom: 1rem; }
+    #metadata h2 { margin: 0; }
+    #metadata p { margin: .25rem 0; color: #555; }
     #commentsList p { border-bottom: 1px solid #ddd; padding: .5rem 0; }
     button { padding: .5rem 1rem; margin: .5rem 0; }
     textarea { width: 100%; height: 4rem; margin-bottom: .5rem; }
   </style>
-
-  <!-- Wistia Player script will be injected when needed -->
-  <!-- Vimeo iframe needs no extra script -->
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -24,6 +23,8 @@
 
   <!-- Video slot -->
   <div id="videoContainer">Loading live stream…</div>
+
+  <!-- Metadata: title + description -->
   <div id="metadata"></div>
 
   <hr>
@@ -42,7 +43,6 @@
   <button id="btnComment">Post Comment</button>
 
   <script>
-    // ── 1) Firebase init ─────────────────────────────────────────────────────────
       // Firebase initialization
   const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -55,71 +55,61 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // ── 2) Constants & refs ──────────────────────────────────────────────────────
+    // 2) References
     const EVENT_ID    = 'SpringLaunch2025';
     const eventRef    = db.collection('events').doc(EVENT_ID);
     const settingsRef = eventRef.collection('settings').doc('activeVideo');
     const commentsCol = eventRef.collection('comments');
     const votesCol    = eventRef.collection('votes');
 
-    let current = { provider: null, id: null };
+    let current = { provider: null, videoId: null };
 
-    // ── 3) Listen for activeVideo changes ───────────────────────────────────────
-    settingsRef.onSnapshot(snap => {
-      const data = snap.data() || {};
+    // 3) Listen for activeVideo 
+    settingsRef.onSnapshot(s => {
+      const data = s.data() || {};
       current.provider = data.provider || null;
-      current.id       = data.videoId || null;
-      renderVideo(current);
-      loadVotes(current);
-      loadComments(current);
+      current.videoId  = data.videoId  || null;
+      renderVideo();
+      loadVotes();
+      loadComments();
     });
 
-    // ── 4) Render embed + metadata ──────────────────────────────────────────────
-    function renderVideo({ provider, id }) {
+    // 4) Render Video + Metadata
+    async function renderVideo() {
       const vc = document.getElementById('videoContainer');
       const md = document.getElementById('metadata');
-      vc.innerHTML = '';
-      md.innerHTML = '';
+      vc.innerHTML = ''; md.innerHTML = '';
 
-      if (!provider || !id) {
+      const { provider, videoId } = current;
+      if (!provider || !videoId) {
         vc.textContent = 'No live stream currently.';
         return;
       }
 
-      // Metadata line
-      md.textContent = `Now Streaming: ${provider.toUpperCase()} – ${id}`;
-
+      // 4a) Embed
       if (provider === 'wistia') {
-        // inject Wistia player script once
         if (!window._wq) {
           const s = document.createElement('script');
-          s.src = 'https://fast.wistia.com/assets/external/E-v1.js';
-          s.async = true;
+          s.src = 'https://fast.wistia.com/assets/external/E-v1.js'; s.async = true;
           document.head.appendChild(s);
           window._wq = [];
         }
-        // insert embed div
         const div = document.createElement('div');
-        div.className = `wistia_embed wistia_async_${id}`;
-        div.style.width  = '640px';
-        div.style.height = '360px';
+        div.className = `wistia_embed wistia_async_${videoId}`;
+        div.style.width = '640px'; div.style.height = '360px';
         vc.appendChild(div);
-        // disable replay on end
         window._wq.push({
-          id,
+          id: videoId,
           onReady(video) {
             video.bind('end', () => {
-              video.pause();
-              video.controls(false);
+              video.pause(); video.controls(false);
               alert('Stream ended — come back for the next video!');
             });
           }
         });
-      }
-      else if (provider === 'vimeo') {
-        // Vimeo embed via iframe
+      } else if (provider === 'vimeo') {
         const iframe = document.createElement('iframe');
-        iframe.src = `https://player.vimeo.com/video/${id}`
+        iframe.src = `https://player.vimeo.com/video/${videoId}`
                    + `?badge=0&title=0&byline=0&portrait=0`;
         iframe.width  = '640';
         iframe.height = '360';
@@ -128,66 +118,82 @@
         iframe.allowFullscreen = true;
         vc.appendChild(iframe);
       }
+
+      // 4b) Fetch & display title + description via oEmbed
+      let title = ''; let desc = '';
+      try {
+        let url = '';
+        if (provider === 'wistia') {
+          url = `https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${videoId}`;
+        } else {
+          url = `https://vimeo.com/api/oembed.json?url=https://vimeo.com/${videoId}`;
+        }
+        const res = await fetch(url);
+        const o = await res.json();
+        title = o.title || '';
+        desc = o.description || '';
+      } catch {}
+      md.innerHTML = `<h2>${title}</h2>${desc? `<p>${desc}</p>` : ''}`;
     }
 
-    // ── 5) Voting logic ─────────────────────────────────────────────────────────
-    function loadVotes({ provider, id }) {
+    // 5) Voting
+    function loadVotes() {
+      const { provider, videoId } = current;
       const likeCt = document.getElementById('likeCount');
       const disCt  = document.getElementById('dislikeCount');
-      if (!provider || !id) {
+      if (!provider || !videoId) {
         likeCt.textContent = disCt.textContent = '0';
         return;
       }
-      const key = `${provider}_${id}`;
-      votesCol.doc(key)
-        .onSnapshot(snap => {
-          const v = snap.data() || { likes:0, dislikes:0 };
-          likeCt.textContent = v.likes;
-          disCt.textContent  = v.dislikes;
-        });
+      const key = `${provider}_${videoId}`;
+      votesCol.doc(key).onSnapshot(s => {
+        const v = s.data() || { likes: 0, dislikes: 0 };
+        likeCt.textContent = v.likes;
+        disCt.textContent  = v.dislikes;
+      });
     }
     function vote(isLike) {
-      if (!current.provider || !current.id) return;
-      const key = `${current.provider}_${current.id}`;
+      const { provider, videoId } = current;
+      if (!provider || !videoId) return;
+      const key = `${provider}_${videoId}`;
       const docRef = votesCol.doc(key);
-      db.runTransaction(tx => {
-        return tx.get(docRef).then(doc => {
-          const v = doc.exists? doc.data() : { likes:0, dislikes:0 };
+      db.runTransaction(tx =>
+        tx.get(docRef).then(s => {
+          const v = s.exists? s.data() : { likes:0, dislikes:0 };
           v[isLike? 'likes':'dislikes']++;
           v.lastUpdated = Date.now();
           tx.set(docRef, v);
-        });
-      });
+        })
+      );
     }
     document.getElementById('btnLike').onclick    = () => vote(true);
     document.getElementById('btnDislike').onclick = () => vote(false);
 
-    // ── 6) Comments logic ───────────────────────────────────────────────────────
-    function loadComments({ provider, id }) {
+    // 6) Comments (no composite index)
+    function loadComments() {
       const list = document.getElementById('commentsList');
-      if (!provider || !id) {
-        list.innerHTML = '<p>No comments.</p>';
-        return;
-      }
       list.innerHTML = '';
       commentsCol
-        .where('videoKey','==', `${provider}_${id}`)
         .orderBy('timestamp')
         .onSnapshot(snap => {
           list.innerHTML = '';
           snap.forEach(d => {
             const c = d.data();
-            const p = document.createElement('p');
-            p.textContent = `[${new Date(c.timestamp).toLocaleTimeString()}] ${c.text}`;
-            list.appendChild(p);
+            if (c.provider === current.provider && c.videoId === current.videoId) {
+              const p = document.createElement('p');
+              p.textContent = `[${new Date(c.timestamp).toLocaleTimeString()}] ${c.text}`;
+              list.appendChild(p);
+            }
           });
         });
     }
     document.getElementById('btnComment').onclick = () => {
       const txt = document.getElementById('commentInput').value.trim();
-      if (!txt || !current.provider || !current.id) return;
+      const { provider, videoId } = current;
+      if (!txt || !provider || !videoId) return;
       commentsCol.add({
-        videoKey: `${current.provider}_${current.id}`,
+        provider,
+        videoId,
         text: txt,
         timestamp: Date.now()
       });
