@@ -1,97 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SquadVertex Dev Zone</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(to right, #0f0f0f, #1c1c1c);
-            color: #f0f0f0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
+  <meta charset="UTF-8">
+  <title>Admin – SquadVertex Video Control</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: auto; padding: 1rem; }
+    #login, #controls { margin-bottom: 2rem; }
+    button { margin: .25rem; padding: .5rem 1rem; }
+    .video-card { display: flex; align-items: center; border: 1px solid #ddd; padding: .5rem; margin: .5rem 0; }
+    .video-card img { width: 120px; height: 68px; object-fit: cover; margin-right: 1rem; }
+    .video-meta { flex: 1; }
+    .video-actions button { margin-right: .5rem; }
+    #previewContainer { margin-top: 1rem; }
+  </style>
 
-        .container {
-            text-align: center;
-            background-color: #1e1e1e;
-            padding: 2.5rem;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
-            max-width: 700px;
-            width: 90%;
-            animation: fadeIn 1s ease-in-out;
-        }
+  <!-- Wistia Player script -->
+  <script src="https://fast.wistia.com/assets/external/E-v1.js" async></script>
 
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            color: #ffffff;
-        }
-
-        p {
-            font-size: 1rem;
-            line-height: 1.6;
-            margin: 0.8rem 0;
-        }
-
-        .badge {
-            display: inline-block;
-            background-color: #ffb300;
-            color: #1c1c1c;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            font-weight: 600;
-            margin-top: 1.2rem;
-            letter-spacing: 0.5px;
-        }
-
-        .reserved {
-            margin-top: 1.8rem;
-            background-color: #2a2a2a;
-            border-left: 4px solid #ffb300;
-            padding: 1rem;
-            font-size: 1rem;
-            color: #f0f0f0;
-            font-weight: 500;
-            border-radius: 6px;
-            box-shadow: 0 0 10px rgba(255, 179, 0, 0.2);
-            animation: glow 2s infinite alternate;
-        }
-
-        .footer {
-            margin-top: 2.5rem;
-            font-size: 0.9rem;
-            color: #ccc;
-        }
-
-        @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(20px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes glow {
-            0% { box-shadow: 0 0 10px rgba(255, 179, 0, 0.2); }
-            100% { box-shadow: 0 0 20px rgba(255, 179, 0, 0.5); }
-        }
-    </style>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>SquadVertex Test Development Area</h1>
-        <p>This is a designated dev zone within the SquadVertex ecosystem.</p>
-        <p>Only authorized personnel are permitted to make changes here.</p>
-        <span class="badge">Authorized Access Only</span>
-        <div class="reserved">
-            This development slot is currently <strong>empty</strong> and <strong>reusable</strong>.<br>
-            <strong>Reserved for:</strong> Empty ( Not Assigned For Any Use )
+
+  <h1>🎮 SquadVertex Admin Panel</h1>
+
+  <!-- 1) Google Sign-In -->
+  <div id="login">
+    <button id="btnGoogle">🔑 Sign in with Google</button>
+  </div>
+
+  <!-- 2) Controls & Video List -->
+  <div id="controls" style="display:none;">
+    <p>
+      <strong>Total videos:</strong>
+      <span id="totalCount">0</span>
+      <button id="btnClearActive">🛑 Clear Active</button>
+    </p>
+    <div id="videoList"></div>
+    <div id="previewContainer"></div>
+  </div>
+
+  <script>
+  // ── 1) Init Firebase ─────────────────────────────────────────────────────────
+  const firebaseConfig = {
+    apiKey:      "YOUR_API_KEY",
+    authDomain:  "YOUR_PROJECT.firebaseapp.com",
+    projectId:   "YOUR_PROJECT",
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db   = firebase.firestore();
+
+  const EVENT_ID    = 'SpringLaunch2025';
+  const eventRef    = db.collection('events').doc(EVENT_ID);
+  const authRef     = db.collection('authUsers').doc(); // for checking existence
+  let videoList     = [];
+  let currentVideo  = null;
+
+  // ── 2) Google Sign-In & Auth-Check ───────────────────────────────────────────
+  document.getElementById('btnGoogle').onclick = async () => {
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      const { user } = await auth.signInWithPopup(provider);
+      const doc = await db.collection('authUsers').doc(user.email).get();
+      if (!doc.exists) throw new Error('Not an admin.');
+      // show controls
+      document.getElementById('login').style.display    = 'none';
+      document.getElementById('controls').style.display = 'block';
+      initAdmin();
+    } catch (e) {
+      alert('Auth failed: ' + e.message);
+    }
+  };
+
+  // ── 3) Init: Listen for videoList & activeVideo ──────────────────────────────
+  function initAdmin() {
+    // Listen for videoList array
+    eventRef.onSnapshot(snap => {
+      videoList = snap.data()?.videoList || [];
+      renderList();
+    });
+    // Listen for activeVideo
+    eventRef.collection('settings').doc('activeVideo')
+      .onSnapshot(snap => currentVideo = snap.data()?.videoId || null);
+    // Clear active button
+    document.getElementById('btnClearActive').onclick = () =>
+      eventRef.collection('settings').doc('activeVideo')
+              .set({ videoId: '', setAt: Date.now() });
+  }
+
+  // ── 4) Render the video roster ───────────────────────────────────────────────
+  async function renderList() {
+    const container = document.getElementById('videoList');
+    container.innerHTML = '';
+    document.getElementById('totalCount').innerText = videoList.length;
+    videoList.forEach(async vid => {
+      // Fetch metadata via oEmbed
+      const res = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
+      const meta = await res.json(); // includes title, thumbnail_url
+      // Fetch analytics counts
+      const [voteSnap, commentsSnap] = await Promise.all([
+        eventRef.collection('votes').doc(vid).get(),
+        eventRef.collection('comments').where('videoId','==',vid).get()
+      ]);
+      const votes = voteSnap.exists? voteSnap.data() : { likes:0, dislikes:0 };
+      const commentsCount = commentsSnap.size;
+
+      // Build card
+      const card = document.createElement('div');
+      card.className = 'video-card';
+      card.innerHTML = `
+        <img src="${meta.thumbnail_url}" alt="${meta.title}">
+        <div class="video-meta">
+          <h3>${meta.title}</h3>
+          <p><strong>ID:</strong> ${vid}</p>
+          <p>👍 ${votes.likes}   👎 ${votes.dislikes}   💬 ${commentsCount}</p>
         </div>
-        <p class="footer">Prince Gahlot, Founder &amp; CEO, SquadVertex</p>
-    </div>
+      `;
+      // Actions
+      const actions = document.createElement('div');
+      actions.className = 'video-actions';
+      const btnSet = document.createElement('button');
+      btnSet.innerText = vid===currentVideo? '✅ Active' : '▶️ Set Active';
+      btnSet.onclick = () => {
+        eventRef.collection('settings').doc('activeVideo')
+          .set({ videoId: vid, setAt: Date.now() });
+      };
+      const btnPlay = document.createElement('button');
+      btnPlay.innerText = '🔍 Preview';
+      btnPlay.onclick = () => previewVideo(vid);
+      const btnRemove = document.createElement('button');
+      btnRemove.innerText = '🗑️ Remove';
+      btnRemove.onclick = async () => {
+        const arr = videoList.filter(x=>x!==vid);
+        await eventRef.update({ videoList: arr });
+      };
+      actions.append(btnSet, btnPlay, btnRemove);
+      card.append(actions);
+      container.append(card);
+    });
+  }
+
+  // ── 5) Preview embed ─────────────────────────────────────────────────────────
+  function previewVideo(vid) {
+    const pc = document.getElementById('previewContainer');
+    pc.innerHTML = `
+      <h2>Preview: ${vid}</h2>
+      <div class="wistia_embed wistia_async_${vid}" style="width:640px;height:360px;"></div>
+    `;
+  }
+  </script>
 </body>
 </html>
