@@ -397,6 +397,26 @@
       margin-bottom: 0.5rem;
       display: block;
     }
+    
+    .no-videos {
+      text-align: center;
+      padding: 2rem;
+      color: var(--gray);
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(67, 97, 238, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--primary);
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
   
   <!-- Firebase SDKs -->
@@ -539,77 +559,112 @@
       });
     });
 
-    // ── 2) Initialize admin listeners on page load ───────────────────────────────
-    window.addEventListener('DOMContentLoaded', () => {
+    // ── Initialize admin listeners on page load ───────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
       // Listen for videoList changes
       eventRef.onSnapshot(snap => {
-        videoList = snap.data()?.videoList || [];
-        renderList();
+        if (snap.exists) {
+          videoList = snap.data().videoList || [];
+          renderList();
+        }
       });
       
       // Listen for activeVideo
       eventRef.collection('settings').doc('activeVideo')
         .onSnapshot(snap => {
-          const data = snap.data() || {};
-          currentVideo = data.videoId || null;
-          renderList();
-          updateActiveCount();
+          if (snap.exists) {
+            const data = snap.data();
+            currentVideo = data.videoId || null;
+            renderList();
+            updateActiveCount();
+          }
         });
 
       // Clear active video button
       document.getElementById('btnClearActive').addEventListener('click', () => {
         eventRef.collection('settings').doc('activeVideo')
-          .set({ videoId: '', setAt: Date.now() });
-        showToast('Active video cleared');
+          .set({ videoId: '', provider: '', setAt: Date.now() })
+          .then(() => {
+            showToast('Active video cleared');
+          })
+          .catch(error => {
+            showToast('Failed to clear active video: ' + error.message, 'error');
+          });
       });
 
       // Add video button
-      document.getElementById('btnAddVideo').addEventListener('click', async () => {
-        const vid = document.getElementById('addVideoId').value.trim();
-        if (!vid) return showToast('Please enter a Video ID', 'warning');
-        
-        // Check if video already exists
-        if (videoList.includes(vid)) {
-          return showToast('This video is already in the list', 'warning');
-        }
-        
-        try {
-          // Verify video exists with provider
-          let isValid = false;
-          if (selectedProvider === 'wistia') {
-            const response = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
-            isValid = response.ok;
-          } else if (selectedProvider === 'vimeo') {
-            const response = await fetch(`https://vimeo.com/api/v2/video/${vid}.json`);
-            isValid = response.ok && (await response.json()).length > 0;
-          }
-          
-          if (!isValid) {
-            return showToast(`Invalid ${selectedProvider} video ID`, 'error');
-          }
-          
-          await eventRef.update({
-            videoList: FieldValue.arrayUnion(vid)
-          });
-          
-          document.getElementById('addVideoId').value = '';
-          showToast('Video added successfully!');
-        } catch (error) {
-          console.error('Error adding video:', error);
-          showToast('Failed to add video. Please try again.', 'error');
+      document.getElementById('btnAddVideo').addEventListener('click', addVideo);
+      
+      // Allow Enter key to add video
+      document.getElementById('addVideoId').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          addVideo();
         }
       });
     });
 
-    // ── 3) Render video roster ───────────────────────────────────────────────────
+    // ── Add video function ───────────────────────────────────────────────────
+    async function addVideo() {
+      const vid = document.getElementById('addVideoId').value.trim();
+      if (!vid) return showToast('Please enter a Video ID', 'warning');
+      
+      // Check if video already exists
+      if (videoList.some(v => v.id === vid && v.provider === selectedProvider)) {
+        return showToast('This video is already in the list', 'warning');
+      }
+      
+      try {
+        // Show loading state
+        const btn = document.getElementById('btnAddVideo');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+        btn.disabled = true;
+        
+        // Verify video exists with provider
+        let isValid = false;
+        if (selectedProvider === 'wistia') {
+          const response = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
+          isValid = response.ok;
+        } else if (selectedProvider === 'vimeo') {
+          const response = await fetch(`https://vimeo.com/api/v2/video/${vid}.json`);
+          if (response.ok) {
+            const data = await response.json();
+            isValid = Array.isArray(data) && data.length > 0;
+          }
+        }
+        
+        if (!isValid) {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          return showToast(`Invalid ${selectedProvider} video ID`, 'error');
+        }
+        
+        // Add video to Firestore
+        await eventRef.update({
+          videoList: FieldValue.arrayUnion({ id: vid, provider: selectedProvider })
+        });
+        
+        document.getElementById('addVideoId').value = '';
+        showToast('Video added successfully!');
+      } catch (error) {
+        console.error('Error adding video:', error);
+        showToast('Failed to add video. Please try again.', 'error');
+      } finally {
+        const btn = document.getElementById('btnAddVideo');
+        btn.innerHTML = '<i class="fas fa-plus-circle"></i> Add to Event';
+        btn.disabled = false;
+      }
+    }
+
+    // ── Render video list ────────────────────────────────────────────────────
     async function renderList() {
       videoListEl.innerHTML = '';
       totalCountEl.textContent = videoList.length;
       
       if (videoList.length === 0) {
         videoListEl.innerHTML = `
-          <div class="preview-placeholder">
-            <i class="fas fa-video-slash"></i>
+          <div class="no-videos">
+            <i class="fas fa-video-slash" style="font-size: 3rem; margin-bottom: 1rem; color: #d0d5dd;"></i>
             <p>No videos added yet</p>
           </div>
         `;
@@ -619,26 +674,28 @@
       // Create a document fragment for efficient rendering
       const fragment = document.createDocumentFragment();
       
-      for (const vid of videoList) {
+      for (const video of videoList) {
+        const { id: vid, provider } = video;
+        
         // oEmbed metadata
         let meta = { 
           title: vid, 
           thumbnail_url: '',
-          provider: selectedProvider
+          provider: provider
         };
         
         try {
-          if (selectedProvider === 'wistia') {
+          if (provider === 'wistia') {
             const r = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
             if (r.ok) {
               const data = await r.json();
               meta = { ...meta, ...data };
             }
-          } else if (selectedProvider === 'vimeo') {
+          } else if (provider === 'vimeo') {
             const r = await fetch(`https://vimeo.com/api/v2/video/${vid}.json`);
             if (r.ok) {
               const data = await r.json();
-              if (data.length > 0) {
+              if (Array.isArray(data) && data.length > 0) {
                 meta.title = data[0].title || vid;
                 meta.thumbnail_url = data[0].thumbnail_large || '';
               }
@@ -658,7 +715,7 @@
           <div class="video-meta">
             <h3>${meta.title}</h3>
             <p><strong>ID:</strong> ${vid}</p>
-            <span class="video-tag">${selectedProvider}</span>
+            <span class="video-tag">${provider}</span>
             ${vid === currentVideo ? 
               `<div class="status-badge status-active">
                 <span class="active-indicator"></span>Active Now
@@ -682,19 +739,32 @@
         // Add event listeners
         card.querySelector('.set-active-btn').addEventListener('click', () => {
           eventRef.collection('settings').doc('activeVideo')
-            .set({ videoId: vid, provider: selectedProvider, setAt: Date.now() });
-          showToast(`"${meta.title}" set as active video`);
+            .set({ 
+              videoId: vid, 
+              provider: provider, 
+              setAt: Date.now() 
+            })
+            .then(() => {
+              showToast(`"${meta.title}" set as active video`);
+            })
+            .catch(error => {
+              showToast('Failed to set active video: ' + error.message, 'error');
+            });
         });
         
         card.querySelector('.preview-btn').addEventListener('click', () => {
-          previewVideo(vid);
+          previewVideo(vid, provider);
         });
         
         card.querySelector('.remove-btn').addEventListener('click', async () => {
           if (confirm(`Are you sure you want to remove "${meta.title}"?`)) {
-            const newList = videoList.filter(x => x !== vid);
-            await eventRef.update({ videoList: newList });
-            showToast(`"${meta.title}" removed from event`);
+            try {
+              const newList = videoList.filter(v => v.id !== vid || v.provider !== provider);
+              await eventRef.update({ videoList: newList });
+              showToast(`"${meta.title}" removed from event`);
+            } catch (error) {
+              showToast('Failed to remove video: ' + error.message, 'error');
+            }
           }
         });
         
@@ -704,30 +774,25 @@
       videoListEl.appendChild(fragment);
     }
 
-    // ── 4) Preview embed ─────────────────────────────────────────────────────────
-    function previewVideo(vid) {
-      if (selectedProvider === 'wistia') {
+    // ── Preview video ────────────────────────────────────────────────────────
+    function previewVideo(vid, provider) {
+      if (provider === 'wistia') {
         previewContainer.innerHTML = `
-          <h2 style="margin-bottom: 1rem; padding: 0 1rem;">Preview: ${vid}</h2>
-          <div class="wistia_embed wistia_async_${vid}" style="height:360px;"></div>
+          <div style="padding:56.25% 0 0 0;position:relative;">
+            <iframe src="https://fast.wistia.net/embed/iframe/${vid}?autoplay=1" 
+                    title="Wistia Video Player" 
+                    allow="autoplay; fullscreen" 
+                    style="position:absolute;top:0;left:0;width:100%;height:100%;">
+            </iframe>
+          </div>
+          <script src="https://fast.wistia.net/assets/external/E-v1.js" async></script>
         `;
-        
-        // Initialize Wistia player
-        if (!window._wq) {
-          window._wq = [];
-        }
-        window._wq.push({
-          id: vid,
-          onReady: function(video) {
-            video.play();
-          }
-        });
-      } else if (selectedProvider === 'vimeo') {
+      } else if (provider === 'vimeo') {
         previewContainer.innerHTML = `
-          <h2 style="margin-bottom: 1rem; padding: 0 1rem;">Preview: ${vid}</h2>
           <div style="padding:56.25% 0 0 0;position:relative;">
             <iframe src="https://player.vimeo.com/video/${vid}?autoplay=1&badge=0&autopause=0&player_id=0&app_id=58479" 
-                    frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write" 
+                    frameborder="0" 
+                    allow="autoplay; fullscreen; picture-in-picture; clipboard-write" 
                     style="position:absolute;top:0;left:0;width:100%;height:100%;" 
                     title="${vid}">
             </iframe>
@@ -769,3 +834,4 @@
   </script>
 </body>
 </html>
+   
