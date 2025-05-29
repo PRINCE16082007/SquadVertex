@@ -5,7 +5,8 @@
   <title>Admin – SquadVertex Video Control</title>
   <style>
     body { font-family: sans-serif; padding: 2rem; max-width: 500px; margin: auto; }
-    input, button { display: block; width: 100%; margin: .5rem 0; padding: .5rem; }
+    button { display: block; width: 100%; margin: .5rem 0; padding: .5rem; }
+    input { display: block; width: 100%; margin: .5rem 0; padding: .5rem; }
   </style>
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -15,22 +16,21 @@
 <body>
   <h1>🎮 Admin Panel</h1>
 
+  <!-- 1) Google Sign-in button -->
   <div id="login">
-    <input id="email" type="email" placeholder="Admin Email">
-    <input id="pass" type="password" placeholder="Password">
-    <button id="btnLogin">Log In</button>
+    <button id="btnGoogle">Sign in with Google</button>
   </div>
 
+  <!-- 2) Controls shown only after sign-in -->
   <div id="controls" style="display:none;">
     <h2>Set Active Video</h2>
     <input id="videoId" placeholder="Enter Wistia Video ID">
     <button id="btnSet">Update Live Stream</button>
-
     <p>Currently Live: <strong><span id="current">–</span></strong></p>
   </div>
 
   <script>
-    // ── 1) Initialize Firebase ───────────────────────────────────────────────────
+    // ── Initialize Firebase ─────────────────────────────────────────────────────
       // Firebase initialization
   const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -44,37 +44,44 @@
     const auth = firebase.auth();
     const db   = firebase.firestore();
 
-    // Use a fixed event ID for now:
-    const EVENT_ID = 'SpringLaunch2025';
+    // References
+    const EVENT_ID    = 'SpringLaunch2025';
     const eventRef    = db.collection('events').doc(EVENT_ID);
     const settingsRef = eventRef.collection('settings').doc('activeVideo');
 
-    // ── 2) Log in as Admin ─────────────────────────────────────────────────────
-    document.getElementById('btnLogin').onclick = () => {
-      const email = document.getElementById('email').value;
-      const pass  = document.getElementById('pass').value;
-      auth.signInWithEmailAndPassword(email, pass)
-        .then(() => {
+    // ── 1) Sign in with Google ───────────────────────────────────────────────────
+    document.getElementById('btnGoogle').onclick = () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .then(result => {
+          const user = result.user;
+          // Optional: restrict to specific emails
+          const allowed = ['you@yourdomain.com'];
+          if (!allowed.includes(user.email)) {
+            alert('You are not an admin.');
+            auth.signOut();
+            return;
+          }
+          // Show controls
           document.getElementById('login').style.display    = 'none';
           document.getElementById('controls').style.display = 'block';
           loadCurrent();
         })
-        .catch(err => alert('Login failed: ' + err.message));
+        .catch(err => alert('Auth failed: ' + err.message));
     };
 
-    // ── 3) Load & display current activeVideo ─────────────────────────────────
-    function loadCurrent(){
+    // ── 2) Load current activeVideo ─────────────────────────────────────────────
+    function loadCurrent() {
       settingsRef.onSnapshot(doc => {
-        const vid = doc.data()?.videoId || 'None';
-        document.getElementById('current').innerText = vid;
+        document.getElementById('current').innerText = doc.data()?.videoId || 'None';
       });
     }
 
-    // ── 4) Set a new activeVideo ───────────────────────────────────────────────
+    // ── 3) Update activeVideo ──────────────────────────────────────────────────
     document.getElementById('btnSet').onclick = () => {
-      const newId = document.getElementById('videoId').value.trim();
-      if (!newId) return alert('Enter a Wistia Video ID');
-      settingsRef.set({ videoId: newId, setAt: Date.now() })
+      const vid = document.getElementById('videoId').value.trim();
+      if (!vid) return alert('Enter a Wistia Video ID');
+      settingsRef.set({ videoId: vid, setAt: Date.now() })
         .then(() => alert('Live video updated!'))
         .catch(err => alert('Error: ' + err.message));
     };
