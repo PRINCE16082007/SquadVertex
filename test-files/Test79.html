@@ -1,607 +1,1656 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SquadVertex Live Stream</title>
-  <style>
-    :root {
-      --primary: #4361ee;
-      --secondary: #3f37c9;
-      --accent: #4895ef;
-      --light: #f8f9fa;
-      --dark: #212529;
-      --success: #4cc9f0;
-      --danger: #f72585;
-      --warning: #f8961e;
-      --gray: #6c757d;
-      --border: #dee2e6;
-    }
-    
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      line-height: 1.6;
-      color: var(--dark);
-      background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
-      padding: 2rem;
-      min-height: 100vh;
-    }
-    
-    .container {
-      max-width: 1000px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-    }
-    
-    header {
-      background: var(--primary);
-      color: white;
-      padding: 1.5rem 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 700;
-      font-size: 1.5rem;
-    }
-    
-    .logo-icon {
-      width: 36px;
-      height: 36px;
-      background: var(--accent);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.9rem;
-      background: rgba(255, 255, 255, 0.2);
-      padding: 6px 12px;
-      border-radius: 20px;
-    }
-    
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #4ade80;
-    }
-    
-    .video-section {
-      padding: 2rem;
-      border-bottom: 1px solid var(--border);
-    }
-    
-    .video-container {
-      position: relative;
-      padding-bottom: 56.25%; /* 16:9 aspect ratio */
-      height: 0;
-      overflow: hidden;
-      border-radius: 8px;
-      background: var(--dark);
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-      margin-bottom: 1.5rem;
-    }
-    
-    .video-container iframe {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    
-    .loading-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      z-index: 10;
-    }
-    
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: white;
-      animation: spin 1s ease-in-out infinite;
-      margin-bottom: 1rem;
-    }
-    
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    
-    .metadata {
-      margin-bottom: 1.5rem;
-    }
-    
-    .metadata h2 {
-      font-size: 1.8rem;
-      margin-bottom: 0.5rem;
-      color: var(--secondary);
-    }
-    
-    .metadata p {
-      color: var(--gray);
-      margin-bottom: 0.5rem;
-    }
-    
-    .provider-tag {
-      display: inline-block;
-      background: var(--accent);
-      color: white;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      margin-top: 0.5rem;
-    }
-    
-    .interaction-section {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
-      padding: 2rem;
-    }
-    
-    .section-title {
-      font-size: 1.2rem;
-      margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 2px solid var(--primary);
-      color: var(--secondary);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .voting-ui {
-      background: #f8f9ff;
-      padding: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    }
-    
-    .vote-buttons {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-    
-    .vote-btn {
-      flex: 1;
-      padding: 0.8rem;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: all 0.2s ease;
-    }
-    
-    .like-btn {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-    
-    .like-btn:hover {
-      background: #c8e6c9;
-    }
-    
-    .vote-counts {
-      display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-    
-    .vote-count {
-      flex: 1;
-      text-align: center;
-      padding: 0.8rem;
-      border-radius: 8px;
-      background: white;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-    
-    .vote-count h3 {
-      font-size: 1.8rem;
-      margin-bottom: 0.3rem;
-      color: var(--primary);
-    }
-    
-    .comments-ui {
-      background: #f8f9ff;
-      padding: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    }
-    
-    .comments-list {
-      max-height: 300px;
-      overflow-y: auto;
-      margin-bottom: 1.5rem;
-    }
-    
-    .comment {
-      padding: 1rem;
-      background: white;
-      border-radius: 8px;
-      margin-bottom: 0.8rem;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-    
-    .comment-header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 0.5rem;
-      font-size: 0.85rem;
-      color: var(--gray);
-    }
-    
-    .comment-text {
-      line-height: 1.5;
-    }
-    
-    .comment-input {
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
-    }
-    
-    textarea {
-      width: 100%;
-      height: 100px;
-      padding: 0.8rem;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      resize: none;
-      font-family: inherit;
-      font-size: 1rem;
-    }
-    
-    textarea:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-    }
-    
-    .post-btn {
-      padding: 0.8rem 1.5rem;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s ease;
-      align-self: flex-end;
-    }
-    
-    .post-btn:hover {
-      background: var(--secondary);
-    }
-    
-    footer {
-      text-align: center;
-      padding: 1.5rem;
-      color: var(--gray);
-      font-size: 0.9rem;
-      border-top: 1px solid var(--border);
-    }
-    
-    @media (max-width: 768px) {
-      .interaction-section {
-        grid-template-columns: 1fr;
-      }
-      
-      body {
-        padding: 1rem;
-      }
-    }
-  </style>
-  
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SquadVertex Live Stream Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --accent: #4895ef;
+            --dark: #1a1f36;
+            --light: #f8f9fa;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #f8961e;
+            --gray: #6c757d;
+            --border: #e2e8f0;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            padding: 0;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 1.8rem;
+        }
+        
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .header-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4ade80;
+        }
+        
+        .time-display {
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #3a7de0;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #e21a6d;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+        
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            padding: 2rem;
+            flex: 1;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+        
+        .section:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+        
+        .section-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9ff;
+        }
+        
+        .section-header h2 {
+            color: var(--secondary);
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-body {
+            padding: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        .video-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+        
+        .video-card {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: var(--transition);
+            background: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        
+        .video-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(67, 97, 238, 0.15);
+        }
+        
+        .video-thumb {
+            position: relative;
+            height: 160px;
+            overflow: hidden;
+        }
+        
+        .video-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        
+        .video-card:hover .video-thumb img {
+            transform: scale(1.05);
+        }
+        
+        .video-status {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .video-status.active .status-dot {
+            background: #4ade80;
+        }
+        
+        .video-status.inactive .status-dot {
+            background: #f97316;
+        }
+        
+        .video-meta {
+            padding: 1rem;
+        }
+        
+        .video-meta h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--dark);
+        }
+        
+        .video-meta p {
+            color: var(--gray);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .video-actions {
+            display: flex;
+            gap: 8px;
+            padding: 0 1rem 1rem;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 0.6rem;
+            border: none;
+            border-radius: 8px;
+            background: #f0f2f5;
+            color: var(--dark);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: var(--transition);
+            font-weight: 500;
+        }
+        
+        .action-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .preview-container {
+            margin-top: 1rem;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            height: 360px;
+        }
+        
+        .preview-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .preview-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            background: #f8f9ff;
+            color: var(--gray);
+            flex-direction: column;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .preview-placeholder i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #d0d5dd;
+        }
+        
+        .schedule-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .schedule-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+            transition: var(--transition);
+        }
+        
+        .schedule-item:hover {
+            background: #f8f9ff;
+            border-color: var(--accent);
+        }
+        
+        .schedule-order {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+        
+        .schedule-details {
+            flex: 1;
+        }
+        
+        .schedule-details h4 {
+            color: var(--dark);
+            margin-bottom: 0.25rem;
+        }
+        
+        .schedule-details p {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+        
+        .schedule-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 0.25rem;
+        }
+        
+        .type-intro {
+            background: rgba(67, 97, 238, 0.15);
+            color: var(--primary);
+        }
+        
+        .type-creator {
+            background: rgba(76, 201, 240, 0.15);
+            color: var(--success);
+        }
+        
+        .type-pause {
+            background: rgba(248, 150, 30, 0.15);
+            color: var(--warning);
+        }
+        
+        .type-voting {
+            background: rgba(247, 37, 133, 0.15);
+            color: var(--danger);
+        }
+        
+        .schedule-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .schedule-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: #f0f2f5;
+            color: var(--dark);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+        
+        .schedule-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            background: var(--success);
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.4s ease;
+            z-index: 1000;
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .toast i {
+            font-size: 1.2rem;
+        }
+        
+        .no-videos {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray);
+            grid-column: 1 / -1;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(67, 97, 238, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--gray);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border);
+            background: #f8f9ff;
+        }
+        
+        .branding {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        
+        .branding span {
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+        
+        .tab {
+            padding: 0.8rem 1.5rem;
+            cursor: pointer;
+            transition: var(--transition);
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+        }
+        
+        .tab.active {
+            border-bottom: 3px solid var(--primary);
+            color: var(--primary);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .mode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 1rem;
+            background: #f8f9ff;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .toggle-label {
+            font-weight: 600;
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .creator-selection {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+        
+        .creator-tag {
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: #eef2ff;
+            color: var(--primary);
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        
+        .creator-tag.selected {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="logo">
-        <div class="logo-icon">▶️</div>
-        <span>SquadVertex Live</span>
-      </div>
-      <div class="status">
-        <div class="status-dot"></div>
-        <span>Live</span>
-      </div>
-    </header>
-    
-    <section class="video-section">
-      <div class="video-container" id="videoContainer">
-        <div class="loading-overlay">
-          <div class="spinner"></div>
-          <p>Loading live stream...</p>
-        </div>
-      </div>
-      
-      <div class="metadata" id="metadata">
-        <h2>Welcome to SquadVertex Live Stream</h2>
-        <p>This is the live streaming platform for SquadVertex events. The stream will begin shortly.</p>
-        <span class="provider-tag">No provider selected</span>
-      </div>
-    </section>
-    
-    <section class="interaction-section">
-      <div class="voting-ui">
-        <h2 class="section-title">👍/👎 Voting</h2>
-        <div class="vote-buttons">
-          <button class="vote-btn like-btn" id="btnLike">
-            <span>Like</span>
-          </button>
-        </div>
-        <div class="vote-counts">
-          <div class="vote-count">
-            <h3 id="likeCount">0</h3>
-            <p>Likes</p>
-          </div>
-        </div>
-      </div>
-      
-      <div class="comments-ui">
-        <h2 class="section-title">💬 Comments</h2>
-        <div class="comments-list" id="commentsList">
-          <div class="comment">
-            <div class="comment-header">
-              <span>Admin</span>
-              <span>Just now</span>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-video"></i>
+                </div>
+                <div>
+                    <div>SquadVertex Live Stream Admin</div>
+                    <div style="font-size: 0.9rem; opacity: 0.9;">Professional Event Management</div>
+                </div>
             </div>
-            <p class="comment-text">Welcome to the SquadVertex live stream! Please be respectful in the comments.</p>
-          </div>
+            
+            <div class="header-info">
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span id="connection-status">Connected to Firebase</span>
+                </div>
+                <div class="time-display">
+                    <span id="local-time">Loading local time...</span>
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <button class="btn btn-danger" id="btnClearActive">
+                    <i class="fas fa-stop-circle"></i> Clear Active
+                </button>
+            </div>
+        </header>
+        
+        <div class="main-content">
+            <div class="tabs">
+                <div class="tab active" data-tab="video-library">Video Library</div>
+                <div class="tab" data-tab="stream-schedule">Stream Schedule</div>
+                <div class="tab" data-tab="live-controls">Live Controls</div>
+            </div>
+            
+            <!-- Video Library Tab -->
+            <div class="tab-content active" id="video-library">
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-plus-circle"></i> Add Video</h2>
+                    </div>
+                    <div class="section-body">
+                        <div class="form-group">
+                            <label for="addVideoId">Wistia Video ID</label>
+                            <input type="text" id="addVideoId" class="form-control" placeholder="Enter Wistia video ID">
+                        </div>
+                        
+                        <button class="btn btn-primary" id="btnAddVideo" style="width: 100%;">
+                            <i class="fas fa-plus-circle"></i> Add to Event
+                        </button>
+                        
+                        <div class="video-stats">
+                            <div class="stat-item">
+                                <h3 id="totalCount">0</h3>
+                                <p>Total Videos</p>
+                            </div>
+                            <div class="stat-item">
+                                <h3 id="activeCount">0</h3>
+                                <p>Active Now</p>
+                            </div>
+                            <div class="stat-item">
+                                <h3 id="viewCount">0</h3>
+                                <p>Total Views</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-film"></i> Video Library</h2>
+                        <div id="video-count">0 videos</div>
+                    </div>
+                    <div class="section-body">
+                        <div class="video-list" id="videoList">
+                            <div class="no-videos">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <p>Loading videos...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-eye"></i> Video Preview</h2>
+                    </div>
+                    <div class="section-body">
+                        <div class="preview-container" id="previewContainer">
+                            <div class="preview-placeholder">
+                                <i class="fas fa-play-circle"></i>
+                                <p>Select a video to preview</p>
+                                <p class="small">Click on the "Preview" button on any video card</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stream Schedule Tab -->
+            <div class="tab-content" id="stream-schedule">
+                <div class="mode-toggle">
+                    <div class="toggle-label">Stream Mode:</div>
+                    <label class="switch">
+                        <input type="checkbox" id="modeToggle">
+                        <span class="slider"></span>
+                    </label>
+                    <div id="modeLabel">Manual Mode</div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-plus"></i> Add Schedule Item</h2>
+                    </div>
+                    <div class="section-body">
+                        <div class="form-group">
+                            <label>Select Item Type</label>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <select id="scheduleType" class="form-control">
+                                        <option value="intro">Intro Video</option>
+                                        <option value="creator">Creator Video</option>
+                                        <option value="pause">Pause/Break</option>
+                                        <option value="voting">Voting Time</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group" id="videoIdGroup">
+                                    <input type="text" id="scheduleVideoId" class="form-control" placeholder="Enter Wistia video ID">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" id="creatorGroup" style="display:none;">
+                                <label>Select Creator</label>
+                                <div class="creator-selection">
+                                    <div class="creator-tag" data-creator="squadvertex">SquadVertex</div>
+                                    <div class="creator-tag" data-creator="creator1">Creator 1</div>
+                                    <div class="creator-tag" data-creator="creator2">Creator 2</div>
+                                    <div class="creator-tag" data-creator="creator3">Creator 3</div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" id="durationGroup" style="display:none;">
+                                <label>Duration (seconds)</label>
+                                <input type="number" id="scheduleDuration" class="form-control" min="1" value="30">
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-primary" id="btnAddSchedule" style="width: 100%;">
+                            <i class="fas fa-plus-circle"></i> Add to Schedule
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-list-ol"></i> Stream Schedule</h2>
+                        <div id="schedule-count">0 items</div>
+                    </div>
+                    <div class="section-body">
+                        <div class="schedule-list" id="scheduleList">
+                            <div class="no-videos">
+                                <i class="fas fa-info-circle"></i>
+                                <p>No items in schedule yet</p>
+                                <p>Add items using the form above</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-info-circle"></i> Schedule Instructions</h2>
+                    </div>
+                    <div class="section-body">
+                        <div class="instructions">
+                            <h3><i class="fas fa-play"></i> How the Stream Schedule Works</h3>
+                            <p>The stream will follow this sequence automatically when in scheduled mode:</p>
+                            
+                            <div class="schedule-list">
+                                <div class="schedule-item">
+                                    <div class="schedule-order">1</div>
+                                    <div class="schedule-details">
+                                        <h4>Countdown Timer</h4>
+                                        <p>Shows before stream starts</p>
+                                        <span class="schedule-type type-pause">Pause</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="schedule-item">
+                                    <div class="schedule-order">2</div>
+                                    <div class="schedule-details">
+                                        <h4>Intro Video</h4>
+                                        <p>Auto-plays when countdown ends</p>
+                                        <span class="schedule-type type-intro">Intro</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="schedule-item">
+                                    <div class="schedule-order">3</div>
+                                    <div class="schedule-details">
+                                        <h4>Creator 1 Video</h4>
+                                        <p>Auto-plays after intro ends</p>
+                                        <span class="schedule-type type-creator">Creator</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="schedule-item">
+                                    <div class="schedule-order">4</div>
+                                    <div class="schedule-details">
+                                        <h4>Short Pause</h4>
+                                        <p>Transition between creators</p>
+                                        <span class="schedule-type type-pause">Pause</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="schedule-item">
+                                    <div class="schedule-order">5</div>
+                                    <div class="schedule-details">
+                                        <h4>Voting Time</h4>
+                                        <p>Users vote for their favorite creator</p>
+                                        <span class="schedule-type type-voting">Voting</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <p style="margin-top: 1rem;"><strong>Note:</strong> Steps 6-9 in the workflow will be handled automatically during the stream.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Live Controls Tab -->
+            <div class="tab-content" id="live-controls">
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-sliders-h"></i> Stream Controls</h2>
+                    </div>
+                    <div class="section-body">
+                        <div class="form-group">
+                            <label>Current Stream Status</label>
+                            <div class="status-indicator" style="background: rgba(74, 222, 128, 0.15); color: #16a34a; padding: 0.8rem; justify-content: center;">
+                                <div class="status-dot"></div>
+                                <span>Stream is LIVE</span>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <button class="btn btn-primary" style="flex:1;">
+                                <i class="fas fa-play"></i> Start Stream
+                            </button>
+                            
+                            <button class="btn btn-danger" style="flex:1;">
+                                <i class="fas fa-stop"></i> End Stream
+                            </button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Viewer Statistics</label>
+                            <div class="video-stats">
+                                <div class="stat-item">
+                                    <h3>1,258</h3>
+                                    <p>Current Viewers</p>
+                                </div>
+                                <div class="stat-item">
+                                    <h3>3,487</h3>
+                                    <p>Peak Viewers</p>
+                                </div>
+                                <div class="stat-item">
+                                    <h3>42</h3>
+                                    <p>Countries</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-bullhorn"></i> Announcements</h2>
+                    </div>
+                    <div class="section-body">
+                        <div class="form-group">
+                            <label>Send Announcement to Viewers</label>
+                            <textarea class="form-control" rows="3" placeholder="Enter your announcement message"></textarea>
+                        </div>
+                        
+                        <button class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Send Announcement
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-tasks"></i> Workflow Progress</h2>
+                    </div>
+                    <div class="section-body">
+                        <div style="position: relative; height: 20px; background: #f0f2f5; border-radius: 10px; margin-bottom: 1rem; overflow: hidden;">
+                            <div style="position: absolute; top:0; left:0; height:100%; width: 40%; background: var(--primary); border-radius: 10px;"></div>
+                        </div>
+                        
+                        <div class="schedule-list">
+                            <div class="schedule-item">
+                                <div class="schedule-order">1</div>
+                                <div class="schedule-details">
+                                    <h4>Countdown Timer</h4>
+                                    <p>Completed</p>
+                                </div>
+                            </div>
+                            
+                            <div class="schedule-item">
+                                <div class="schedule-order">2</div>
+                                <div class="schedule-details">
+                                    <h4>Intro Video</h4>
+                                    <p>Completed</p>
+                                </div>
+                            </div>
+                            
+                            <div class="schedule-item">
+                                <div class="schedule-order">3</div>
+                                <div class="schedule-details">
+                                    <h4>Creator 1 Video</h4>
+                                    <p>In Progress</p>
+                                </div>
+                            </div>
+                            
+                            <div class="schedule-item" style="opacity: 0.6;">
+                                <div class="schedule-order">4</div>
+                                <div class="schedule-details">
+                                    <h4>Short Pause</h4>
+                                    <p>Upcoming</p>
+                                </div>
+                            </div>
+                            
+                            <div class="schedule-item" style="opacity: 0.6;">
+                                <div class="schedule-order">5</div>
+                                <div class="schedule-details">
+                                    <h4>Voting Time</h4>
+                                    <p>Upcoming</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="comment-input">
-          <textarea id="commentInput" placeholder="Write your comment here..."></textarea>
-          <button class="post-btn" id="btnComment">Post Comment</button>
-        </div>
-      </div>
-    </section>
+        
+        <footer>
+            <p>© 2025 SquadVertex Live Stream Control. All rights reserved.</p>
+            <div class="branding">
+                <i class="fas fa-video"></i>
+                <span>SquadVertex</span> Professional Streaming Platform
+            </div>
+        </footer>
+    </div>
     
-    <footer>
-      <p>© 2025 SquadVertex Live Stream. All rights reserved.</p>
-    </footer>
-  </div>
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">Operation completed successfully!</span>
+    </div>
 
   <script>
-    // Firebase initialization
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
-    
-    try {
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.firestore();
-      
-      // References
-      const EVENT_ID    = 'SpringLaunch2025';
-      const eventRef    = db.collection('events').doc(EVENT_ID);
-      const settingsRef = eventRef.collection('settings').doc('activeVideo');
-      const commentsCol = eventRef.collection('comments');
-      const votesCol    = eventRef.collection('votes');
-      
-      let current = { provider: null, videoId: null };
-      
-      // Listen for activeVideo 
-      settingsRef.onSnapshot(s => {
-        const data = s.data() || {};
-        current.provider = data.provider || null;
-        current.videoId  = data.videoId  || null;
-        renderVideo();
-        loadVotes();
-      });
-      
-      // Render Video + Metadata
-      async function renderVideo() {
-        const vc = document.getElementById('videoContainer');
-        const md = document.getElementById('metadata');
-        vc.innerHTML = `<div class="loading-overlay"><div class="spinner"></div><p>Loading video...</p></div>`;
+        // Firebase initialization
+        const firebaseConfig = {
+            apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+            authDomain: "squadvertex2007.firebaseapp.com",
+            projectId: "squadvertex2007",
+            storageBucket: "squadvertex2007.appspot.com",
+            messagingSenderId: "168905083514",
+            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+        };
         
-        const { provider, videoId } = current;
-        if (!provider || !videoId) {
-          vc.innerHTML = '<div class="no-video-message"><p>No live stream currently. Please check back later.</p></div>';
-          md.innerHTML = `<h2>No Live Stream</h2><p>There is currently no live stream scheduled. Please check back later for updates.</p>`;
-          return;
+        firebase.initializeApp(firebaseConfig);
+        const db          = firebase.firestore();
+        const FieldValue  = firebase.firestore.FieldValue;
+
+        // Constants & refs
+        const EVENT_ID = 'SpringLaunch2025';
+        const eventRef = db.collection('events').doc(EVENT_ID);
+
+        let videoList    = [];
+        let currentVideo = null;
+        let scheduleList = [];
+        let selectedCreator = null;
+
+        // Initialize UI elements
+        const videoListEl = document.getElementById('videoList');
+        const previewContainer = document.getElementById('previewContainer');
+        const totalCountEl = document.getElementById('totalCount');
+        const activeCountEl = document.getElementById('activeCount');
+        const viewCountEl = document.getElementById('viewCount');
+        const toastEl = document.getElementById('toast');
+        const toastMessageEl = document.getElementById('toastMessage');
+        const localTimeEl = document.getElementById('local-time');
+        const connectionStatusEl = document.getElementById('connection-status');
+        const videoCountEl = document.getElementById('video-count');
+        const scheduleListEl = document.getElementById('scheduleList');
+        const scheduleCountEl = document.getElementById('schedule-count');
+        const modeToggle = document.getElementById('modeToggle');
+        const modeLabel = document.getElementById('modeLabel');
+        const scheduleType = document.getElementById('scheduleType');
+        const videoIdGroup = document.getElementById('videoIdGroup');
+        const creatorGroup = document.getElementById('creatorGroup');
+        const durationGroup = document.getElementById('durationGroup');
+        const creatorTags = document.querySelectorAll('.creator-tag');
+        
+        // Update time display
+        function updateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZoneName: 'short'
+            };
+            localTimeEl.textContent = now.toLocaleDateString('en-US', options);
         }
         
-        // Create the video container
-        const videoWrapper = document.createElement('div');
-        videoWrapper.className = 'video-container';
+        // Initialize time display
+        updateTime();
+        setInterval(updateTime, 1000);
         
-        // Create iframe based on provider
-        const iframe = document.createElement('iframe');
-        iframe.setAttribute('frameborder', '0');
-        iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media');
-        iframe.setAttribute('allowfullscreen', 'true');
-        
-        if (provider === 'wistia') {
-          iframe.src = `https://fast.wistia.net/embed/iframe/${videoId}?autoplay=true`;
-        } else if (provider === 'vimeo') {
-          iframe.src = `https://player.vimeo.com/video/${videoId}?badge=0&title=0&byline=0&portrait=0&autoplay=1`;
-        }
-        
-        videoWrapper.appendChild(iframe);
-        vc.innerHTML = '';
-        vc.appendChild(videoWrapper);
-        
-        // Fetch & display title + description via oEmbed
-        let title = 'Live Stream'; 
-        let desc = 'SquadVertex live streaming event';
-        let thumbnail = '';
-        
-        try {
-          let url = '';
-          if (provider === 'wistia') {
-            url = `https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${videoId}`;
-          } else {
-            url = `https://vimeo.com/api/oembed.json?url=https://vimeo.com/${videoId}`;
-          }
-          const res = await fetch(url);
-          const o = await res.json();
-          title = o.title || title;
-          desc = o.description || desc;
-          thumbnail = o.thumbnail_url || '';
-        } catch (error) {
-          console.error('Error fetching metadata:', error);
-        }
-        
-        md.innerHTML = `
-          <h2>${title}</h2>
-          <p>${desc}</p>
-          <span class="provider-tag">${provider.charAt(0).toUpperCase() + provider.slice(1)}</span>
-        `;
-      }
-      
-      // Voting - only likes (dislikes hidden as requested)
-      function loadVotes() {
-        const likeCt = document.getElementById('likeCount');
-        likeCt.textContent = '0';
-        
-        const { provider, videoId } = current;
-        if (!provider || !videoId) return;
-        
-        const key = `${provider}_${videoId}`;
-        votesCol.doc(key).onSnapshot(s => {
-          const v = s.data() || { likes: 0 };
-          likeCt.textContent = v.likes || 0;
+        // Tab functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                // Add active class to clicked tab
+                tab.classList.add('active');
+                
+                // Hide all tab content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                
+                // Show the selected tab content
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+            });
         });
-      }
-      
-      function vote() {
-        const { provider, videoId } = current;
-        if (!provider || !videoId) return;
         
-        const key = `${provider}_${videoId}`;
-        const docRef = votesCol.doc(key);
-        
-        db.runTransaction(tx => {
-          return tx.get(docRef).then(s => {
-            const v = s.exists ? s.data() : { likes: 0 };
-            v.likes = (v.likes || 0) + 1;
-            v.lastUpdated = Date.now();
-            tx.set(docRef, v);
-          });
-        }).catch(error => {
-          console.error('Vote transaction failed: ', error);
+        // Creator tag selection
+        creatorTags.forEach(tag => {
+            tag.addEventListener('click', () => {
+                // Remove selected class from all tags
+                creatorTags.forEach(t => t.classList.remove('selected'));
+                // Add selected class to clicked tag
+                tag.classList.add('selected');
+                selectedCreator = tag.getAttribute('data-creator');
+            });
         });
-      }
-      
-      document.getElementById('btnLike').addEventListener('click', vote);
-      
-      // Comments - load all comments without filtering by video
-      function loadComments() {
-        const list = document.getElementById('commentsList');
-        list.innerHTML = '';
         
-        commentsCol
-          .orderBy('timestamp', 'desc')
-          .onSnapshot(snap => {
-            if (snap.empty) {
-              list.innerHTML = '<div class="comment"><p>No comments yet. Be the first to comment!</p></div>';
-              return;
-            }
+        // Schedule type change handler
+        scheduleType.addEventListener('change', () => {
+            const type = scheduleType.value;
             
-            list.innerHTML = '';
-            snap.forEach(d => {
-              const c = d.data();
-              const comment = document.createElement('div');
-              comment.className = 'comment';
-              
-              const time = new Date(c.timestamp);
-              const timeString = `${time.toLocaleDateString()} at ${time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-              
-              comment.innerHTML = `
-                <div class="comment-header">
-                  <span>User ${d.id.substring(0, 6)}</span>
-                  <span>${timeString}</span>
-                </div>
-                <p class="comment-text">${c.text}</p>
-              `;
-              list.appendChild(comment);
+            // Show/hide fields based on type
+            if (type === 'pause') {
+                videoIdGroup.style.display = 'none';
+                creatorGroup.style.display = 'none';
+                durationGroup.style.display = 'block';
+            } else if (type === 'creator') {
+                videoIdGroup.style.display = 'block';
+                creatorGroup.style.display = 'block';
+                durationGroup.style.display = 'none';
+            } else if (type === 'voting') {
+                videoIdGroup.style.display = 'none';
+                creatorGroup.style.display = 'none';
+                durationGroup.style.display = 'block';
+            } else { // intro
+                videoIdGroup.style.display = 'block';
+                creatorGroup.style.display = 'none';
+                durationGroup.style.display = 'none';
+            }
+        });
+        
+        // Mode toggle handler
+        modeToggle.addEventListener('change', function() {
+            if (this.checked) {
+                modeLabel.textContent = "Scheduled Mode";
+                showToast("Switched to Scheduled Mode");
+            } else {
+                modeLabel.textContent = "Manual Mode";
+                showToast("Switched to Manual Mode");
+            }
+        });
+        
+        // ── Initialize admin listeners on page load ───────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            // Update connection status
+            connectionStatusEl.textContent = "Connecting to Firebase...";
+            
+            // Listen for videoList changes
+            eventRef.onSnapshot(snap => {
+                connectionStatusEl.textContent = "Connected to Firebase";
+                if (snap.exists) {
+                    videoList = snap.data().videoList || [];
+                    renderList();
+                }
+            }, error => {
+                connectionStatusEl.textContent = "Connection Error";
+                console.error("Firestore error:", error);
             });
             
-            // Scroll to bottom
-            list.scrollTop = list.scrollHeight;
-          });
-      }
-      
-      document.getElementById('btnComment').addEventListener('click', () => {
-        const txt = document.getElementById('commentInput').value.trim();
-        
-        if (!txt) {
-          alert('Please enter a comment');
-          return;
+            // Listen for activeVideo
+            eventRef.collection('settings').doc('activeVideo')
+                .onSnapshot(snap => {
+                    if (snap.exists) {
+                        const data = snap.data();
+                        currentVideo = data.videoId || null;
+                        renderList();
+                        updateActiveCount();
+                    }
+                });
+
+            // Clear active video button
+            document.getElementById('btnClearActive').addEventListener('click', () => {
+                eventRef.collection('settings').doc('activeVideo')
+                    .set({ videoId: '', setAt: Date.now() })
+                    .then(() => {
+                        showToast('Active video cleared');
+                    })
+                    .catch(error => {
+                        showToast('Failed to clear active video: ' + error.message, 'error');
+                    });
+            });
+
+            // Add video button
+            document.getElementById('btnAddVideo').addEventListener('click', addVideo);
+            
+            // Add schedule item button
+            document.getElementById('btnAddSchedule').addEventListener('click', addScheduleItem);
+            
+            // Allow Enter key to add video
+            document.getElementById('addVideoId').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    addVideo();
+                }
+            });
+            
+            // Load initial schedule
+            loadSchedule();
+        });
+
+        // ── Add video function ───────────────────────────────────────────────────
+        async function addVideo() {
+            const vid = document.getElementById('addVideoId').value.trim();
+            if (!vid) return showToast('Please enter a Video ID', 'warning');
+            
+            // Check if video already exists
+            if (videoList.includes(vid)) {
+                return showToast('This video is already in the list', 'warning');
+            }
+            
+            try {
+                // Show loading state
+                const btn = document.getElementById('btnAddVideo');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+                btn.disabled = true;
+                
+                // Verify video exists with Wistia
+                const response = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
+                if (!response.ok) {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    return showToast('Invalid Wistia video ID', 'error');
+                }
+                
+                // Add video to Firestore
+                await eventRef.update({
+                    videoList: FieldValue.arrayUnion(vid)
+                });
+                
+                document.getElementById('addVideoId').value = '';
+                showToast('Video added successfully!');
+            } catch (error) {
+                console.error('Error adding video:', error);
+                showToast('Failed to add video. Please try again.', 'error');
+            } finally {
+                const btn = document.getElementById('btnAddVideo');
+                btn.innerHTML = '<i class="fas fa-plus-circle"></i> Add to Event';
+                btn.disabled = false;
+            }
+        }
+
+        // ── Add schedule item function ───────────────────────────────────────────
+        async function addScheduleItem() {
+            const type = scheduleType.value;
+            const videoId = type !== 'pause' && type !== 'voting' ? document.getElementById('scheduleVideoId').value.trim() : '';
+            const duration = type === 'pause' || type === 'voting' ? parseInt(document.getElementById('scheduleDuration').value) : 0;
+            
+            if ((type === 'intro' || type === 'creator') && !videoId) {
+                return showToast('Please enter a Video ID', 'warning');
+            }
+            
+            if ((type === 'pause' || type === 'voting') && (!duration || duration < 1)) {
+                return showToast('Please enter a valid duration', 'warning');
+            }
+            
+            if (type === 'creator' && !selectedCreator) {
+                return showToast('Please select a creator', 'warning');
+            }
+            
+            try {
+                // Create schedule item
+                const item = {
+                    type: type,
+                    videoId: videoId,
+                    duration: duration,
+                    creator: selectedCreator || '',
+                    order: scheduleList.length + 1
+                };
+                
+                // Add to Firestore
+                await eventRef.collection('schedule').add(item);
+                
+                // Reset form
+                document.getElementById('scheduleVideoId').value = '';
+                document.getElementById('scheduleDuration').value = '30';
+                scheduleType.value = 'intro';
+                videoIdGroup.style.display = 'block';
+                creatorGroup.style.display = 'none';
+                durationGroup.style.display = 'none';
+                creatorTags.forEach(tag => tag.classList.remove('selected'));
+                selectedCreator = null;
+                
+                showToast('Schedule item added successfully!');
+            } catch (error) {
+                console.error('Error adding schedule item:', error);
+                showToast('Failed to add schedule item. Please try again.', 'error');
+            }
+        }
+
+        // ── Load schedule ────────────────────────────────────────────────────────
+        async function loadSchedule() {
+            try {
+                const snapshot = await eventRef.collection('schedule').orderBy('order').get();
+                scheduleList = [];
+                
+                if (snapshot.empty) {
+                    scheduleListEl.innerHTML = `
+                        <div class="no-videos">
+                            <i class="fas fa-info-circle"></i>
+                            <p>No items in schedule yet</p>
+                            <p>Add items using the form above</p>
+                        </div>
+                    `;
+                    scheduleCountEl.textContent = "0 items";
+                    return;
+                }
+                
+                snapshot.forEach(doc => {
+                    scheduleList.push({ id: doc.id, ...doc.data() });
+                });
+                
+                renderSchedule();
+            } catch (error) {
+                console.error('Error loading schedule:', error);
+                showToast('Failed to load schedule', 'error');
+            }
+        }
+
+        // ── Render video list ────────────────────────────────────────────────────
+        async function renderList() {
+            videoListEl.innerHTML = '';
+            totalCountEl.textContent = videoList.length;
+            videoCountEl.textContent = `${videoList.length} ${videoList.length === 1 ? 'video' : 'videos'}`;
+            
+            if (videoList.length === 0) {
+                videoListEl.innerHTML = `
+                    <div class="no-videos">
+                        <i class="fas fa-video-slash" style="font-size: 3rem; margin-bottom: 1rem; color: #d0d5dd;"></i>
+                        <p>No videos added yet</p>
+                        <p>Add a video using the form above</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Create a document fragment for efficient rendering
+            const fragment = document.createDocumentFragment();
+            
+            for (const vid of videoList) {
+                // oEmbed metadata
+                let meta = { 
+                    title: vid, 
+                    thumbnail_url: '',
+                    provider: 'wistia'
+                };
+                
+                try {
+                    const r = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
+                    if (r.ok) {
+                        const data = await r.json();
+                        meta = { ...meta, ...data };
+                    }
+                } catch (error) {
+                    console.error('Error fetching video metadata:', error);
+                }
+                
+                // Get stats
+                let likes = 0;
+                let dislikes = 0;
+                let comments = 0;
+                let views = 0;
+                
+                try {
+                    const [vSnap, cSnap] = await Promise.all([
+                        eventRef.collection('votes').doc(vid).get(),
+                        eventRef.collection('comments').where('videoId','==',vid).get()
+                    ]);
+                    
+                    if (vSnap.exists) {
+                        const vData = vSnap.data();
+                        likes = vData.likes || 0;
+                        dislikes = vData.dislikes || 0;
+                        views = likes + dislikes;
+                    }
+                    
+                    comments = cSnap.size;
+                } catch (error) {
+                    console.error('Error fetching stats:', error);
+                }
+                
+                // Create card element
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                
+                // Build card content
+                card.innerHTML = `
+                    <div class="video-thumb">
+                        <img src="${meta.thumbnail_url || 'https://via.placeholder.com/350x160?text=No+Thumbnail'}" alt="${meta.title}">
+                        <div class="video-status ${vid === currentVideo ? 'active' : 'inactive'}">
+                            <span class="status-dot"></span>
+                            ${vid === currentVideo ? 'LIVE NOW' : 'INACTIVE'}
+                        </div>
+                    </div>
+                    <div class="video-meta">
+                        <h3>${meta.title}</h3>
+                        <p><strong>ID:</strong> ${vid}</p>
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <div class="stat-value">${likes}</div>
+                                <div class="stat-label">👍 Likes</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value">${dislikes}</div>
+                                <div class="stat-label">👎 Dislikes</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value">${comments}</div>
+                                <div class="stat-label">💬 Comments</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="video-actions">
+                        <button class="action-btn set-active-btn">
+                            <i class="fas fa-play"></i> Set Active
+                        </button>
+                        <button class="action-btn preview-btn">
+                            <i class="fas fa-eye"></i> Preview
+                        </button>
+                        <button class="action-btn remove-btn">
+                            <i class="fas fa-trash"></i> Remove
+                        </button>
+                    </div>
+                `;
+                
+                // Add event listeners
+                card.querySelector('.set-active-btn').addEventListener('click', () => {
+                    eventRef.collection('settings').doc('activeVideo')
+                        .set({ 
+                            videoId: vid, 
+                            provider: 'wistia',
+                            setAt: Date.now() 
+                        })
+                        .then(() => {
+                            showToast(`"${meta.title}" is now LIVE`);
+                        })
+                        .catch(error => {
+                            showToast('Failed to set active video: ' + error.message, 'error');
+                        });
+                });
+                
+                card.querySelector('.preview-btn').addEventListener('click', () => {
+                    previewVideo(vid);
+                });
+                
+                card.querySelector('.remove-btn').addEventListener('click', async () => {
+                    if (confirm(`Are you sure you want to remove "${meta.title}"?`)) {
+                        try {
+                            const newList = videoList.filter(v => v !== vid);
+                            await eventRef.update({ videoList: newList });
+                            showToast(`"${meta.title}" removed from event`);
+                        } catch (error) {
+                            showToast('Failed to remove video: ' + error.message, 'error');
+                        }
+                    }
+                });
+                
+                fragment.appendChild(card);
+            }
+            
+            videoListEl.appendChild(fragment);
+            
+             // Update view count
+            const totalViews = Array.from(videoListEl.querySelectorAll('.stat-value')).reduce((sum, el) => {
+                return sum + parseInt(el.textContent) || 0;
+            }, 0);
+            viewCountEl.textContent = totalViews;
+        }
+
+        // ── Render schedule list ────────────────────────────────────────────────
+        function renderSchedule() {
+            scheduleListEl.innerHTML = '';
+            scheduleCountEl.textContent = `${scheduleList.length} ${scheduleList.length === 1 ? 'item' : 'items'}`;
+            
+            if (scheduleList.length === 0) {
+                scheduleListEl.innerHTML = `
+                    <div class="no-videos">
+                        <i class="fas fa-info-circle"></i>
+                        <p>No items in schedule yet</p>
+                        <p>Add items using the form above</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Create a document fragment for efficient rendering
+            const fragment = document.createDocumentFragment();
+            
+            scheduleList.forEach((item, index) => {
+                const scheduleItem = document.createElement('div');
+                scheduleItem.className = 'schedule-item';
+                
+                // Determine type details
+                let typeClass = '';
+                let typeLabel = '';
+                let details = '';
+                
+                switch(item.type) {
+                    case 'intro':
+                        typeClass = 'type-intro';
+                        typeLabel = 'Intro Video';
+                        details = `Video ID: ${item.videoId}`;
+                        break;
+                    case 'creator':
+                        typeClass = 'type-creator';
+                        typeLabel = 'Creator Video';
+                        details = `${item.creator} - Video ID: ${item.videoId}`;
+                        break;
+                    case 'pause':
+                        typeClass = 'type-pause';
+                        typeLabel = 'Pause/Break';
+                        details = `Duration: ${item.duration} seconds`;
+                        break;
+                    case 'voting':
+                        typeClass = 'type-voting';
+                        typeLabel = 'Voting Time';
+                        details = `Duration: ${item.duration} seconds`;
+                        break;
+                }
+                
+                scheduleItem.innerHTML = `
+                    <div class="schedule-order">${index + 1}</div>
+                    <div class="schedule-details">
+                        <h4>${typeLabel}</h4>
+                        <p>${details}</p>
+                        <span class="schedule-type ${typeClass}">${typeLabel}</span>
+                    </div>
+                    <div class="schedule-actions">
+                        <button class="schedule-btn btn-up">
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                        <button class="schedule-btn btn-down">
+                            <i class="fas fa-arrow-down"></i>
+                        </button>
+                        <button class="schedule-btn btn-remove">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                
+                // Add event listeners for actions
+                scheduleItem.querySelector('.btn-up').addEventListener('click', () => moveItem(index, 'up'));
+                scheduleItem.querySelector('.btn-down').addEventListener('click', () => moveItem(index, 'down'));
+                scheduleItem.querySelector('.btn-remove').addEventListener('click', () => removeItem(item.id));
+                
+                fragment.appendChild(scheduleItem);
+            });
+            
+            scheduleListEl.appendChild(fragment);
+        }
+
+        // ── Move schedule item ──────────────────────────────────────────────────
+        function moveItem(index, direction) {
+            if ((direction === 'up' && index === 0) || 
+                (direction === 'down' && index === scheduleList.length - 1)) {
+                return;
+            }
+            
+            const newIndex = direction === 'up' ? index - 1 : index + 1;
+            const item = scheduleList[index];
+            
+            // Remove from current position
+            scheduleList.splice(index, 1);
+            // Insert at new position
+            scheduleList.splice(newIndex, 0, item);
+            
+            // Update order in Firestore
+            updateScheduleOrder();
+            renderSchedule();
+            showToast('Schedule item moved');
+        }
+
+        // ── Remove schedule item ────────────────────────────────────────────────
+        async function removeItem(itemId) {
+            if (confirm('Are you sure you want to remove this schedule item?')) {
+                try {
+                    await eventRef.collection('schedule').doc(itemId).delete();
+                    scheduleList = scheduleList.filter(item => item.id !== itemId);
+                    renderSchedule();
+                    showToast('Schedule item removed');
+                } catch (error) {
+                    showToast('Failed to remove schedule item', 'error');
+                }
+            }
+        }
+
+        // ── Update schedule order in Firestore ──────────────────────────────────
+        async function updateScheduleOrder() {
+            try {
+                const batch = db.batch();
+                
+                scheduleList.forEach((item, index) => {
+                    const itemRef = eventRef.collection('schedule').doc(item.id);
+                    batch.update(itemRef, { order: index + 1 });
+                });
+                
+                await batch.commit();
+            } catch (error) {
+                console.error('Error updating schedule order:', error);
+                showToast('Failed to update schedule order', 'error');
+            }
+        }
+
+        // ── Preview video ────────────────────────────────────────────────────────
+        function previewVideo(vid) {
+            previewContainer.innerHTML = `
+                <div style="height:100%;">
+                    <div class="wistia_embed wistia_async_${vid}" style="height:100%;width:100%;"></div>
+                </div>
+            `;
+            
+            // Initialize Wistia player
+            if (!window._wq) {
+                window._wq = [];
+            }
+            window._wq.push({
+                id: vid,
+                onReady: function(video) {
+                    video.play();
+                }
+            });
+        }
+
+        // Update active video count
+        function updateActiveCount() {
+            activeCountEl.textContent = currentVideo ? 1 : 0;
         }
         
-        commentsCol.add({
-          text: txt,
-          timestamp: Date.now()
-        }).then(() => {
-          document.getElementById('commentInput').value = '';
-        }).catch(error => {
-          console.error('Error adding comment: ', error);
-        });
-      });
-      
-      // Initial render
-      renderVideo();
-      loadVotes();
-      loadComments();
-      
-    } catch (error) {
-      console.error('Firebase initialization error:', error);
-      document.getElementById('videoContainer').innerHTML = `
-        <div class="error-message">
-          <h3>Connection Error</h3>
-          <p>Failed to connect to Firebase. Please check your connection and refresh the page.</p>
-        </div>
-      `;
-    }
-  </script>
+        // Toast notification
+        function showToast(message, type = 'success') {
+            toastMessageEl.textContent = message;
+            
+            // Set type-specific styling
+            if (type === 'error') {
+                toastEl.style.background = 'var(--danger)';
+                toastEl.querySelector('i').className = 'fas fa-exclamation-circle';
+            } else if (type === 'warning') {
+                toastEl.style.background = 'var(--warning)';
+                toastEl.querySelector('i').className = 'fas fa-exclamation-triangle';
+            } else {
+                toastEl.style.background = 'var(--success)';
+                toastEl.querySelector('i').className = 'fas fa-check-circle';
+            }
+            
+            // Show toast
+            toastEl.classList.add('show');
+            
+            // Hide after delay
+            setTimeout(() => {
+                toastEl.classList.remove('show');
+            }, 3000);
+        }
+    </script>
 </body>
 </html>
