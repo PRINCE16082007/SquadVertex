@@ -545,6 +545,7 @@
     </div>
   </div>
 
+  <!-- Voting redirect: stays hidden until voteTime arrives -->
   <div id="redirectContainer" class="redirect-container hidden">
     <p>Voting is now open! Click below to participate:</p>
     <button class="redirect-btn" id="redirectButton">Go to Voting Contest</button>
@@ -658,7 +659,7 @@
       const db = firebase.firestore();
       const auth = firebase.auth();
 
-      // References
+      // References & state
       const EVENT_ID = 'SpringLaunch2025';
       const eventRef = db.collection('events').doc(EVENT_ID);
       const settingsRef = eventRef.collection('settings').doc('activeVideo');
@@ -668,7 +669,7 @@
 
       let current = { provider: null, videoId: null };
       let eventStartTime = null;
-      let voteTime = null;
+      let voteTime = null; // will hold a JS Date
       let videoList = [];
       let currentUser = null;
       let hasVotedForEvent = false;
@@ -692,22 +693,19 @@
       // Sign in with Google
       signInBtn.addEventListener('click', () => {
         const provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithPopup(provider)
-          .catch(error => {
-            console.error('Sign-in error:', error);
-            alert('Sign-in failed. Please try again.');
-          });
+        auth.signInWithPopup(provider).catch(error => {
+          console.error('Sign-in error:', error);
+          alert('Sign-in failed. Please try again.');
+        });
       });
 
       // Auth state listener
       auth.onAuthStateChanged(user => {
         currentUser = user;
         if (user) {
-          // User is signed in
           authNotice.classList.add('hidden');
           checkUserVotes();
         } else {
-          // User is signed out
           authNotice.classList.remove('hidden');
           disableVoteButtons();
         }
@@ -716,18 +714,16 @@
       // Check if user has already voted
       function checkUserVotes() {
         if (!currentUser) return;
-        
+
         // Check event votes
         eventRef.collection('eventUserVotes').doc(currentUser.uid).get()
           .then(doc => {
             hasVotedForEvent = doc.exists;
             updateVoteButtons();
           })
-          .catch(error => {
-            console.error('Error checking event vote:', error);
-          });
-          
-        // Check video vote
+          .catch(err => console.error('Error checking event vote:', err));
+
+        // Check video vote if there's a current video
         if (current.videoId) {
           const videoKey = `${current.provider}_${current.videoId}`;
           votesCol.doc(videoKey).collection('userVotes').doc(currentUser.uid).get()
@@ -735,13 +731,11 @@
               hasVotedForVideo = doc.exists;
               updateVoteButtons();
             })
-            .catch(error => {
-              console.error('Error checking video vote:', error);
-            });
+            .catch(err => console.error('Error checking video vote:', err));
         }
       }
 
-      // Update vote buttons based on voting status
+      // Update vote buttons based on state
       function updateVoteButtons() {
         if (currentUser) {
           btnEventLike.disabled = hasVotedForEvent;
@@ -758,7 +752,7 @@
         btnLike.disabled = true;
       }
 
-      // Load event data
+      // Load event doc to get startTime & voteTime
       eventRef.get().then(doc => {
         if (doc.exists) {
           const data = doc.data();
@@ -766,69 +760,70 @@
           voteTime = data.voteTime ? data.voteTime.toDate() : null;
           videoList = data.videoList || [];
           eventTitleEl.textContent = EVENT_ID.replace(/(\d{4})/, ' $1');
-          
-          // Start countdown
+
+          // DEBUG: log both times so you can see if voteTime is already in the past
+          console.log("🔍 voteTime from Firestore:", voteTime);
+          console.log("🔍 local now:", new Date());
+
+          // Kick off the countdown and vote-time check
           startCountdown();
-          
-          // Check voteTime
           checkVoteTime();
         }
-      }).catch(error => {
-        console.error('Error loading event data:', error);
-      });
+      }).catch(err => console.error('Error loading event data:', err));
 
-      // Countdown timer
+      // Countdown timer to hide overlay once event starts
       function startCountdown() {
         const countdownInterval = setInterval(() => {
           const now = new Date();
           const diff = eventStartTime - now;
-          
+
           if (diff <= 0) {
             clearInterval(countdownInterval);
             overlay.classList.add('hidden');
             startVideoPlayback();
             return;
           }
-          
+
           const days = Math.floor(diff / (1000 * 60 * 60 * 24));
           const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
           const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
           const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-          
-          daysEl.textContent = days.toString().padStart(2, '0');
-          hoursEl.textContent = hours.toString().padStart(2, '0');
-          minutesEl.textContent = minutes.toString().padStart(2, '0');
-          secondsEl.textContent = seconds.toString().padStart(2, '0');
+
+          daysEl.textContent = String(days).padStart(2, '0');
+          hoursEl.textContent = String(hours).padStart(2, '0');
+          minutesEl.textContent = String(minutes).padStart(2, '0');
+          secondsEl.textContent = String(seconds).padStart(2, '0');
         }, 1000);
       }
 
+      // Check when voteTime arrives—use setTimeout for precision
       function checkVoteTime() {
-  if (!voteTime) return;
+        if (!voteTime) return;
 
-  const now = new Date();
-  const msUntilVote = voteTime.getTime() - now.getTime();
+        const now = new Date();
+        const msUntilVote = voteTime.getTime() - now.getTime();
 
-  if (msUntilVote > 0) {
-    // hide until the exact moment
-    setTimeout(() => {
-      redirectContainer.classList.remove('hidden');
-    }, msUntilVote);
-  } else {
-    // if voteTime is already past, show it right away
-    redirectContainer.classList.remove('hidden');
-  }
-}
+        if (msUntilVote > 0) {
+          // Still in the future: schedule the reveal
+          setTimeout(() => {
+            redirectContainer.classList.remove('hidden');
+          }, msUntilVote);
+        } else {
+          // Already past (or exactly now): show immediately
+          redirectContainer.classList.remove('hidden');
+        }
+      }
 
-      // Redirect to voting contest
+      // Redirect to voting contest when button is clicked
       redirectButton.addEventListener('click', () => {
         window.location.href = 'https://squadvertex.com/voting-contest';
       });
 
-      // Start video playback
+      // Once countdown is done, this starts video playback & voting
       function startVideoPlayback() {
         // Listen for activeVideo changes
-        settingsRef.onSnapshot(s => {
-          const data = s.data() || {};
+        settingsRef.onSnapshot(snapshot => {
+          const data = snapshot.data() || {};
           current.provider = data.provider || null;
           current.videoId = data.videoId || null;
           renderVideo();
@@ -838,35 +833,41 @@
           }
         });
 
-        // Periodically check for activeVideo changes
-        const videoCheckInterval = setInterval(() => {
-          // This just triggers a re-check of the activeVideo document
-          settingsRef.get().then(() => {}).catch(() => {});
-        }, 30000); // Check every 30 seconds
+        // Poll Firestore every 30s to catch changes even if real-time fails
+        setInterval(() => {
+          settingsRef.get().catch(() => {});
+        }, 30000);
 
-        // Load comments and event votes
+        // Load comments & event votes immediately
         loadComments();
         loadEventVotes();
       }
 
-      // Render Video + Metadata
+      // Render the video player + fetch its oEmbed metadata
       async function renderVideo() {
         const vc = document.getElementById('videoContainer');
         const md = document.getElementById('metadata');
-        vc.innerHTML = `<div class="loading-overlay"><div class="spinner"></div><p>Loading video...</p></div>`;
+
+        // Show loading spinner
+        vc.innerHTML = `
+          <div class="loading-overlay">
+            <div class="spinner"></div>
+            <p>Loading video...</p>
+          </div>`;
 
         const { provider, videoId } = current;
         if (!provider || !videoId) {
           vc.innerHTML = '<div class="no-video-message"><p>No live stream currently. Please check back later.</p></div>';
-          md.innerHTML = `<h2>No Live Stream</h2><p>There is currently no live stream scheduled. Please check back later for updates.</p>`;
+          md.innerHTML = `
+            <h2>No Live Stream</h2>
+            <p>There is currently no live stream scheduled. Please check back later for updates.</p>`;
           return;
         }
 
-        // Create the video container
+        // Build the iframe
         const videoWrapper = document.createElement('div');
         videoWrapper.className = 'video-container';
 
-        // Create iframe based on provider
         const iframe = document.createElement('iframe');
         iframe.setAttribute('frameborder', '0');
         iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media');
@@ -882,8 +883,8 @@
         vc.innerHTML = '';
         vc.appendChild(videoWrapper);
 
-        // Fetch & display title + description via oEmbed
-        let title = 'Live Stream'; 
+        // Attempt to fetch oEmbed metadata for title/description
+        let title = 'Live Stream';
         let desc = 'SquadVertex live streaming event';
 
         try {
@@ -895,11 +896,7 @@
           }
 
           const res = await fetch(url);
-
-          if (!res.ok) {
-            throw new Error(`HTTP error! Status: ${res.status}`);
-          }
-
+          if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
           const data = await res.json();
 
           if (provider === 'wistia') {
@@ -907,9 +904,8 @@
             desc = data.description || desc;
           } else {
             if (Array.isArray(data) && data.length > 0) {
-              const videoData = data[0];
-              title = videoData.title || title;
-              desc = videoData.description || desc;
+              title = data[0].title || title;
+              desc = data[0].description || desc;
             }
           }
         } catch (error) {
@@ -923,7 +919,7 @@
         `;
       }
 
-      // Voting - only likes for videos with user tracking
+      // Load & display video like count
       function loadVotes() {
         const likeCt = document.getElementById('likeCount');
         likeCt.textContent = '0';
@@ -932,12 +928,13 @@
         if (!provider || !videoId) return;
 
         const key = `${provider}_${videoId}`;
-        votesCol.doc(key).onSnapshot(s => {
-          const v = s.data() || { likes: 0 };
+        votesCol.doc(key).onSnapshot(snap => {
+          const v = snap.data() || { likes: 0 };
           likeCt.textContent = v.likes || 0;
         });
       }
 
+      // Voting for the current video
       function vote() {
         if (!currentUser) {
           alert('Please sign in to vote.');
@@ -952,45 +949,43 @@
         const docRef = votesCol.doc(key);
         const userVoteRef = docRef.collection('userVotes').doc(userId);
 
-        // Check if user already voted
         userVoteRef.get().then(doc => {
           if (doc.exists) {
             alert('You have already voted for this video.');
             return;
           }
 
-          // Record the vote
           db.runTransaction(tx => {
-            return tx.get(docRef).then(s => {
-              const v = s.exists ? s.data() : { likes: 0 };
+            return tx.get(docRef).then(snapshot => {
+              const v = snapshot.exists ? snapshot.data() : { likes: 0 };
               v.likes = (v.likes || 0) + 1;
               tx.set(docRef, v);
               tx.set(userVoteRef, { votedAt: new Date() });
               hasVotedForVideo = true;
               updateVoteButtons();
             });
-          }).catch(error => {
-            console.error('Vote transaction failed: ', error);
+          }).catch(err => {
+            console.error('Vote transaction failed: ', err);
             alert('Failed to record your vote. Please try again.');
           });
         });
       }
 
-      // Event-wide voting with user tracking
+      // Load & display event-wide likes/dislikes
       function loadEventVotes() {
         const likeCt = document.getElementById('eventLikeCount');
         const dislikeCt = document.getElementById('eventDislikeCount');
-        
         likeCt.textContent = '0';
         dislikeCt.textContent = '0';
 
-        eventVotesRef.onSnapshot(s => {
-          const v = s.data() || { likes: 0, dislikes: 0 };
+        eventVotesRef.onSnapshot(snap => {
+          const v = snap.data() || { likes: 0, dislikes: 0 };
           likeCt.textContent = v.likes || 0;
           dislikeCt.textContent = v.dislikes || 0;
         });
       }
 
+      // Voting for the event (like/dislike)
       function voteEvent(type) {
         if (!currentUser) {
           alert('Please sign in to vote.');
@@ -1000,37 +995,33 @@
         const userId = currentUser.uid;
         const userVoteRef = eventRef.collection('eventUserVotes').doc(userId);
 
-        // Check if user already voted
         userVoteRef.get().then(doc => {
           if (doc.exists) {
             alert('You have already voted for this event.');
             return;
           }
 
-          // Record the vote
           db.runTransaction(tx => {
-            return tx.get(eventVotesRef).then(s => {
-              const v = s.exists ? s.data() : { likes: 0, dislikes: 0 };
-              
+            return tx.get(eventVotesRef).then(snap => {
+              const v = snap.exists ? snap.data() : { likes: 0, dislikes: 0 };
               if (type === 'like') {
                 v.likes = (v.likes || 0) + 1;
               } else if (type === 'dislike') {
                 v.dislikes = (v.dislikes || 0) + 1;
               }
-              
               tx.set(eventVotesRef, v);
               tx.set(userVoteRef, { vote: type, votedAt: new Date() });
               hasVotedForEvent = true;
               updateVoteButtons();
             });
-          }).catch(error => {
-            console.error('Event vote transaction failed: ', error);
+          }).catch(err => {
+            console.error('Event vote transaction failed: ', err);
             alert('Failed to record your vote. Please try again.');
           });
         });
       }
 
-      // Comments
+      // Load & render comments list
       function loadComments() {
         const list = document.getElementById('commentsList');
         list.innerHTML = '';
@@ -1064,30 +1055,26 @@
           });
       }
 
-      // Initialize event listeners
+      // Hook up vote buttons and comment post button
       document.getElementById('btnLike').addEventListener('click', vote);
       document.getElementById('btnEventLike').addEventListener('click', () => voteEvent('like'));
       document.getElementById('btnEventDislike').addEventListener('click', () => voteEvent('dislike'));
-      
+
       document.getElementById('btnComment').addEventListener('click', () => {
         const txt = document.getElementById('commentInput').value.trim();
-
         if (!txt) {
           alert('Please enter a comment');
           return;
         }
-
         commentsCol.add({
           commentText: txt,
           timestamp: Date.now()
         }).then(() => {
           document.getElementById('commentInput').value = '';
-        }).catch(error => {
-          console.error('Error adding comment: ', error);
-        });
+        }).catch(err => console.error('Error adding comment: ', err));
       });
 
-      // Initial setup
+      // Kick things off
       loadEventVotes();
       loadComments();
 
