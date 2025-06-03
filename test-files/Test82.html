@@ -142,18 +142,6 @@
       background: #e21a6d;
     }
 
-    /* New: Secondary button style for nav links */
-    .btn-secondary {
-      background: var(--light);
-      color: var(--dark);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover {
-      background: var(--accent);
-      color: white;
-      transform: translateY(-2px);
-    }
-
     .main-content {
       display: flex;
       flex-direction: column;
@@ -545,40 +533,41 @@
         </div>
       </div>
 
-      <!-- New: Nav Buttons -->
       <div class="header-actions">
-        <!-- Voting Button (redirects to voting.html) -->
-        <button class="btn btn-secondary" onclick="window.location.href='voting.html'">
-          <i class="fas fa-vote-yea"></i> Voting
-        </button>
+  <!-- Voting Button -->
+  <button class="btn btn-secondary" onclick="window.location.href='voting.html'">
+    <i class="fas fa-vote-yea"></i> Voting
+  </button>
 
-        <!-- Results Button (redirects to results.html) -->
-        <button class="btn btn-secondary" onclick="window.location.href='results.html'">
-          <i class="fas fa-chart-bar"></i> Results
-        </button>
+  <!-- Results Button -->
+  <button class="btn btn-secondary" onclick="window.location.href='results.html'">
+    <i class="fas fa-chart-bar"></i> Results
+  </button>
 
-        <!-- Existing “Clear Active” -->
-        <button class="btn btn-danger" id="btnClearActive">
-          <i class="fas fa-stop-circle"></i> Clear Active
-        </button>
-      </div>
+  <!-- Existing “Clear Active” -->
+  <button class="btn btn-danger" id="btnClearActive">
+    <i class="fas fa-stop-circle"></i> Clear Active
+  </button>
+</div>
     </header>
 
-    <!-- New: Event Start Time Section -->
-    <div class="section">
-      <div class="section-header">
-        <h2><i class="fas fa-clock"></i> Event Start Time</h2>
-      </div>
-      <div class="section-body">
-        <div class="form-group">
-          <label for="eventStartTime">Choose Start Date &amp; Time</label>
-          <input type="datetime-local" id="eventStartTime" class="form-control">
-        </div>
-        <button class="btn btn-primary" id="btnSetStartTime">
-          <i class="fas fa-check-circle"></i> Set Start Time
-        </button>
-      </div>
+<!-- New: Event Start Time Section -->
+<div class="section">
+  <div class="section-header">
+    <h2>
+      <i class="fas fa-clock"></i> Event Start Time
+    </h2>
+  </div>
+  <div class="section-body">
+    <div class="form-group">
+      <label for="eventStartTime">Choose Start Date &amp; Time</label>
+      <input type="datetime-local" id="eventStartTime" class="form-control">
     </div>
+    <button class="btn btn-primary" id="btnSetStartTime">
+      <i class="fas fa-check-circle"></i> Set Start Time
+    </button>
+  </div>
+</div>
 
     <div class="main-content">
       <!-- Add Video Section -->
@@ -722,23 +711,19 @@
     let videoList    = [];
     let currentVideo = null;
 
-    // UI elements
-    const videoListEl       = document.getElementById('videoList');
-    const previewContainer  = document.getElementById('previewContainer');
-    const totalCountEl      = document.getElementById('totalCount');
-    const activeCountEl     = document.getElementById('activeCount');
-    const viewCountEl       = document.getElementById('viewCount');
-    const toastEl           = document.getElementById('toast');
-    const toastMessageEl    = document.getElementById('toastMessage');
-    const localTimeEl       = document.getElementById('local-time');
-    const connectionStatusEl= document.getElementById('connection-status');
-    const videoCountEl      = document.getElementById('video-count');
+    // Initialize UI elements
+    const videoListEl = document.getElementById('videoList');
+    const previewContainer = document.getElementById('previewContainer');
+    const totalCountEl = document.getElementById('totalCount');
+    const activeCountEl = document.getElementById('activeCount');
+    const viewCountEl = document.getElementById('viewCount');
+    const toastEl = document.getElementById('toast');
+    const toastMessageEl = document.getElementById('toastMessage');
+    const localTimeEl = document.getElementById('local-time');
+    const connectionStatusEl = document.getElementById('connection-status');
+    const videoCountEl = document.getElementById('video-count');
 
-    // NEW: Event Start Time elements
-    const eventStartInput   = document.getElementById('eventStartTime');
-    const btnSetStartTime   = document.getElementById('btnSetStartTime');
-
-    // Update local time display (every second)
+    // Update time display
     function updateTime() {
       const now = new Date();
       const options = { 
@@ -753,6 +738,8 @@
       };
       localTimeEl.textContent = now.toLocaleDateString('en-US', options);
     }
+
+    // Initialize time display
     updateTime();
     setInterval(updateTime, 1000);
 
@@ -761,38 +748,25 @@
       // Update connection status
       connectionStatusEl.textContent = "Connecting to Firebase...";
 
-      // Listen for the event document snapshot (includes videoList & startTime)
+      // Listen for videoList changes
       eventRef.onSnapshot(snap => {
+        connectionStatusEl.textContent = "Connected to Firebase";
         if (snap.exists) {
-          connectionStatusEl.textContent = "Connected to Firebase";
-
-          // 1) Load videoList as before
           videoList = snap.data().videoList || [];
           renderList();
-
-          // 2) Load startTime (if it exists) into the datetime-local input
-          const ts = snap.data().startTime;
-          if (ts) {
-            // ts is a Firestore Timestamp; convert to ISO string for input
-            const dt = ts.toDate();
-            // Format: "YYYY-MM-DDTHH:MM" → datetime-local expects this format
-            const isoString = dt.toISOString().slice(0,16);
-            eventStartInput.value = isoString;
-          }
-        } else {
-          connectionStatusEl.textContent = "No such event doc!";
         }
       }, error => {
         connectionStatusEl.textContent = "Connection Error";
         console.error("Firestore error:", error);
       });
 
-      // Listen for activeVideo changes (same as before)
+      // Listen for activeVideo
       eventRef.collection('settings').doc('activeVideo')
         .onSnapshot(snap => {
           if (snap.exists) {
             const data = snap.data();
             currentVideo = data.videoId || null;
+           // renderList();
             updateActiveCount();
           }
         });
@@ -818,29 +792,6 @@
           addVideo();
         }
       });
-
-      // ── NEW: “Set Start Time” button listener ───────────────────────────
-      btnSetStartTime.addEventListener('click', () => {
-        const val = eventStartInput.value; // format: "YYYY-MM-DDTHH:MM"
-        if (!val) {
-          return showToast('Please pick a date & time', 'warning');
-        }
-        try {
-          const selectedDate = new Date(val);
-          const timestamp = firebase.firestore.Timestamp.fromDate(selectedDate);
-          eventRef.update({ startTime: timestamp })
-            .then(() => {
-              showToast('Event start time updated');
-            })
-            .catch(error => {
-              showToast('Error saving start time: ' + error.message, 'error');
-            });
-        } catch (e) {
-          showToast('Invalid date format', 'error');
-          console.error(e);
-        }
-      });
-      // ────────────────────────────────────────────────────────────────
     });
 
     // ── Add video function ───────────────────────────────────────────────────
@@ -1000,7 +951,7 @@
               setAt: Date.now() 
             })
             .then(() => {
-              showToast(\`"\${meta.title}" is now LIVE\`);
+              showToast(`"${meta.title}" is now LIVE`);
             })
             .catch(error => {
               showToast('Failed to set active video: ' + error.message, 'error');
@@ -1012,11 +963,11 @@
         });
 
         card.querySelector('.remove-btn').addEventListener('click', async () => {
-          if (confirm(\`Are you sure you want to remove "\${meta.title}"?\`)) {
+          if (confirm(`Are you sure you want to remove "${meta.title}"?`)) {
             try {
               const newList = videoList.filter(v => v !== vid);
               await eventRef.update({ videoList: newList });
-              showToast(\`"\${meta.title}" removed from event\`);
+              showToast(`"${meta.title}" removed from event`);
             } catch (error) {
               showToast('Failed to remove video: ' + error.message, 'error');
             }
