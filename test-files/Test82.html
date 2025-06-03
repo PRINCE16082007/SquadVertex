@@ -657,64 +657,80 @@
   </div>
 
   <script>
-    // ─── FIREBASE INITIALIZATION ─────────────────────────────────────────
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+  // ─── FIREBASE INITIALIZATION ─────────────────────────────────────────
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-    // Refs:
-    // events/SpringLaunch2025 → fields: votingQuestion (string), videoList (array)
-    // events/SpringLaunch2025/votingContests → docs for each creator:
-    //    { imageURL, creatorName, videos: [vid1,vid2,…], createdAt }
+  // Refs:
+  // events/SpringLaunch2025 → fields: votingQuestion (string), voteTime (timestamp), videoList (array)
+  // events/SpringLaunch2025/votingContests → docs for each creator:
+  //    { imageURL, creatorName, videos: [vid1,vid2,…], createdAt }
 
-    const EVENT_ID = "SpringLaunch2025";
-    const eventRef = db.collection("events").doc(EVENT_ID);
-    const contestsRef = eventRef.collection("votingContests");
+  const EVENT_ID = "SpringLaunch2025";
+  const eventRef = db.collection("events").doc(EVENT_ID);
+  const contestsRef = eventRef.collection("votingContests");
 
-    // DOM Elements
-    const questionEl = document.getElementById("globalVoteQuestion");
-    const btnSetQuestion = document.getElementById("btnSetQuestion");
+  // DOM Elements
+  const questionEl = document.getElementById("globalVoteQuestion");
+  const voteTimeEl = document.getElementById("voteTimeInput");               // NEW
+  const btnSetQuestionTime = document.getElementById("btnSetQuestionTime");  // UPDATED ID
 
-    const creatorImageEl = document.getElementById("creatorImageUrl");
-    const creatorNameEl = document.getElementById("creatorName");
-    const videosListEl = document.getElementById("videosCheckboxList");
-    const btnSaveCreator = document.getElementById("btnSaveCreator");
-    const btnCancelEdit = document.getElementById("btnCancelEdit");
+  const creatorImageEl = document.getElementById("creatorImageUrl");
+  const creatorNameEl = document.getElementById("creatorName");
+  const videosListEl = document.getElementById("videosCheckboxList");
+  const btnSaveCreator = document.getElementById("btnSaveCreator");
+  const btnCancelEdit = document.getElementById("btnCancelEdit");
 
-    const manageListEl = document.getElementById("manageList");
-    const previewArea = document.getElementById("previewArea");
+  const manageListEl = document.getElementById("manageList");
+  const previewArea = document.getElementById("previewArea");
 
-    const toastEl = document.getElementById("toast");
-    const toastMsgEl = document.getElementById("toastMessage");
+  const toastEl = document.getElementById("toast");
+  const toastMsgEl = document.getElementById("toastMessage");
 
-    // State
-    let allVideos = [];       // Array<{ id, title, thumb }>
-    let currentQuestion = ""; // string
-    let editingDocId = null;  // if not null, we’re in “edit” mode for that doc
+  // State
+  let allVideos = [];       // Array<{ id, title, thumb }>
+  let currentQuestion = ""; // string
+  let editingDocId = null;  // if not null, we’re in “edit” mode for that doc
 
-    document.addEventListener("DOMContentLoaded", () => {
-      // 1) Load global question & videoList from Firestore
-      eventRef.get()
-        .then(snap => {
-          if (!snap.exists) throw new Error("Event doc not found.");
-          const data = snap.data() || {};
-          currentQuestion = data.votingQuestion || "";
-          questionEl.value = currentQuestion;
+  document.addEventListener("DOMContentLoaded", () => {
+    // 1) Load global question, voteTime & videoList from Firestore
+    eventRef.get()
+      .then(snap => {
+        if (!snap.exists) throw new Error("Event doc not found.");
+        const data = snap.data() || {};
 
-          const videoIDs = data.videoList || [];
-          if (!videoIDs.length) {
-            videosListEl.innerHTML = "<p style='color: var(--gray)'>No videos available.</p>";
-            return [];
-          }
-          // 2) For each video ID, fetch oEmbed metadata for title + thumbnail
-          const promises = videoIDs.map(vid => fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`)
+        // 1A) Prefill votingQuestion
+        currentQuestion = data.votingQuestion || "";
+        questionEl.value = currentQuestion;
+
+        // 1B) Prefill voteTime if it exists
+        if (data.voteTime) {
+          const dt = data.voteTime.toDate();
+          const yyyy = dt.getFullYear();
+          const mm = String(dt.getMonth() + 1).padStart(2, "0");
+          const dd = String(dt.getDate()).padStart(2, "0");
+          const hh = String(dt.getHours()).padStart(2, "0");
+          const mi = String(dt.getMinutes()).padStart(2, "0");
+          voteTimeEl.value = `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+        }
+
+        // 1C) Load videoList (array of Wistia IDs)
+        const videoIDs = data.videoList || [];
+        if (!videoIDs.length) {
+          videosListEl.innerHTML = "<p style='color: var(--gray)'>No videos available.</p>";
+          return [];
+        }
+        // 1D) For each video ID, fetch oEmbed metadata for title + thumbnail
+        const promises = videoIDs.map(vid =>
+          fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`)
             .then(res => {
               if (!res.ok) throw new Error("oEmbed failed");
               return res.json();
@@ -729,336 +745,358 @@
               title: vid,
               thumb: "https://via.placeholder.com/120x68?text=No+Thumb"
             }))
-          );
-          return Promise.all(promises);
-        })
-        .then(results => {
-          allVideos = results; // array of {id, title, thumb}
-          renderVideoCheckboxes(allVideos);
-        })
-        .catch(err => {
-          console.error("Error loading videos or question:", err);
-          videosListEl.innerHTML = "<p style='color: var(--danger)'>Failed to load videos.</p>";
-        });
-
-       // 3) btnSetQuestion → Save votingQuestion
-      btnSetQuestion.addEventListener("click", () => {
-        const q = questionEl.value.trim();
-        if (!q) {
-          showToast("Question cannot be empty.", "warning");
-          return;
-        }
-        eventRef.update({ votingQuestion: q })
-          .then(() => {
-            showToast("Voting question saved!");
-          })
-          .catch(err => {
-            console.error("Error saving question:", err);
-            showToast("Failed to save question.", "error");
-          });
-      });
-
-      // 4) btnSaveCreator → either add or update
-      btnSaveCreator.addEventListener("click", handleSaveOrUpdate);
-
-      // 5) btnCancelEdit → cancel editing state
-      btnCancelEdit.addEventListener("click", () => {
-        resetCreatorForm();
-      });
-
-      // 6) Listen for changes in votingQuestion or votingContests → re-render manage & preview
-      eventRef.onSnapshot(snap => {
-        if (!snap.exists) return;
-        const data = snap.data() || {};
-        currentQuestion = data.votingQuestion || "";
-        questionEl.value = currentQuestion;
-
-        // Reload all creator entries
+        );
+        return Promise.all(promises);
+      })
+      .then(results => {
+        allVideos = results; // array of {id, title, thumb}
+        renderVideoCheckboxes(allVideos);
+        // After loading videos, load existing creator entries & preview
         loadAndRenderCreatorEntries();
+      })
+      .catch(err => {
+        console.error("Error loading event data:", err);
+        videosListEl.innerHTML = "<p style='color: var(--danger)'>Failed to load videos.</p>";
+        loadAndRenderCreatorEntries(); // still try to render existing entries
       });
+
+    // 2) btnSetQuestionTime → Save votingQuestion + voteTime
+    btnSetQuestionTime.addEventListener("click", handleSaveQuestionTime);
+
+    // 3) btnSaveCreator → either add or update
+    btnSaveCreator.addEventListener("click", handleSaveOrUpdate);
+
+    // 4) btnCancelEdit → cancel editing state
+    btnCancelEdit.addEventListener("click", () => {
+      resetCreatorForm();
     });
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Render checkboxes for each video (with thumbnail & title)
-    function renderVideoCheckboxes(videoArray) {
-      if (!videoArray.length) {
-        videosListEl.innerHTML = "<p style='color: var(--gray)'>No videos available.</p>";
-        return;
-      }
-      videosListEl.innerHTML = "";
-      videoArray.forEach(v => {
-        const wrapper = document.createElement("div");
-        wrapper.className = "checkbox-item";
-        wrapper.innerHTML = `
-          <input type="checkbox" id="chk_${v.id}" value="${v.id}" />
-          <img src="${v.thumb}" alt="${v.title}" onerror="this.src='https://via.placeholder.com/120x68?text=No+Thumb'">
-          <span>${v.title}</span>
-        `;
-        videosListEl.appendChild(wrapper);
-      });
+    // 5) Listen for changes in votingQuestion or votingContests → re-render manage & preview
+    eventRef.onSnapshot(snap => {
+      if (!snap.exists) return;
+      const data = snap.data() || {};
+      currentQuestion = data.votingQuestion || "";
+      questionEl.value = currentQuestion;
+
+      // Reload all creator entries
+      loadAndRenderCreatorEntries();
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Save both votingQuestion and voteTime to Firestore
+  function handleSaveQuestionTime() {
+    const q = questionEl.value.trim();
+    const dtStr = voteTimeEl.value; // e.g. "2025-06-10T15:30"
+    if (!q) {
+      showToast("Question cannot be empty.", "warning");
+      return;
+    }
+    if (!dtStr) {
+      showToast("Please pick a voting start date & time.", "warning");
+      return;
+    }
+    const jsDate = new Date(dtStr);
+    if (isNaN(jsDate.getTime())) {
+      showToast("Invalid date/time format.", "error");
+      return;
+    }
+    const fsTimestamp = firebase.firestore.Timestamp.fromDate(jsDate);
+
+    eventRef.update({
+      votingQuestion: q,
+      voteTime: fsTimestamp
+    })
+    .then(() => {
+      showToast("Question & Vote Time saved!");
+    })
+    .catch(err => {
+      console.error("Error saving question/time:", err);
+      showToast("Failed to save question & time.", "error");
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render checkboxes for each video (with thumbnail & title)
+  function renderVideoCheckboxes(videoArray) {
+    if (!videoArray.length) {
+      videosListEl.innerHTML = "<p style='color: var(--gray)'>No videos available.</p>";
+      return;
+    }
+    videosListEl.innerHTML = "";
+    videoArray.forEach(v => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "checkbox-item";
+      wrapper.innerHTML = `
+        <input type="checkbox" id="chk_${v.id}" value="${v.id}" />
+        <img src="${v.thumb}" alt="${v.title}" onerror="this.src='https://via.placeholder.com/120x68?text=No+Thumb'">
+        <span>${v.title}</span>
+      `;
+      videosListEl.appendChild(wrapper);
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Handle Save or Update Creator Entry
+  function handleSaveOrUpdate() {
+    const imageURL = creatorImageEl.value.trim();
+    const creatorName = creatorNameEl.value.trim();
+    const selectedVideos = Array.from(
+      videosListEl.querySelectorAll("input[type=checkbox]:checked")
+    ).map(el => el.value);
+
+    // Validate
+    if (!imageURL || !creatorName || !selectedVideos.length) {
+      showToast("All fields are required (plus at least one video).", "warning");
+      return;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Handle Save or Update Creator Entry
-    function handleSaveOrUpdate() {
-      const imageURL = creatorImageEl.value.trim();
-      const creatorName = creatorNameEl.value.trim();
-      const selectedVideos = Array.from(
-        videosListEl.querySelectorAll("input[type=checkbox]:checked")
-      ).map(el => el.value);
+    const payload = {
+      imageURL,
+      creatorName,
+      videos: selectedVideos,
+      createdAt: firebase.firestore.Timestamp.now(),
+    };
 
-      // Validate
-      if (!imageURL || !creatorName || !selectedVideos.length) {
-        showToast("All fields are required (plus at least one video).", "warning");
-        return;
-      }
-
-      const payload = {
-        imageURL,
-        creatorName,
-        videos: selectedVideos,
-        createdAt: firebase.firestore.Timestamp.now(),
-      };
-
-      if (editingDocId) {
-        // UPDATE existing doc
-        contestsRef.doc(editingDocId).update(payload)
-          .then(() => {
-            showToast("Creator entry updated!");
-            resetCreatorForm();
-          })
-          .catch(err => {
-            console.error("Error updating creator entry:", err);
-            showToast("Failed to update entry.", "error");
-          });
-      } else {
-        // ADD new doc
-        contestsRef.add(payload)
-          .then(() => {
-            showToast("Creator entry saved!");
-            resetCreatorForm();
-          })
-          .catch(err => {
-            console.error("Error saving creator entry:", err);
-            showToast("Failed to save entry.", "error");
-          });
-      }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Load all creator entries and render into “Manage Existing Creators” and “Live Preview”
-    function loadAndRenderCreatorEntries() {
-      // 1) Load all documents under votingContests, ordered by createdAt
-      contestsRef.orderBy("createdAt", "asc").get()
-        .then(querySnap => {
-          if (querySnap.empty) {
-            // If no entries, show placeholder in Manage & Preview
-            manageListEl.innerHTML = `
-              <p style="color: var(--gray); text-align:center;">
-                No creator entries yet.
-              </p>`;
-            renderPreview(currentQuestion, []);
-            return [];
-          }
-          const docs = [];
-          querySnap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
-          renderManageList(docs);
-          renderPreview(currentQuestion, docs);
-          return docs;
+    if (editingDocId) {
+      // UPDATE existing doc
+      contestsRef.doc(editingDocId).update(payload)
+        .then(() => {
+          showToast("Creator entry updated!");
+          resetCreatorForm();
         })
         .catch(err => {
-          console.error("Error loading creator entries:", err);
+          console.error("Error updating creator entry:", err);
+          showToast("Failed to update entry.", "error");
+        });
+    } else {
+      // ADD new doc
+      contestsRef.add(payload)
+        .then(() => {
+          showToast("Creator entry saved!");
+          resetCreatorForm();
+        })
+        .catch(err => {
+          console.error("Error saving creator entry:", err);
+          showToast("Failed to save entry.", "error");
+        });
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Load all creator entries and render into “Manage Existing Creators” and “Live Preview”
+  function loadAndRenderCreatorEntries() {
+    // 1) Load all documents under votingContests, ordered by createdAt
+    contestsRef.orderBy("createdAt", "asc").get()
+      .then(querySnap => {
+        if (querySnap.empty) {
+          // If no entries, show placeholder in Manage & Preview
           manageListEl.innerHTML = `
-            <p style="color: var(--danger); text-align:center;">
-              Failed to load creator entries.
+            <p style="color: var(--gray); text-align:center;">
+              No creator entries yet.
             </p>`;
           renderPreview(currentQuestion, []);
-        });
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Render “Manage Existing Creators” grid
-    function renderManageList(docs) {
-      if (!docs.length) {
+          return [];
+        }
+        const docs = [];
+        querySnap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+        renderManageList(docs);
+        renderPreview(currentQuestion, docs);
+        return docs;
+      })
+      .catch(err => {
+        console.error("Error loading creator entries:", err);
         manageListEl.innerHTML = `
-          <p style="color: var(--gray); text-align:center;">
-            No creator entries yet.
+          <p style="color: var(--danger); text-align:center;">
+            Failed to load creator entries.
           </p>`;
-        return;
-      }
-      manageListEl.innerHTML = "";
-      docs.forEach(doc => {
-        const card = document.createElement("div");
-        card.className = "manage-card";
+        renderPreview(currentQuestion, []);
+      });
+  }
 
-        // Top: Creator name + first video title thumbnail
-        let firstTitle = "";
-        try {
-          firstTitle = allVideos.find(v => v.id === doc.videos[0])?.title || "";
-        } catch {
-          firstTitle = "";
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render “Manage Existing Creators” grid
+  function renderManageList(docs) {
+    if (!docs.length) {
+      manageListEl.innerHTML = `
+        <p style="color: var(--gray); text-align:center;">
+          No creator entries yet.
+        </p>`;
+      return;
+    }
+    manageListEl.innerHTML = "";
+    docs.forEach(doc => {
+      const card = document.createElement("div");
+      card.className = "manage-card";
+
+      // Top: Creator name + first video title thumbnail
+      let firstTitle = "";
+      try {
+        firstTitle = allVideos.find(v => v.id === doc.videos[0])?.title || "";
+      } catch {
+        firstTitle = "";
+      }
+      card.innerHTML = `
+        <div class="card-top">
+          <h3>${doc.creatorName}</h3>
+          ${firstTitle ? `<p style="color: var(--gray);">${firstTitle}</p>` : ""}
+        </div>
+        <div class="card-controls">
+          <button class="btn-edit"><i class="fas fa-edit"></i>Edit</button>
+          <button class="btn-delete"><i class="fas fa-trash"></i>Delete</button>
+        </div>
+      `;
+      // Attach Edit/Delete listeners
+      card.querySelector(".btn-edit").addEventListener("click", () => {
+        populateFormForEdit(doc);
+      });
+      card.querySelector(".btn-delete").addEventListener("click", () => {
+        if (confirm(`Delete "${doc.creatorName}" from voting?`)) {
+          contestsRef.doc(doc.id).delete()
+            .then(() => showToast("Entry deleted"))
+            .catch(err => {
+              console.error("Error deleting entry:", err);
+              showToast("Failed to delete", "error");
+            });
         }
-        card.innerHTML = `
-          <div class="card-top">
-            <h3>${doc.creatorName}</h3>
-            ${firstTitle ? `<p style="color: var(--gray);">${firstTitle}</p>` : ""}
-          </div>
-          <div class="card-controls">
-            <button class="btn-edit"><i class="fas fa-edit"></i>Edit</button>
-            <button class="btn-delete"><i class="fas fa-trash"></i>Delete</button>
-          </div>
-        `;
-        // Attach Edit/Delete listeners
-        card.querySelector(".btn-edit").addEventListener("click", () => {
-          populateFormForEdit(doc);
-        });
-        card.querySelector(".btn-delete").addEventListener("click", () => {
-          if (confirm(`Delete "${doc.creatorName}" from voting?`)) {
-            contestsRef.doc(doc.id).delete()
-              .then(() => showToast("Entry deleted"))
-              .catch(err => {
-                console.error("Error deleting entry:", err);
-                showToast("Failed to delete", "error");
-              });
-          }
-        });
-
-        manageListEl.appendChild(card);
-      });
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Populate the Add/Edit form with data from “doc” so user can update it
-    function populateFormForEdit(doc) {
-      editingDocId = doc.id;
-      creatorImageEl.value = doc.imageURL;
-      creatorNameEl.value = doc.creatorName;
-
-      // Uncheck all first:
-      videosListEl.querySelectorAll("input[type=checkbox]").forEach(chk => chk.checked = false);
-      // Then check those that match doc.videos
-      doc.videos.forEach(vid => {
-        const chk = document.getElementById(`chk_${vid}`);
-        if (chk) chk.checked = true;
       });
 
-      btnSaveCreator.innerHTML = `<i class="fas fa-save"></i> Update Creator Entry`;
-      btnCancelEdit.style.display = "inline-flex";
-      // Scroll into view so user knows form is editing
-      creatorImageEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      manageListEl.appendChild(card);
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Populate the Add/Edit form with data from “doc” so user can update it
+  function populateFormForEdit(doc) {
+    editingDocId = doc.id;
+    creatorImageEl.value = doc.imageURL;
+    creatorNameEl.value = doc.creatorName;
+
+    // Uncheck all first:
+    videosListEl.querySelectorAll("input[type=checkbox]").forEach(chk => chk.checked = false);
+    // Then check those that match doc.videos
+    doc.videos.forEach(vid => {
+      const chk = document.getElementById(`chk_${vid}`);
+      if (chk) chk.checked = true;
+    });
+
+    btnSaveCreator.innerHTML = `<i class="fas fa-save"></i> Update Creator Entry`;
+    btnCancelEdit.style.display = "inline-flex";
+    // Scroll into view so user knows form is editing
+    creatorImageEl.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Reset form back to “Add” mode
+  function resetCreatorForm() {
+    editingDocId = null;
+    creatorImageEl.value = "";
+    creatorNameEl.value = "";
+    videosListEl.querySelectorAll("input[type=checkbox]").forEach(chk => chk.checked = false);
+    btnSaveCreator.innerHTML = `<i class="fas fa-save"></i> Save Creator Entry`;
+    btnCancelEdit.style.display = "none";
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render the “Live Preview” section
+  async function renderPreview(questionText, contestDocs) {
+    // If no question set:
+    if (!questionText) {
+      previewArea.innerHTML = `
+        <p style="color: var(--gray); text-align:center;">
+          Set a voting question to see the preview.
+        </p>`;
+      return;
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Reset form back to “Add” mode
-    function resetCreatorForm() {
-      editingDocId = null;
-      creatorImageEl.value = "";
-      creatorNameEl.value = "";
-      videosListEl.querySelectorAll("input[type=checkbox]").forEach(chk => chk.checked = false);
-      btnSaveCreator.innerHTML = `<i class="fas fa-save"></i> Save Creator Entry`;
-      btnCancelEdit.style.display = "none";
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Render the “Live Preview” section
-    async function renderPreview(questionText, contestDocs) {
-      // If no question set:
-      if (!questionText) {
-        previewArea.innerHTML = `
-          <p style="color: var(--gray); text-align:center;">
-            Set a voting question to see the preview.
-          </p>`;
-        return;
-      }
-      // Build header
-      let html = `<div class="preview-question">${questionText}</div>`;
-      if (!contestDocs.length) {
-        html += `
-          <p style="color: var(--gray); text-align:center; margin-top:1rem;">
-            No creators added yet. Add a creator entry to see it here.
-          </p>`;
-        previewArea.innerHTML = html;
-        return;
-      }
-
-      // Otherwise, build grid of creator cards
-      html += `<div class="preview-grid">`;
-
-      // For each doc, fetch first video’s thumbnail + title
-      const thumbs = await Promise.all(contestDocs.map(async doc => {
-        const vid = doc.videos[0];
-        try {
-          const res = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
-          if (!res.ok) throw new Error("oEmbed failed");
-          const meta = await res.json();
-          return {
-            doc,
-            thumbURL: meta.thumbnail_url || "https://via.placeholder.com/300x150?text=No+Preview",
-            titleText: meta.title || ""
-          };
-        } catch {
-          return {
-            doc,
-            thumbURL: "https://via.placeholder.com/300x150?text=No+Preview",
-            titleText: ""
-          };
-        }
-      }));
-
-      thumbs.forEach(({ doc, thumbURL, titleText }) => {
-        html += `
-          <div class="creator-card">
-            <img class="creator-image" src="${doc.imageURL}"
-                 onerror="this.src='https://via.placeholder.com/300x150?text=Invalid+URL';"
-                 alt="${doc.creatorName}" />
-            <div class="creator-info">
-              <h3>${doc.creatorName}</h3>
-              ${titleText ? `<p>"${titleText}"</p>` : ""}
-            </div>
-            <div class="video-thumbs">
-        `;
-        doc.videos.forEach(vid => {
-          html += `
-            <div class="video-thumb">
-              <img
-                src="https://fast.wistia.com/embed/medias/${vid}/swatch"
-                alt="${vid}"
-                onerror="this.src='https://via.placeholder.com/80x45?text=No+Thumb';"
-              />
-            </div>
-          `;
-        });
-        html += `
-            </div>
-          </div>
-        `;
-      });
-
-      html += `</div>`; // close preview-grid
+    // Build header
+    let html = `<div class="preview-question">${questionText}</div>`;
+    if (!contestDocs.length) {
+      html += `
+        <p style="color: var(--gray); text-align:center; margin-top:1rem;">
+          No creators added yet. Add a creator entry to see it here.
+        </p>`;
       previewArea.innerHTML = html;
+      return;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Toast helper
-    function showToast(message, type = "success") {
-      toastMsgEl.textContent = message;
+    // Otherwise, build grid of creator cards
+    html += `<div class="preview-grid">`;
 
-      if (type === "error") {
-        toastEl.style.background = "var(--danger)";
-        toastEl.querySelector("i").className = "fas fa-exclamation-circle";
-      } else if (type === "warning") {
-        toastEl.style.background = "var(--warning)";
-        toastEl.querySelector("i").className = "fas fa-exclamation-triangle";
-      } else {
-        toastEl.style.background = "var(--success)";
-        toastEl.querySelector("i").className = "fas fa-check-circle";
+    // For each doc, fetch first video’s thumbnail + title
+    const thumbs = await Promise.all(contestDocs.map(async doc => {
+      const vid = doc.videos[0];
+      try {
+        const res = await fetch(`https://fast.wistia.com/oembed?url=https://home.wistia.com/medias/${vid}`);
+        if (!res.ok) throw new Error("oEmbed failed");
+        const meta = await res.json();
+        return {
+          doc,
+          thumbURL: meta.thumbnail_url || "https://via.placeholder.com/300x150?text=No+Preview",
+          titleText: meta.title || ""
+        };
+      } catch {
+        return {
+          doc,
+          thumbURL: "https://via.placeholder.com/300x150?text=No+Preview",
+          titleText: ""
+        };
       }
+    }));
 
-      toastEl.classList.add("show");
-      setTimeout(() => {
-        toastEl.classList.remove("show");
-      }, 3000);
+    thumbs.forEach(({ doc, thumbURL, titleText }) => {
+      html += `
+        <div class="creator-card">
+          <img class="creator-image" src="${doc.imageURL}"
+               onerror="this.src='https://via.placeholder.com/300x150?text=Invalid+URL';"
+               alt="${doc.creatorName}" />
+          <div class="creator-info">
+            <h3>${doc.creatorName}</h3>
+            ${titleText ? `<p>"${titleText}"</p>` : ""}
+          </div>
+          <div class="video-thumbs">
+      `;
+      doc.videos.forEach(vid => {
+        html += `
+          <div class="video-thumb">
+            <img
+              src="https://fast.wistia.com/embed/medias/${vid}/swatch"
+              alt="${vid}"
+              onerror="this.src='https://via.placeholder.com/80x45?text=No+Thumb';"
+            />
+          </div>
+        `;
+      });
+      html += `
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div>`; // close preview-grid
+    previewArea.innerHTML = html;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Toast helper
+  function showToast(message, type = "success") {
+    toastMsgEl.textContent = message;
+
+    if (type === "error") {
+      toastEl.style.background = "var(--danger)";
+      toastEl.querySelector("i").className = "fas fa-exclamation-circle";
+    } else if (type === "warning") {
+      toastEl.style.background = "var(--warning)";
+      toastEl.querySelector("i").className = "fas fa-exclamation-triangle";
+    } else {
+      toastEl.style.background = "var(--success)";
+      toastEl.querySelector("i").className = "fas fa-check-circle";
     }
-  </script>
+
+    toastEl.classList.add("show");
+    setTimeout(() => {
+      toastEl.classList.remove("show");
+    }, 3000);
+  }
+</script>
 </body>
 </html>
