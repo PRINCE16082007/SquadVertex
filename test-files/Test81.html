@@ -519,6 +519,14 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 </head>
 <body>
+  <style>
+    /* Make sure “.hidden” actually sets display:none */
+    .hidden {
+      display: none !important;
+    }
+    /* (You probably have other CSS files, but this inline rule ensures #redirectContainer really starts hidden.) */
+  </style>
+
   <!-- Overlay with countdown -->
   <div id="overlay" class="overlay">
     <div class="overlay-logo">▶️</div>
@@ -545,7 +553,7 @@
     </div>
   </div>
 
-  <!-- Voting redirect: stays hidden until voteTime arrives -->
+  <!-- Voting redirect: hidden until voteTime -->
   <div id="redirectContainer" class="redirect-container hidden">
     <p>Voting is now open! Click below to participate:</p>
     <button class="redirect-btn" id="redirectButton">Go to Voting Contest</button>
@@ -644,6 +652,8 @@
   </div>
 
   <script>
+    // ← Your Firebase SDK imports should be in the <head> or just before this script.
+
     // Firebase initialization
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -668,8 +678,8 @@
       const eventVotesRef = eventRef.collection('eventVotes').doc('total');
 
       let current = { provider: null, videoId: null };
-      let eventStartTime = null;
-      let voteTime = null; // will hold a JS Date
+      let eventStartTime = null; 
+      let voteTime = null;       // JS Date for when voting should show
       let videoList = [];
       let currentUser = null;
       let hasVotedForEvent = false;
@@ -723,7 +733,7 @@
           })
           .catch(err => console.error('Error checking event vote:', err));
 
-        // Check video vote if there's a current video
+        // Check video vote if there’s an active video
         if (current.videoId) {
           const videoKey = `${current.provider}_${current.videoId}`;
           votesCol.doc(videoKey).collection('userVotes').doc(currentUser.uid).get()
@@ -761,17 +771,17 @@
           videoList = data.videoList || [];
           eventTitleEl.textContent = EVENT_ID.replace(/(\d{4})/, ' $1');
 
-          // DEBUG: log both times so you can see if voteTime is already in the past
-          console.log("🔍 voteTime from Firestore:", voteTime);
-          console.log("🔍 local now:", new Date());
+          // 👉 DEBUG: See what voteTime actually is, and what your local “now” is
+          console.log("🔍 voteTime (Firestore) is:", voteTime);
+          console.log("🔍 local “now” is:", new Date());
 
-          // Kick off the countdown and vote-time check
+          // Kick off countdown & vote-time scheduling
           startCountdown();
-          checkVoteTime();
+          scheduleVoteReveal();
         }
       }).catch(err => console.error('Error loading event data:', err));
 
-      // Countdown timer to hide overlay once event starts
+      // Countdown until event start
       function startCountdown() {
         const countdownInterval = setInterval(() => {
           const now = new Date();
@@ -796,32 +806,32 @@
         }, 1000);
       }
 
-      // Check when voteTime arrives—use setTimeout for precision
-      function checkVoteTime() {
+      // Schedule the “voting” block to appear at voteTime
+      function scheduleVoteReveal() {
         if (!voteTime) return;
 
         const now = new Date();
         const msUntilVote = voteTime.getTime() - now.getTime();
 
         if (msUntilVote > 0) {
-          // Still in the future: schedule the reveal
+          // If voteTime is in the future, wait exactly that many ms, then un-hide.
           setTimeout(() => {
             redirectContainer.classList.remove('hidden');
           }, msUntilVote);
         } else {
-          // Already past (or exactly now): show immediately
+          // If voteTime has already passed (or is exactly now), show immediately
           redirectContainer.classList.remove('hidden');
         }
       }
 
-      // Redirect to voting contest when button is clicked
+      // Redirect to voting contest when clicked
       redirectButton.addEventListener('click', () => {
         window.location.href = 'https://squadvertex.com/voting-contest';
       });
 
-      // Once countdown is done, this starts video playback & voting
+      // When the countdown ends, load video + votes + comments
       function startVideoPlayback() {
-        // Listen for activeVideo changes
+        // Real-time listener for the “activeVideo” doc
         settingsRef.onSnapshot(snapshot => {
           const data = snapshot.data() || {};
           current.provider = data.provider || null;
@@ -833,22 +843,22 @@
           }
         });
 
-        // Poll Firestore every 30s to catch changes even if real-time fails
+        // Poll every 30s as a fallback
         setInterval(() => {
           settingsRef.get().catch(() => {});
         }, 30000);
 
-        // Load comments & event votes immediately
+        // Load comments & event votes right away
         loadComments();
         loadEventVotes();
       }
 
-      // Render the video player + fetch its oEmbed metadata
+      // Render the video player + metadata
       async function renderVideo() {
         const vc = document.getElementById('videoContainer');
         const md = document.getElementById('metadata');
 
-        // Show loading spinner
+        // Show loading spinner while we decide
         vc.innerHTML = `
           <div class="loading-overlay">
             <div class="spinner"></div>
@@ -883,7 +893,7 @@
         vc.innerHTML = '';
         vc.appendChild(videoWrapper);
 
-        // Attempt to fetch oEmbed metadata for title/description
+        // Try to fetch oEmbed metadata for title/description
         let title = 'Live Stream';
         let desc = 'SquadVertex live streaming event';
 
@@ -902,14 +912,12 @@
           if (provider === 'wistia') {
             title = data.title || title;
             desc = data.description || desc;
-          } else {
-            if (Array.isArray(data) && data.length > 0) {
-              title = data[0].title || title;
-              desc = data[0].description || desc;
-            }
+          } else if (Array.isArray(data) && data.length > 0) {
+            title = data[0].title || title;
+            desc = data[0].description || desc;
           }
-        } catch (error) {
-          console.error('Error fetching metadata:', error);
+        } catch (err) {
+          console.error('Error fetching metadata:', err);
         }
 
         md.innerHTML = `
@@ -919,7 +927,7 @@
         `;
       }
 
-      // Load & display video like count
+      // Video “Like” votes
       function loadVotes() {
         const likeCt = document.getElementById('likeCount');
         likeCt.textContent = '0';
@@ -934,7 +942,6 @@
         });
       }
 
-      // Voting for the current video
       function vote() {
         if (!currentUser) {
           alert('Please sign in to vote.');
@@ -971,7 +978,7 @@
         });
       }
 
-      // Load & display event-wide likes/dislikes
+      // Event “Like/Dislike” votes
       function loadEventVotes() {
         const likeCt = document.getElementById('eventLikeCount');
         const dislikeCt = document.getElementById('eventDislikeCount');
@@ -985,7 +992,6 @@
         });
       }
 
-      // Voting for the event (like/dislike)
       function voteEvent(type) {
         if (!currentUser) {
           alert('Please sign in to vote.');
@@ -1021,7 +1027,7 @@
         });
       }
 
-      // Load & render comments list
+      // Comments
       function loadComments() {
         const list = document.getElementById('commentsList');
         list.innerHTML = '';
@@ -1055,7 +1061,7 @@
           });
       }
 
-      // Hook up vote buttons and comment post button
+      // Hook up all the buttons
       document.getElementById('btnLike').addEventListener('click', vote);
       document.getElementById('btnEventLike').addEventListener('click', () => voteEvent('like'));
       document.getElementById('btnEventDislike').addEventListener('click', () => voteEvent('dislike'));
@@ -1071,10 +1077,10 @@
           timestamp: Date.now()
         }).then(() => {
           document.getElementById('commentInput').value = '';
-        }).catch(err => console.error('Error adding comment: ', err));
+        }).catch(err => console.error('Error adding comment:', err));
       });
 
-      // Kick things off
+      // Initial data fetch
       loadEventVotes();
       loadComments();
 
