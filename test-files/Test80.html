@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SquadVertex Live Stream</title>
   <style>
     :root {
@@ -343,19 +343,11 @@
       transition: all 0.3s ease;
       font-size: 1.1rem;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-    }
-
-    .vote-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .like-btn {
       background: linear-gradient(to right, #4ade80, #22c55e);
       color: white;
     }
 
-    .like-btn:hover:not(:disabled) {
+    .vote-btn:hover {
       transform: translateY(-3px);
       box-shadow: 0 7px 15px rgba(34, 197, 94, 0.3);
     }
@@ -506,7 +498,7 @@
     }
 
     .hidden {
-      display: none;
+      display: none !important;
     }
 
     .redirect-container {
@@ -556,11 +548,11 @@
       .interaction-section {
         grid-template-columns: 1fr;
       }
-      
+
       body {
         padding: 1.2rem;
       }
-      
+
       .video-section {
         padding: 1.8rem;
       }
@@ -573,30 +565,30 @@
         padding: 1.5rem;
         text-align: center;
       }
-      
+
       .logo {
         justify-content: center;
       }
-      
+
       .event-title {
         margin: 0.5rem 0;
       }
-      
+
       .countdown {
         gap: 0.8rem;
         flex-wrap: wrap;
         justify-content: center;
       }
-      
+
       .countdown-item {
         min-width: 70px;
       }
-      
+
       .countdown-value {
         font-size: 2.5rem;
         min-width: 70px;
       }
-      
+
       .redirect-container {
         left: 20px;
         right: 20px;
@@ -611,15 +603,15 @@
         min-width: 60px;
         padding: 0.6rem;
       }
-      
+
       .countdown-label {
         font-size: 0.9rem;
       }
-      
+
       .overlay h1 {
         font-size: 2.2rem;
       }
-      
+
       .overlay h2 {
         font-size: 1.6rem;
       }
@@ -657,6 +649,7 @@
     </div>
   </div>
 
+  <!-- Voting redirect: hidden until voteTime -->
   <div id="redirectContainer" class="redirect-container hidden">
     <p>Voting is now open! Click below to participate:</p>
     <button class="redirect-btn" id="redirectButton">Go to Voting Contest</button>
@@ -760,7 +753,7 @@
 
       let current = { provider: null, videoId: null };
       let eventStartTime = null;
-      let voteTime = null;
+      let voteTime = null; // JS Date
       let videoList = [];
 
       // DOM Elements
@@ -774,118 +767,125 @@
       const redirectContainer = document.getElementById('redirectContainer');
       const redirectButton = document.getElementById('redirectButton');
 
-      // Format event name for display
+      // Format event name for display (camelCase → spaced + year)
       function formatEventName(name) {
-        // Convert camelCase to space separated
-        const formatted = name.replace(/([a-z])([A-Z])/g, '$1 $2')
-                              .replace(/(\d{4})/, ' $1');
-        return formatted;
+        return name.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/(\d{4})/, ' $1');
       }
 
-      // Load event data
+      // Load event data (startTime, voteTime, videoList)
       eventRef.get().then(doc => {
         if (doc.exists) {
           const data = doc.data();
           eventStartTime = data.startTime.toDate();
           voteTime = data.voteTime ? data.voteTime.toDate() : null;
           videoList = data.videoList || [];
-          
+
           const formattedName = formatEventName(EVENT_ID);
           eventTitleEl.textContent = formattedName;
           headerEventTitle.textContent = formattedName;
-          
-          // Start countdown
+
+          // Kick off countdown
           startCountdown();
-          
-          // Check voteTime
+
+          // Schedule vote reveal if voteTime exists
           if (voteTime) {
-            checkVoteTime();
+            scheduleVoteReveal();
           }
         }
       }).catch(error => {
         console.error('Error loading event data:', error);
       });
 
-      // Countdown timer
+      // Countdown timer until eventStartTime
       function startCountdown() {
         const countdownInterval = setInterval(() => {
           const now = new Date();
           const diff = eventStartTime - now;
-          
+
           if (diff <= 0) {
             clearInterval(countdownInterval);
             overlay.classList.add('hidden');
             startVideoPlayback();
             return;
           }
-          
+
           const days = Math.floor(diff / (1000 * 60 * 60 * 24));
           const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
           const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
           const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-          
-          daysEl.textContent = days.toString().padStart(2, '0');
-          hoursEl.textContent = hours.toString().padStart(2, '0');
-          minutesEl.textContent = minutes.toString().padStart(2, '0');
-          secondsEl.textContent = seconds.toString().padStart(2, '0');
+
+          daysEl.textContent = String(days).padStart(2, '0');
+          hoursEl.textContent = String(hours).padStart(2, '0');
+          minutesEl.textContent = String(minutes).padStart(2, '0');
+          secondsEl.textContent = String(seconds).padStart(2, '0');
         }, 1000);
       }
 
-      // Check if voteTime has arrived
-      function checkVoteTime() {
-        const voteTimeInterval = setInterval(() => {
-          const now = new Date();
-          if (now >= voteTime) {
-            clearInterval(voteTimeInterval);
+      // Schedule the redirectContainer to appear exactly at voteTime
+      function scheduleVoteReveal() {
+        const now = new Date();
+        const msUntilVote = voteTime.getTime() - now.getTime();
+
+        if (msUntilVote > 0) {
+          setTimeout(() => {
             redirectContainer.classList.remove('hidden');
-          }
-        }, 1000);
+          }, msUntilVote);
+        } else {
+          // If voteTime is already passed or exactly now
+          redirectContainer.classList.remove('hidden');
+        }
       }
 
-      // Redirect to voting contest
+      // Redirect to voting contest when button is clicked
       redirectButton.addEventListener('click', () => {
         window.location.href = 'https://squadvertex.com/voting-contest';
       });
 
-      // Start video playback
+      // Once countdown ends, start video playback, comments, and votes
       function startVideoPlayback() {
-        // Listen for activeVideo changes
-        settingsRef.onSnapshot(s => {
-          const data = s.data() || {};
+        // Listen for activeVideo changes in real time
+        settingsRef.onSnapshot(snapshot => {
+          const data = snapshot.data() || {};
           current.provider = data.provider || null;
           current.videoId = data.videoId || null;
           renderVideo();
           loadVotes();
         });
 
-        // Periodically check for activeVideo changes
-        const videoCheckInterval = setInterval(() => {
-          // This just triggers a re-check of the activeVideo document
-          settingsRef.get().then(() => {}).catch(() => {});
-        }, 30000); // Check every 30 seconds
+        // Poll every 30s in case real-time fails
+        setInterval(() => {
+          settingsRef.get().catch(() => {});
+        }, 30000);
 
-        // Load comments
+        // Load comments immediately
         loadComments();
       }
 
-      // Render Video + Metadata
+      // Render the video player + metadata
       async function renderVideo() {
         const vc = document.getElementById('videoContainer');
         const md = document.getElementById('metadata');
-        vc.innerHTML = `<div class="loading-overlay"><div class="spinner"></div><p>Loading video...</p></div>`;
+
+        // Show loading overlay
+        vc.innerHTML = `
+          <div class="loading-overlay">
+            <div class="spinner"></div>
+            <p>Loading video...</p>
+          </div>`;
 
         const { provider, videoId } = current;
         if (!provider || !videoId) {
           vc.innerHTML = '<div class="no-video-message"><p>No live stream currently. Please check back later.</p></div>';
-          md.innerHTML = `<h2>No Live Stream</h2><p>There is currently no live stream scheduled. Please check back later for updates.</p>`;
+          md.innerHTML = `
+            <h2>No Live Stream</h2>
+            <p>There is currently no live stream scheduled. Please check back later for updates.</p>`;
           return;
         }
 
-        // Create the video container
+        // Build iframe container
         const videoWrapper = document.createElement('div');
         videoWrapper.className = 'video-container';
 
-        // Create iframe based on provider
         const iframe = document.createElement('iframe');
         iframe.setAttribute('frameborder', '0');
         iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media');
@@ -901,8 +901,8 @@
         vc.innerHTML = '';
         vc.appendChild(videoWrapper);
 
-        // Fetch & display title + description via oEmbed
-        let title = 'Live Stream'; 
+        // Fetch oEmbed metadata for title + description
+        let title = 'Live Stream';
         let desc = 'SquadVertex live streaming event';
 
         try {
@@ -914,25 +914,18 @@
           }
 
           const res = await fetch(url);
-
-          if (!res.ok) {
-            throw new Error(`HTTP error! Status: ${res.status}`);
-          }
-
+          if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
           const data = await res.json();
 
           if (provider === 'wistia') {
             title = data.title || title;
             desc = data.description || desc;
-          } else {
-            if (Array.isArray(data) && data.length > 0) {
-              const videoData = data[0];
-              title = videoData.title || title;
-              desc = videoData.description || desc;
-            }
+          } else if (Array.isArray(data) && data.length > 0) {
+            title = data[0].title || title;
+            desc = data[0].description || desc;
           }
-        } catch (error) {
-          console.error('Error fetching metadata:', error);
+        } catch (err) {
+          console.error('Error fetching metadata:', err);
         }
 
         md.innerHTML = `
@@ -942,7 +935,7 @@
         `;
       }
 
-      // Video voting
+      // Video voting: load and display likes
       function loadVotes() {
         const likeCt = document.getElementById('likeCount');
         likeCt.textContent = '0';
@@ -951,8 +944,8 @@
         if (!provider || !videoId) return;
 
         const key = `${provider}_${videoId}`;
-        votesCol.doc(key).onSnapshot(s => {
-          const v = s.data() || { likes: 0 };
+        votesCol.doc(key).onSnapshot(snap => {
+          const v = snap.data() || { likes: 0 };
           likeCt.textContent = v.likes || 0;
         });
       }
@@ -965,8 +958,8 @@
         const docRef = votesCol.doc(key);
 
         db.runTransaction(tx => {
-          return tx.get(docRef).then(s => {
-            const v = s.exists ? s.data() : { likes: 0 };
+          return tx.get(docRef).then(snap => {
+            const v = snap.exists ? snap.data() : { likes: 0 };
             v.likes = (v.likes || 0) + 1;
             v.lastUpdated = Date.now();
             tx.set(docRef, v);
@@ -976,7 +969,7 @@
         });
       }
 
-      // Comments
+      // Load and render comments list
       function loadComments() {
         const list = document.getElementById('commentsList');
         list.innerHTML = '';
@@ -1010,17 +1003,15 @@
           });
       }
 
-      // Initialize event listeners
+      // Hook up vote button and comment post button
       document.getElementById('btnLike').addEventListener('click', vote);
-      
+
       document.getElementById('btnComment').addEventListener('click', () => {
         const txt = document.getElementById('commentInput').value.trim();
-
         if (!txt) {
           alert('Please enter a comment');
           return;
         }
-
         commentsCol.add({
           commentText: txt,
           timestamp: Date.now()
@@ -1031,7 +1022,7 @@
         });
       });
 
-      // Initial setup
+      // Initial load of comments
       loadComments();
 
     } catch (error) {
