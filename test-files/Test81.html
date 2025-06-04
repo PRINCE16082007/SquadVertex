@@ -365,399 +365,475 @@
             <div>
                 <div class="header-title" id="currentTime">Loading time...</div>
             </div>
-        </header><!-- Main Content -->
-    <div class="main-content">
-        <div class="section">
-            <div class="section-header">
-                <i class="fas fa-vote-yea"></i>
-                <h2>Creator Showdown</h2>
-            </div>
+        </header>
 
-            <!-- Voting State Container -->
-            <div id="votingState">
-                <!-- Content will be dynamically updated -->
-                <div class="state-container">
-                    <div class="state-title">Loading Voting Status...</div>
-                    <div class="state-description">Please wait while we check the voting schedule</div>
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="section">
+                <div class="section-header">
+                    <i class="fas fa-vote-yea"></i>
+                    <h2>Creator Showdown</h2>
+                </div>
+
+                <!-- Voting State Container -->
+                <div id="votingState">
+                    <!-- Content will be dynamically updated -->
+                    <div class="state-container">
+                        <div class="state-title">Loading Voting Status...</div>
+                        <div class="state-description">Please wait while we check the voting schedule</div>
+                    </div>
+                </div>
+
+                <!-- Debug Console -->
+                <div id="logConsole" style="background: #f8f8f8; border: 1px solid #ccc; border-radius: 6px; padding: 1rem; margin-top: 1.5rem; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; color: #333;">
+                    <div><strong>Debug Console:</strong></div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Toast Notification -->
-    <div class="toast" id="toast">
-        <i class="fas fa-check-circle"></i>
-        <span id="toastMessage">Your vote has been recorded!</span>
-    </div>
-
-    <!-- Footer -->
-    <footer>
-        <p>© 2025 SquadVertex Voting. All rights reserved.</p>
-        <div class="branding">
-            <i class="fas fa-video"></i>
-            <span>SquadVertex</span> Professional Streaming Platform
+        <!-- Toast Notification -->
+        <div class="toast" id="toast">
+            <i class="fas fa-check-circle"></i>
+            <span id="toastMessage">Your vote has been recorded!</span>
         </div>
-    </footer>
-</div>
 
-<script>
-    // Firebase Configuration
-    const firebaseConfig = {
-        apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-        authDomain: "squadvertex2007.firebaseapp.com",
-        projectId: "squadvertex2007",
-        storageBucket: "squadvertex2007.appspot.com",
-        messagingSenderId: "168905083514",
-        appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
+        <!-- Footer -->
+        <footer>
+            <p>© 2025 SquadVertex Voting. All rights reserved.</p>
+            <div class="branding">
+                <i class="fas fa-video"></i>
+                <span>SquadVertex</span> Professional Streaming Platform
+            </div>
+        </footer>
+    </div>
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
-
-    // References
-    const EVENT_ID = "SpringLaunch2025";
-    const eventRef = db.collection("events").doc(EVENT_ID);
-    const contestsRef = eventRef.collection("votingContests");
-    const votesRef = eventRef.collection("votes");
-
-    // DOM Elements
-    const votingStateEl = document.getElementById('votingState');
-    const toastEl = document.getElementById('toast');
-    const toastMsgEl = document.getElementById('toastMessage');
-    const currentTimeEl = document.getElementById('currentTime');
-
-    // State
-    let voteStartTime = null;
-    let voteEndTime = null;
-    let votingQuestion = "";
-    let creators = [];
-    let currentVote = null;
-    let hasVoted = false;
-    let userId = null;
-
-    // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
-        // Initialize time display
-        updateCurrentTime();
-        setInterval(updateCurrentTime, 1000);
-
-        // Sign in anonymously to enable voting
-        auth.signInAnonymously()
-            .then(() => {
-                // Get current user ID
-                auth.onAuthStateChanged((user) => {
-                    if (user) {
-                        userId = user.uid;
-                        console.log("User signed in anonymously: ", userId);
-                        // Load event data
-                        loadEventData();
-                    }
-                });
-            })
-            .catch((error) => {
-                console.error("Anonymous sign-in failed: ", error);
-                showToast("Failed to initialize voting", "error");
-            });
-    });
-
-    function updateCurrentTime() {
-        const now = new Date();
-        currentTimeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + " - " + now.toLocaleDateString();
-    }
-
-    function loadEventData() {
-        // Load event data (voting time and question)
-        eventRef.get().then((doc) => {
-            if (doc.exists) {
-                const eventData = doc.data();
-
-                // Set voting question
-                votingQuestion = eventData.votingQuestion || "Which creator’s videos should be featured on the homepage?";
-
-                // Set voting time
-                if (eventData.voteTime) {
-                    voteStartTime = eventData.voteTime.toDate();
-                    voteEndTime = new Date(voteStartTime.getTime() + 10 * 60 * 1000); // 10 minutes
-                }
-
-                // Load creator data
-                loadCreatorData();
-            } else {
-                console.error("Event document not found");
-                showToast("Event configuration not found", "error");
+    <script>
+        // Redirect console output to the debug console
+        (function() {
+            const logConsole = document.getElementById('logConsole');
+            function appendLog(type, args) {
+                const msg = args.map(a => {
+                    try { return JSON.stringify(a); } catch { return String(a); }
+                }).join(' ');
+                const div = document.createElement('div');
+                div.style.color = type === 'error' ? 'red' : (type === 'warn' ? 'orange' : 'black');
+                div.textContent = `[${type.toUpperCase()}] ${msg}`;
+                logConsole.appendChild(div);
+                logConsole.scrollTop = logConsole.scrollHeight;
             }
-        }).catch((error) => {
-            console.error("Error loading event data: ", error);
-            showToast("Failed to load event data", "error");
-        });
-    }
+            console.log = function(...args) {
+                appendLog('log', args);
+                window.__origLog && window.__origLog.apply(console, args);
+            };
+            console.error = function(...args) {
+                appendLog('error', args);
+                window.__origError && window.__origError.apply(console, args);
+            };
+            console.warn = function(...args) {
+                appendLog('warn', args);
+                window.__origWarn && window.__origWarn.apply(console, args);
+            };
+            // Preserve originals if needed
+            window.__origLog = console.log;
+            window.__origError = console.error;
+            window.__origWarn = console.warn;
+            // Capture uncaught errors
+            window.onerror = function(message, source, lineno, colno, error) {
+                appendLog('error', [message + ` (at ${source}:${lineno}:${colno})`]);
+            };
+        })();
 
-    function loadCreatorData() {
-        contestsRef.orderBy("createdAt", "asc").get()
-            .then((querySnapshot) => {
-                creators = [];
-                querySnapshot.forEach((doc) => {
-                    creators.push({
-                        id: doc.id,
-                        ...doc.data()
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+            authDomain: "squadvertex2007.firebaseapp.com",
+            projectId: "squadvertex2007",
+            storageBucket: "squadvertex2007.appspot.com",
+            messagingSenderId: "168905083514",
+            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+        };
+
+        // Initialize Firebase
+        console.log("Initializing Firebase");
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // References
+        const EVENT_ID = "SpringLaunch2025";
+        const eventRef = db.collection("events").doc(EVENT_ID);
+        const contestsRef = eventRef.collection("votingContests");
+        const votesRef = eventRef.collection("votes");
+
+        // DOM Elements
+        const votingStateEl = document.getElementById('votingState');
+        const toastEl = document.getElementById('toast');
+        const toastMsgEl = document.getElementById('toastMessage');
+        const currentTimeEl = document.getElementById('currentTime');
+
+        // State
+        let voteStartTime = null;
+        let voteEndTime = null;
+        let votingQuestion = "";
+        let creators = [];
+        let hasVoted = false;
+        let userId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM fully loaded");
+            // Initialize time display
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+
+            // Sign in anonymously to enable voting
+            auth.signInAnonymously()
+                .then(() => {
+                    console.log("Signed in anonymously");
+                    // Get current user ID
+                    auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            userId = user.uid;
+                            console.log("User ID:", userId);
+                            // Load event data
+                            loadEventData();
+                        }
                     });
+                })
+                .catch((error) => {
+                    console.error("Anonymous sign-in failed:", error);
+                    showToast("Failed to initialize voting", "error");
                 });
-
-                // Check if user has already voted
-                checkUserVoteStatus();
-            })
-            .catch((error) => {
-                console.error("Error loading creators: ", error);
-                showToast("Failed to load creators", "error");
-            });
-    }
-
-    function checkUserVoteStatus() {
-        if (!userId) {
-            showToast("User not authenticated", "error");
-            return;
-        }
-
-        votesRef.where("userId", "==", userId).get()
-            .then((querySnapshot) => {
-                hasVoted = !querySnapshot.empty;
-                checkVotingStatus();
-            })
-            .catch((error) => {
-                console.error("Error checking vote status: ", error);
-                hasVoted = false;
-                checkVotingStatus();
-            });
-    }
-
-    function checkVotingStatus() {
-        const now = new Date();
-
-        if (!voteStartTime) {
-            votingStateEl.innerHTML = `
-                <div class="state-container">
-                    <div class="state-title">Voting Not Scheduled</div>
-                    <div class="state-description">
-                        The voting period for this event has not been scheduled yet.
-                    </div>
-                </div>
-            `;
-            return;
-        }
-
-        // Voting hasn't started yet
-        if (now < voteStartTime) {
-            const timeRemaining = voteStartTime - now;
-            renderCountdown(timeRemaining);
-        }
-        // Voting in progress
-        else if (now >= voteStartTime && now <= voteEndTime) {
-            if (hasVoted) {
-                renderVotedState();
-            } else {
-                renderVotingInterface();
-            }
-        }
-        // Voting ended
-        else if (now > voteEndTime) {
-            renderEndState();
-        }
-    }
-
-    function renderCountdown(timeRemaining) {
-        const seconds = Math.floor((timeRemaining / 1000) % 60);
-        const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
-        const hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24);
-
-        votingStateEl.innerHTML = `
-            <div class="state-container">
-                <div class="state-title">Voting Starts Soon!</div>
-                <div class="state-description">
-                    The voting period for "${votingQuestion}" will begin shortly. 
-                    Get ready to vote for your favorite creator!
-                </div>
-                
-                <div class="countdown-container">
-                    <div class="countdown-item">
-                        <div class="countdown-value">${hours.toString().padStart(2, '0')}</div>
-                        <div class="countdown-label">Hours</div>
-                    </div>
-                    <div class="countdown-item">
-                        <div class="countdown-value">${minutes.toString().padStart(2, '0')}</div>
-                        <div class="countdown-label">Minutes</div>
-                    </div>
-                    <div class="countdown-item">
-                        <div class="countdown-value">${seconds.toString().padStart(2, '0')}</div>
-                        <div class="countdown-label">Seconds</div>
-                    </div>
-                </div>
-                
-                <p>Voting will be open for 10 minutes once it starts</p>
-            </div>
-        `;
-    }
-
-    function renderVotingInterface() {
-        const now = new Date();
-        const timeRemaining = voteEndTime - now;
-        const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60;
-        const seconds = Math.floor((timeRemaining / 1000) % 60);
-
-        votingStateEl.innerHTML = `
-            <div class="state-container">
-                <div class="state-title">${votingQuestion}</div>
-                <div class="state-description">
-                    Vote for your favorite creator! You can only vote once, so choose wisely. 
-                    Voting ends in <span id="timeRemaining">${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}</span>
-                </div>
-                
-                <div class="creator-grid">
-                    ${creators.map(creator => `
-                        <div class="creator-card">
-                            <img src="${creator.imageURL}" alt="${creator.creatorName}" class="creator-image">
-                            <div class="creator-info">
-                                <h3 class="creator-name">${creator.creatorName}</h3>
-                                <p class="video-count">${creator.videos.length} videos</p>
-                                <button class="vote-btn pulse" data-creator-id="${creator.id}">
-                                    <i class="fas fa-vote-yea"></i> Vote Now
-                                </button>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-
-        // Start the voting timer
-        startVotingTimer();
-
-        // Add event listeners to vote buttons
-        document.querySelectorAll('.vote-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const creatorId = e.target.closest('.vote-btn').dataset.creatorId;
-                castVote(creatorId);
-            });
         });
-    }
 
-    function renderVotedState() {
-        const now = new Date();
-        const timeRemaining = voteEndTime - now;
-        const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60;
-        const seconds = Math.floor((timeRemaining / 1000) % 60);
-
-        votingStateEl.innerHTML = `
-            <div class="state-container">
-                <div class="state-title">Thank You for Voting!</div>
-                <div class="state-description">
-                    Your vote has been recorded. Voting ends in 
-                    ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}
-                </div>
-                
-                <div style="font-size: 80px; margin: 30px 0; color: var(--success);">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                
-                <p>You can see the results after the voting period ends</p>
-            </div>
-        `;
-
-        // Continue updating the timer
-        startVotingTimer();
-    }
-
-    function renderEndState() {
-        votingStateEl.innerHTML = `
-            <div class="state-container">
-                <div class="state-title">Voting Has Ended</div>
-                <div class="state-description">
-                    The voting period for "${votingQuestion}" is now closed. 
-                    Thank you to everyone who participated!
-                </div>
-                
-                <div style="font-size: 80px; margin: 30px 0; color: var(--primary);">
-                    <i class="fas fa-flag-checkered"></i>
-                </div>
-                
-                <a href="results.html" class="btn-results">
-                    <i class="fas fa-chart-bar"></i> View Results
-                </a>
-            </div>
-        `;
-    }
-
-    function startVotingTimer() {
-        const updateTimer = () => {
+        function updateCurrentTime() {
             const now = new Date();
-            if (now > voteEndTime) {
-                renderEndState();
+            currentTimeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + " - " + now.toLocaleDateString();
+        }
+
+        function loadEventData() {
+            console.log("Loading event data");
+            eventRef.get().then((doc) => {
+                if (doc.exists) {
+                    const eventData = doc.data();
+                    console.log("Event data:", eventData);
+
+                    // Set voting question
+                    votingQuestion = eventData.votingQuestion || "Which creator’s videos should be featured on the homepage?";
+
+                    // Set voting time
+                    if (eventData.voteTime) {
+                        voteStartTime = eventData.voteTime.toDate();
+                        voteEndTime = new Date(voteStartTime.getTime() + 10 * 60 * 1000); // 10 minutes
+                        console.log("Vote start:", voteStartTime, "Vote end:", voteEndTime);
+                    }
+
+                    // Load creator data
+                    loadCreatorData();
+                } else {
+                    console.error("Event document not found");
+                    showToast("Event configuration not found", "error");
+                }
+            }).catch((error) => {
+                console.error("Error loading event data:", error);
+                showToast("Failed to load event data", "error");
+            });
+        }
+
+        function loadCreatorData() {
+            console.log("Loading creator data");
+            contestsRef.orderBy("createdAt", "asc").get()
+                .then((querySnapshot) => {
+                    creators = [];
+                    querySnapshot.forEach((doc) => {
+                        creators.push({
+                            id: doc.id,
+                            ...doc.data()
+                        });
+                    });
+                    console.log("Creators loaded:", creators);
+
+                    // Check if user has already voted
+                    checkUserVoteStatus();
+                })
+                .catch((error) => {
+                    console.error("Error loading creators:", error);
+                    showToast("Failed to load creators", "error");
+                });
+        }
+
+        function checkUserVoteStatus() {
+            console.log("Checking user vote status for user:", userId);
+            if (!userId) {
+                showToast("User not authenticated", "error");
                 return;
             }
 
-            const timeRemaining = voteEndTime - now;
-            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60;
-            const seconds = Math.floor((timeRemaining / 1000) % 60;
+            votesRef.where("userId", "==", userId).get()
+                .then((querySnapshot) => {
+                    hasVoted = !querySnapshot.empty;
+                    console.log("Has user voted?:", hasVoted);
+                    checkVotingStatus();
+                })
+                .catch((error) => {
+                    console.error("Error checking vote status:", error);
+                    hasVoted = false;
+                    checkVotingStatus();
+                });
+        }
 
-            const timerEl = document.getElementById('timeRemaining');
-            if (timerEl) {
-                timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        function checkVotingStatus() {
+            console.log("Checking voting status");
+            const now = new Date();
+            console.log("Current time:", now);
+
+            if (!voteStartTime) {
+                votingStateEl.innerHTML = `
+                    <div class="state-container">
+                        <div class="state-title">Voting Not Scheduled</div>
+                        <div class="state-description">
+                            The voting period for this event has not been scheduled yet.
+                        </div>
+                    </div>
+                `;
+                return;
             }
-        };
 
-        updateTimer();
-        const timerInterval = setInterval(updateTimer, 1000);
-    }
-
-    function castVote(creatorId) {
-        if (!userId) {
-            showToast("User not authenticated", "error");
-            return;
+            // Voting hasn't started yet
+            if (now < voteStartTime) {
+                const timeRemaining = voteStartTime - now;
+                console.log("Voting starts in:", timeRemaining, "ms");
+                renderCountdown(timeRemaining);
+            }
+            // Voting in progress
+            else if (now >= voteStartTime && now <= voteEndTime) {
+                console.log("Voting is in progress. Has voted?:", hasVoted);
+                if (hasVoted) {
+                    renderVotedState();
+                } else {
+                    renderVotingInterface();
+                }
+            }
+            // Voting ended
+            else {
+                console.log("Voting has ended");
+                renderEndState();
+            }
         }
 
-        // Find the creator
-        const creator = creators.find(c => c.id === creatorId);
-        if (!creator) {
-            showToast("Invalid creator selection", "error");
-            return;
+        function renderCountdown(timeRemaining) {
+            console.log("Rendering countdown with", timeRemaining, "ms remaining");
+            const seconds = Math.floor((timeRemaining / 1000) % 60);
+            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
+            const hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24);
+
+            votingStateEl.innerHTML = `
+                <div class="state-container">
+                    <div class="state-title">Voting Starts Soon!</div>
+                    <div class="state-description">
+                        The voting period for "${votingQuestion}" will begin shortly. 
+                        Get ready to vote for your favorite creator!
+                    </div>
+                    
+                    <div class="countdown-container">
+                        <div class="countdown-item">
+                            <div class="countdown-value">${hours.toString().padStart(2, '0')}</div>
+                            <div class="countdown-label">Hours</div>
+                        </div>
+                        <div class="countdown-item">
+                            <div class="countdown-value">${minutes.toString().padStart(2, '0')}</div>
+                            <div class="countdown-label">Minutes</div>
+                        </div>
+                        <div class="countdown-item">
+                            <div class="countdown-value">${seconds.toString().padStart(2, '0')}</div>
+                            <div class="countdown-label">Seconds</div>
+                        </div>
+                    </div>
+                    
+                    <p>Voting will be open for 10 minutes once it starts</p>
+                </div>
+            `;
         }
 
-        // Record the vote in Firestore
-        votesRef.add({
-            creatorId: creatorId,
-            creatorName: creator.creatorName,
-            userId: userId,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        })
-        .then(() => {
-            showToast(`Voted for ${creator.creatorName}!`);
-            hasVoted = true;
-            renderVotedState();
-        })
-        .catch((error) => {
-            console.error("Error saving vote: ", error);
-            showToast("Failed to record vote", "error");
-        });
-    }
+        function renderVotingInterface() {
+            console.log("Rendering voting interface");
+            const now = new Date();
+            const timeRemaining = voteEndTime - now;
+            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
+            const seconds = Math.floor((timeRemaining / 1000) % 60);
 
-    function showToast(message, type = "success") {
-        toastMsgEl.textContent = message;
+            votingStateEl.innerHTML = `
+                <div class="state-container">
+                    <div class="state-title">${votingQuestion}</div>
+                    <div class="state-description">
+                        Vote for your favorite creator! You can only vote once, so choose wisely. 
+                        Voting ends in <span id="timeRemaining">${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}</span>
+                    </div>
+                    
+                    <div class="creator-grid">
+                        ${creators.map(creator => `
+                            <div class="creator-card">
+                                <img src="${creator.imageURL}" alt="${creator.creatorName}" class="creator-image">
+                                <div class="creator-info">
+                                    <h3 class="creator-name">${creator.creatorName}</h3>
+                                    <p class="video-count">${creator.videos.length} videos</p>
+                                    <button class="vote-btn" data-creator-id="${creator.id}">
+                                        <i class="fas fa-vote-yea"></i> Vote Now
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
 
-        if (type === "error") {
-            toastEl.style.background = "var(--danger)";
-            toastEl.querySelector("i").className = "fas fa-exclamation-circle";
-        } else {
-            toastEl.style.background = "var(--success)";
-            toastEl.querySelector("i").className = "fas fa-check-circle";
+            // Start the voting timer
+            startVotingTimer();
+
+            // Add event listeners to vote buttons
+            document.querySelectorAll('.vote-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const creatorId = e.target.closest('.vote-btn').dataset.creatorId;
+                    castVote(creatorId);
+                });
+            });
         }
 
-        toastEl.classList.add("show");
-        setTimeout(() => {
-            toastEl.classList.remove("show");
-        }, 3000);
-    }
-</script>
+        function renderVotedState() {
+            console.log("Rendering voted state");
+            const now = new Date();
+            const timeRemaining = voteEndTime - now;
+            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
+            const seconds = Math.floor((timeRemaining / 1000) % 60);
 
+            votingStateEl.innerHTML = `
+                <div class="state-container">
+                    <div class="state-title">Thank You for Voting!</div>
+                    <div class="state-description">
+                        Your vote has been recorded. Voting ends in 
+                        ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}
+                    </div>
+                    
+                    <div style="font-size: 80px; margin: 30px 0; color: var(--success);">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    
+                    <p>You can see the results after the voting period ends</p>
+                </div>
+            `;
+
+            // Continue updating the timer
+            startVotingTimer();
+        }
+
+        function renderEndState() {
+            console.log("Rendering end state");
+            votingStateEl.innerHTML = `
+                <div class="state-container">
+                    <div class="state-title">Voting Has Ended</div>
+                    <div class="state-description">
+                        The voting period for "${votingQuestion}" is now closed. 
+                        Thank you to everyone who participated!
+                    </div>
+                    
+                    <div style="font-size: 80px; margin: 30px 0; color: var(--primary);">
+                        <i class="fas fa-flag-checkered"></i>
+                    </div>
+                    
+                    <a href="results.html" class="btn-results">
+                        <i class="fas fa-chart-bar"></i> View Results
+                    </a>
+                </div>
+            `;
+        }
+
+        function startVotingTimer() {
+            const updateTimer = () => {
+                const now = new Date();
+                if (now > voteEndTime) {
+                    console.log("Voting period ended during timer");
+                    renderEndState();
+                    return;
+                }
+
+                const timeRemaining = voteEndTime - now;
+                const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
+                const seconds = Math.floor((timeRemaining / 1000) % 60);
+
+                const timerEl = document.getElementById('timeRemaining');
+                if (timerEl) {
+                    timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }
+            };
+
+            updateTimer();
+            setInterval(updateTimer, 1000);
+        }
+
+        function castVote(creatorId) {
+            console.log("Attempting to cast vote for creator:", creatorId);
+            if (!userId) {
+                showToast("User not authenticated", "error");
+                return;
+            }
+
+            // Find the creator
+            const creator = creators.find(c => c.id === creatorId);
+            if (!creator) {
+                console.error("Invalid creator selection:", creatorId);
+                showToast("Invalid creator selection", "error");
+                return;
+            }
+
+            // Check if user already voted
+            votesRef.where("userId", "==", userId).get()
+                .then(querySnapshot => {
+                    if (!querySnapshot.empty) {
+                        console.log("User has already voted");
+                        showToast("You have already voted.", "warning");
+                        return;
+                    }
+                    // Add vote document
+                    return votesRef.add({
+                        creatorId: creatorId,
+                        creatorName: creator.creatorName,
+                        userId: userId,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                })
+                .then(() => {
+                    if (!hasVoted) {
+                        console.log("Vote recorded for creator:", creator.creatorName);
+                        showToast(`Voted for ${creator.creatorName}!`);
+                        hasVoted = true;
+                        renderVotedState();
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error saving vote: ", error);
+                    showToast("Failed to record vote", "error");
+                });
+        }
+
+        function showToast(message, type = "success") {
+            toastMsgEl.textContent = message;
+
+            if (type === "error") {
+                toastEl.style.background = "var(--danger)";
+                toastEl.querySelector("i").className = "fas fa-exclamation-circle";
+            } else if (type === "warning") {
+                toastEl.style.background = "var(--warning)";
+                toastEl.querySelector("i").className = "fas fa-exclamation-triangle";
+            } else {
+                toastEl.style.background = "var(--success)";
+                toastEl.querySelector("i").className = "fas fa-check-circle";
+            }
+
+            toastEl.classList.add("show");
+            setTimeout(() => {
+                toastEl.classList.remove("show");
+            }, 3000);
+        }
+    </script>
 </body>
 </html>
