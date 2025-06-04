@@ -375,8 +375,15 @@
                     <h2>Creator Showdown</h2>
                 </div>
 
+                <!-- Sign-in Prompt -->
+                <div id="signInContainer" style="text-align:center; margin: 2rem 0;">
+                    <button id="googleSignInBtn" class="btn btn-primary">
+                        <i class="fab fa-google"></i> Sign in with Google to Vote
+                    </button>
+                </div>
+
                 <!-- Voting State Container -->
-                <div id="votingState">
+                <div id="votingState" style="display:none;">
                     <!-- Content will be dynamically updated -->
                     <div class="state-container">
                         <div class="state-title">Loading Voting Status...</div>
@@ -436,7 +443,7 @@
                 appendLog('warn', args);
                 window.__origWarn.apply(console, args);
             };
-            window.onerror = function(message, source, lineno, colno) {
+            window.onerror = function(message, source, lineno, colno, error) {
                 appendLog('error', [message + ` (at ${source}:${lineno}:${colno})`]);
             };
         })();
@@ -464,6 +471,8 @@
         const votesRef = eventRef.collection("votes");
 
         // DOM Elements
+        const signInContainer = document.getElementById('signInContainer');
+        const googleSignInBtn = document.getElementById('googleSignInBtn');
         const votingStateEl = document.getElementById('votingState');
         const toastEl = document.getElementById('toast');
         const toastMsgEl = document.getElementById('toastMessage');
@@ -484,24 +493,33 @@
             updateCurrentTime();
             setInterval(updateCurrentTime, 1000);
 
-            // Sign in anonymously to enable voting
-            auth.signInAnonymously()
-                .then(() => {
-                    console.log("Signed in anonymously");
-                    // Get current user ID
-                    auth.onAuthStateChanged((user) => {
-                        if (user) {
-                            userId = user.uid;
-                            console.log("User ID:", userId);
-                            // Load event data
-                            loadEventData();
-                        }
+            // Attach Google sign-in listener
+            googleSignInBtn.addEventListener('click', () => {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                auth.signInWithPopup(provider)
+                    .then((result) => {
+                        console.log("Signed in with Google:", result.user.uid);
+                        userId = result.user.uid;
+                        signInContainer.style.display = 'none';
+                        votingStateEl.style.display = 'block';
+                        loadEventData();
+                    })
+                    .catch((error) => {
+                        console.error("Google sign-in failed:", error);
+                        showToast("Failed to sign in with Google", "error");
                     });
-                })
-                .catch((error) => {
-                    console.error("Anonymous sign-in failed:", error);
-                    showToast("Failed to initialize voting", "error");
-                });
+            });
+
+            // Check if already signed in
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    console.log("User already signed in:", user.uid);
+                    userId = user.uid;
+                    signInContainer.style.display = 'none';
+                    votingStateEl.style.display = 'block';
+                    loadEventData();
+                }
+            });
         });
 
         function updateCurrentTime() {
@@ -597,13 +615,11 @@
                 return;
             }
 
-            // Voting hasn't started yet
             if (now < voteStartTime) {
                 const timeRemaining = voteStartTime - now;
                 console.log("Voting starts in:", timeRemaining, "ms");
                 renderCountdown(timeRemaining);
             }
-            // Voting in progress
             else if (now >= voteStartTime && now <= voteEndTime) {
                 console.log("Voting is in progress. Has voted?:", hasVoted);
                 if (hasVoted) {
@@ -612,7 +628,6 @@
                     renderVotingInterface();
                 }
             }
-            // Voting ended
             else {
                 console.log("Voting has ended");
                 renderEndState();
@@ -685,10 +700,8 @@
                 </div>
             `;
 
-            // Start the voting timer
             startVotingTimer();
 
-            // Add event listeners to vote buttons
             document.querySelectorAll('.vote-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const creatorId = e.target.closest('.vote-btn').dataset.creatorId;
@@ -720,7 +733,6 @@
                 </div>
             `;
 
-            // Continue updating the timer
             startVotingTimer();
         }
 
@@ -775,7 +787,6 @@
                 return;
             }
 
-            // Find the creator
             const creator = creators.find(c => c.id === creatorId);
             if (!creator) {
                 console.error("Invalid creator selection:", creatorId);
@@ -783,7 +794,6 @@
                 return;
             }
 
-            // Check if user already voted
             votesRef.where("userId", "==", userId).get()
                 .then(querySnapshot => {
                     if (!querySnapshot.empty) {
@@ -791,7 +801,6 @@
                         showToast("You have already voted.", "warning");
                         return;
                     }
-                    // Add vote document
                     return votesRef.add({
                         creatorId: creatorId,
                         creatorName: creator.creatorName,
