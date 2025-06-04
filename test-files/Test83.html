@@ -1033,9 +1033,9 @@
       firebase.initializeApp(firebaseConfig);
       const db = firebase.firestore();
       const auth = firebase.auth();
-      
+
       logToConsole('Firebase initialized successfully');
-      
+
       // Current user reference
       let currentUser = null;
 
@@ -1089,11 +1089,11 @@
             btnSignIn.classList.add('hidden');
             userAvatar.src = user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.displayName || 'User') + '&background=4f9cff&color=fff';
             userName.textContent = user.displayName || user.email.split('@')[0];
-            
+
             // Enable voting and commenting
             btnLike.disabled = false;
             btnComment.disabled = false;
-            
+
             // Check if user has already voted for current video
             checkUserVote();
           } else {
@@ -1102,7 +1102,7 @@
             currentUser = null;
             userProfile.classList.add('hidden');
             btnSignIn.classList.remove('hidden');
-            
+
             // Disable voting and commenting
             btnLike.disabled = true;
             btnComment.disabled = true;
@@ -1115,7 +1115,7 @@
           logToConsole('Sign in button clicked');
           showAuthModal();
         });
-        
+
         // Auth modal button
         authBtn.addEventListener('click', () => {
           logToConsole('Attempting Google sign-in');
@@ -1157,17 +1157,17 @@
           updateVoteStatus("", "");
           return;
         }
-        
+
         const voteKey = `${current.provider}_${current.videoId}`;
         logToConsole(`Checking user vote for key: ${voteKey}`);
-        
+
         userVotesCol.doc(currentUser.uid)
           .get()
           .then(doc => {
             if (doc.exists) {
               const userVotes = doc.data();
               logToConsole(`User votes document found: ${JSON.stringify(userVotes)}`);
-              
+
               if (userVotes[voteKey]) {
                 logToConsole('User has already voted for this video', 'info');
                 btnLike.disabled = true;
@@ -1276,7 +1276,7 @@
       // Once countdown ends, start video playback, comments, and votes
       function startVideoPlayback() {
         logToConsole('Starting video playback');
-        
+
         // Listen for activeVideo changes in real time
         settingsRef.onSnapshot(snapshot => {
           if (!snapshot.exists) {
@@ -1284,15 +1284,15 @@
             settingsRef.set({ provider: null, videoId: null });
             return;
           }
-          
+
           const data = snapshot.data() || {};
           logToConsole(`Active video settings updated: ${JSON.stringify(data)}`);
-          
+
           current.provider = data.provider || null;
           current.videoId = data.videoId || null;
           renderVideo();
           loadVotes();
-          
+
           // Check if user has voted for this video
           checkUserVote();
         }, error => {
@@ -1411,7 +1411,7 @@
 
         const key = `${provider}_${videoId}`;
         logToConsole(`Loading votes for key: ${key}`);
-        
+
         votesCol.doc(key).onSnapshot(snap => {
           if (!snap.exists) {
             logToConsole('Votes document does not exist - creating with 0 likes', 'info');
@@ -1419,7 +1419,7 @@
             likeCt.textContent = '0';
             return;
           }
-          
+
           const v = snap.data() || { likes: 0 };
           logToConsole(`Votes updated: ${v.likes} likes`);
           likeCt.textContent = v.likes || 0;
@@ -1451,36 +1451,39 @@
         // Show loading state
         btnLike.disabled = true;
         btnLike.textContent = 'Processing...';
-        
-        db.runTransaction(tx => {
-          return tx.get(docRef).then(snap => {
-            let likes = 0;
-            if (snap.exists) {
-              likes = snap.data().likes || 0;
-              logToConsole(`Existing vote count: ${likes}`);
-            } else {
-              logToConsole('Vote document does not exist - creating new one');
-            }
-            
-            // Increment likes
-            likes++;
-            tx.set(docRef, { likes: likes });
-            logToConsole(`Setting vote count to: ${likes}`);
-            
-            // Mark user as voted for this video
-            return tx.get(userVoteRef).then(userVoteSnap => {
-              const userVotes = userVoteSnap.exists ? userVoteSnap.data() : {};
-              userVotes[key] = true;
-              tx.set(userVoteRef, userVotes);
-              logToConsole(`Marking user vote for key: ${key}`);
-            });
-          });
+
+        db.runTransaction(async tx => {
+          // 1. Read both documents up front
+          const [videoSnap, userSnap] = await Promise.all([
+            tx.get(docRef),
+            tx.get(userVoteRef)
+          ]);
+
+          // 2. Figure out the new like count
+          let likes = 0;
+          if (videoSnap.exists) {
+            likes = videoSnap.data().likes || 0;
+            logToConsole(`Existing vote count: ${likes}`);
+          } else {
+            logToConsole('Vote document does not exist - creating new one', 'info');
+          }
+          likes++; // increment
+
+          // 3. Prepare user votes update
+          const userVotes = userSnap.exists ? userSnap.data() : {};
+          userVotes[key] = true;
+          logToConsole(`Marking user vote for key: ${key}`);
+
+          // 4. Now do the writes
+          tx.set(docRef, { likes: likes });
+          logToConsole(`Setting vote count to: ${likes}`);
+          tx.set(userVoteRef, userVotes);
         }).then(() => {
           // Update UI after successful vote
           logToConsole('Vote recorded successfully', 'success');
           btnLike.textContent = 'Already Liked';
           updateVoteStatus("Your like has been recorded!", "success");
-          
+
           // Update like count display
           loadVotes();
         }).catch(error => {
@@ -1498,7 +1501,7 @@
         list.innerHTML = '';
 
         logToConsole('Loading comments...');
-        
+
         commentsCol
           .orderBy('timestamp', 'desc')
           .onSnapshot(snap => {
@@ -1517,15 +1520,15 @@
 
               const time = new Date(c.timestamp);
               const timeString = `${time.toLocaleDateString()} at ${time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-              
-              const userName = c.userName || 'User';
-              const userAvatar = c.userPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=4f9cff&color=fff`;
+
+              const name = c.userName || 'User';
+              const avatar = c.userPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f9cff&color=fff`;
 
               comment.innerHTML = `
                 <div class="comment-header">
                   <div class="comment-user">
-                    <img class="comment-avatar" src="${userAvatar}" alt="${userName}">
-                    <span class="comment-name">${userName}</span>
+                    <img class="comment-avatar" src="${avatar}" alt="${name}">
+                    <span class="comment-name">${name}</span>
                   </div>
                   <span>${timeString}</span>
                 </div>
@@ -1547,16 +1550,16 @@
           showAuthModal();
           return;
         }
-        
+
         const txt = document.getElementById('commentInput').value.trim();
         if (!txt) {
           logToConsole('Attempted to post empty comment', 'error');
           alert('Please enter a comment');
           return;
         }
-        
+
         logToConsole('Posting comment...');
-        
+
         commentsCol.add({
           commentText: txt,
           timestamp: Date.now(),
