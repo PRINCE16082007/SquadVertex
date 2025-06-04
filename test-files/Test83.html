@@ -454,6 +454,29 @@
       text-align: center;
     }
 
+    .vote-status {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: 500;
+      display: none;
+    }
+
+    .vote-status.success {
+      background: rgba(76, 201, 240, 0.2);
+      color: #0c7b93;
+      border: 1px solid #4cc9f0;
+      display: block;
+    }
+
+    .vote-status.info {
+      background: rgba(67, 97, 238, 0.15);
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      display: block;
+    }
+
     .comments-ui {
       background: #f8f9ff;
       padding: 1.8rem;
@@ -706,6 +729,51 @@
       cursor: pointer;
     }
 
+    .db-info {
+      background: #f8f9ff;
+      padding: 1.8rem;
+      border-radius: 12px;
+      margin: 2.5rem;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.06);
+      border: 1px solid rgba(67, 97, 238, 0.15);
+    }
+
+    .db-info h2 {
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 3px solid var(--primary);
+      color: var(--secondary);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+    }
+
+    .db-structure {
+      background: white;
+      border-radius: 8px;
+      padding: 1.5rem;
+      font-family: monospace;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      margin-top: 1rem;
+      border: 1px solid var(--border);
+    }
+
+    .db-key {
+      color: #d35400;
+    }
+
+    .db-value {
+      color: #2980b9;
+    }
+
+    .db-comment {
+      color: #27ae60;
+    }
+
     @media (max-width: 992px) {
       .interaction-section {
         grid-template-columns: 1fr;
@@ -894,6 +962,7 @@
           </div>
         </div>
         <div class="vote-note">Note: Likes are for reactions only, not part of voting.</div>
+        <div id="voteStatus" class="vote-status"></div>
       </div>
 
       <div class="comments-ui">
@@ -926,6 +995,41 @@
         </div>
       </div>
     </section>
+
+    <div class="db-info">
+      <h2>📊 Database Structure</h2>
+      <p>Our Firestore database is structured as follows to manage events, votes, and user interactions:</p>
+      <div class="db-structure">
+        <span class="db-comment">// Events collection</span><br>
+        events/<span class="db-key">SpringLaunch2025</span> {<br>
+        &nbsp;&nbsp;startTime: <span class="db-value">Timestamp</span>,<br>
+        &nbsp;&nbsp;voteTime: <span class="db-value">Timestamp</span>,<br>
+        &nbsp;&nbsp;videoList: <span class="db-value">Array</span><br>
+        }<br><br>
+        
+        <span class="db-comment">// Subcollections under each event</span><br>
+        events/SpringLaunch2025/<span class="db-key">settings</span>/<span class="db-key">activeVideo</span> {<br>
+        &nbsp;&nbsp;provider: <span class="db-value">string</span>,<br>
+        &nbsp;&nbsp;videoId: <span class="db-value">string</span><br>
+        }<br><br>
+        
+        events/SpringLaunch2025/<span class="db-key">votes</span>/<span class="db-key">provider_videoId</span> {<br>
+        &nbsp;&nbsp;likes: <span class="db-value">number</span><br>
+        }<br><br>
+        
+        events/SpringLaunch2025/<span class="db-key">userVotes</span>/<span class="db-key">userId</span> {<br>
+        &nbsp;&nbsp;<span class="db-key">provider_videoId</span>: <span class="db-value">boolean</span><br>
+        }<br><br>
+        
+        events/SpringLaunch2025/<span class="db-key">comments</span>/<span class="db-key">autoId</span> {<br>
+        &nbsp;&nbsp;commentText: <span class="db-value">string</span>,<br>
+        &nbsp;&nbsp;timestamp: <span class="db-value">Timestamp</span>,<br>
+        &nbsp;&nbsp;userId: <span class="db-value">string</span>,<br>
+        &nbsp;&nbsp;userName: <span class="db-value">string</span>,<br>
+        &nbsp;&nbsp;userPhoto: <span class="db-value">string</span><br>
+        }
+      </div>
+    </div>
 
     <footer>
       <p>© 2025 SquadVertex Live Stream. All rights reserved. | Live streaming platform for exclusive events</p>
@@ -982,6 +1086,7 @@
       const btnComment = document.getElementById('btnComment');
       const authModal = document.getElementById('authModal');
       const authBtn = document.getElementById('authBtn');
+      const voteStatus = document.getElementById('voteStatus');
 
       // Format event name for display (camelCase → spaced + year)
       function formatEventName(name) {
@@ -1013,6 +1118,7 @@
             // Disable voting and commenting
             btnLike.disabled = true;
             btnComment.disabled = true;
+            updateVoteStatus("Please sign in to like videos", "info");
           }
         });
 
@@ -1042,9 +1148,20 @@
         authModal.classList.add('hidden');
       }
 
+      // Update vote status message
+      function updateVoteStatus(message, type) {
+        voteStatus.textContent = message;
+        voteStatus.className = "vote-status " + type;
+      }
+
       // Check if user has already voted for current video
       function checkUserVote() {
-        if (!currentUser || !current.videoId) return;
+        if (!currentUser || !current.videoId) {
+          btnLike.textContent = 'Like This Video';
+          btnLike.disabled = !currentUser;
+          updateVoteStatus("", "");
+          return;
+        }
         
         const voteKey = `${current.provider}_${current.videoId}`;
         userVotesCol.doc(currentUser.uid)
@@ -1054,14 +1171,17 @@
               const userVotes = doc.data();
               if (userVotes[voteKey]) {
                 btnLike.disabled = true;
-                btnLike.textContent = 'Already Voted';
+                btnLike.textContent = 'Already Liked';
+                updateVoteStatus("You've already liked this video!", "info");
               } else {
                 btnLike.disabled = false;
                 btnLike.textContent = 'Like This Video';
+                updateVoteStatus("You can like this video", "info");
               }
             } else {
               btnLike.disabled = false;
               btnLike.textContent = 'Like This Video';
+              updateVoteStatus("You can like this video", "info");
             }
           })
           .catch(error => {
@@ -1268,6 +1388,10 @@
         const docRef = votesCol.doc(key);
         const userVoteRef = userVotesCol.doc(currentUser.uid);
 
+        // Show loading state
+        btnLike.disabled = true;
+        btnLike.textContent = 'Processing...';
+        
         db.runTransaction(tx => {
           return tx.get(docRef).then(snap => {
             const v = snap.exists ? snap.data() : { likes: 0 };
@@ -1282,11 +1406,17 @@
             });
           });
         }).then(() => {
-          // Disable vote button after successful vote
-          btnLike.disabled = true;
-          btnLike.textContent = 'Already Voted';
+          // Update UI after successful vote
+          btnLike.textContent = 'Already Liked';
+          updateVoteStatus("Your like has been recorded!", "success");
+          
+          // Update like count display
+          loadVotes();
         }).catch(error => {
           console.error('Vote transaction failed: ', error);
+          btnLike.disabled = false;
+          btnLike.textContent = 'Like This Video';
+          updateVoteStatus("Failed to record vote. Please try again.", "info");
         });
       }
 
