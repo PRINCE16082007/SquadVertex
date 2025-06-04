@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SquadVertex - Voting</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <style>
         :root {
             --primary: #4a6bff;
@@ -21,6 +23,8 @@
             --border: #dee2e6;
             --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             --transition: all 0.3s ease;
+            --gradient-start: #1a2980;
+            --gradient-end: #26d0ce;
         }
 
         * {
@@ -30,17 +34,23 @@
         }
 
         body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
             color: var(--white);
             min-height: 100vh;
             line-height: 1.6;
+            padding: 20px;
+            overflow-x: hidden;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
         }
 
         /* Header Styles */
@@ -48,8 +58,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px 0;
-            margin-bottom: 30px;
+            padding: 20px 30px;
+            background: rgba(0, 0, 0, 0.5);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
@@ -79,12 +89,7 @@
 
         /* Main Content */
         .main-content {
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 20px;
             padding: 30px;
-            box-shadow: var(--shadow);
-            margin-bottom: 30px;
-            backdrop-filter: blur(10px);
         }
 
         .section {
@@ -182,6 +187,7 @@
             transition: var(--transition);
             box-shadow: var(--shadow);
             border: 1px solid rgba(74, 107, 255, 0.3);
+            position: relative;
         }
 
         .creator-card:hover {
@@ -326,6 +332,23 @@
             .header-title {
                 font-size: 20px;
             }
+            
+            header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+        }
+
+        /* Pulse Animation */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
         }
     </style>
 </head>
@@ -338,6 +361,9 @@
                     <i class="fas fa-vote-yea"></i>
                 </div>
                 <div class="header-title">SquadVertex Voting</div>
+            </div>
+            <div>
+                <div class="header-title" id="currentTime">Loading time...</div>
             </div>
         </header>
 
@@ -377,62 +403,151 @@
     </div>
 
     <script>
-        // Mock data for demonstration
-        const mockData = {
-            votingQuestion: "Which creator's videos should be featured on the homepage?",
-            voteTime: new Date(Date.now() + 10000), // Starts in 10 seconds
-            voteDuration: 10 * 60 * 1000, // 10 minutes in milliseconds
-            creators: [
-                {
-                    id: "c1",
-                    name: "Alex Johnson",
-                    imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80",
-                    videos: ["v1", "v2", "v3"],
-                    votes: 0
-                },
-                {
-                    id: "c2",
-                    name: "Taylor Williams",
-                    imageUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80",
-                    videos: ["v4", "v5"],
-                    votes: 0
-                },
-                {
-                    id: "c3",
-                    name: "Jordan Smith",
-                    imageUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80",
-                    videos: ["v6", "v7", "v8", "v9"],
-                    votes: 0
-                },
-                {
-                    id: "c4",
-                    name: "Casey Davis",
-                    imageUrl: "https://images.unsplash.com/photo-1567532939604-b6b5b0e16019?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=500&q=80",
-                    videos: ["v10", "v11"],
-                    votes: 0
-                }
-            ]
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+            authDomain: "squadvertex2007.firebaseapp.com",
+            projectId: "squadvertex2007",
+            storageBucket: "squadvertex2007.appspot.com",
+            messagingSenderId: "168905083514",
+            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
         };
 
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        // References
+        const EVENT_ID = "SpringLaunch2025";
+        const eventRef = db.collection("events").doc(EVENT_ID);
+        const contestsRef = eventRef.collection("votingContests");
+        const votesRef = eventRef.collection("votes");
+        
         // DOM Elements
         const votingStateEl = document.getElementById('votingState');
         const toastEl = document.getElementById('toast');
         const toastMsgEl = document.getElementById('toastMessage');
+        const currentTimeEl = document.getElementById('currentTime');
         
         // State
-        let voteStartTime = mockData.voteTime;
-        let voteEndTime = new Date(voteStartTime.getTime() + mockData.voteDuration);
+        let voteStartTime = null;
+        let voteEndTime = null;
+        let votingQuestion = "";
+        let creators = [];
         let currentVote = null;
-        let hasVoted = localStorage.getItem('hasVoted') === 'true';
+        let hasVoted = false;
+        let userId = null;
         
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            checkVotingStatus();
-            setInterval(checkVotingStatus, 1000);
+            // Initialize time display
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+            
+            // Sign in anonymously to enable voting
+            auth.signInAnonymously()
+                .then(() => {
+                    // Get current user ID
+                    auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            userId = user.uid;
+                            console.log("User signed in anonymously: ", userId);
+                            // Load event data
+                            loadEventData();
+                        }
+                    });
+                })
+                .catch((error) => {
+                    console.error("Anonymous sign-in failed: ", error);
+                    showToast("Failed to initialize voting", "error");
+                });
         });
+        
+        function updateCurrentTime() {
+            const now = new Date();
+            currentTimeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + " - " + now.toLocaleDateString();
+        }
+        
+        function loadEventData() {
+            // Load event data (voting time and question)
+            eventRef.get().then((doc) => {
+                if (doc.exists) {
+                    const eventData = doc.data();
+                    
+                    // Set voting question
+                    votingQuestion = eventData.votingQuestion || "Which creator’s videos should be featured on the homepage?";
+                    
+                    // Set voting time
+                    if (eventData.voteTime) {
+                        voteStartTime = eventData.voteTime.toDate();
+                        voteEndTime = new Date(voteStartTime.getTime() + 10 * 60 * 1000); // 10 minutes
+                    }
+                    
+                    // Load creator data
+                    loadCreatorData();
+                } else {
+                    console.error("Event document not found");
+                    showToast("Event configuration not found", "error");
+                }
+            }).catch((error) => {
+                console.error("Error loading event data: ", error);
+                showToast("Failed to load event data", "error");
+            });
+        }
+        
+        function loadCreatorData() {
+            contestsRef.orderBy("createdAt", "asc").get()
+                .then((querySnapshot) => {
+                    creators = [];
+                    querySnapshot.forEach((doc) => {
+                        creators.push({
+                            id: doc.id,
+                            ...doc.data()
+                        });
+                    });
+                    
+                    // Check if user has already voted
+                    checkUserVoteStatus();
+                })
+                .catch((error) => {
+                    console.error("Error loading creators: ", error);
+                    showToast("Failed to load creators", "error");
+                });
+        }
+        
+        function checkUserVoteStatus() {
+            if (!userId) {
+                showToast("User not authenticated", "error");
+                return;
+            }
+            
+            votesRef.where("userId", "==", userId).get()
+                .then((querySnapshot) => {
+                    hasVoted = !querySnapshot.empty;
+                    checkVotingStatus();
+                })
+                .catch((error) => {
+                    console.error("Error checking vote status: ", error);
+                    hasVoted = false;
+                    checkVotingStatus();
+                });
+        }
         
         function checkVotingStatus() {
             const now = new Date();
+            
+            if (!voteStartTime) {
+                votingStateEl.innerHTML = `
+                    <div class="state-container">
+                        <div class="state-title">Voting Not Scheduled</div>
+                        <div class="state-description">
+                            The voting period for this event has not been scheduled yet.
+                        </div>
+                    </div>
+                `;
+                return;
+            }
             
             // Voting hasn't started yet
             if (now < voteStartTime) {
@@ -462,7 +577,7 @@
                 <div class="state-container">
                     <div class="state-title">Voting Starts Soon!</div>
                     <div class="state-description">
-                        The voting period for "${mockData.votingQuestion}" will begin shortly. 
+                        The voting period for "${votingQuestion}" will begin shortly. 
                         Get ready to vote for your favorite creator!
                     </div>
                     
@@ -487,23 +602,28 @@
         }
         
         function renderVotingInterface() {
+            const now = new Date();
+            const timeRemaining = voteEndTime - now;
+            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60;
+            const seconds = Math.floor((timeRemaining / 1000) % 60);
+            
             votingStateEl.innerHTML = `
                 <div class="state-container">
-                    <div class="state-title">${mockData.votingQuestion}</div>
+                    <div class="state-title">${votingQuestion}</div>
                     <div class="state-description">
                         Vote for your favorite creator! You can only vote once, so choose wisely. 
-                        Voting ends in <span id="timeRemaining">10:00</span>
+                        Voting ends in <span id="timeRemaining">${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}</span>
                     </div>
                     
                     <div class="creator-grid">
-                        ${mockData.creators.map(creator => `
+                        ${creators.map(creator => `
                             <div class="creator-card">
-                                <img src="${creator.imageUrl}" alt="${creator.name}" class="creator-image">
+                                <img src="${creator.imageURL}" alt="${creator.creatorName}" class="creator-image">
                                 <div class="creator-info">
-                                    <h3 class="creator-name">${creator.name}</h3>
+                                    <h3 class="creator-name">${creator.creatorName}</h3>
                                     <p class="video-count">${creator.videos.length} videos</p>
-                                    <button class="vote-btn" data-creator-id="${creator.id}">
-                                        Vote for ${creator.name.split(' ')[0]}
+                                    <button class="vote-btn pulse" data-creator-id="${creator.id}">
+                                        <i class="fas fa-vote-yea"></i> Vote Now
                                     </button>
                                 </div>
                             </div>
@@ -518,14 +638,15 @@
             // Add event listeners to vote buttons
             document.querySelectorAll('.vote-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
-                    const creatorId = e.target.dataset.creatorId;
+                    const creatorId = e.target.closest('.vote-btn').dataset.creatorId;
                     castVote(creatorId);
                 });
             });
         }
         
         function renderVotedState() {
-            const timeRemaining = voteEndTime - new Date();
+            const now = new Date();
+            const timeRemaining = voteEndTime - now;
             const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60;
             const seconds = Math.floor((timeRemaining / 1000) % 60);
             
@@ -544,6 +665,9 @@
                     <p>You can see the results after the voting period ends</p>
                 </div>
             `;
+            
+            // Continue updating the timer
+            startVotingTimer();
         }
         
         function renderEndState() {
@@ -551,7 +675,7 @@
                 <div class="state-container">
                     <div class="state-title">Voting Has Ended</div>
                     <div class="state-description">
-                        The voting period for "${mockData.votingQuestion}" is now closed. 
+                        The voting period for "${votingQuestion}" is now closed. 
                         Thank you to everyone who participated!
                     </div>
                     
@@ -589,22 +713,34 @@
         }
         
         function castVote(creatorId) {
-            // In a real implementation, this would be saved to a database
-            currentVote = creatorId;
-            hasVoted = true;
-            localStorage.setItem('hasVoted', 'true');
-            
-             // Find the creator and increment votes (mock)
-            const creator = mockData.creators.find(c => c.id === creatorId);
-            if (creator) {
-                creator.votes++;
+            if (!userId) {
+                showToast("User not authenticated", "error");
+                return;
             }
             
-            // Show confirmation
-            showToast(`Voted for ${creator.name}!`);
+            // Find the creator
+            const creator = creators.find(c => c.id === creatorId);
+            if (!creator) {
+                showToast("Invalid creator selection", "error");
+                return;
+            }
             
-            // Update UI
-            renderVotedState();
+            // Record the vote in Firestore
+            votesRef.add({
+                creatorId: creatorId,
+                creatorName: creator.creatorName,
+                userId: userId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            })
+            .then(() => {
+                showToast(`Voted for ${creator.creatorName}!`);
+                hasVoted = true;
+                renderVotedState();
+            })
+            .catch((error) => {
+                console.error("Error saving vote: ", error);
+                showToast("Failed to record vote", "error");
+            });
         }
         
         function showToast(message, type = "success") {
