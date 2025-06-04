@@ -374,7 +374,7 @@
                     <i class="fas fa-vote-yea"></i>
                     <h2>Creator Showdown</h2>
                 </div>
-                
+
                 <!-- Voting State Container -->
                 <div id="votingState">
                     <!-- Content will be dynamically updated -->
@@ -385,13 +385,13 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Toast Notification -->
         <div class="toast" id="toast">
             <i class="fas fa-check-circle"></i>
             <span id="toastMessage">Your vote has been recorded!</span>
         </div>
-        
+
         <!-- Footer -->
         <footer>
             <p>© 2025 SquadVertex Voting. All rights reserved.</p>
@@ -417,34 +417,33 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
-        
+
         // References
         const EVENT_ID = "SpringLaunch2025";
         const eventRef = db.collection("events").doc(EVENT_ID);
         const contestsRef = eventRef.collection("votingContests");
         const votesRef = eventRef.collection("votes");
-        
+
         // DOM Elements
         const votingStateEl = document.getElementById('votingState');
         const toastEl = document.getElementById('toast');
         const toastMsgEl = document.getElementById('toastMessage');
         const currentTimeEl = document.getElementById('currentTime');
-        
+
         // State
         let voteStartTime = null;
         let voteEndTime = null;
         let votingQuestion = "";
         let creators = [];
-        let currentVote = null;
         let hasVoted = false;
         let userId = null;
-        
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             // Initialize time display
             updateCurrentTime();
             setInterval(updateCurrentTime, 1000);
-            
+
             // Sign in anonymously to enable voting
             auth.signInAnonymously()
                 .then(() => {
@@ -452,7 +451,6 @@
                     auth.onAuthStateChanged((user) => {
                         if (user) {
                             userId = user.uid;
-                            console.log("User signed in anonymously: ", userId);
                             // Load event data
                             loadEventData();
                         }
@@ -463,27 +461,27 @@
                     showToast("Failed to initialize voting", "error");
                 });
         });
-        
+
         function updateCurrentTime() {
             const now = new Date();
             currentTimeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + " - " + now.toLocaleDateString();
         }
-        
+
         function loadEventData() {
             // Load event data (voting time and question)
             eventRef.get().then((doc) => {
                 if (doc.exists) {
                     const eventData = doc.data();
-                    
+
                     // Set voting question
                     votingQuestion = eventData.votingQuestion || "Which creator’s videos should be featured on the homepage?";
-                    
+
                     // Set voting time
                     if (eventData.voteTime) {
                         voteStartTime = eventData.voteTime.toDate();
                         voteEndTime = new Date(voteStartTime.getTime() + 10 * 60 * 1000); // 10 minutes
                     }
-                    
+
                     // Load creator data
                     loadCreatorData();
                 } else {
@@ -495,7 +493,7 @@
                 showToast("Failed to load event data", "error");
             });
         }
-        
+
         function loadCreatorData() {
             contestsRef.orderBy("createdAt", "asc").get()
                 .then((querySnapshot) => {
@@ -506,7 +504,7 @@
                             ...doc.data()
                         });
                     });
-                    
+
                     // Check if user has already voted
                     checkUserVoteStatus();
                 })
@@ -515,13 +513,13 @@
                     showToast("Failed to load creators", "error");
                 });
         }
-        
+
         function checkUserVoteStatus() {
             if (!userId) {
                 showToast("User not authenticated", "error");
                 return;
             }
-            
+
             votesRef.where("userId", "==", userId).get()
                 .then((querySnapshot) => {
                     hasVoted = !querySnapshot.empty;
@@ -533,10 +531,10 @@
                     checkVotingStatus();
                 });
         }
-        
+
         function checkVotingStatus() {
             const now = new Date();
-            
+
             if (!voteStartTime) {
                 votingStateEl.innerHTML = `
                     <div class="state-container">
@@ -548,7 +546,7 @@
                 `;
                 return;
             }
-            
+
             // Voting hasn't started yet
             if (now < voteStartTime) {
                 const timeRemaining = voteStartTime - now;
@@ -563,16 +561,16 @@
                 }
             }
             // Voting ended
-            else if (now > voteEndTime) {
+            else {
                 renderEndState();
             }
         }
-        
+
         function renderCountdown(timeRemaining) {
             const seconds = Math.floor((timeRemaining / 1000) % 60);
             const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
             const hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24);
-            
+
             votingStateEl.innerHTML = `
                 <div class="state-container">
                     <div class="state-title">Voting Starts Soon!</div>
@@ -600,13 +598,13 @@
                 </div>
             `;
         }
-        
+
         function renderVotingInterface() {
             const now = new Date();
             const timeRemaining = voteEndTime - now;
-            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60;
+            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
             const seconds = Math.floor((timeRemaining / 1000) % 60);
-            
+
             votingStateEl.innerHTML = `
                 <div class="state-container">
                     <div class="state-title">${votingQuestion}</div>
@@ -622,7 +620,7 @@
                                 <div class="creator-info">
                                     <h3 class="creator-name">${creator.creatorName}</h3>
                                     <p class="video-count">${creator.videos.length} videos</p>
-                                    <button class="vote-btn pulse" data-creator-id="${creator.id}">
+                                    <button class="vote-btn" data-creator-id="${creator.id}">
                                         <i class="fas fa-vote-yea"></i> Vote Now
                                     </button>
                                 </div>
@@ -631,10 +629,10 @@
                     </div>
                 </div>
             `;
-            
+
             // Start the voting timer
             startVotingTimer();
-            
+
             // Add event listeners to vote buttons
             document.querySelectorAll('.vote-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
@@ -643,13 +641,13 @@
                 });
             });
         }
-        
+
         function renderVotedState() {
             const now = new Date();
             const timeRemaining = voteEndTime - now;
-            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60;
+            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
             const seconds = Math.floor((timeRemaining / 1000) % 60);
-            
+
             votingStateEl.innerHTML = `
                 <div class="state-container">
                     <div class="state-title">Thank You for Voting!</div>
@@ -665,11 +663,11 @@
                     <p>You can see the results after the voting period ends</p>
                 </div>
             `;
-            
+
             // Continue updating the timer
             startVotingTimer();
         }
-        
+
         function renderEndState() {
             votingStateEl.innerHTML = `
                 <div class="state-container">
@@ -689,7 +687,7 @@
                 </div>
             `;
         }
-        
+
         function startVotingTimer() {
             const updateTimer = () => {
                 const now = new Date();
@@ -697,63 +695,76 @@
                     renderEndState();
                     return;
                 }
-                
+
                 const timeRemaining = voteEndTime - now;
-                const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60;
-                const seconds = Math.floor((timeRemaining / 1000) % 60;
-                
+                const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
+                const seconds = Math.floor((timeRemaining / 1000) % 60);
+
                 const timerEl = document.getElementById('timeRemaining');
                 if (timerEl) {
                     timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                 }
             };
-            
+
             updateTimer();
-            const timerInterval = setInterval(updateTimer, 1000);
+            setInterval(updateTimer, 1000);
         }
-        
+
         function castVote(creatorId) {
             if (!userId) {
                 showToast("User not authenticated", "error");
                 return;
             }
-            
+
             // Find the creator
             const creator = creators.find(c => c.id === creatorId);
             if (!creator) {
                 showToast("Invalid creator selection", "error");
                 return;
             }
-            
+
             // Record the vote in Firestore
-            votesRef.add({
-                creatorId: creatorId,
-                creatorName: creator.creatorName,
-                userId: userId,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            })
-            .then(() => {
-                showToast(`Voted for ${creator.creatorName}!`);
-                hasVoted = true;
-                renderVotedState();
-            })
-            .catch((error) => {
-                console.error("Error saving vote: ", error);
-                showToast("Failed to record vote", "error");
-            });
+            votesRef.where("userId", "==", userId).get()
+                .then(querySnapshot => {
+                    if (!querySnapshot.empty) {
+                        showToast("You have already voted.", "warning");
+                        return;
+                    }
+                    // Add vote document
+                    return votesRef.add({
+                        creatorId: creatorId,
+                        creatorName: creator.creatorName,
+                        userId: userId,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                })
+                .then(() => {
+                    if (!hasVoted) {
+                        showToast(`Voted for ${creator.creatorName}!`);
+                        hasVoted = true;
+                        renderVotedState();
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error saving vote: ", error);
+                    showToast("Failed to record vote", "error");
+                });
         }
-        
+
         function showToast(message, type = "success") {
             toastMsgEl.textContent = message;
-            
+
             if (type === "error") {
                 toastEl.style.background = "var(--danger)";
                 toastEl.querySelector("i").className = "fas fa-exclamation-circle";
+            } else if (type === "warning") {
+                toastEl.style.background = "var(--warning)";
+                toastEl.querySelector("i").className = "fas fa-exclamation-triangle";
             } else {
                 toastEl.style.background = "var(--success)";
                 toastEl.querySelector("i").className = "fas fa-check-circle";
             }
-            
+
             toastEl.classList.add("show");
             setTimeout(() => {
                 toastEl.classList.remove("show");
