@@ -454,6 +454,36 @@
       text-align: center;
     }
 
+    .vote-status {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: 500;
+      display: none;
+    }
+
+    .vote-status.success {
+      background: rgba(76, 201, 240, 0.2);
+      color: #0c7b93;
+      border: 1px solid #4cc9f0;
+      display: block;
+    }
+
+    .vote-status.info {
+      background: rgba(67, 97, 238, 0.15);
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      display: block;
+    }
+
+    .vote-status.error {
+      background: rgba(247, 37, 133, 0.15);
+      color: var(--danger);
+      border: 1px solid var(--danger);
+      display: block;
+    }
+
     .comments-ui {
       background: #f8f9ff;
       padding: 1.8rem;
@@ -706,6 +736,44 @@
       cursor: pointer;
     }
 
+    .debug-console {
+      background: #1a1c23;
+      color: white;
+      padding: 1.5rem;
+      margin: 2.5rem;
+      border-radius: 12px;
+      font-family: monospace;
+      max-height: 300px;
+      overflow-y: auto;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .debug-console h3 {
+      margin-bottom: 1rem;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .log-entry {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.9rem;
+    }
+
+    .log-entry.error {
+      color: #f72585;
+    }
+
+    .log-entry.info {
+      color: #4cc9f0;
+    }
+
+    .log-entry.success {
+      color: #4ade80;
+    }
+
     @media (max-width: 992px) {
       .interaction-section {
         grid-template-columns: 1fr;
@@ -894,6 +962,7 @@
           </div>
         </div>
         <div class="vote-note">Note: Likes are for reactions only, not part of voting.</div>
+        <div id="voteStatus" class="vote-status"></div>
       </div>
 
       <div class="comments-ui">
@@ -927,12 +996,28 @@
       </div>
     </section>
 
+    <div class="debug-console">
+      <h3>📝 Debug Console</h3>
+      <div id="debugLogs"></div>
+    </div>
+
     <footer>
       <p>© 2025 SquadVertex Live Stream. All rights reserved. | Live streaming platform for exclusive events</p>
     </footer>
   </div>
 
-<script>
+  <script>
+    // Debug logging system
+    const debugLogs = document.getElementById('debugLogs');
+    function logToConsole(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      debugLogs.appendChild(entry);
+      debugLogs.scrollTop = debugLogs.scrollHeight;
+      console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+
     // Firebase initialization
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -944,10 +1029,13 @@
     };
 
     try {
+      logToConsole('Initializing Firebase...');
       firebase.initializeApp(firebaseConfig);
       const db = firebase.firestore();
       const auth = firebase.auth();
-      
+
+      logToConsole('Firebase initialized successfully');
+
       // Current user reference
       let currentUser = null;
 
@@ -982,6 +1070,7 @@
       const btnComment = document.getElementById('btnComment');
       const authModal = document.getElementById('authModal');
       const authBtn = document.getElementById('authBtn');
+      const voteStatus = document.getElementById('voteStatus');
 
       // Format event name for display (camelCase → spaced + year)
       function formatEventName(name) {
@@ -990,81 +1079,115 @@
 
       // Handle user authentication
       function initAuth() {
+        logToConsole('Initializing authentication...');
         auth.onAuthStateChanged(user => {
-          currentUser = user;
           if (user) {
             // User is signed in
+            logToConsole(`User signed in: ${user.uid}`, 'success');
+            currentUser = user;
             userProfile.classList.remove('hidden');
             btnSignIn.classList.add('hidden');
             userAvatar.src = user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.displayName || 'User') + '&background=4f9cff&color=fff';
             userName.textContent = user.displayName || user.email.split('@')[0];
-            
+
             // Enable voting and commenting
             btnLike.disabled = false;
             btnComment.disabled = false;
-            
+
             // Check if user has already voted for current video
             checkUserVote();
           } else {
             // User is signed out
+            logToConsole('User signed out');
+            currentUser = null;
             userProfile.classList.add('hidden');
             btnSignIn.classList.remove('hidden');
-            
+
             // Disable voting and commenting
             btnLike.disabled = true;
             btnComment.disabled = true;
+            updateVoteStatus("Please sign in to like videos", "info");
           }
         });
 
         // Sign in button
         btnSignIn.addEventListener('click', () => {
+          logToConsole('Sign in button clicked');
           showAuthModal();
         });
-        
+
         // Auth modal button
         authBtn.addEventListener('click', () => {
+          logToConsole('Attempting Google sign-in');
           const provider = new firebase.auth.GoogleAuthProvider();
           auth.signInWithPopup(provider)
             .then(() => {
+              logToConsole('Google sign-in successful', 'success');
               hideAuthModal();
             })
             .catch(error => {
+              logToConsole(`Sign in error: ${error.message}`, 'error');
               console.error('Sign in error:', error);
             });
         });
       }
 
       function showAuthModal() {
+        logToConsole('Showing auth modal');
         authModal.classList.remove('hidden');
       }
 
       function hideAuthModal() {
+        logToConsole('Hiding auth modal');
         authModal.classList.add('hidden');
+      }
+
+      // Update vote status message
+      function updateVoteStatus(message, type) {
+        voteStatus.textContent = message;
+        voteStatus.className = "vote-status " + type;
       }
 
       // Check if user has already voted for current video
       function checkUserVote() {
-        if (!currentUser || !current.videoId) return;
-        
+        if (!currentUser || !current.videoId) {
+          logToConsole('No current user or video ID - skipping vote check');
+          btnLike.textContent = 'Like This Video';
+          btnLike.disabled = !currentUser;
+          updateVoteStatus("", "");
+          return;
+        }
+
         const voteKey = `${current.provider}_${current.videoId}`;
+        logToConsole(`Checking user vote for key: ${voteKey}`);
+
         userVotesCol.doc(currentUser.uid)
           .get()
           .then(doc => {
             if (doc.exists) {
               const userVotes = doc.data();
+              logToConsole(`User votes document found: ${JSON.stringify(userVotes)}`);
+
               if (userVotes[voteKey]) {
+                logToConsole('User has already voted for this video', 'info');
                 btnLike.disabled = true;
-                btnLike.textContent = 'Already Voted';
+                btnLike.textContent = 'Already Liked';
+                updateVoteStatus("You've already liked this video!", "info");
               } else {
+                logToConsole('User has not voted for this video yet', 'success');
                 btnLike.disabled = false;
                 btnLike.textContent = 'Like This Video';
+                updateVoteStatus("You can like this video", "info");
               }
             } else {
+              logToConsole('User votes document does not exist - creating new one');
               btnLike.disabled = false;
               btnLike.textContent = 'Like This Video';
+              updateVoteStatus("You can like this video", "info");
             }
           })
           .catch(error => {
+            logToConsole(`Error checking user vote: ${error.message}`, 'error');
             console.error('Error checking user vote:', error);
           });
       }
@@ -1072,6 +1195,7 @@
       // Load event data (startTime, voteTime, videoList)
       eventRef.get().then(doc => {
         if (doc.exists) {
+          logToConsole('Event document found', 'success');
           const data = doc.data();
           eventStartTime = data.startTime.toDate();
           voteTime = data.voteTime ? data.voteTime.toDate() : null;
@@ -1091,18 +1215,23 @@
           if (voteTime) {
             scheduleVoteReveal();
           }
+        } else {
+          logToConsole('Event document not found', 'error');
         }
       }).catch(error => {
+        logToConsole(`Error loading event data: ${error.message}`, 'error');
         console.error('Error loading event data:', error);
       });
 
       // Countdown timer until eventStartTime
       function startCountdown() {
+        logToConsole('Starting countdown...');
         const countdownInterval = setInterval(() => {
           const now = new Date();
           const diff = eventStartTime - now;
 
           if (diff <= 0) {
+            logToConsole('Countdown finished - starting video playback', 'success');
             clearInterval(countdownInterval);
             overlay.classList.add('hidden');
             startVideoPlayback();
@@ -1127,37 +1256,60 @@
         const msUntilVote = voteTime.getTime() - now.getTime();
 
         if (msUntilVote > 0) {
+          logToConsole(`Scheduling vote reveal in ${msUntilVote}ms`);
           setTimeout(() => {
+            logToConsole('Vote reveal triggered');
             redirectContainer.classList.remove('hidden');
           }, msUntilVote);
         } else {
-          // If voteTime is already passed or exactly now
+          logToConsole('Vote time already passed - showing redirect');
           redirectContainer.classList.remove('hidden');
         }
       }
 
       // Redirect to voting contest when button is clicked
       redirectButton.addEventListener('click', () => {
+        logToConsole('Redirecting to voting contest');
         window.location.href = 'https://squadvertex.com/voting-contest';
       });
 
       // Once countdown ends, start video playback, comments, and votes
       function startVideoPlayback() {
+        logToConsole('Starting video playback');
+
         // Listen for activeVideo changes in real time
         settingsRef.onSnapshot(snapshot => {
+          if (!snapshot.exists) {
+            logToConsole('Active video settings not found - creating default', 'info');
+            settingsRef.set({ provider: null, videoId: null });
+            return;
+          }
+
           const data = snapshot.data() || {};
+          logToConsole(`Active video settings updated: ${JSON.stringify(data)}`);
+
           current.provider = data.provider || null;
           current.videoId = data.videoId || null;
           renderVideo();
           loadVotes();
-          
+
           // Check if user has voted for this video
           checkUserVote();
+        }, error => {
+          logToConsole(`Error listening to activeVideo: ${error.message}`, 'error');
         });
 
         // Poll every 30s in case real-time fails
         setInterval(() => {
-          settingsRef.get().catch(() => {});
+          settingsRef.get()
+            .then(snap => {
+              if (!snap.exists) {
+                logToConsole('Polling: Active video settings not found', 'info');
+              }
+            })
+            .catch(error => {
+              logToConsole(`Polling error: ${error.message}`, 'error');
+            });
         }, 30000);
 
         // Load comments immediately
@@ -1169,6 +1321,8 @@
         const vc = document.getElementById('videoContainer');
         const md = document.getElementById('metadata');
 
+        logToConsole(`Rendering video: provider=${current.provider}, videoId=${current.videoId}`);
+
         // Show loading overlay
         vc.innerHTML = `
           <div class="loading-overlay">
@@ -1178,6 +1332,7 @@
 
         const { provider, videoId } = current;
         if (!provider || !videoId) {
+          logToConsole('No provider or video ID - showing message');
           vc.innerHTML = '<div class="no-video-message"><p>No live stream currently. Please check back later.</p></div>';
           md.innerHTML = `
             <h2>No Live Stream</h2>
@@ -1218,9 +1373,11 @@
             url = `https://vimeo.com/api/v2/video/${videoId}.json`;
           }
 
+          logToConsole(`Fetching metadata from: ${url}`);
           const res = await fetch(url);
           if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
           const data = await res.json();
+          logToConsole('Metadata fetched successfully', 'success');
 
           if (provider === 'wistia') {
             title = data.title || title;
@@ -1230,6 +1387,7 @@
             desc = data[0].description || desc;
           }
         } catch (err) {
+          logToConsole(`Error fetching metadata: ${err.message}`, 'error');
           console.error('Error fetching metadata:', err);
         }
 
@@ -1246,47 +1404,94 @@
         likeCt.textContent = '0';
 
         const { provider, videoId } = current;
-        if (!provider || !videoId) return;
+        if (!provider || !videoId) {
+          logToConsole('No provider or video ID - skipping vote load');
+          return;
+        }
 
         const key = `${provider}_${videoId}`;
+        logToConsole(`Loading votes for key: ${key}`);
+
         votesCol.doc(key).onSnapshot(snap => {
+          if (!snap.exists) {
+            logToConsole('Votes document does not exist - creating with 0 likes', 'info');
+            votesCol.doc(key).set({ likes: 0 });
+            likeCt.textContent = '0';
+            return;
+          }
+
           const v = snap.data() || { likes: 0 };
+          logToConsole(`Votes updated: ${v.likes} likes`);
           likeCt.textContent = v.likes || 0;
+        }, error => {
+          logToConsole(`Error loading votes: ${error.message}`, 'error');
         });
       }
 
       function vote() {
         if (!currentUser) {
+          logToConsole('Vote attempted without authentication', 'error');
           showAuthModal();
           return;
         }
 
         const { provider, videoId } = current;
-        if (!provider || !videoId) return;
+        if (!provider || !videoId) {
+          logToConsole('Cannot vote - no provider or video ID', 'error');
+          updateVoteStatus("No active video to vote for", "error");
+          return;
+        }
 
         const key = `${provider}_${videoId}`;
         const docRef = votesCol.doc(key);
         const userVoteRef = userVotesCol.doc(currentUser.uid);
 
-        db.runTransaction(tx => {
-          return tx.get(docRef).then(snap => {
-            const v = snap.exists ? snap.data() : { likes: 0 };
-            v.likes = (v.likes || 0) + 1;
-            tx.set(docRef, v);
-            
-            // Mark user as voted for this video
-            return tx.get(userVoteRef).then(userVoteSnap => {
-              const userVotes = userVoteSnap.exists ? userVoteSnap.data() : {};
-              userVotes[key] = true;
-              tx.set(userVoteRef, userVotes);
-            });
-          });
+        logToConsole(`Attempting to vote for key: ${key}`);
+
+        // Show loading state
+        btnLike.disabled = true;
+        btnLike.textContent = 'Processing...';
+
+        db.runTransaction(async tx => {
+          // 1. Read both documents up front
+          const [videoSnap, userSnap] = await Promise.all([
+            tx.get(docRef),
+            tx.get(userVoteRef)
+          ]);
+
+          // 2. Figure out the new like count
+          let likes = 0;
+          if (videoSnap.exists) {
+            likes = videoSnap.data().likes || 0;
+            logToConsole(`Existing vote count: ${likes}`);
+          } else {
+            logToConsole('Vote document does not exist - creating new one', 'info');
+          }
+          likes++; // increment
+
+          // 3. Prepare user votes update
+          const userVotes = userSnap.exists ? userSnap.data() : {};
+          userVotes[key] = true;
+          logToConsole(`Marking user vote for key: ${key}`);
+
+          // 4. Now do the writes
+          tx.set(docRef, { likes: likes });
+          logToConsole(`Setting vote count to: ${likes}`);
+          tx.set(userVoteRef, userVotes);
         }).then(() => {
-          // Disable vote button after successful vote
-          btnLike.disabled = true;
-          btnLike.textContent = 'Already Voted';
+          // Update UI after successful vote
+          logToConsole('Vote recorded successfully', 'success');
+          btnLike.textContent = 'Already Liked';
+          updateVoteStatus("Your like has been recorded!", "success");
+
+          // Update like count display
+          loadVotes();
         }).catch(error => {
+          logToConsole(`Vote transaction failed: ${error.message}`, 'error');
           console.error('Vote transaction failed: ', error);
+          btnLike.disabled = false;
+          btnLike.textContent = 'Like This Video';
+          updateVoteStatus("Failed to record vote. Please try again.", "error");
         });
       }
 
@@ -1295,14 +1500,18 @@
         const list = document.getElementById('commentsList');
         list.innerHTML = '';
 
+        logToConsole('Loading comments...');
+        
         commentsCol
           .orderBy('timestamp', 'desc')
           .onSnapshot(snap => {
             if (snap.empty) {
+              logToConsole('No comments found');
               list.innerHTML = '<div class="comment"><p>No comments yet. Be the first to comment!</p></div>';
               return;
             }
 
+            logToConsole(`Received ${snap.size} comments`);
             list.innerHTML = '';
             snap.forEach(d => {
               const c = d.data();
@@ -1327,6 +1536,8 @@
               `;
               list.appendChild(comment);
             });
+          }, error => {
+            logToConsole(`Error loading comments: ${error.message}`, 'error');
           });
       }
 
@@ -1335,15 +1546,19 @@
 
       btnComment.addEventListener('click', () => {
         if (!currentUser) {
+          logToConsole('Comment attempted without authentication', 'error');
           showAuthModal();
           return;
         }
         
         const txt = document.getElementById('commentInput').value.trim();
         if (!txt) {
+          logToConsole('Attempted to post empty comment', 'error');
           alert('Please enter a comment');
           return;
         }
+        
+        logToConsole('Posting comment...');
         
         commentsCol.add({
           commentText: txt,
@@ -1352,8 +1567,10 @@
           userName: currentUser.displayName || currentUser.email.split('@')[0],
           userPhoto: currentUser.photoURL || ''
         }).then(() => {
+          logToConsole('Comment posted successfully', 'success');
           document.getElementById('commentInput').value = '';
         }).catch(error => {
+          logToConsole(`Error adding comment: ${error.message}`, 'error');
           console.error('Error adding comment: ', error);
         });
       });
@@ -1364,6 +1581,7 @@
       });
 
     } catch (error) {
+      logToConsole(`Firebase initialization error: ${error.message}`, 'error');
       console.error('Firebase initialization error:', error);
       document.getElementById('videoContainer').innerHTML = `
         <div class="error-message">
