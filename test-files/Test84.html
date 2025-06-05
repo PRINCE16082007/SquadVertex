@@ -183,6 +183,11 @@
       color: #ffffff;
       margin-bottom: 20px;
     }
+    #signed-in-view .actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
     #signed-in-view .btn-small {
       background: #1db954;
       color: #ffffff;
@@ -191,15 +196,10 @@
       border-radius: 25px;
       cursor: pointer;
       font-size: 1rem;
-      margin: 5px;
       transition: background 0.2s ease;
     }
     #signed-in-view .btn-small:hover {
       background: #17a144;
-    }
-    #signed-in-view .actions {
-      display: flex;
-      justify-content: center;
     }
 
     /* Footer */
@@ -258,8 +258,9 @@
       <h2>Welcome, <span id="display-name"></span>!</h2>
       <p>Your email: <span id="display-email"></span></p>
       <div class="actions">
-        <button class="btn-small" id="signout-btn">Sign Out</button>
+        <button class="btn-small" id="go-profile-btn">Go to Profile</button>
         <button class="btn-small" id="switch-account-btn">Switch Account</button>
+        <button class="btn-small" id="signout-btn">Sign Out</button>
       </div>
     </div>
 
@@ -272,8 +273,21 @@
   <!-- Firebase App -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+    import {
+      getAuth,
+      signInWithPopup,
+      GoogleAuthProvider,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      updateDoc,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
     // 1) FIREBASE CONFIGURATION
     const firebaseConfig = {
@@ -298,8 +312,9 @@
     const signedInView      = document.getElementById('signed-in-view');
     const displayNameEl     = document.getElementById('display-name');
     const displayEmailEl    = document.getElementById('display-email');
-    const signoutBtn        = document.getElementById('signout-btn');
+    const goProfileBtn      = document.getElementById('go-profile-btn');
     const switchAccountBtn  = document.getElementById('switch-account-btn');
+    const signoutBtn        = document.getElementById('signout-btn');
 
     // 3) LOCALSTORAGE UTILITIES FOR SAVED ACCOUNTS
     function loadSavedAccounts() {
@@ -344,7 +359,7 @@
         const useBtn = document.createElement('button');
         useBtn.textContent = 'Use';
         useBtn.addEventListener('click', () => {
-          // Trigger Google Sign-In; user needs to pick that email in popup
+          // Trigger Google Sign-In; user picks that email in popup
           signInWithPopup(auth, provider).catch(err => alert(err.message));
         });
 
@@ -378,28 +393,26 @@
       try {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
-        // Save to Firestore
+        // **Firestore: Create or Update user document**
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
-        const termsAccepted = true;
-        const termsTimestamp = serverTimestamp();
         const now = serverTimestamp();
-
         if (!userSnap.exists()) {
+          // First time signup
           await setDoc(userRef, {
             name: user.displayName || '',
             email: user.email,
             registrationTime: now,
-            termsAccepted: termsAccepted,
-            termsTimestamp: termsTimestamp
+            termsAccepted: true,
+            termsTimestamp: now
           });
         } else {
-          // Update name/email/terms fields (keep original registrationTime)
+          // Already exists—just update name/email/terms
           await updateDoc(userRef, {
             name: user.displayName || '',
             email: user.email,
-            termsAccepted: termsAccepted,
-            termsTimestamp: termsTimestamp
+            termsAccepted: true,
+            termsTimestamp: now
           });
         }
 
@@ -414,13 +427,13 @@
     // 6) AUTH STATE LISTENER
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        // User is signed in
+        // User signed in → show Signed-In View
         signedOutView.classList.add('hidden');
         signedInView.style.display = 'block';
         displayNameEl.textContent = user.displayName || '(No Name)';
         displayEmailEl.textContent = user.email;
       } else {
-        // User is signed out
+        // User signed out → show Signed-Out View + saved accounts
         signedInView.style.display = 'none';
         signedOutView.classList.remove('hidden');
         renderSavedAccounts();
@@ -429,26 +442,27 @@
       }
     });
 
-    // 7) SIGN OUT HANDLER
+    // 7) “Go to Profile” BUTTON HANDLER
+    goProfileBtn.addEventListener('click', () => {
+      // Yahan replace kar dena with your real profile page
+      window.location.href = 'profile.html';
+    });
+
+    // 8) SIGN OUT HANDLER
     signoutBtn.addEventListener('click', () => {
       signOut(auth).catch(err => alert(err.message));
     });
 
-    // 8) SWITCH ACCOUNT HANDLER
+    // 9) SWITCH ACCOUNT HANDLER
     switchAccountBtn.addEventListener('click', () => {
-      // Sign out current user, then render saved list
-      signOut(auth)
-        .then(() => {
-          // Once signed out, stay on signed-out view (saved accounts are visible)
-        })
-        .catch(err => alert(err.message));
+      // Sign out current user, then saved accounts will show up
+      signOut(auth).catch(err => alert(err.message));
     });
 
-    // INITIAL RENDER OF SAVED ACCOUNTS ON PAGE LOAD
+    // 10) INITIAL RENDER OF SAVED ACCOUNTS ON PAGE LOAD
     document.addEventListener('DOMContentLoaded', () => {
       renderSavedAccounts();
     });
   </script>
 </body>
 </html>
-
