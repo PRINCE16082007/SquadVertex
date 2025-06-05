@@ -43,7 +43,7 @@
     main {
       width: 90%;
       max-width: 800px;
-      margin-top: -60px; /* to overlap header */
+      margin-top: -60px; /* overlap header */
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.05);
@@ -199,9 +199,6 @@
       setDoc,
       updateDoc,
       collection,
-      collectionGroup,
-      query,
-      where,
       getDocs,
       orderBy,
       serverTimestamp
@@ -258,7 +255,7 @@
         return;
       }
 
-      // Signed in → hide “not signed in” and show
+      // Signed in → hide “not signed in” and show profile
       notSignedInDiv.classList.add('hidden');
       profileHeader.classList.remove('hidden');
       profileMain.classList.remove('hidden');
@@ -274,14 +271,14 @@
 
       let userData;
       if (!userSnap.exists()) {
-        // First time: Create document, set default balance = 20 + “signup_bonus” txn
+        // First-time signup: create user doc + initial 20 SVX + txn
         const now = serverTimestamp();
         await setDoc(userRef, {
           name: user.displayName || '',
           email: user.email,
           photoURL: user.photoURL || '',
           registrationTime: now,
-          termsAccepted: true,         // assume they already accepted earlier
+          termsAccepted: true,
           termsTimestamp: now,
           balance: 20
         });
@@ -303,7 +300,7 @@
 
       // ── 4b) FETCH TRANSACTION HISTORY ─────────────────────────────
       const txnsRef = collection(db, 'users', user.uid, 'transactions');
-      const txnsSnap = await getDocs(query(txnsRef, orderBy('timestamp', 'desc')));
+      const txnsSnap = await getDocs(orderBy(txnsRef, 'timestamp', 'desc'));
       transactionsList.innerHTML = '';
       txnsSnap.forEach(docSnap => {
         const tx = docSnap.data();
@@ -316,47 +313,47 @@
         transactionsList.appendChild(row);
       });
 
-      // ── 4c) COUNT COMMENTS (collectionGroup query) ───────────────
-      const commentsQ = query(
-        collectionGroup(db, 'comments'),
-        where('userId', '==', user.uid)
-      );
-      const commentsSnap = await getDocs(commentsQ);
-      const totalComments = commentsSnap.size;
+      // ── 4c) SIMPLE CLIENT-SIDE COUNT OF COMMENTS & VOTES ───────────
+      // Get all events, then for each event check sub-collections
+      const eventsCol = collection(db, 'events');
+      const eventsSnap = await getDocs(eventsCol);
+
+      let totalComments = 0;
+      let totalVotes = 0;
+      const participatedEvents = new Set();
+
+      for (const eventDoc of eventsSnap.docs) {
+        const eventId = eventDoc.id;
+
+        // COMMENTS
+        const commentsRef = collection(db, 'events', eventId, 'comments');
+        const commentsQ = await getDocs(commentsRef);
+        commentsQ.forEach(cSnap => {
+          const cData = cSnap.data();
+          if (cData.userId === user.uid) {
+            totalComments += 1;
+            participatedEvents.add(eventId);
+          }
+        });
+
+        // VOTES (in userVotes sub-collection)
+        const votesRef = collection(db, 'events', eventId, 'userVotes');
+        const votesQ = await getDocs(votesRef);
+        votesQ.forEach(vSnap => {
+          const vData = vSnap.data();
+          // Assume each vote doc has userId field
+          if (vData.userId === user.uid) {
+            totalVotes += 1;
+            participatedEvents.add(eventId);
+          }
+        });
+      }
+
       commentCountEl.textContent = totalComments;
-
-      // ── 4d) COUNT VOTES (collectionGroup query) ──────────────────
-      // We assume each vote doc has a field 'userId' or doc ID = user.uid
-      // If your userVotes/{voteDocId} uses doc ID = user.uid, you can skip this.
-      const votesQ = query(
-        collectionGroup(db, 'userVotes'),
-        where('userId', '==', user.uid)
-      );
-      const votesSnap = await getDocs(votesQ);
-      const totalVotes = votesSnap.size;
       voteCountEl.textContent = totalVotes;
+      eventCountEl.textContent = participatedEvents.size;
 
-      // ── 4e) COUNT EVENTS PARTICIPATED ───────────────────────────
-      // We'll infer participation from either commenting or voting.
-      // Use a Set to collect unique event IDs from comment docs & vote docs.
-      const eventSet = new Set();
-      commentsSnap.forEach(c => {
-        const pathParts = c.ref.path.split('/');
-        // Path: events/{eventId}/comments/{commentId}
-        const eventId = pathParts[1];
-        eventSet.add(eventId);
-      });
-      votesSnap.forEach(v => {
-        const pathParts = v.ref.path.split('/');
-        // Path: events/{eventId}/userVotes/{voteDocId}
-        const eventId = pathParts[1];
-        eventSet.add(eventId);
-      });
-      eventCountEl.textContent = eventSet.size;
-
-      // ── 4f) FETCH DONATIONS & ENGAGEMENT SCORE PLACEHOLDERS ──────
-      // Right now, we don't have a “donations” or “engagementMetrics” collection.
-      // So we’ll show “—” and explain in the writeup below how to structure those.
+      // ── 4d) DONATIONS & ENGAGEMENT SCORE PLACEHOLDERS ─────────────
       donationAmountEl.textContent = '—';
       engagementScoreEl.textContent = '—';
     });
