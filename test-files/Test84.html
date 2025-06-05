@@ -15,7 +15,11 @@
       --border: #e0e0e0;
       --radius: 8px;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
     body {
       font-family: 'Segoe UI', sans-serif;
       background: var(--bg);
@@ -38,8 +42,11 @@
       text-align: center;
       margin-bottom: 1rem;
       color: var(--primary);
+      font-size: 1.5rem;
     }
-    .hidden { display: none; }
+    .hidden {
+      display: none;
+    }
     .input-group {
       margin-bottom: 1rem;
     }
@@ -66,6 +73,7 @@
       font-size: 1rem;
       cursor: pointer;
       transition: background 0.2s;
+      margin-top: 0.5rem;
     }
     .btn:hover {
       background: var(--primary-hover);
@@ -99,6 +107,45 @@
     .divider:not(:empty)::after {
       margin-left: 0.5em;
     }
+    /* ACCOUNTS LIST */
+    #accounts-list {
+      margin-bottom: 1rem;
+    }
+    .account-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg);
+      margin-bottom: 0.5rem;
+    }
+    .account-item span {
+      font-size: 0.95rem;
+      color: var(--text);
+      word-break: break-all;
+    }
+    .account-item button {
+      background: none;
+      border: none;
+      color: var(--primary);
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 0;
+    }
+    .add-account-btn {
+      display: block;
+      width: 100%;
+      margin-bottom: 1rem;
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--primary);
+      cursor: pointer;
+    }
+    .add-account-btn:hover {
+      text-decoration: underline;
+    }
     /* PROFILE VIEW */
     #profile-view img {
       width: 80px;
@@ -128,6 +175,7 @@
       border: 1px solid var(--border);
       cursor: pointer;
       transition: background 0.2s, color 0.2s;
+      background: var(--surface);
     }
     #profile-view .actions .btn-small:hover {
       background: var(--primary);
@@ -150,7 +198,9 @@
       color: var(--primary);
       cursor: pointer;
     }
-    .small-link:hover { text-decoration: underline; }
+    .small-link:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -160,6 +210,10 @@
     <div id="signed-out-view">
       <h2>Welcome to SquadVertex</h2>
       <div id="error-message" class="hidden"></div>
+
+      <!-- SAVED ACCOUNTS LIST -->
+      <div id="accounts-list" class="hidden"></div>
+      <div class="add-account-btn" id="add-account-btn">+ Add Account</div>
 
       <!-- Email/Password Form -->
       <div id="email-signin">
@@ -217,15 +271,14 @@
 
   <script>
     // 1) CONFIGURE YOUR FIREBASE PROJECT BELOW
-      // Firebase initialization
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-  };
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+    };
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
@@ -234,6 +287,8 @@
     const signedOutView = document.getElementById('signed-out-view');
     const signedInView  = document.getElementById('signed-in-view');
     const errorMessage  = document.getElementById('error-message');
+    const accountsList  = document.getElementById('accounts-list');
+    const addAccountBtn = document.getElementById('add-account-btn');
 
     const emailInput     = document.getElementById('email');
     const passwordInput  = document.getElementById('password');
@@ -256,7 +311,68 @@
     function show(elem) { elem.classList.remove('hidden'); }
     function hide(elem) { elem.classList.add('hidden'); }
 
-    // 4) AUTH STATE LISTENER
+    // 4) SAVED ACCOUNTS (localStorage)
+    function loadSavedAccounts() {
+      const data = localStorage.getItem('savedAccounts');
+      return data ? JSON.parse(data) : [];
+    }
+    function saveAccounts(arr) {
+      localStorage.setItem('savedAccounts', JSON.stringify(arr));
+    }
+    function addSavedAccount(email) {
+      if (!email) return;
+      const accounts = loadSavedAccounts();
+      if (!accounts.includes(email)) {
+        accounts.push(email);
+        saveAccounts(accounts);
+      }
+      renderSavedAccounts();
+    }
+    function removeSavedAccount(email) {
+      let accounts = loadSavedAccounts();
+      accounts = accounts.filter(e => e !== email);
+      saveAccounts(accounts);
+      renderSavedAccounts();
+    }
+    function renderSavedAccounts() {
+      const accounts = loadSavedAccounts();
+      if (accounts.length === 0) {
+        hide(accountsList);
+        return;
+      }
+      accountsList.innerHTML = '';
+      accounts.forEach(email => {
+        const item = document.createElement('div');
+        item.classList.add('account-item');
+        const span = document.createElement('span');
+        span.textContent = email;
+        const actions = document.createElement('div');
+        // Switch button
+        const switchBtn = document.createElement('button');
+        switchBtn.textContent = 'Use';
+        switchBtn.addEventListener('click', () => {
+          emailInput.value = email;
+          passwordInput.value = '';
+          emailInput.focus();
+        });
+        // Remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = '×';
+        removeBtn.style.marginLeft = '0.5rem';
+        removeBtn.title = 'Remove';
+        removeBtn.addEventListener('click', () => {
+          removeSavedAccount(email);
+        });
+        actions.appendChild(switchBtn);
+        actions.appendChild(removeBtn);
+        item.appendChild(span);
+        item.appendChild(actions);
+        accountsList.appendChild(item);
+      });
+      show(accountsList);
+    }
+
+    // 5) AUTH STATE LISTENER
     auth.onAuthStateChanged(user => {
       if (user) {
         // User is signed in
@@ -267,14 +383,17 @@
         userPhoto.src = user.photoURL || 'https://via.placeholder.com/80';
         userNameEl.textContent = user.displayName || '(No display name)';
         userEmailEl.textContent = user.email;
+        // Save this email for future switching
+        addSavedAccount(user.email);
       } else {
         // User is signed out
         show(signedOutView);
         hide(signedInView);
+        renderSavedAccounts(); // show saved if any
       }
     });
 
-    // 5) EMAIL/PASSWORD SIGN-IN
+    // 6) EMAIL/PASSWORD SIGN-IN
     signinBtn.addEventListener('click', () => {
       const email = emailInput.value.trim();
       const pass  = passwordInput.value;
@@ -286,7 +405,7 @@
         .catch(err => showError(err.message));
     });
 
-    // 6) EMAIL/PASSWORD SIGN-UP
+    // 7) EMAIL/PASSWORD SIGN-UP
     signupBtn.addEventListener('click', () => {
       const email = document.getElementById('new-email').value.trim();
       const pass  = document.getElementById('new-password').value;
@@ -303,19 +422,19 @@
         .catch(err => showError(err.message));
     });
 
-    // 7) GOOGLE OAUTH SIGN-IN
+    // 8) GOOGLE OAUTH SIGN-IN
     googleBtn.addEventListener('click', () => {
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider)
         .catch(err => showError(err.message));
     });
 
-    // 8) SIGN OUT
+    // 9) SIGN OUT
     signoutBtn.addEventListener('click', () => {
       auth.signOut();
     });
 
-    // 9) SWITCH BETWEEN SIGN-IN & SIGN-UP VIEWS
+    // 10) SWITCH BETWEEN SIGN-IN & SIGN-UP VIEWS
     gotoSignupBtn.addEventListener('click', () => {
       hide(signinForm);
       show(signupForm);
@@ -327,7 +446,14 @@
       errorMessage.textContent = '';
     });
 
-    // 10) EDIT PROFILE (Example: Update Display Name)
+    // 11) ADD ACCOUNT BUTTON
+    addAccountBtn.addEventListener('click', () => {
+      emailInput.value = '';
+      passwordInput.value = '';
+      emailInput.focus();
+    });
+
+    // 12) EDIT PROFILE (Example: Update Display Name)
     editProfileBtn.addEventListener('click', () => {
       const newName = prompt('Enter new display name:', userNameEl.textContent);
       if (newName) {
@@ -341,7 +467,7 @@
       }
     });
 
-    // 11) SHOW ERROR MESSAGES
+    // 13) SHOW ERROR MESSAGES
     function showError(msg) {
       errorMessage.textContent = msg;
       show(errorMessage);
