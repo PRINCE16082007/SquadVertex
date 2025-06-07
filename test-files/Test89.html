@@ -16,22 +16,14 @@
       align-items: center;
       padding: 2rem;
     }
-    h1 {
-      color: #1db954;
-      margin-bottom: 0.5rem;
-    }
-    .total-svx {
-      font-size: 1.25rem;
-      margin-bottom: 1.5rem;
-    }
+    h1 { color: #1db954; margin-bottom: 0.5rem; }
+    .total-svx { font-size: 1.25rem; margin-bottom: 1.5rem; }
     table {
-      width: 100%;
-      max-width: 600px;
+      width: 100%; max-width: 600px;
       border-collapse: collapse;
       background: #fff;
       box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-      border-radius: 8px;
-      overflow: hidden;
+      border-radius: 8px; overflow: hidden;
     }
     th, td {
       padding: 0.75rem 1rem;
@@ -40,8 +32,7 @@
       font-size: 0.95rem;
     }
     th {
-      background: #e8f5e9;
-      color: #2e7d32;
+      background: #e8f5e9; color: #2e7d32;
       font-weight: 600;
     }
     tr:last-child td { border-bottom: none }
@@ -50,9 +41,7 @@
     .reason { color: #555; }
     .date { color: #777; font-size: 0.85rem; }
     .message {
-      margin-top: 2rem;
-      color: #666;
-      font-size: 1rem;
+      margin-top: 2rem; color: #666; font-size: 1rem;
     }
   </style>
 </head>
@@ -62,9 +51,7 @@
   <table>
     <thead>
       <tr>
-        <th>Date</th>
-        <th>Amount</th>
-        <th>Reason</th>
+        <th>Date</th><th>Amount</th><th>Reason</th>
       </tr>
     </thead>
     <tbody id="tx-body">
@@ -73,14 +60,24 @@
   </table>
   <div id="message" class="message" style="display:none;"></div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
-    import {
-      getFirestore,
-      doc, getDoc,
-      collection, query, orderBy, getDocs
-    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+  <!-- Firebase compat scripts -->
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
+  <script>
+    // Your config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    // Initialize
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
 
     const totalEl = document.getElementById('total-svx');
     const bodyEl  = document.getElementById('tx-body');
@@ -94,54 +91,42 @@
 
     async function loadTransactions(uid) {
       msgEl.style.display = 'none';
-      // 1. Total SVX from users/{uid}.svx
-      const uSnap = await getDoc(doc(db,'users',uid));
-      totalEl.textContent = uSnap.exists() ? (uSnap.data().svx||0) : '0';
+      // total SVX
+      const uDoc = await db.collection('users').doc(uid).get();
+      totalEl.textContent = uDoc.exists ? (uDoc.data().svx||0) : '0';
 
-      // 2. Transactions subcollection
-      const txQ = query(
-        collection(db,'users',uid,'transactions'),
-        orderBy('timestamp','desc')
-      );
-      const txSnap = await getDocs(txQ);
+      // transactions
+      const snaps = await db
+        .collection('users').doc(uid)
+        .collection('transactions')
+        .orderBy('timestamp','desc')
+        .get();
+
       bodyEl.innerHTML = '';
-      if (txSnap.empty) {
+      if (snaps.empty) {
         bodyEl.innerHTML = `
           <tr>
-            <td colspan="3" style="text-align:center; color:#777; padding:1rem;">
+            <td colspan="3" style="text-align:center;color:#777;padding:1rem;">
               No transactions found.
             </td>
           </tr>`;
       } else {
-        txSnap.forEach(docSnap => {
-          const tx = docSnap.data();
+        snaps.forEach(doc => {
+          const tx = doc.data();
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td class="date">${fmtDate(tx.timestamp)}</td>
             <td class="${tx.amount>=0?'amount-positive':'amount-negative'}">
               ${tx.amount>=0?'+':''}${tx.amount} SVX
             </td>
-            <td class="reason">${tx.reason || '—'}</td>
+            <td class="reason">${tx.reason||'—'}</td>
           `;
           bodyEl.appendChild(tr);
         });
       }
     }
 
-    // Firebase init
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
-    const app  = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db   = getFirestore(app);
-
-    onAuthStateChanged(auth, user => {
+    auth.onAuthStateChanged(user => {
       if (!user) {
         bodyEl.innerHTML = '';
         msgEl.textContent = 'Please sign in to view your transactions.';
@@ -151,7 +136,7 @@
           console.error(err);
           bodyEl.innerHTML = `
             <tr>
-              <td colspan="3" style="text-align:center; color:#b00; padding:1rem;">
+              <td colspan="3" style="text-align:center;color:#b00;padding:1rem;">
                 Error loading transactions.
               </td>
             </tr>`;
