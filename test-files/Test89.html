@@ -1,25 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Admin Dashboard | SquadVertex</title>
+  <title>My Transactions | SquadVertex</title>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
+    * { margin:0; padding:0; box-sizing:border-box }
     body {
       font-family: 'Segoe UI', sans-serif;
-      background: #f5f7fa;
+      background: #f0f2f5;
       color: #333;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       padding: 2rem;
     }
     h1 {
-      text-align: center;
-      margin-bottom: 1.5rem;
       color: #1db954;
+      margin-bottom: 0.5rem;
+    }
+    .total-svx {
+      font-size: 1.25rem;
+      margin-bottom: 1.5rem;
     }
     table {
       width: 100%;
+      max-width: 600px;
       border-collapse: collapse;
       background: #fff;
       box-shadow: 0 4px 20px rgba(0,0,0,0.05);
@@ -30,82 +37,97 @@
       padding: 0.75rem 1rem;
       text-align: left;
       border-bottom: 1px solid #e0e0e0;
+      font-size: 0.95rem;
     }
     th {
       background: #e8f5e9;
       color: #2e7d32;
       font-weight: 600;
     }
-    tr:last-child td { border-bottom: none; }
-    img.avatar {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      object-fit: cover;
+    tr:last-child td { border-bottom: none }
+    .amount-positive { color: #2e7d32; }
+    .amount-negative { color: #b00; }
+    .reason { color: #555; }
+    .date { color: #777; font-size: 0.85rem; }
+    .message {
+      margin-top: 2rem;
+      color: #666;
+      font-size: 1rem;
     }
-    select, input[type="number"], input[type="text"] {
-      padding: 0.4rem 0.6rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 0.9rem;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .actions {
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-    }
-    button.apply-btn {
-      padding: 0.45rem 0.9rem;
-      background: #1db954;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.2s ease;
-      font-size: 0.9rem;
-    }
-    button.apply-btn:hover { background: #17a144; }
-    .reason-custom { display: none; }
   </style>
 </head>
 <body>
-  <h1>Admin Dashboard</h1>
-  <table id="users-table">
+  <h1>Transaction History</h1>
+  <div class="total-svx">Total SVX: <span id="total-svx">0</span></div>
+  <table>
     <thead>
       <tr>
-        <th>Photo</th>
-        <th>Name / Email</th>
-        <th>Status</th>
-        <th>SVX Points</th>
-        <th>Adjust SVX</th>
+        <th>Date</th>
+        <th>Amount</th>
         <th>Reason</th>
-        <th>Apply</th>
       </tr>
     </thead>
-    <tbody>
-      <!-- Populated by JS -->
+    <tbody id="tx-body">
+      <tr><td colspan="3" class="loading">Loading...</td></tr>
     </tbody>
   </table>
+  <div id="message" class="message" style="display:none;"></div>
 
   <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
     import {
-      getFirestore,
-      collection,
-      getDocs,
-      doc,
-      updateDoc,
-      addDoc,
-      serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-    import {
-      getAuth,
-      onAuthStateChanged,
-      signOut
+      getAuth, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+    import {
+      getFirestore, doc, getDoc,
+      collection, query, orderBy, getDocs, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
-    // --- 1) CONFIGURE FIREBASE ---
+    // DOM
+    const totalEl = document.getElementById('total-svx');
+    const bodyEl  = document.getElementById('tx-body');
+    const msgEl   = document.getElementById('message');
+
+    function fmtDate(ts) {
+      const d = ts.toDate();
+      return d.toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
+    }
+
+    async function loadTransactions(uid) {
+      // Clear any message
+      msgEl.style.display = 'none';
+      // 1. Fetch total SVX
+      const uSnap = await getDoc(doc(db,'users',uid));
+      totalEl.textContent = uSnap.exists() ? (uSnap.data().svx||0) : '0';
+
+      // 2. Transactions
+      const txQuery = query(
+        collection(db,'users',uid,'transactions'),
+        orderBy('timestamp','desc')
+      );
+      const txSnap = await getDocs(txQuery);
+      bodyEl.innerHTML = '';
+      if (txSnap.empty) {
+        bodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#777; padding:1rem;">
+                              No transactions found.
+                            </td></tr>`;
+      } else {
+        txSnap.forEach(docSnap => {
+          const tx = docSnap.data();
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="date">${fmtDate(tx.timestamp)}</td>
+            <td class="${tx.amount>=0?'amount-positive':'amount-negative'}">
+              ${tx.amount>=0?'+':''}${tx.amount} SVX
+            </td>
+            <td class="reason">${tx.reason || '—'}</td>
+          `;
+          bodyEl.appendChild(tr);
+        });
+      }
+    }
+
+    // Firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -114,112 +136,25 @@
       messagingSenderId: "168905083514",
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
+    const app  = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    const db   = getFirestore(app);
 
-    // --- 2) UTILITY: CREATE TABLE ROW ---
-    function createUserRow(userDoc) {
-      const data = userDoc.data();
-      const tr = document.createElement('tr');
-
-      // Photo
-      const photoUrl = data.photoURL || userDoc.data().email && `https://www.gravatar.com/avatar/${md5(data.email.trim().toLowerCase())}?d=mp`;
-      tr.innerHTML = `
-        <td><img class="avatar" src="${photoUrl}" alt="Avatar"></td>
-        <td>
-          <div><strong>${data.name || '(No Name)'}</strong></div>
-          <div style="font-size:0.85rem; color:#555;">${data.email}</div>
-        </td>
-        <td>
-          <select class="status-select">
-            <option ${data.status==='User'?'selected':''}>User</option>
-            <option ${data.status==='Creator'?'selected':''}>Creator</option>
-            <option ${data.status==='Moderator'?'selected':''}>Moderator</option>
-            <option ${data.status==='Admin'?'selected':''}>Admin</option>
-          </select>
-        </td>
-        <td class="svx-cell">${data.svx||0}</td>
-        <td><input type="number" class="svx-input" placeholder="+/- points"></td>
-        <td>
-          <select class="reason-select">
-            <option value="bonus">bonus</option>
-            <option value="gift">gift</option>
-            <option value="birthday">birthday</option>
-            <option value="congratulations">congratulations</option>
-            <option value="winner">winner</option>
-            <option value="other">other</option>
-          </select>
-          <input type="text" class="reason-custom" placeholder="Custom reason">
-        </td>
-        <td><button class="apply-btn">Apply</button></td>
-      `;
-
-      // Show/hide custom reason
-      const reasonSelect = tr.querySelector('.reason-select');
-      const reasonCustom = tr.querySelector('.reason-custom');
-      reasonSelect.addEventListener('change', () => {
-        reasonCustom.style.display = reasonSelect.value==='other' ? 'block' : 'none';
-      });
-
-      // Apply button handler
-      tr.querySelector('.apply-btn').addEventListener('click', async () => {
-        const uid = userDoc.id;
-        const newStatus = tr.querySelector('.status-select').value;
-        const delta = parseInt(tr.querySelector('.svx-input').value, 10);
-        const reason = reasonSelect.value === 'other'
-          ? reasonCustom.value.trim()
-          : reasonSelect.value;
-        if (isNaN(delta) && newStatus === data.status) {
-          return alert('No changes to apply.');
-        }
-        const userRef = doc(db, 'users', uid);
-        // 1) Update status if changed
-        if (newStatus !== data.status) {
-          await updateDoc(userRef, { status: newStatus });
-        }
-        // 2) Update SVX & log transaction
-        if (!isNaN(delta) && delta !== 0) {
-          const newSvx = (data.svx||0) + delta;
-          await updateDoc(userRef, { svx: newSvx });
-          // add transaction
-          await addDoc(collection(db, 'users', uid, 'transactions'), {
-            amount: delta,
-            reason: reason || 'unspecified',
-            timestamp: serverTimestamp()
-          });
-          tr.querySelector('.svx-cell').textContent = newSvx;
-        }
-        alert('Changes applied.');
-      });
-
-      return tr;
-    }
-
-    // --- 3) RENDER ALL USERS ---
-    async function renderUsers() {
-      const tbody = document.querySelector('#users-table tbody');
-      tbody.innerHTML = '';
-      const snap = await getDocs(collection(db, 'users'));
-      snap.forEach(doc => tbody.appendChild(createUserRow(doc)));
-    }
-
-    // --- 4) AUTH CHECK & INIT ---
     onAuthStateChanged(auth, user => {
       if (!user) {
-        window.location.href = 'account.html';
+        bodyEl.innerHTML = '';
+        msgEl.textContent = 'Please sign in to view your transactions.';
+        msgEl.style.display = 'block';
       } else {
-        renderUsers();
+        loadTransactions(user.uid)
+          .catch(err => {
+            console.error(err);
+            bodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#b00; padding:1rem;">
+                                  Error loading transactions.
+                                </td></tr>`;
+          });
       }
     });
-
-    // --- 5) MD5 UTILITY FOR GRAVATAR ---
-    // Minimal JS MD5 from https://github.com/blueimp/JavaScript-MD5
-    /*! https://github.com/blueimp/JavaScript-MD5 */
-    function md5(e){function l(a,b){var c=(a&65535)+(b&65535);return(a>>16)+(b>>16)+(c>>16)<<16|c&65535}function n(a,b){return a<<b|a>>>32-b}function p(a,b,c,d,e,f){a=l(l(a<<e|a>>>32-e,d),l(b,c));return l(n(a,f),b)}function q(a,b,c,d,e,f,g){return p(b&c|~b&d,a,b,e,f,g)}function r(a,b,c,d,e,f,g){return p(b&d|c&~d,a,b,e,f,g)}function s(a,b,c,d,e,f,g){return p(b^c^d,a,b,e,f,g)}function t(a,b,c,d,e,f,g){return p(c^(b|~d),a,b,e,f,g)}function u(a){for(var b="",c=0;c<4;c++)b+=("0"+(a>>8*c&255).toString(16)).slice(-2);return b}for(var v=Array.prototype.slice.call(arguments),w=v[0],x=v.slice(1),y=1732584193,z=-271733879,A=-1732584194,B=271733878,C=0,D=w.length;C<D;C+=16){var E=y,F=z,G=A,H=B;var I=w.slice(C,C+16);y=q(y,z,A,B,I[0],7,-680876936);B=q(B,y,z,A,I[1],12,-389564586);A=q(A,B,y,z,I[2],17,606105819);z=q(z,A,B,y,I[3],22,-1044525330);y=q(y,z,A,B,I[4],7,-176418897);B=q(B,y,z,A,I[5],12,1200080426);A=q(A,B,y,z,I[6],17,-1473231341);z=q(z,A,B,y,I[7],22,-45705983);y=q(y,z,A,B,I[8],7,1770035416);B=q(B,y,z,A,I[9],12,-1958414417);A=q(A,B,y,z,I[10],17,-42063);z=q(z,A,B,y,I[11],22,-1990404162);y=q(y,z,A,B,I[12],7,1804603682);B=q(B,y,z,A,I[13],12,-40341101);A=q(A,B,y,z,I[14],17,-1502002290);z=q(z,A,B,y,I[15],22,1236535329);y=r(y,z,A,B,I[1],5,-165796510);B=r(B,y,z,A,I[6],9,-1069501632);A=r(A,B,y,z,I[11],14,643717713);z=r(z,A,B,y,I[0],20,-373897302);y=r(y,z,A,B,I[5],5,-701558691);B=r(B,y,z,A,I[10],9,38016083);A=r(A,B,y,z,I[15],14,-660478335);z=r(z,A,B,y,I[4],20,-405537848);y=r(y,z,A,B,I[9],5,568446438);B=r(B,y,z,A,I[14],9,-1019803690);A=r(A,B,y,z,I[3],14,-187363961);z=r(z,A,B,y,I[8],20,1163531501);y=r(y,z,A,B,I[13],5,-1444681467);B=r(B,y,z,A,I[2],9,-51403784);A=r(A,B,y,z,I[7],14,1735328473);z=r(z,A,B,y,I[12],20,-1926607734);y=s(y,z,A,B,I[5],4,-378558);B=s(B,y,z,A,I[8],11,-2022574463);A=s(A,B,y,z,I[11],16,1839030562);z=s(z,A,B,y,I[14],23,-35309556);y=s(y,z,A,B,I[1],4,-1530992060);B=s(B,y,z,A,I[4],11,1272893353);A=s(A,B,y,z,I[7],16,-155497632);z=s(z,A,B,y,I[10],23,-1094730640);y=s(y,z,A,B,I[13],4,681279174);B=s(B,y,z,A,I[0],11,-358537222);A=s(A,B,y,z,I[3],16,-722521979);z=s(z,A,B,y,I[6],23,76029189);y=s(y,z,A,B,I[9],4,-640364487);B=s(B,y,z,A,I[12],11,-421815835);A=s(A,B,y,z,I[15],16,530742520);z=s(z,A,B,y,I[2],23,-995338651);y=t(y,z,A,B,I[0],6,-198630844);B=t(B,y,z,A,I[7],10,1126891415);A=t(A,B,y,z,I[14],15,-1416354905);z=t(z,A,B,y,I[5],21,-57434055);y=t(y,z,A,B,I[12],6,1700485571);B=t(B,y,z,A,I[3],10,-1894986606);A=t(A,B,y,z,I[10],15,-1051523);z=t(z,A,B,y,I[1],21,-2054922799);y=t(y,z,A,B,I[8],6,1873313359);B=t(B,y,z,A,I[15],10,-30611744);A=t(A,B,y,z,I[6],15,-1560198380);z=t(z,A,B,y,I[13],21,1309151649);y=t(y,z,A,B,I[4],6,-145523070);B=t(B,y,z,A,I[11],10,-1120210379);A=t(A,B,y,z,I[2],15,718787259);z=t(z,A,B,y,I[9],21,-343485551);y=l(y,E);z=l(z,F);A=l(A,G);B=l(B,H)
-    }
-    return (u(y)+u(z)+u(A)+u(B)).toLowerCase();
-    }
   </script>
 </body>
 </html>
