@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Account Management - SquadVertex</title>
+  <!-- reCAPTCHA API -->
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <style>
     /* Reset Styles */
     * {
@@ -155,6 +157,7 @@
       cursor: pointer;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
       transition: transform 0.2s ease, box-shadow 0.2s ease;
+      margin-top: 15px;
     }
     .google-btn img {
       margin-right: 10px;
@@ -166,6 +169,19 @@
     .google-btn:hover:enabled {
       transform: scale(1.05);
       box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    /* reCAPTCHA Container */
+    .recaptcha-container {
+      margin: 15px 0;
+      display: flex;
+      justify-content: center;
+    }
+    .recaptcha-error {
+      color: #ff6b6b;
+      font-size: 0.9rem;
+      margin-top: 8px;
+      display: none;
     }
 
     /* Signed-In View */
@@ -247,6 +263,14 @@
     <div class="signup-box" id="signed-out-view">
       <h2>Join the Squad</h2>
       <p>Sign in with Google to manage your account on SquadVertex.</p>
+
+      <!-- reCAPTCHA Widget -->
+      <div class="recaptcha-container">
+        <div id="recaptcha-widget" class="g-recaptcha" data-sitekey="6Leji1grAAAAADmA--7qmO7kiOwQGLjUR4wsxccS" data-callback="onRecaptchaSuccess"></div>
+
+      </div>
+      <div id="recaptcha-error" class="recaptcha-error">Please verify you're not a robot</div>
+
       <button id="googleSignInButton" class="google-btn" disabled>
         <img src="https://img.icons8.com/color/24/google-logo.png" alt="Google Icon">
         Sign In with Google
@@ -315,8 +339,33 @@
     const goProfileBtn      = document.getElementById('go-profile-btn');
     const switchAccountBtn  = document.getElementById('switch-account-btn');
     const signoutBtn        = document.getElementById('signout-btn');
+    const recaptchaError    = document.getElementById('recaptcha-error');
 
-    // 3) LOCALSTORAGE UTILITIES FOR SAVED ACCOUNTS
+    // 3) reCAPTCHA STATE MANAGEMENT
+    let recaptchaVerified = false;
+
+    function verifyRecaptcha() {
+      const response = grecaptcha.getResponse();
+      recaptchaVerified = response.length > 0;
+
+      if (recaptchaVerified) {
+        recaptchaError.style.display = 'none';
+      } else {
+        recaptchaError.style.display = 'block';
+      }
+
+      updateGoogleButtonState();
+      return recaptchaVerified;
+    }
+
+    function resetRecaptcha() {
+      grecaptcha.reset();
+      recaptchaVerified = false;
+      recaptchaError.style.display = 'none';
+      updateGoogleButtonState();
+    }
+
+    // 4) LOCALSTORAGE UTILITIES FOR SAVED ACCOUNTS
     function loadSavedAccounts() {
       const data = localStorage.getItem('savedAccounts');
       return data ? JSON.parse(data) : [];
@@ -379,17 +428,28 @@
       accountsListDiv.classList.remove('hidden');
     }
 
-    // 4) ENABLE GOOGLE BUTTON WHEN TERMS ACCEPTED
+    // 5) GOOGLE BUTTON STATE MANAGEMENT
+    function updateGoogleButtonState() {
+      googleSignInBtn.disabled = !(termsCheckbox.checked && recaptchaVerified);
+    }
+
+    // 6) ENABLE GOOGLE BUTTON WHEN TERMS ACCEPTED
     termsCheckbox.addEventListener('change', () => {
-      googleSignInBtn.disabled = !termsCheckbox.checked;
+      updateGoogleButtonState();
     });
 
-    // 5) GOOGLE SIGN-IN HANDLER
+    // 7) GOOGLE SIGN-IN HANDLER
     googleSignInBtn.addEventListener('click', async () => {
       if (!termsCheckbox.checked) {
         alert("Please accept Terms & Conditions and Privacy Policy first.");
         return;
       }
+
+      // Verify reCAPTCHA
+      if (!verifyRecaptcha()) {
+        return;
+      }
+
       try {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
@@ -421,10 +481,11 @@
 
       } catch (error) {
         alert("Sign-in failed: " + error.message);
+        resetRecaptcha();
       }
     });
 
-    // 6) AUTH STATE LISTENER
+    // 8) AUTH STATE LISTENER
     onAuthStateChanged(auth, (user) => {
       if (user) {
         // User signed in → show Signed-In View
@@ -438,30 +499,37 @@
         signedOutView.classList.remove('hidden');
         renderSavedAccounts();
         termsCheckbox.checked = false;
-        googleSignInBtn.disabled = true;
+        resetRecaptcha();
       }
     });
 
-    // 7) “Go to Profile” BUTTON HANDLER
+    // 9) “Go to Profile” BUTTON HANDLER
     goProfileBtn.addEventListener('click', () => {
       // Yahan replace kar dena with your real profile page
       window.location.href = 'profile.html';
     });
 
-    // 8) SIGN OUT HANDLER
+    // 10) SIGN OUT HANDLER
     signoutBtn.addEventListener('click', () => {
       signOut(auth).catch(err => alert(err.message));
     });
 
-    // 9) SWITCH ACCOUNT HANDLER
+    // 11) SWITCH ACCOUNT HANDLER
     switchAccountBtn.addEventListener('click', () => {
       // Sign out current user, then saved accounts will show up
       signOut(auth).catch(err => alert(err.message));
     });
 
-    // 10) INITIAL RENDER OF SAVED ACCOUNTS ON PAGE LOAD
+    // 12) INITIAL RENDER OF SAVED ACCOUNTS ON PAGE LOAD
     document.addEventListener('DOMContentLoaded', () => {
       renderSavedAccounts();
+
+      // Make sure this is in the global scope for reCAPTCHA to find it!
+window.onRecaptchaSuccess = function() {
+  recaptchaVerified = true;
+  recaptchaError.style.display = 'none';
+  updateGoogleButtonState();
+};
     });
   </script>
 </body>
