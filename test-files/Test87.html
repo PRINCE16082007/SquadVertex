@@ -9,19 +9,20 @@
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       font-family: 'Segoe UI', sans-serif;
-      background: #f0f2f5;
+      background: #e8ebee;
       color: #333;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
+
     /* NAVBAR */
     nav {
       width: 100%;
       background: #1db954;
-      padding: 0.75rem 2rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 1rem 2rem;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.1);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -34,87 +35,87 @@
     nav ul {
       list-style: none;
       display: flex;
-      gap: 1.5rem;
+      gap: 2rem;
     }
     nav ul li {
       cursor: pointer;
       color: #fff;
       font-weight: 500;
-      transition: opacity 0.2s;
+      position: relative;
     }
-    nav ul li:hover {
-      opacity: 0.8;
+    nav ul li.active::after {
+      content: '';
+      position: absolute;
+      bottom: -6px; left: 0;
+      width: 100%; height: 3px;
+      background: #fff;
+      border-radius: 2px 2px 0 0;
     }
+    nav ul li:hover { opacity: 0.9; }
+
     /* PROFILE CARD */
     .profile-card {
       background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-      width: 90%;
-      max-width: 480px;
-      padding: 2rem;
-      margin: 2rem 0;
+      border-radius: 14px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+      width: 92%;
+      max-width: 500px;
+      padding: 2.5rem;
+      margin: 2rem 0 4rem;
       text-align: center;
     }
     .profile-pic {
-      width: 120px;
-      height: 120px;
+      width: 130px; height: 130px;
       border-radius: 50%;
       object-fit: cover;
       margin-bottom: 1rem;
-      border: 4px solid #1db954;
-      background: #e0e0e0;
-    }
-    .profile-pic.error {
-      object-fit: contain;
-      padding: 0.5rem;
+      border: 5px solid #1db954;
+      background: #f0f0f0;
     }
     h1 {
-      font-size: 1.75rem;
-      margin-bottom: 0.25rem;
+      font-size: 1.9rem;
+      margin-bottom: 0.5rem;
       color: #1db954;
     }
     p.email {
       font-size: 1rem;
       color: #666;
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
     }
     .field {
-      font-size: 1rem;
-      margin: 0.5rem 0;
+      font-size: 1.05rem;
+      margin: 0.75rem 0;
     }
-    .field span {
-      font-weight: 600;
-    }
+    .field span { font-weight: 600; color: #1db954; }
     .metrics {
       display: flex;
       justify-content: center;
-      gap: 2rem;
-      margin-top: 1.5rem;
-    }
-    .metrics div {
-      text-align: center;
+      gap: 2.5rem;
+      margin-top: 1.75rem;
     }
     .metrics div span {
       display: block;
-      font-size: 2rem;
+      font-size: 2.2rem;
       font-weight: 700;
       color: #1db954;
     }
     .btn {
-      margin-top: 2rem;
-      padding: 0.75rem 1.5rem;
+      margin-top: 2.25rem;
+      padding: 0.85rem 1.75rem;
       background: #1db954;
       color: #fff;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
-      font-size: 1rem;
-      transition: background 0.2s ease;
+      font-size: 1.05rem;
+      transition: background 0.25s ease, transform 0.15s ease;
       text-decoration: none;
       display: inline-block;
     }
-    .btn:hover { background: #17a144; }
+    .btn:hover {
+      background: #17a144;
+      transform: translateY(-2px);
+    }
   </style>
 </head>
 <body>
@@ -122,7 +123,7 @@
   <nav>
     <div class="logo">SquadVertex</div>
     <ul>
-      <li id="nav-home">Home</li>
+      <li id="nav-home" class="active">Home</li>
       <li id="nav-analytics">Analytics</li>
       <li id="nav-settings">Settings</li>
       <li id="nav-logout">Logout</li>
@@ -156,7 +157,7 @@
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
     // FIREBASE CONFIG
-    const firebaseConfig = {
+    const cfg = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
       projectId: "squadvertex2007",
@@ -164,11 +165,11 @@
       messagingSenderId: "168905083514",
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
-    const app  = initializeApp(firebaseConfig);
+    const app = initializeApp(cfg);
     const auth = getAuth(app);
     const db   = getFirestore(app);
 
-    // DOM NODES
+    // DOM
     const picEl     = document.getElementById('profile-pic');
     const nameEl    = document.getElementById('profile-name');
     const emailEl   = document.getElementById('profile-email');
@@ -185,51 +186,40 @@
         // check userVotes/{uid}
         const uv = await getDoc(doc(db, 'events', eid, 'userVotes', uid));
         if (uv.exists()) { cnt++; continue; }
-        // check votes/{*}.userId
-        const vSnap = await getDocs(collection(db, 'events', eid, 'votes'));
-        if (vSnap.docs.some(d => d.data().userId === uid)) cnt++;
+        // check votes/* subcollection
+        const votes = await getDocs(collection(db, 'events', eid, 'votes'));
+        if (votes.docs.some(d => d.data().userId === uid)) cnt++;
       }
       return cnt;
     }
 
-    // LOAD PROFILE
+    // AUTH & PROFILE LOAD
     onAuthStateChanged(auth, async user => {
       if (!user) {
-        // if not signed in, redirect
         window.location.href = 'account.html';
         return;
       }
-      // Fetch user doc
-      const uRef = doc(db, 'users', user.uid);
+      // Firestore doc
+      const uRef  = doc(db, 'users', user.uid);
       const uSnap = await getDoc(uRef);
-      if (!uSnap.exists()) return console.error('No user doc');
+      if (!uSnap.exists()) return console.error('Missing user doc');
       const d = uSnap.data();
-      // Populate UI
-      nameEl.textContent   = d.name      || '(No Name)';
-      emailEl.textContent  = d.email     || '';
-      svxEl.textContent    = d.svx       != null ? d.svx : '0';
-      statusEl.textContent = d.status    || '—';
-      // Photo with fallback
-      picEl.src = d.photoURL || '';
-      picEl.onerror = () => {
-        picEl.src = 'https://via.placeholder.com/120';
-        picEl.classList.add('error');
-      };
+      // Populate
+      nameEl.textContent  = d.name  || user.displayName || '(No Name)';
+      emailEl.textContent = d.email || user.email;
+      svxEl.textContent   = (d.svx != null ? d.svx : 0);
+      statusEl.textContent= d.status || '—';
+      // Google avatar (Gmail default)  
+      picEl.src = user.photoURL || 'https://www.gstatic.com/images/branding/product/1x/avatar_circle_grey_512dp.png';
       // Count events
       eventsEl.textContent = await countEvents(user.uid);
     });
 
-    // NAVBAR BEHAVIOR
+    // NAV BEHAVIOR
     document.getElementById('nav-home').onclick = () => {};
-    document.getElementById('nav-analytics').onclick = () => {
-      alert('Analytics coming soon');
-    };
-    document.getElementById('nav-settings').onclick = () => {
-      alert('Settings coming soon');
-    };
-    document.getElementById('nav-logout').onclick = () => {
-      signOut(auth);
-    };
+    document.getElementById('nav-analytics').onclick = () => alert('Analytics Soon');
+    document.getElementById('nav-settings').onclick = () => alert('Settings Soon');
+    document.getElementById('nav-logout').onclick = () => signOut(auth);
   </script>
 </body>
 </html>
