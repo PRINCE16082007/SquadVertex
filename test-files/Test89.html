@@ -75,42 +75,43 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
     import {
-      getAuth, onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
-    import {
-      getFirestore, doc, getDoc,
-      collection, query, orderBy, getDocs, serverTimestamp
+      getFirestore,
+      doc, getDoc,
+      collection, query, orderBy, getDocs
     } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
-    // DOM
     const totalEl = document.getElementById('total-svx');
     const bodyEl  = document.getElementById('tx-body');
     const msgEl   = document.getElementById('message');
 
     function fmtDate(ts) {
-      const d = ts.toDate();
-      return d.toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
+      return ts.toDate().toLocaleString('en-IN', {
+        dateStyle:'medium', timeStyle:'short'
+      });
     }
 
     async function loadTransactions(uid) {
-      // Clear any message
       msgEl.style.display = 'none';
-      // 1. Fetch total SVX
+      // 1. Total SVX from users/{uid}.svx
       const uSnap = await getDoc(doc(db,'users',uid));
       totalEl.textContent = uSnap.exists() ? (uSnap.data().svx||0) : '0';
 
-      // 2. Transactions
-      const txQuery = query(
+      // 2. Transactions subcollection
+      const txQ = query(
         collection(db,'users',uid,'transactions'),
         orderBy('timestamp','desc')
       );
-      const txSnap = await getDocs(txQuery);
+      const txSnap = await getDocs(txQ);
       bodyEl.innerHTML = '';
       if (txSnap.empty) {
-        bodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#777; padding:1rem;">
-                              No transactions found.
-                            </td></tr>`;
+        bodyEl.innerHTML = `
+          <tr>
+            <td colspan="3" style="text-align:center; color:#777; padding:1rem;">
+              No transactions found.
+            </td>
+          </tr>`;
       } else {
         txSnap.forEach(docSnap => {
           const tx = docSnap.data();
@@ -146,13 +147,15 @@
         msgEl.textContent = 'Please sign in to view your transactions.';
         msgEl.style.display = 'block';
       } else {
-        loadTransactions(user.uid)
-          .catch(err => {
-            console.error(err);
-            bodyEl.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#b00; padding:1rem;">
-                                  Error loading transactions.
-                                </td></tr>`;
-          });
+        loadTransactions(user.uid).catch(err => {
+          console.error(err);
+          bodyEl.innerHTML = `
+            <tr>
+              <td colspan="3" style="text-align:center; color:#b00; padding:1rem;">
+                Error loading transactions.
+              </td>
+            </tr>`;
+        });
       }
     });
   </script>
