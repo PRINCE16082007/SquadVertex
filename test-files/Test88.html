@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Dashboard | SquadVertex</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
@@ -12,118 +12,131 @@
       color: #333;
       padding: 2rem;
     }
-    h1 {
-      text-align: center;
-      margin-bottom: 1.5rem;
-      color: #1db954;
+    h1 { text-align:center; color:#1db954; margin-bottom:1.5rem; }
+    #error-banner {
+      display:none;
+      background:#ffe6e6;
+      color:#b00;
+      padding:0.75rem 1rem;
+      border:1px solid #f00;
+      border-radius:4px;
+      margin-bottom:1rem;
     }
     table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-      border-radius: 8px;
-      overflow: hidden;
+      width:100%;
+      border-collapse:collapse;
+      background:#fff;
+      box-shadow:0 4px 20px rgba(0,0,0,0.05);
+      border-radius:8px;
+      overflow:hidden;
     }
     th, td {
-      padding: 0.75rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid #e0e0e0;
+      padding:0.75rem 1rem;
+      text-align:left;
+      border-bottom:1px solid #e0e0e0;
     }
     th {
-      background: #e8f5e9;
-      color: #2e7d32;
-      font-weight: 600;
+      background:#e8f5e9;
+      color:#2e7d32;
+      font-weight:600;
     }
-    tr:last-child td { border-bottom: none; }
+    tr:last-child td { border-bottom:none; }
     img.avatar {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      object-fit: cover;
+      width:40px; height:40px;
+      border-radius:50%;
+      object-fit:cover;
     }
-    select, input[type="number"], input[type="text"] {
-      padding: 0.4rem 0.6rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 0.9rem;
-      width: 100%;
-      box-sizing: border-box;
+    select, input {
+      padding:0.4rem 0.6rem;
+      border:1px solid #ccc;
+      border-radius:4px;
+      font-size:0.9rem;
+      width:100%;
+      box-sizing:border-box;
     }
-    .actions {
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-    }
+    .actions { display:flex; gap:0.5rem; align-items:center; }
     button.apply-btn {
-      padding: 0.45rem 0.9rem;
-      background: #1db954;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: background 0.2s ease;
+      padding:0.45rem 0.9rem;
+      background:#1db954;
+      color:#fff;
+      border:none;
+      border-radius:4px;
+      cursor:pointer;
+      font-size:0.9rem;
+      transition:background 0.2s;
     }
-    button.apply-btn:hover { background: #17a144; }
-    .reason-custom { display: none; margin-top: 0.5rem; }
+    button.apply-btn:hover { background:#17a144; }
+    .reason-custom { display:none; margin-top:0.5rem; }
   </style>
 </head>
 <body>
   <h1>Admin Dashboard</h1>
+  <div id="error-banner"></div>
   <table id="users-table">
     <thead>
       <tr>
         <th>Photo</th>
         <th>Name / Email</th>
         <th>Status</th>
-        <th>SVX Points</th>
-        <th>Adjust SVX</th>
+        <th>SVX</th>
+        <th>Adjust</th>
         <th>Reason</th>
         <th>Apply</th>
       </tr>
     </thead>
-    <tbody>
-      <!-- JS will inject rows here -->
-    </tbody>
+    <tbody></tbody>
   </table>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import {
-      getFirestore, collection, getDocs,
-      doc, getDoc, updateDoc, addDoc, serverTimestamp
+      getFirestore,
+      collection,
+      getDocs,
+      doc,
+      getDoc,
+      updateDoc,
+      addDoc,
+      serverTimestamp
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
     import {
-      getAuth, onAuthStateChanged, signOut
+      getAuth,
+      onAuthStateChanged,
+      signOut
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 
-    // 1) FIREBASE INIT
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    // Show errors
+    function showError(msg) {
+      const b = document.getElementById('error-banner');
+      b.textContent = msg;
+      b.style.display = 'block';
+    }
+
+    // Firebase init
+    const cfg = {
+      apiKey: "...",
+      authDomain: "...",
+      projectId: "...",
+      storageBucket: "...",
+      messagingSenderId: "...",
+      appId: "..."
     };
-    const app  = initializeApp(firebaseConfig);
-    const db   = getFirestore(app);
+    const app = initializeApp(cfg);
+    const db = getFirestore(app);
     const auth = getAuth(app);
 
-    // 2) UTILITY TO BUILD ROW
-    function buildRow(userDoc, userRecord) {
-      const data = userRecord.data();
+    // Build a table row
+    function buildRow(userDoc) {
+      const data = userDoc.data();
       const tr = document.createElement('tr');
-
       tr.innerHTML = `
         <td>
-          <img class="avatar" src="${userRecord.data().photoURL || ''}" 
-               onerror="this.src='https://www.gstatic.com/images/branding/product/1x/avatar_circle_grey_512dp.png';" 
-               alt="avatar">
+          <img class="avatar" src="${data.photoURL||userDoc.data().email}" 
+               onerror="this.src='https://www.gstatic.com/images/branding/product/1x/avatar_circle_grey_512dp.png';">
         </td>
         <td>
-          <strong>${data.name || '(No Name)'}</strong><br>
-          <span style="font-size:0.85rem; color:#555;">${data.email}</span>
+          <strong>${data.name||'(No Name)'}</strong><br>
+          <small style="color:#555;">${data.email}</small>
         </td>
         <td>
           <select class="status-select">
@@ -144,68 +157,62 @@
             <option value="winner">winner</option>
             <option value="other">other</option>
           </select>
-          <input type="text" class="reason-custom" placeholder="Custom reason">
+          <input type="text" class="reason-custom" placeholder="Reason">
         </td>
         <td><button class="apply-btn">Apply</button></td>
       `;
-
-      // handle reason “other”
-      const reasonSelect = tr.querySelector('.reason-select');
-      const reasonCustom = tr.querySelector('.reason-custom');
-      reasonSelect.addEventListener('change', () => {
-        reasonCustom.style.display = reasonSelect.value === 'other' ? 'block' : 'none';
-      });
-
-      // apply button
-      tr.querySelector('.apply-btn').addEventListener('click', async () => {
-        const uid = userDoc.id;
-        const userRef = doc(db, 'users', uid);
-        const selectStatus = tr.querySelector('.status-select').value;
-        const delta = parseInt(tr.querySelector('.svx-input').value, 10);
-        let reason = reasonSelect.value;
-        if (reason === 'other') reason = reasonCustom.value.trim() || 'other';
-
-        // 1) Update status if changed
-        if (selectStatus !== data.status) {
-          await updateDoc(userRef, { status: selectStatus });
+      // reason toggle
+      const rs = tr.querySelector('.reason-select');
+      const rc = tr.querySelector('.reason-custom');
+      rs.addEventListener('change', ()=> rc.style.display = rs.value==='other'?'block':'none');
+      // apply
+      tr.querySelector('.apply-btn').addEventListener('click', async ()=>{
+        try {
+          const uid = userDoc.id;
+          const ref = doc(db,'users',uid);
+          const newStatus = tr.querySelector('.status-select').value;
+          const delta = parseInt(tr.querySelector('.svx-input').value);
+          let reason = rs.value==='other'
+            ? rc.value.trim()||'other'
+            : rs.value;
+          // update status
+          if (newStatus!==data.status) await updateDoc(ref,{status:newStatus});
+          // update SVX
+          if (!isNaN(delta)&&delta!==0) {
+            const newSvx = (data.svx||0)+delta;
+            await updateDoc(ref,{svx:newSvx});
+            await addDoc(collection(db,'users',uid,'transactions'),{
+              amount:delta,
+              reason,
+              timestamp:serverTimestamp()
+            });
+            tr.querySelector('.svx-cell').textContent=newSvx;
+          }
+        } catch(e) {
+          console.error(e);
+          showError('Error: '+e.message);
         }
-
-        // 2) Update SVX and log
-        if (!isNaN(delta) && delta !== 0) {
-          const newSvx = (data.svx||0) + delta;
-          await updateDoc(userRef, { svx: newSvx });
-          await addDoc(collection(db, 'users', uid, 'transactions'), {
-            amount: delta,
-            reason,
-            timestamp: serverTimestamp()
-          });
-          tr.querySelector('.svx-cell').textContent = newSvx;
-        }
-
-        alert('Updated successfully');
       });
-
       return tr;
     }
 
-    // 3) RENDER ALL USERS
-    async function renderUsers() {
-      const tbody = document.querySelector('#users-table tbody');
-      tbody.innerHTML = '';
-      const usersSnap = await getDocs(collection(db, 'users'));
-      for (const userDoc of usersSnap.docs) {
-        const row = buildRow(userDoc, userDoc);
-        tbody.appendChild(row);
+    // Render
+    async function renderUsers(){
+      try {
+        const tbody = document.querySelector('#users-table tbody');
+        tbody.innerHTML='';
+        const snap = await getDocs(collection(db,'users'));
+        snap.forEach(doc=> tbody.appendChild(buildRow(doc)));
+      } catch(e){
+        console.error(e);
+        showError('Failed to load users: '+e.message);
       }
     }
 
-    // 4) AUTH CHECK
-    onAuthStateChanged(auth, user => {
-      if (!user) {
-        window.location.href = 'account.html';
-      } else {
-        renderUsers();
-      }
+    // Auth
+    onAuthStateChanged(auth,user=>{
+      if(!user) return location.href='account.html';
+      renderUsers();
     });
   </script>
 </body>
