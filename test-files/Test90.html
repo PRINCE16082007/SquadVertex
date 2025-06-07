@@ -14,41 +14,48 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2rem;
+      padding: 1rem;
     }
-    h1 {
-      color: #1db954;
-      margin-bottom: 0.5rem;
-    }
-    .total-svx {
-      font-size: 1.25rem;
-      margin-bottom: 1.5rem;
-    }
+    h1 { color: #1db954; margin-bottom: .5rem; }
+    .total-svx { font-size: 1.25rem; margin-bottom: 1rem; }
     table {
-      width: 100%;
-      max-width: 600px;
+      width: 100%; max-width: 600px;
       border-collapse: collapse;
       background: #fff;
       box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-      border-radius: 8px;
-      overflow: hidden;
+      border-radius: 8px; overflow: hidden;
     }
     th, td {
-      padding: 0.75rem 1rem;
-      text-align: left;
+      padding: .75rem 1rem;
       border-bottom: 1px solid #e0e0e0;
-      font-size: 0.95rem;
+      font-size: .95rem; text-align: left;
     }
     th {
-      background: #e8f5e9;
-      color: #2e7d32;
+      background: #e8f5e9; color: #2e7d32;
       font-weight: 600;
     }
     tr:last-child td { border-bottom: none }
     .amount-positive { color: #2e7d32; }
     .amount-negative { color: #b00; }
+    .date { color: #777; font-size: .85rem; }
     .reason { color: #555; }
-    .date { color: #777; font-size: 0.85rem; }
+    .message { margin-top: 2rem; color: #666; font-size: 1rem; }
+    /* Debug panel */
+    #debug-panel {
+      width: 100%; max-width: 800px;
+      background: #272822; color: #f8f8f2;
+      padding: 1rem; margin-top: 2rem;
+      font-family: monospace; font-size: .85rem;
+      border-radius: 6px; overflow-y: auto;
+      max-height: 300px;
+    }
+    #debug-panel h2 {
+      margin-bottom: .5rem; font-size: 1rem;
+      color: #a6e22e;
+    }
+    #debug-panel pre {
+      white-space: pre-wrap; word-break: break-word;
+    }
   </style>
 </head>
 <body>
@@ -56,33 +63,84 @@
   <div class="total-svx">Total SVX: <span id="total-svx">0</span></div>
   <table>
     <thead>
-      <tr>
-        <th>Date</th>
-        <th>Amount</th>
-        <th>Reason</th>
-      </tr>
+      <tr><th>Date</th><th>Amount</th><th>Reason</th></tr>
     </thead>
     <tbody id="tx-body">
-      <!-- Transactions go here -->
+      <tr><td colspan="3" class="loading">Loading...</td></tr>
     </tbody>
   </table>
+  <div id="message" class="message" style="display:none;"></div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import {
-      getAuth, onAuthStateChanged, signOut
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
-    import {
-      getFirestore,
-      doc,
-      getDoc,
-      collection,
-      query,
-      orderBy,
-      getDocs
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+  <!-- Firebase compat -->
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
+  <script>
+    // DOM
+    const totalEl = document.getElementById('total-svx');
+    const bodyEl  = document.getElementById('tx-body');
+    const msgEl   = document.getElementById('message');
 
-    // --- CONFIGURE ---
+    // Debug panel
+    const debug = document.createElement('div');
+    debug.id = 'debug-panel';
+    debug.innerHTML = '<h2>Debug Panel</h2><div id="debug-content"><pre>Initializing...</pre></div>';
+    document.body.appendChild(debug);
+    const dbg = document.getElementById('debug-content');
+
+    // Format date
+    function fmtDate(ts) {
+      return ts.toDate().toLocaleString('en-IN', {
+        dateStyle:'medium', timeStyle:'short'
+      });
+    }
+
+    // Display debug info
+    function logDebug(label, obj) {
+      dbg.innerHTML += `<strong>${label}:</strong>\n<pre>${JSON.stringify(obj, null, 2)}</pre>\n`;
+    }
+
+    async function loadTransactions(uid) {
+      msgEl.style.display = 'none';
+      dbg.innerHTML = '<h2>Debug Panel</h2>';
+
+      // Show user UID
+      logDebug('Current UID', uid);
+
+      // 1. Fetch user doc
+      const userDocRef = firebase.firestore().collection('users').doc(uid);
+      const uSnap = await userDocRef.get();
+      logDebug('User Document Snapshot', uSnap.exists ? uSnap.data() : 'Document not found');
+      totalEl.textContent = uSnap.exists ? (uSnap.data().svx||0) : '0';
+
+      // 2. Fetch transactions
+      const txCol = userDocRef.collection('transactions');
+      const txSnap = await txCol.orderBy('timestamp','desc').get();
+      logDebug('Transactions Snapshots', txSnap.docs.map(d=>({ id:d.id, ...d.data() })));
+
+      bodyEl.innerHTML = '';
+      if (txSnap.empty) {
+        bodyEl.innerHTML = `
+          <tr><td colspan="3" style="text-align:center;color:#777;padding:1rem;">
+            No transactions found.
+          </td></tr>`;
+      } else {
+        txSnap.forEach(docSnap => {
+          const tx = docSnap.data();
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="date">${fmtDate(tx.timestamp)}</td>
+            <td class="${tx.amount>=0?'amount-positive':'amount-negative'}">
+              ${tx.amount>=0?'+':''}${tx.amount} SVX
+            </td>
+            <td class="reason">${tx.reason||'—'}</td>
+          `;
+          bodyEl.appendChild(tr);
+        });
+      }
+    }
+
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -91,65 +149,34 @@
       messagingSenderId: "168905083514",
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
-    const app  = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db   = getFirestore(app);
+    logDebug('Firebase Config', firebaseConfig);
 
-    // --- DOM NODES ---
-    const totalEl = document.getElementById('total-svx');
-    const bodyEl  = document.getElementById('tx-body');
+    // Init
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
+    logDebug('Firebase Initialized', {});
 
-    // --- FORMAT DATE ---
-    function fmtDate(ts) {
-      const d = ts.toDate();
-      return d.toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
-    }
-
-    // --- RENDER TRANSACTIONS ---
-    async function loadTransactions(uid) {
-      // 1. Get user doc for total SVX
-      const uRef = doc(db,'users',uid);
-      const uSnap = await getDoc(uRef);
-      if (uSnap.exists()) {
-        totalEl.textContent = uSnap.data().svx || 0;
-      }
-      // 2. Query transactions subcollection
-      const txQuery = query(
-        collection(db,'users',uid,'transactions'),
-        orderBy('timestamp','desc')
-      );
-      const txSnap = await getDocs(txQuery);
-      bodyEl.innerHTML = '';
-      txSnap.forEach(doc => {
-        const tx = doc.data();
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="date">${fmtDate(tx.timestamp)}</td>
-          <td class="${tx.amount>=0?'amount-positive':'amount-negative'}">
-            ${tx.amount>=0?'+':''}${tx.amount} SVX
-          </td>
-          <td class="reason">${tx.reason || '—'}</td>
-        `;
-        bodyEl.appendChild(tr);
-      });
-      if (txSnap.empty) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="3" style="text-align:center; color:#777; padding:1rem;">
-          No transactions found.
-        </td>`;
-        bodyEl.appendChild(tr);
-      }
-    }
-
-    // --- AUTH WATCH ---
-    onAuthStateChanged(auth, user => {
+    auth.onAuthStateChanged(user => {
+      logDebug('Auth State Changed', user || 'No user signed in');
       if (!user) {
-        // not signed in → back to login
-        window.location.href = 'account.html';
+        bodyEl.innerHTML = '';
+        msgEl.textContent = 'Please sign in to view your transactions.';
+        msgEl.style.display = 'block';
       } else {
+        logDebug('User Info', {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL
+        });
         loadTransactions(user.uid).catch(err => {
           console.error(err);
-          bodyEl.innerHTML = `<tr><td colspan="3" style="color:#b00; text-align:center;">Error loading transactions</td></tr>`;
+          bodyEl.innerHTML = `
+            <tr><td colspan="3" style="text-align:center;color:#b00;padding:1rem;">
+              Error loading transactions.
+            </td></tr>`;
+          logDebug('Load Error', err.message);
         });
       }
     });
