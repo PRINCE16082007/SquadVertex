@@ -1,97 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SquadVertex Dev Zone</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(to right, #0f0f0f, #1c1c1c);
-            color: #f0f0f0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        .container {
-            text-align: center;
-            background-color: #1e1e1e;
-            padding: 2.5rem;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
-            max-width: 700px;
-            width: 90%;
-            animation: fadeIn 1s ease-in-out;
-        }
-
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            color: #ffffff;
-        }
-
-        p {
-            font-size: 1rem;
-            line-height: 1.6;
-            margin: 0.8rem 0;
-        }
-
-        .badge {
-            display: inline-block;
-            background-color: #ffb300;
-            color: #1c1c1c;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            font-weight: 600;
-            margin-top: 1.2rem;
-            letter-spacing: 0.5px;
-        }
-
-        .reserved {
-            margin-top: 1.8rem;
-            background-color: #2a2a2a;
-            border-left: 4px solid #ffb300;
-            padding: 1rem;
-            font-size: 1rem;
-            color: #f0f0f0;
-            font-weight: 500;
-            border-radius: 6px;
-            box-shadow: 0 0 10px rgba(255, 179, 0, 0.2);
-            animation: glow 2s infinite alternate;
-        }
-
-        .footer {
-            margin-top: 2.5rem;
-            font-size: 0.9rem;
-            color: #ccc;
-        }
-
-        @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(20px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes glow {
-            0% { box-shadow: 0 0 10px rgba(255, 179, 0, 0.2); }
-            100% { box-shadow: 0 0 20px rgba(255, 179, 0, 0.5); }
-        }
-    </style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>My Transactions | SquadVertex</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+    h1 {
+      color: #1db954;
+      margin-bottom: 0.5rem;
+    }
+    .total-svx {
+      font-size: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    table {
+      width: 100%;
+      max-width: 600px;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 0.95rem;
+    }
+    th {
+      background: #e8f5e9;
+      color: #2e7d32;
+      font-weight: 600;
+    }
+    tr:last-child td { border-bottom: none }
+    .amount-positive { color: #2e7d32; }
+    .amount-negative { color: #b00; }
+    .reason { color: #555; }
+    .date { color: #777; font-size: 0.85rem; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>SquadVertex Test Development Area</h1>
-        <p>This is a designated dev zone within the SquadVertex ecosystem.</p>
-        <p>Only authorized personnel are permitted to make changes here.</p>
-        <span class="badge">Authorized Access Only</span>
-        <div class="reserved">
-            This development slot is currently <strong>empty</strong> and <strong>reusable</strong>.<br>
-            <strong>Reserved for:</strong> Empty ( Not Assigned For Any Use )
-        </div>
-        <p class="footer">Prince Gahlot, Founder &amp; CEO, SquadVertex</p>
-    </div>
+  <h1>Transaction History</h1>
+  <div class="total-svx">Total SVX: <span id="total-svx">0</span></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Amount</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody id="tx-body">
+      <!-- Transactions go here -->
+    </tbody>
+  </table>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getAuth, onAuthStateChanged, signOut
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      collection,
+      query,
+      orderBy,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+    // --- CONFIGURE ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+
+    // --- DOM NODES ---
+    const totalEl = document.getElementById('total-svx');
+    const bodyEl  = document.getElementById('tx-body');
+
+    // --- FORMAT DATE ---
+    function fmtDate(ts) {
+      const d = ts.toDate();
+      return d.toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' });
+    }
+
+    // --- RENDER TRANSACTIONS ---
+    async function loadTransactions(uid) {
+      // 1. Get user doc for total SVX
+      const uRef = doc(db,'users',uid);
+      const uSnap = await getDoc(uRef);
+      if (uSnap.exists()) {
+        totalEl.textContent = uSnap.data().svx || 0;
+      }
+      // 2. Query transactions subcollection
+      const txQuery = query(
+        collection(db,'users',uid,'transactions'),
+        orderBy('timestamp','desc')
+      );
+      const txSnap = await getDocs(txQuery);
+      bodyEl.innerHTML = '';
+      txSnap.forEach(doc => {
+        const tx = doc.data();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="date">${fmtDate(tx.timestamp)}</td>
+          <td class="${tx.amount>=0?'amount-positive':'amount-negative'}">
+            ${tx.amount>=0?'+':''}${tx.amount} SVX
+          </td>
+          <td class="reason">${tx.reason || '—'}</td>
+        `;
+        bodyEl.appendChild(tr);
+      });
+      if (txSnap.empty) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="3" style="text-align:center; color:#777; padding:1rem;">
+          No transactions found.
+        </td>`;
+        bodyEl.appendChild(tr);
+      }
+    }
+
+    // --- AUTH WATCH ---
+    onAuthStateChanged(auth, user => {
+      if (!user) {
+        // not signed in → back to login
+        window.location.href = 'account.html';
+      } else {
+        loadTransactions(user.uid).catch(err => {
+          console.error(err);
+          bodyEl.innerHTML = `<tr><td colspan="3" style="color:#b00; text-align:center;">Error loading transactions</td></tr>`;
+        });
+      }
+    });
+  </script>
 </body>
 </html>
