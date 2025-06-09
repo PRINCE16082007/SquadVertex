@@ -3,95 +3,1312 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SquadVertex Dev Zone</title>
+    <title>SquadVertex - Voting Results</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body {
+        :root {
+            --primary: #4a6bff;
+            --primary-dark: #3a5bff;
+            --secondary: #6c757d;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --dark: #1a1f36;
+            --light: #f8f9fa;
+            --white: #ffffff;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+            --border: #dee2e6;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            --transition: all 0.3s ease;
+            --gradient-start: #1a2980;
+            --gradient-end: #26d0ce;
+            --card-gradient: linear-gradient(145deg, #2c3e50, #1a1f36);
+            --winner-gradient: linear-gradient(135deg, #ffd700, #ffa500);
+            --silver-gradient: linear-gradient(135deg, #c0c0c0, #a9a9a9);
+            --bronze-gradient: linear-gradient(135deg, #cd7f32, #8c5a2d);
+        }
+
+        * {
             margin: 0;
             padding: 0;
-            background: linear-gradient(to right, #0f0f0f, #1c1c1c);
-            color: #f0f0f0;
+            box-sizing: border-box;
+        }
+
+        body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: var(--white);
+            min-height: 100vh;
+            line-height: 1.6;
+            padding: 20px;
+            overflow-x: hidden;
         }
 
         .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        /* Header Styles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            background: var(--primary);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-header {
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .section-header h2 {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--white);
+            text-shadow: 0 0 15px rgba(74, 107, 255, 0.7);
+        }
+
+        .section-header i {
+            font-size: 32px;
+            color: var(--primary);
+        }
+
+        /* Event Name */
+        .event-name {
             text-align: center;
-            background-color: #1e1e1e;
-            padding: 2.5rem;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
-            max-width: 700px;
-            width: 90%;
-            animation: fadeIn 1s ease-in-out;
+            font-size: 28px;
+            margin-bottom: 30px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+            border-right: 4px solid var(--primary);
         }
 
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            color: #ffffff;
+        .event-name span {
+            color: #4facfe;
+            font-weight: 700;
         }
 
-        p {
-            font-size: 1rem;
-            line-height: 1.6;
-            margin: 0.8rem 0;
+        /* Results States */
+        .state-container {
+            text-align: center;
+            padding: 40px 20px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 20px 0;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(74, 107, 255, 0.2);
         }
 
-        .badge {
-            display: inline-block;
-            background-color: #ffb300;
-            color: #1c1c1c;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
+        .state-title {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: var(--white);
+            font-weight: 700;
+            background: linear-gradient(to right, #00c6ff, #0072ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .state-description {
+            font-size: 18px;
+            margin-bottom: 30px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            color: var(--light-gray);
+        }
+
+        /* Winner Section */
+        .winner-container {
+            background: var(--winner-gradient);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 40px 0;
+            box-shadow: 0 15px 35px rgba(255, 165, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .winner-badge {
+            position: absolute;
+            top: 20px;
+            right: -30px;
+            background: #ff4500;
+            color: white;
+            padding: 10px 40px;
+            transform: rotate(45deg);
+            font-weight: 700;
+            font-size: 18px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .winner-content {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .winner-profile {
+            flex: 0 0 250px;
+            text-align: center;
+        }
+
+        .winner-image {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 5px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .winner-name {
+            font-size: 36px;
+            font-weight: 800;
+            margin-top: 20px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .winner-stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 15px;
+            border-radius: 10px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .winner-video {
+            flex: 1;
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: 15px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .winner-video iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Podium Section */
+        .podium-section {
+            margin: 50px 0;
+        }
+
+        .podium-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 20px;
+            height: 300px;
+            margin-top: 30px;
+        }
+
+        .podium-place {
+            text-align: center;
+            position: relative;
+            width: 200px;
+        }
+
+        .podium-second {
+            height: 200px;
+            background: var(--silver-gradient);
+        }
+
+        .podium-first {
+            height: 250px;
+            background: var(--winner-gradient);
+        }
+
+        .podium-third {
+            height: 150px;
+            background: var(--bronze-gradient);
+        }
+
+        .podium-place > div {
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 20px 0;
+        }
+
+        .podium-rank {
+            font-size: 40px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .podium-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .podium-points {
+            font-size: 24px;
+            font-weight: 700;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        /* Results Grid */
+        .results-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .result-card {
+            background: var(--card-gradient);
+            border-radius: 15px;
+            overflow: hidden;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(74, 107, 255, 0.3);
+            position: relative;
+        }
+
+        .result-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+            border-color: var(--primary);
+        }
+
+        .rank-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 20px;
+            color: white;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .creator-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .creator-info {
+            padding: 20px;
+        }
+
+        .creator-name {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--white);
+        }
+
+        .vote-count {
+            color: var(--light-gray);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 18px;
+        }
+
+        .vote-count .value {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 22px;
+        }
+
+        .progress-container {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 5px;
+            transition: width 1s ease;
+        }
+
+        .card-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .review-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
             font-weight: 600;
-            margin-top: 1.2rem;
-            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .reserved {
-            margin-top: 1.8rem;
-            background-color: #2a2a2a;
-            border-left: 4px solid #ffb300;
-            padding: 1rem;
-            font-size: 1rem;
-            color: #f0f0f0;
-            font-weight: 500;
-            border-radius: 6px;
-            box-shadow: 0 0 10px rgba(255, 179, 0, 0.2);
-            animation: glow 2s infinite alternate;
+        .review-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
         }
 
-        .footer {
-            margin-top: 2.5rem;
-            font-size: 0.9rem;
-            color: #ccc;
+        /* Charts Section */
+        .charts-container {
+            margin-top: 50px;
         }
 
-        @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(20px); }
-            100% { opacity: 1; transform: translateY(0); }
+        .chart-box {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(74, 107, 255, 0.2);
         }
 
-        @keyframes glow {
-            0% { box-shadow: 0 0 10px rgba(255, 179, 0, 0.2); }
-            100% { box-shadow: 0 0 20px rgba(255, 179, 0, 0.5); }
+        .chart-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .chart-header i {
+            font-size: 24px;
+            color: var(--primary);
+        }
+
+        .chart-header h3 {
+            font-size: 22px;
+            color: var(--white);
+        }
+
+        .chart-wrapper {
+            height: 300px;
+            position: relative;
+        }
+
+        /* Prize Distribution */
+        .prize-info {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 50px 0;
+            text-align: center;
+            border-left: 4px solid var(--success);
+        }
+
+        .prize-title {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        .prize-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .prize-card {
+            background: var(--card-gradient);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        .prize-rank {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .prize-amount {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--warning);
+            margin: 15px 0;
+        }
+
+        .prize-desc {
+            color: var(--light-gray);
+        }
+
+        .notification-box {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 30px 0;
+            text-align: center;
+            border: 1px solid var(--info);
+        }
+
+        .notification-title {
+            font-size: 20px;
+            color: var(--info);
+            margin-bottom: 15px;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 30px;
+            margin-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--gray);
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .footer-links a {
+            color: var(--light-gray);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        .action-button {
+            display: inline-block;
+            padding: 15px 35px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 20px;
+            text-decoration: none;
+            box-shadow: var(--shadow);
+        }
+
+        .action-button:hover {
+            background: var(--primary-dark);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .winner-content {
+                flex-direction: column;
+            }
+            
+            .prize-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .podium-container {
+                gap: 10px;
+            }
+            
+            .podium-place {
+                width: 150px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .results-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-title {
+                font-size: 20px;
+            }
+            
+            header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            
+            .podium-container {
+                gap: 5px;
+            }
+            
+            .podium-place {
+                width: 100px;
+            }
+            
+            .podium-name {
+                font-size: 16px;
+            }
+            
+            .podium-points {
+                font-size: 18px;
+            }
+            
+            .footer-content {
+                flex-direction: column;
+                gap: 20px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>SquadVertex Test Development Area</h1>
-        <p>This is a designated dev zone within the SquadVertex ecosystem.</p>
-        <p>Only authorized personnel are permitted to make changes here.</p>
-        <span class="badge">Authorized Access Only</span>
-        <div class="reserved">
-            This development slot is currently <strong>empty</strong> and <strong>reusable</strong>.<br>
-            <strong>Reserved for:</strong> Empty ( Not Assigned For Any Use )
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="header-title">SquadVertex Results</div>
+            </div>
+            <div>
+                <div class="header-title" id="currentTime">Loading time...</div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="event-name">
+                <i class="fas fa-calendar-star"></i> Event: <span id="eventName">Spring Launch 2025</span>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <i class="fas fa-chart-bar"></i>
+                    <h2>Voting Results</h2>
+                </div>
+
+                <!-- Results State Container -->
+                <div id="resultsState">
+                    <!-- Content will be dynamically updated -->
+                    <div class="state-container">
+                        <div class="state-title">Loading Results...</div>
+                        <div class="state-description">Please wait while we calculate the final outcome</div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <p class="footer">Prince Gahlot, Founder &amp; CEO, SquadVertex</p>
+
+        <!-- Footer -->
+        <footer>
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <i class="fas fa-video"></i>
+                    <span>SquadVertex</span> Professional Streaming Platform
+                </div>
+                <div class="footer-links">
+                    <a href="#"><i class="fas fa-info-circle"></i> About</a>
+                    <a href="#"><i class="fas fa-envelope"></i> Contact</a>
+                    <a href="#"><i class="fas fa-file-contract"></i> Terms</a>
+                </div>
+            </div>
+            <p style="margin-top: 20px;">© 2025 SquadVertex Voting. All rights reserved.</p>
+        </footer>
     </div>
+
+    <!-- Video Modal -->
+    <div class="modal" id="videoModal">
+        <div class="modal-content">
+            <button class="close-modal" id="closeModal">&times;</button>
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalCreatorName">Creator Videos</h3>
+                <div class="modal-subtitle">Review videos from this creator</div>
+            </div>
+            
+            <div class="videos-grid" id="videosGrid">
+                <!-- Videos will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+            authDomain: "squadvertex2007.firebaseapp.com",
+            projectId: "squadvertex2007",
+            storageBucket: "squadvertex2007.appspot.com",
+            messagingSenderId: "168905083514",
+            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+        };
+
+        // Initialize Firebase
+        console.log("Initializing Firebase");
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // References
+        const EVENT_ID = "SpringLaunch2025";
+        const eventRef = db.collection("events").doc(EVENT_ID);
+        const contestsRef = eventRef.collection("votingContests");
+        const votesRef = eventRef.collection("votes");
+
+        // DOM Elements
+        const resultsStateEl = document.getElementById('resultsState');
+        const currentTimeEl = document.getElementById('currentTime');
+        const videoModal = document.getElementById('videoModal');
+        const closeModal = document.getElementById('closeModal');
+        const modalCreatorName = document.getElementById('modalCreatorName');
+        const videosGrid = document.getElementById('videosGrid');
+        const eventNameEl = document.getElementById('eventName');
+
+        // State
+        let voteStartTime = null;
+        let resultsTime = null;
+        let votingQuestion = "";
+        let creators = [];
+        let votes = [];
+        let timerInterval = null;
+        let eventName = "Spring Launch 2025";
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM fully loaded");
+            // Initialize time display
+            updateCurrentTime();
+            setInterval(updateCurrentTime, 1000);
+
+            // Close modal event
+            closeModal.addEventListener('click', () => {
+                videoModal.style.display = 'none';
+            });
+
+            // Close modal when clicking outside
+            window.addEventListener('click', (e) => {
+                if (e.target === videoModal) {
+                    videoModal.style.display = 'none';
+                }
+            });
+
+            // Load event data
+            loadEventData();
+        });
+
+        function updateCurrentTime() {
+            const now = new Date();
+            currentTimeEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + " - " + now.toLocaleDateString();
+        }
+
+        function loadEventData() {
+            console.log("Loading event data");
+            eventRef.get().then((doc) => {
+                if (doc.exists) {
+                    const eventData = doc.data();
+                    console.log("Event data:", eventData);
+
+                    // Set event name
+                    eventName = eventData.name || "Spring Launch 2025";
+                    eventNameEl.textContent = eventName;
+
+                    // Set voting question
+                    votingQuestion = eventData.votingQuestion || "Which creator’s videos should be featured on the homepage?";
+
+                    // Set voting time
+                    if (eventData.voteTime) {
+                        voteStartTime = eventData.voteTime.toDate();
+                        // Results available 15 minutes after voting starts
+                        resultsTime = new Date(voteStartTime.getTime() + 15 * 60 * 1000);
+                        console.log("Vote start:", voteStartTime, "Results time:", resultsTime);
+                    }
+
+                    // Load creator data
+                    loadCreatorData();
+                } else {
+                    console.error("Event document not found");
+                    renderError("Event configuration not found");
+                }
+            }).catch((error) => {
+                console.error("Error loading event data:", error);
+                renderError("Failed to load event data");
+            });
+        }
+
+        function loadCreatorData() {
+            console.log("Loading creator data");
+            contestsRef.orderBy("createdAt", "asc").get()
+                .then((querySnapshot) => {
+                    creators = [];
+                    querySnapshot.forEach((doc) => {
+                        creators.push({
+                            id: doc.id,
+                            ...doc.data()
+                        });
+                    });
+                    console.log("Creators loaded:", creators);
+
+                    // Load votes
+                    loadVotes();
+                })
+                .catch((error) => {
+                    console.error("Error loading creators:", error);
+                    renderError("Failed to load creators");
+                });
+        }
+
+        function loadVotes() {
+            console.log("Loading votes");
+            votesRef.get()
+                .then((querySnapshot) => {
+                    votes = [];
+                    querySnapshot.forEach((doc) => {
+                        votes.push({
+                            id: doc.id,
+                            ...doc.data()
+                        });
+                    });
+                    console.log("Votes loaded:", votes.length);
+
+                    // Check results status
+                    checkResultsStatus();
+                })
+                .catch((error) => {
+                    console.error("Error loading votes:", error);
+                    renderError("Failed to load votes");
+                });
+        }
+
+        function checkResultsStatus() {
+            console.log("Checking results status");
+            const now = new Date();
+            console.log("Current time:", now);
+
+            if (!resultsTime) {
+                renderError("Results time not configured");
+                return;
+            }
+
+            if (now < resultsTime) {
+                const timeRemaining = resultsTime - now;
+                console.log("Results available in:", timeRemaining, "ms");
+                renderCountdown(timeRemaining);
+            } else {
+                console.log("Results available");
+                renderResults();
+            }
+        }
+
+        function renderCountdown(timeRemaining) {
+            console.log("Rendering countdown with", timeRemaining, "ms remaining");
+            const seconds = Math.floor((timeRemaining / 1000) % 60);
+            const minutes = Math.floor((timeRemaining / (1000 * 60)) % 60);
+            const hours = Math.floor((timeRemaining / (1000 * 60 * 60)) % 24);
+
+            resultsStateEl.innerHTML = `
+                <div class="state-container">
+                    <div class="state-title">Results Coming Soon!</div>
+                    <div class="state-description">
+                        The voting results for "${votingQuestion}" will be revealed shortly. 
+                        Check back when the countdown ends to see the winner!
+                    </div>
+                    
+                    <div class="countdown-container">
+                        <div class="countdown-item">
+                            <div class="countdown-value">${hours.toString().padStart(2, '0')}</div>
+                            <div class="countdown-label">Hours</div>
+                        </div>
+                        <div class="countdown-item">
+                            <div class="countdown-value">${minutes.toString().padStart(2, '0')}</div>
+                            <div class="countdown-label">Minutes</div>
+                        </div>
+                        <div class="countdown-item">
+                            <div class="countdown-value">${seconds.toString().padStart(2, '0')}</div>
+                            <div class="countdown-label">Seconds</div>
+                        </div>
+                    </div>
+                    
+                    <p>Results will be available at ${resultsTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})</p>
+                </div>
+            `;
+            
+            // Start the countdown timer
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const newTimeRemaining = resultsTime - new Date();
+                if (newTimeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    loadVotes(); // Refresh data
+                }
+            }, 1000);
+        }
+
+        function renderResults() {
+            console.log("Rendering results");
+            
+            // Calculate vote counts
+            const voteCounts = {};
+            votes.forEach(vote => {
+                if (!voteCounts[vote.creatorId]) {
+                    voteCounts[vote.creatorId] = 0;
+                }
+                voteCounts[vote.creatorId]++;
+            });
+            
+            // Prepare creators with vote counts
+            const results = creators.map(creator => {
+                return {
+                    ...creator,
+                    votes: voteCounts[creator.id] || 0
+                };
+            });
+            
+            // Sort by votes (descending)
+            results.sort((a, b) => b.votes - a.votes);
+            
+            // Calculate total votes
+            const totalVotes = votes.length;
+            
+            // Calculate percentages
+            results.forEach(creator => {
+                creator.percentage = totalVotes > 0 ? Math.round((creator.votes / totalVotes) * 100) : 0;
+            });
+            
+            // Find top 3 winners
+            const top3 = results.slice(0, 3);
+            
+            // Render the results page
+            resultsStateEl.innerHTML = `
+                <div>
+                    <div class="state-container">
+                        <div class="state-title">Voting Results</div>
+                        <div class="state-description">
+                            The votes have been counted for "${votingQuestion}". 
+                            Here are the final results:
+                        </div>
+                        
+                        <div class="stats-summary">
+                            <div style="display: flex; justify-content: center; gap: 40px; margin: 30px 0;">
+                                <div class="stat-item">
+                                    <div class="stat-value">${creators.length}</div>
+                                    <div class="stat-label">Creators</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">${totalVotes}</div>
+                                    <div class="stat-label">Total Votes</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">${top3[0] ? top3[0].creatorName : 'N/A'}</div>
+                                    <div class="stat-label">Winner</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Winner Section -->
+                    ${top3[0] ? `
+                    <div class="winner-container">
+                        <div class="winner-badge">WINNER</div>
+                        <div class="winner-content">
+                            <div class="winner-profile">
+                                <img src="${top3[0].imageURL}" alt="${top3[0].creatorName}" class="winner-image">
+                                <div class="winner-name">${top3[0].creatorName}</div>
+                                <div class="winner-stats">
+                                    <div class="stat-item">
+                                        <div class="stat-value">${top3[0].votes}</div>
+                                        <div class="stat-label">Votes</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-value">${top3[0].percentage}%</div>
+                                        <div class="stat-label">Share</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="winner-video">
+                                <iframe src="https://fast.wistia.net/embed/iframe/${top3[0].videos[0]}?autoplay=true" 
+                                        allowtransparency="true" 
+                                        frameborder="0" 
+                                        scrolling="no" 
+                                        class="wistia_embed" 
+                                        name="wistia_embed" 
+                                        allowfullscreen>
+                                </iframe>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Podium Section -->
+                    <div class="podium-section">
+                        <div class="section-header">
+                            <i class="fas fa-medal"></i>
+                            <h2>Top Creators</h2>
+                        </div>
+                        
+                        <div class="podium-container">
+                            ${top3[1] ? `
+                            <div class="podium-place">
+                                <div class="podium-second">
+                                    <div class="podium-rank">2</div>
+                                    <div class="podium-name">${top3[1].creatorName}</div>
+                                    <div class="podium-points">300 SVX POINTS</div>
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            ${top3[0] ? `
+                            <div class="podium-place">
+                                <div class="podium-first">
+                                    <div class="podium-rank">1</div>
+                                    <div class="podium-name">${top3[0].creatorName}</div>
+                                    <div class="podium-points">500 SVX POINTS</div>
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            ${top3[2] ? `
+                            <div class="podium-place">
+                                <div class="podium-third">
+                                    <div class="podium-rank">3</div>
+                                    <div class="podium-name">${top3[2].creatorName}</div>
+                                    <div class="podium-points">200 SVX POINTS</div>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <!-- Prize Distribution -->
+                    <div class="prize-info">
+                        <div class="prize-title">
+                            <i class="fas fa-gift"></i> Prize Distribution
+                        </div>
+                        <div class="prize-grid">
+                            <div class="prize-card">
+                                <div class="prize-rank">1st Place</div>
+                                <div class="prize-amount">500 SVX POINTS</div>
+                                <div class="prize-desc">Featured on homepage for 1 week</div>
+                            </div>
+                            <div class="prize-card">
+                                <div class="prize-rank">2nd Place</div>
+                                <div class="prize-amount">300 SVX POINTS</div>
+                                <div class="prize-desc">Featured in recommended section</div>
+                            </div>
+                            <div class="prize-card">
+                                <div class="prize-rank">3rd Place</div>
+                                <div class="prize-amount">200 SVX POINTS</div>
+                                <div class="prize-desc">Special mention in newsletter</div>
+                            </div>
+                        </div>
+                        
+                        <div class="notification-box">
+                            <div class="notification-title">
+                                <i class="fas fa-info-circle"></i> Important Information
+                            </div>
+                            <p>All prize pool details and SVX POINTS will be transferred to your wallet within 24 hours.</p>
+                            <p>Official results and transaction details will be available on our website and via email to all participants.</p>
+                        </div>
+                        
+                        <div class="action-button" id="officialResultsBtn">
+                            <i class="fas fa-external-link-alt"></i> View Official Results
+                        </div>
+                        
+                        <div style="margin-top: 30px; font-size: 16px; color: var(--light-gray);">
+                            <p><i class="fas fa-envelope"></i> Confirmation emails will be sent to all participants</p>
+                            <p><i class="fas fa-clock"></i> Results become final 24 hours after announcement</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Charts -->
+                    <div class="charts-container">
+                        <div class="chart-box">
+                            <div class="chart-header">
+                                <i class="fas fa-chart-bar"></i>
+                                <h3>Voting Analytics</h3>
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="barChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                     <!-- All Creators Results -->
+                    <div class="section-header" style="margin-top: 50px;">
+                        <i class="fas fa-list-ol"></i>
+                        <h2>Full Results</h2>
+                    </div>
+                    
+                    <div class="results-container">
+                        ${results.map((creator, index) => `
+                            <div class="result-card">
+                                <div class="rank-badge">${index + 1}</div>
+                                <img src="${creator.imageURL}" alt="${creator.creatorName}" class="creator-image">
+                                <div class="creator-info">
+                                    <h3 class="creator-name">${creator.creatorName}</h3>
+                                    <div class="vote-count">
+                                        <i class="fas fa-vote-yea"></i> 
+                                        Votes: <span class="value">${creator.votes}</span>
+                                    </div>
+                                    <div class="vote-count">
+                                        <i class="fas fa-chart-pie"></i> 
+                                        Percentage: <span class="value">${creator.percentage}%</span>
+                                    </div>
+                                    
+                                    <div class="progress-container">
+                                        <div class="progress-bar" style="width: ${creator.percentage}%"></div>
+                                    </div>
+                                    
+                                    <div class="card-buttons">
+                                        <button class="review-btn" data-creator-id="${creator.id}">
+                                            <i class="fas fa-play-circle"></i> Review Videos
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            
+            // Render charts
+            renderCharts(results);
+            
+            // Add event listeners to review buttons
+            document.querySelectorAll('.review-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const creatorId = e.target.closest('.review-btn').dataset.creatorId;
+                    showCreatorVideos(creatorId);
+                });
+            });
+            
+            // Add event listener to official results button
+            document.getElementById('officialResultsBtn').addEventListener('click', () => {
+                // Replace with your actual results URL
+                window.location.href = "https://squadvertex.com/results";
+            });
+        }
+
+        function showCreatorVideos(creatorId) {
+            const creator = creators.find(c => c.id === creatorId);
+            if (!creator) return;
+            
+            modalCreatorName.textContent = `${creator.creatorName}'s Videos`;
+            
+            // Clear previous videos
+            videosGrid.innerHTML = '';
+            
+            // Add videos to grid
+            creator.videos.forEach((videoId, index) => {
+                const videoElement = document.createElement('div');
+                videoElement.className = 'video-item';
+                videoElement.innerHTML = `
+                    <div class="video-thumb">
+                        <i class="fas fa-film"></i>
+                    </div>
+                    <div class="video-info">
+                        <div class="video-title">Video ${index + 1}</div>
+                        <a href="https://fast.wistia.net/embed/iframe/${videoId}" 
+                           target="_blank" 
+                           class="review-btn" 
+                           style="width:100%; margin-top:10px; text-decoration: none; text-align: center;">
+                            <i class="fas fa-play"></i> Play Video
+                        </a>
+                    </div>
+                `;
+                videosGrid.appendChild(videoElement);
+            });
+            
+            // Show modal
+            videoModal.style.display = 'block';
+        }
+
+        function renderCharts(results) {
+            // Prepare data for charts
+            const labels = results.map(creator => creator.creatorName);
+            const votesData = results.map(creator => creator.votes);
+            const backgroundColors = [
+                '#4a6bff', '#ff7043', '#66bb6a', '#ffa726', '#26c6da', 
+                '#ab47bc', '#ec407a', '#7e57c2', '#42a5f5', '#78909c'
+            ];
+            
+            // Bar Chart
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Votes',
+                        data: votesData,
+                        backgroundColor: backgroundColors,
+                        borderWidth: 0,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.raw} votes`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#e9ecef',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#e9ecef',
+                                precision: 0
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderError(message) {
+            resultsStateEl.innerHTML = `
+                <div class="state-container">
+                    <div class="state-title">Error Loading Results</div>
+                    <div class="state-description">
+                        ${message}. Please try refreshing the page.
+                    </div>
+                    <div style="font-size: 60px; margin: 30px 0; color: var(--danger);">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <button class="review-btn" onclick="location.reload()" style="margin: 0 auto;">
+                        <i class="fas fa-sync-alt"></i> Refresh Page
+                    </button>
+                </div>
+            `;
+        }
+    </script>
 </body>
 </html>
