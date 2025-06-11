@@ -4,97 +4,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SquadVertex Admin Dashboard</title>
   <style>
-    /* Modern Dashboard Glassmorphism + Neon Accents */
+    /* Professional Dashboard Styling */
     body {
-      margin: 0;
-      padding: 0;
-      background: linear-gradient(135deg, #0a0f2c, #04091a);
+      margin: 0; padding: 0;
       font-family: 'Poppins', sans-serif;
-      color: #e0e0e0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      overflow: hidden;
+      background-color: #f4f5f7;
+      color: #333;
+      display: flex; flex-direction: column;
+      min-height: 100vh;
     }
-    .dashboard {
-      background: rgba(255,255,255,0.05);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 20px;
-      width: 90%;
-      max-width: 600px;
-      padding: 2rem;
-      box-shadow: 0 0 30px rgba(74,144,226,0.4);
-      text-align: center;
-      animation: fadeIn 1s ease-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
+    header {
+      background-color: #ffffff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 1rem 2rem;
+      display: flex; align-items: center;
+      justify-content: space-between;
     }
     .logo {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      border: 2px solid #4a90e2;
-      margin-bottom: 1rem;
-      box-shadow: 0 0 10px #4a90e2;
-    }
-    h1 {
-      margin: 0.5rem 0;
-      font-size: 2rem;
-      color: #4a90e2;
-      letter-spacing: 1px;
+      height: 48px;
     }
     .user-info {
-      margin-bottom: 2rem;
+      text-align: right;
+    }
+    .user-info p {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+    main {
+      flex: 1;
+      padding: 2rem;
     }
     .btn-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
     }
     .dash-btn {
-      background: transparent;
-      border: 2px solid #4a90e2;
-      border-radius: 12px;
-      padding: 1rem;
+      background-color: #4a90e2;
+      border: none;
+      color: #fff;
+      padding: 1rem 1.5rem;
+      border-radius: 6px;
       font-size: 1rem;
-      color: #e0e0e0;
       cursor: pointer;
-      transition: background 0.3s, box-shadow 0.3s;
+      transition: background 0.2s;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
     }
     .dash-btn:hover {
-      background: #4a90e2;
-      box-shadow: 0 0 15px #4a90e2;
+      background-color: #357ab8;
     }
-    .spinner {
-      margin: 2rem auto;
-      width: 50px;
-      height: 50px;
-      border: 6px solid rgba(74,144,226,0.2);
-      border-top: 6px solid #4a90e2;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .error {
-      color: #ff4c4c;
-      font-size: 1.2rem;
-      margin-top: 1rem;
+    footer {
+      background-color: #ffffff;
+      text-align: center;
+      padding: 1rem;
+      font-size: 0.8rem;
+      color: #666;
+      box-shadow: 0 -2px 4px rgba(0,0,0,0.05);
     }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="dashboard" id="dashboard">
-    <img src="https://dl.dropboxusercontent.com/s/fkq02zrhmtjo8q0j66pj4/Screenshot_20240901-172502.png" alt="Logo" class="logo">
-    <div id="content">
-      <div class="spinner"></div>
-      <p>Checking authorization...</p>
+  <header>
+    <img src="https://dl.dropboxusercontent.com/s/fkq02zrhmtjo8q0j66pj4/Screenshot_20240901-172502.png" alt="SquadVertex Logo" class="logo">
+    <div class="user-info" id="user-info">
+      <p id="user-name">User Name</p>
+      <p id="user-email">user@example.com</p>
     </div>
-  </div>  <script type="module">
+  </header>  <main>
+    <h1>Admin Dashboard</h1>
+    <div class="btn-grid" id="button-container">
+      <!-- Buttons will be injected here -->
+    </div>
+  </main>  <footer>
+    © 2024-2025 SquadVertex. All rights reserved.
+  </footer>  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
@@ -113,44 +100,48 @@
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
-    const contentDiv = document.getElementById('content');
-    const dash = document.getElementById('dashboard');
+    const userNameEl = document.getElementById('user-name');
+    const userEmailEl = document.getElementById('user-email');
+    const buttonContainer = document.getElementById('button-container');
 
     async function loadDashboard(user) {
-      // fetch allowed emails
+      // Check authorization
       const authDoc = await getDoc(doc(db, 'authUsers', 'email'));
-      const emails = authDoc.exists() ? authDoc.data().email.split(',').map(e=>e.trim().toLowerCase()) : [];
-      const isAllowed = emails.includes(user.email.toLowerCase());
-
-      if (!isAllowed) {
-        contentDiv.innerHTML = `<p class="error">❌ Unauthorized! Get out!</p>`;
-        setTimeout(() => window.location.href = 'security.html', 3000);
+      const allowed = authDoc.exists()
+        ? authDoc.data().email.split(',').map(e => e.trim().toLowerCase())
+        : [];
+      if (!allowed.includes(user.email.toLowerCase())) {
+        // quickly throw user out
+        window.location.href = 'security.html';
         return;
       }
-      // after 6s fake load
-      await new Promise(r=>setTimeout(r,6000));
 
-      // build dashboard
-      contentDiv.innerHTML = `
-        <div class="user-info">
-          <p><strong>${user.displayName}</strong></p>
-          <p>${user.email}</p>
-        </div>
-        <div class="btn-grid">
-          <!-- Replace text and href as needed -->
-          <a href="#" class="dash-btn">Page One</a>
-          <a href="#" class="dash-btn">Page Two</a>
-          <a href="#" class="dash-btn">Page Three</a>
-          <a href="#" class="dash-btn">Page Four</a>
-        </div>
-      `;
+      // populate header
+      userNameEl.textContent = user.displayName;
+      userEmailEl.textContent = user.email;
+
+      // define buttons (text + URL hardcoded here or fetched from DB)
+      const pages = [
+        { text: 'Manage Users', url: '/manage-users.html' },
+        { text: 'View Reports', url: '/reports.html' },
+        { text: 'Settings', url: '/settings.html' },
+        { text: 'Logs', url: '/logs.html' }
+      ];
+
+      // create buttons
+      pages.forEach(p => {
+        const a = document.createElement('a');
+        a.className = 'dash-btn';
+        a.href = p.url;
+        a.textContent = p.text;
+        buttonContainer.appendChild(a);
+      });
     }
 
     onAuthStateChanged(auth, user => {
       if (!user) {
-        // prompt sign in
-        contentDiv.innerHTML = `<button id="signin">Sign in with Google</button>`;
-        document.getElementById('signin').onclick = () => signInWithPopup(auth, provider);
+        // sign in silently
+        signInWithPopup(auth, provider).catch(() => window.location.href = 'security.html');
       } else {
         loadDashboard(user);
       }
