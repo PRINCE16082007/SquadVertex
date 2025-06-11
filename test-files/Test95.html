@@ -1,31 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SquadVertex Security Check</title>
   <style>
+    /* Futuristic Glassmorphism + Neon */
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f5f7fa;
-      color: #333;
-      margin: 0; padding: 0;
-      display: flex; align-items: center; justify-content: center;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       height: 100vh;
+      background: radial-gradient(circle at top left, #0f0f0f, #000000);
+      color: #e0e0e0;
+      font-family: 'Orbitron', sans-serif;
+      overflow: hidden;
     }
     .card {
-      background: #fff;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 16px;
       padding: 2rem;
-      border-radius: 1rem;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
       text-align: center;
-      width: 90%;
-      max-width: 400px;
+      width: 320px;
+      box-shadow: 0 0 20px rgba(74,144,226,0.5);
+      position: relative;
+      animation: fadeIn 1s ease-out;
+    }
+    h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: 1px;
+      color: #4a90e2;
+    }
+    .note {
+      margin: .5rem 0 1rem;
+      font-size: .9rem;
+      color: #888;
     }
     .spinner {
-      margin: 2rem auto;
-      width: 60px; height: 60px;
-      border: 6px solid #e0e0e0;
+      margin: 1.5rem auto;
+      width: 60px;
+      height: 60px;
+      border: 6px solid rgba(74,144,226,0.2);
       border-top: 6px solid #4a90e2;
       border-radius: 50%;
       animation: spin 1s linear infinite;
@@ -33,37 +52,47 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     button {
-      background: #4a90e2;
-      color: white;
-      border: none;
+      background: transparent;
+      color: #4a90e2;
+      border: 2px solid #4a90e2;
       padding: .75rem 1.5rem;
       border-radius: .5rem;
       font-size: 1rem;
       cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: background 0.3s, color 0.3s;
+    }
+    button:hover:not(:disabled) {
+      background: #4a90e2;
+      color: #111;
+      box-shadow: 0 0 10px #4a90e2;
     }
     button:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
     }
     .status {
-      font-size: 1.25rem;
+      font-size: 1.2rem;
       margin-top: 1rem;
     }
   </style>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-
   <div class="card" id="card">
     <h2>Security Check</h2>
+    <p class="note">Sirf authorised personnel hi allowed hai</p>
     <div id="content">
-      <p>Please sign in with Google to continue.</p>
+      <p>Sign in with Google to continue access.</p>
       <button id="signin-btn">Sign in with Google</button>
     </div>
-  </div>
-
-  <!-- Firebase -->
-  <script type="module">
+  </div>  <!-- Firebase & Logic -->  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import {
       getAuth,
@@ -77,63 +106,54 @@
       getDoc
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-    // ←— REPLACE with your Firebase config —→
-      // Firebase initialization
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-  };
-    const app   = initializeApp(firebaseConfig);
-    const auth  = getAuth(app);
-    const db    = getFirestore(app);
-    const prov  = new GoogleAuthProvider();
+    // Firebase initialization
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+    const prov = new GoogleAuthProvider();
 
     const contentDiv = document.getElementById('content');
     const signinBtn  = document.getElementById('signin-btn');
 
-    // kick off the sign-in
     signinBtn.addEventListener('click', () => {
       signInWithPopup(auth, prov).catch(e => alert(e.message));
     });
 
-    // when auth state changes, run the check
     onAuthStateChanged(auth, async user => {
-      if (!user) return;  // still signed out
-      // show loader + message
+      if (!user) return;
+
       contentDiv.innerHTML = `
         <div class="spinner"></div>
-        <p>Verifying authorization…</p>
+        <p>Verifying authorization...</p>
       `;
 
-      // read allowed emails list
+      // Fetch allowed emails
       const authDoc = await getDoc(doc(db, 'authUsers', 'email'));
       const listStr = authDoc.exists() ? authDoc.data().email : '';
       const allowed = listStr.split(',').map(e=>e.trim().toLowerCase());
       const isAllowed = allowed.includes(user.email.toLowerCase());
 
-      // wait 6 seconds (fake loading)
+      // Fake delay
       await new Promise(r => setTimeout(r, 6000));
 
-      // show result
+      // Show status
       contentDiv.innerHTML = isAllowed
         ? `<p class="status" style="color:#28a745;">✅ Authorized</p>`
         : `<p class="status" style="color:#dc3545;">❌ Not Authorized</p>`;
 
       if (isAllowed) {
-        // fetch redirect URL
         const pageDoc = await getDoc(doc(db, 'pages', 'page2'));
         const url = pageDoc.exists() ? pageDoc.data().url : null;
-        if (url) {
-          setTimeout(() => {
-            window.location.href = url;
-          }, 2000); // give user a sec to read "Authorized"
-        }
+        if (url) setTimeout(() => window.location.href = url, 2000);
       }
     });
-  </script>
-</body>
+  </script></body>
 </html>
