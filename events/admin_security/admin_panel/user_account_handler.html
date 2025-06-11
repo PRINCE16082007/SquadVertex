@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Admin Dashboard | SquadVertex</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      color: #333;
+      padding: 2rem;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    h1 {
+      color: #1db954;
+      font-size: 2.2rem;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .logout-btn {
+      padding: 0.6rem 1.2rem;
+      background: #ff4d4f;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(255,77,79,0.2);
+    }
+    .logout-btn:hover {
+      background: #ff2a2d;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255,77,79,0.3);
+    }
+    .table-container {
+      overflow-x: auto;
+      border-radius: 12px;
+      box-shadow: 0 6px 25px rgba(0,0,0,0.08);
+      background: white;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1000px;
+    }
+    th, td {
+      padding: 1rem 1.2rem;
+      text-align: left;
+      border-bottom: 1px solid #eaeff5;
+    }
+    th {
+      background: #1db954;
+      color: white;
+      font-weight: 600;
+      font-size: 1.05rem;
+    }
+    tr:nth-child(even) {
+      background-color: #f9fcfb;
+    }
+    tr:hover {
+      background-color: #f0faf4;
+    }
+    tr:last-child td { border-bottom: none; }
+    img.avatar {
+      width: 45px; 
+      height: 45px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #e0e0e0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .user-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .user-info strong {
+      font-size: 1.05rem;
+    }
+    .user-info span {
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 0.2rem;
+    }
+    select, input[type="number"], input[type="text"] {
+      padding: 0.65rem 0.8rem;
+      border: 1px solid #d0d9e4;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      width: 100%;
+      background: white;
+      transition: all 0.2s ease;
+    }
+    select:focus, input:focus {
+      border-color: #1db954;
+      box-shadow: 0 0 0 3px rgba(29, 185, 84, 0.1);
+      outline: none;
+    }
+    .reason-custom { 
+      display: none; 
+      margin-top: 0.5rem; 
+    }
+    .status-badge {
+      padding: 0.35rem 0.8rem;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .status-user { background: #e0f0ff; color: #1a73e8; }
+    .status-creator { background: #e6f4ea; color: #0d652d; }
+    .status-moderator { background: #fef7e0; color: #f9ab00; }
+    .status-admin { background: #fce8e6; color: #d93025; }
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      font-size: 1.1rem;
+      color: #666;
+    }
+    .error-message {
+      background: #ffebee;
+      color: #c62828;
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+      display: none;
+    }
+    button.apply-btn {
+      padding: 0.65rem 1.1rem;
+      background: #1db954;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(29, 185, 84, 0.2);
+    }
+    button.apply-btn:hover { 
+      background: #17a144;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(29, 185, 84, 0.3);
+    }
+    button.apply-btn:disabled {
+      background: #a0dbb7;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Admin Dashboard</h1>
+    <button class="logout-btn" id="logoutBtn">Logout</button>
+  </header>
+
+  <div class="error-message" id="errorMessage"></div>
+
+  <div class="table-container">
+    <table id="users-table">
+      <thead>
+        <tr>
+          <th>Photo</th>
+          <th>User Info</th>
+          <th>Status</th>
+          <th>SVX Points</th>
+          <th>Adjust Points</th>
+          <th>Reason</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr id="loadingRow">
+          <td colspan="7" class="loading">Loading users data...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs,
+      doc,
+      updateDoc,
+      addDoc,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+
+    function showError(msg) {
+      const el = document.getElementById('errorMessage');
+      el.textContent = msg;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
+
+    // Firebase init
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    const app  = initializeApp(firebaseConfig);
+    const db   = getFirestore(app);
+    const auth = getAuth(app);
+
+    function buildRow(userDoc) {
+      const data = userDoc.data();
+      const tr = document.createElement('tr');
+      const statusClass = 'status-' + (data.status||'User').toLowerCase();
+
+      tr.innerHTML = `
+        <td>
+          <img class="avatar" src="${data.photoURL||''}"
+            onerror="this.onerror=null; this.src='https://www.gstatic.com/images/branding/product/1x/avatar_circle_grey_512dp.png';">
+        </td>
+        <td>
+          <div class="user-info">
+            <strong>${data.name||'(No Name)'}</strong>
+            <span>${data.email||''}</span>
+          </div>
+        </td>
+        <td>
+          <div class="status-badge ${statusClass}">${data.status||'User'}</div>
+          <select class="status-select">
+            <option ${data.status==='User'?'selected':''}>User</option>
+            <option ${data.status==='Creator'?'selected':''}>Creator</option>
+            <option ${data.status==='Moderator'?'selected':''}>Moderator</option>
+            <option ${data.status==='Admin'?'selected':''}>Admin</option>
+          </select>
+        </td>
+        <td class="svx-cell">${data.svx||0}</td>
+        <td><input type="number" class="svx-input" placeholder="+/- Points"></td>
+        <td>
+          <select class="reason-select">
+            <option value="bonus">Bonus</option>
+            <option value="gift">Gift</option>
+            <option value="birthday">Birthday</option>
+            <option value="congratulations">Congratulations</option>
+            <option value="winner">Winner</option>
+            <option value="other">Other</option>
+          </select>
+          <input type="text" class="reason-custom" placeholder="Specify reason">
+        </td>
+        <td><button class="apply-btn">Apply</button></td>
+      `;
+
+      const rs = tr.querySelector('.reason-select');
+      const rc = tr.querySelector('.reason-custom');
+      rs.addEventListener('change', () => {
+        rc.style.display = rs.value === 'other' ? 'block' : 'none';
+      });
+
+      tr.querySelector('.apply-btn').addEventListener('click', async () => {
+        try {
+          const uid = userDoc.id;
+          const userRef = doc(db, 'users', uid);
+          const newStatus = tr.querySelector('.status-select').value;
+          const deltaVal = tr.querySelector('.svx-input').value;
+          const delta = parseInt(deltaVal, 10);
+          let reason = rs.value === 'other' ? rc.value.trim()||'other' : rs.value;
+
+          if (isNaN(delta) && newStatus === data.status) {
+            showError('No changes to apply.');
+            return;
+          }
+
+          if (newStatus !== data.status) {
+            await updateDoc(userRef, { status: newStatus });
+            tr.querySelector('.status-badge').className = 'status-badge status-' + newStatus.toLowerCase();
+            tr.querySelector('.status-badge').textContent = newStatus;
+          }
+
+          if (!isNaN(delta) && delta !== 0) {
+            const current = parseInt(tr.querySelector('.svx-cell').textContent, 10) || 0;
+            const updated = current + delta;
+            await updateDoc(userRef, { svx: updated });
+            await addDoc(collection(db, 'users', uid, 'transactions'), {
+              amount: delta,
+              reason,
+              timestamp: serverTimestamp()
+            });
+            tr.querySelector('.svx-cell').textContent = updated;
+            tr.querySelector('.svx-input').value = '';
+          }
+        } catch (err) {
+          console.error(err);
+          showError(`Error: ${err.message}`);
+        }
+      });
+
+      return tr;
+    }
+
+    async function renderUsers() {
+      const tbody = document.querySelector('#users-table tbody');
+      tbody.innerHTML = '<tr id="loadingRow"><td colspan="7" class="loading">Loading users data...</td></tr>';
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        tbody.innerHTML = '';
+        if (snap.empty) {
+          tbody.innerHTML = '<tr><td colspan="7" class="loading">No users found</td></tr>';
+          return;
+        }
+        snap.forEach(doc => {
+          const row = buildRow(doc);
+          if (row) tbody.appendChild(row);
+        });
+      } catch (e) {
+        console.error(e);
+        showError(`Failed to load users: ${e.message}`);
+      }
+    }
+
+    onAuthStateChanged(auth, user => {
+      renderUsers();
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      signOut(auth).catch(err => showError(`Logout failed: ${err.message}`));
+    });
+  </script>
+</body>
+</html>
