@@ -189,6 +189,7 @@
         const tocEl  = document.getElementById('toc');
         const status = document.getElementById('status');
         const filter = document.getElementById('filter');
+        const CACHE_VERSION = '2';      // bump this any time you change code
 
         filter.addEventListener('input', () => {
           const q = filter.value.toLowerCase();
@@ -198,17 +199,27 @@
         });
 
         function loadCache() {
-          try {
-            const {time, items} = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
-            if (time && items && Array.isArray(items) &&
-                items[0]?.name && items[0]?.title &&
-                (Date.now() - time) < CACHE_TTL) return items;
-          } catch {}
-          return null;
-        }
+  try {
+    const raw = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+    const { version, time, items } = raw;
+    if (
+      version === CACHE_VERSION &&
+      time && items && Array.isArray(items) &&
+      items[0]?.name && items[0]?.title &&
+      (Date.now() - time) < CACHE_TTL
+    ) {
+      return items;
+    }
+  } catch {}
+  return null;
+}
         function saveCache(items) {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({time: Date.now(), items}));
-        }
+  localStorage.setItem(CACHE_KEY, JSON.stringify({
+    version:   CACHE_VERSION,
+    time:      Date.now(),
+    items
+  }));
+}
 
         async function listDir(path) {
           const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`;
