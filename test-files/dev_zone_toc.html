@@ -21,7 +21,7 @@
 </head>
 <body>
   <h1>🚀 SquadVertex Dev Zone</h1>
-  <input id="filter" placeholder="Filter titles…"/>
+  <input id="filter" placeholder="Filter filenames & titles…"/>
   <p id="status" class="loading">Loading…</p>
   <ul id="toc"></ul>
 
@@ -39,17 +39,19 @@
     filter.addEventListener('input', () => {
       const q = filter.value.toLowerCase();
       for (let li of tocEl.children) {
-        li.style.display = li.textContent.toLowerCase().includes(q) ? '' : 'none';
+        const txt = li.textContent.toLowerCase();
+        li.style.display = txt.includes(q) ? '' : 'none';
       }
     });
 
     function loadCache() {
       try {
         const { time, items } = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
-        if (time && items && Array.isArray(items) && items[0]?.name && items[0]?.title &&
-            (Date.now() - time) < CACHE_TTL) {
-          return items;
-        }
+        if (
+          time && items && Array.isArray(items) &&
+          items[0]?.name && items[0]?.title &&
+          (Date.now() - time) < CACHE_TTL
+        ) return items;
       } catch {}
       return null;
     }
@@ -65,26 +67,25 @@
       return res.json();
     }
 
-    // NEW: prioritize <title> tag
     async function getTitleRaw(download_url, filename) {
       const res  = await fetch(download_url);
       const text = await res.text();
 
-      // 1) HTML <title>
-      const match = text.match(/<title>([^<]*)<\/title>/i);
-      if (match && match[1].trim()) return match[1].trim();
+      // 1) <title>…</title>
+      const m = text.match(/<title>([^<]*)<\/title>/i);
+      if (m && m[1].trim()) return m[1].trim();
 
       // 2) Markdown heading
-      const mdLine = text.split(/\r?\n/).find(l => l.trim().startsWith('#'));
-      if (mdLine) return mdLine.replace(/^#+\s*/, '').trim();
+      const md = text.split(/\r?\n/).find(l => l.trim().startsWith('#'));
+      if (md) return md.replace(/^#+\s*/, '').trim();
 
-      // 3) First non-empty, non-comment line
-      const fallback = text
+      // 3) First non-comment line
+      const fb = text
         .split(/\r?\n/)
         .find(l => l.trim() && !l.trim().startsWith('<!--'));
-      if (fallback) return fallback.trim().slice(0, 60);
+      if (fb) return fb.trim().slice(0, 60);
 
-      // 4) Filename
+      // 4) filename fallback
       return filename.replace(/\.\w+$/, '');
     }
 
@@ -93,14 +94,25 @@
         let items = loadCache();
         if (!items) {
           status.textContent = 'Fetching file list…';
-          const dir = await listDir(ROOT);
-          status.textContent = `Found ${dir.length} files, grabbing titles…`;
+          let dir = await listDir(ROOT);
 
-          items = await Promise.all(dir.map(async f => {
-            const name  = f.name;
-            const title = await getTitleRaw(f.download_url, name);
-            return { name, title };
-          }));
+          // filter only Test*.*
+          dir = dir.filter(f => /^Test\d+/i.test(f.name));
+
+          // sort by numeric part: Test1, Test2, … Test10, Test12…
+          dir.sort((a, b) => {
+            const na = +(a.name.match(/^Test(\d+)/i)?.[1] || 0);
+            const nb = +(b.name.match(/^Test(\d+)/i)?.[1] || 0);
+            return na - nb;
+          });
+
+          status.textContent = `Found ${dir.length} Test files, grabbing titles…`;
+
+          items = await Promise.all(dir.map(async f => ({
+            name: f.name,
+            title: await getTitleRaw(f.download_url, f.name)
+          })));
+
           saveCache(items);
         }
 
