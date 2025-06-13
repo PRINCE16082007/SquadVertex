@@ -65,21 +65,26 @@
       return res.json();
     }
 
-    // improved getTitleRaw with fallback to first non-empty line
+    // NEW: prioritize <title> tag
     async function getTitleRaw(download_url, filename) {
       const res  = await fetch(download_url);
       const text = await res.text();
-      const lines = text.split(/\r?\n/);
 
-      // 1) Markdown heading
-      let line = lines.find(l => l.trim().startsWith('#'));
-      if (line) return line.replace(/^#+\s*/, '').trim();
+      // 1) HTML <title>
+      const match = text.match(/<title>([^<]*)<\/title>/i);
+      if (match && match[1].trim()) return match[1].trim();
 
-      // 2) first actual line
-      line = lines.find(l => l.trim().length > 0);
-      if (line) return line.trim();
+      // 2) Markdown heading
+      const mdLine = text.split(/\r?\n/).find(l => l.trim().startsWith('#'));
+      if (mdLine) return mdLine.replace(/^#+\s*/, '').trim();
 
-      // 3) filename fallback
+      // 3) First non-empty, non-comment line
+      const fallback = text
+        .split(/\r?\n/)
+        .find(l => l.trim() && !l.trim().startsWith('<!--'));
+      if (fallback) return fallback.trim().slice(0, 60);
+
+      // 4) Filename
       return filename.replace(/\.\w+$/, '');
     }
 
