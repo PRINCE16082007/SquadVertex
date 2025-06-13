@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dev Zone TOC</title>
+  <title>SquadVertex Dev Zone</title>
   <style>
     body { font-family: sans-serif; padding: 2rem; background: #f9f9f9; }
     h1 { margin-bottom: 1rem; }
@@ -20,26 +20,22 @@
   </style>
 </head>
 <body>
-  <h1>🚀 SquadVertex Test Files</h1>
+  <h1>🚀 SquadVertex Dev Zone</h1>
   <input id="filter" placeholder="Filter titles…"/>
   <p id="status" class="loading">Loading…</p>
   <ul id="toc"></ul>
 
   <script>
-    // —— CONFIG —— 
-    const OWNER = 'PRINCE16082007';
-    const REPO  = 'SquadVertex';
-    const ROOT  = 'test-files';        // your folder in main branch
-
-    // —— CACHE KEYS & TTL —— 
+    const OWNER     = 'PRINCE16082007';
+    const REPO      = 'SquadVertex';
+    const ROOT      = 'test-files';
     const CACHE_KEY = 'devzone_toc_cache';
-    const CACHE_TTL = 1000 * 60 * 60 * 6; // 6 hours
+    const CACHE_TTL = 1000 * 60 * 60 * 6; // 6 hrs
 
-    const tocEl   = document.getElementById('toc');
-    const status  = document.getElementById('status');
-    const filter  = document.getElementById('filter');
+    const tocEl  = document.getElementById('toc');
+    const status = document.getElementById('status');
+    const filter = document.getElementById('filter');
 
-    // apply filter input
     filter.addEventListener('input', () => {
       const q = filter.value.toLowerCase();
       for (let li of tocEl.children) {
@@ -47,23 +43,21 @@
       }
     });
 
-    // load from cache if fresh
     function loadCache() {
       try {
         const { time, items } = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
-        if (time && items && (Date.now() - time) < CACHE_TTL) {
+        if (time && items && Array.isArray(items) && items[0]?.name && items[0]?.title &&
+            (Date.now() - time) < CACHE_TTL) {
           return items;
         }
       } catch {}
       return null;
     }
 
-    // save to cache
     function saveCache(items) {
       localStorage.setItem(CACHE_KEY, JSON.stringify({ time: Date.now(), items }));
     }
 
-    // fetch directory listing (1 API call)
     async function listDir(path) {
       const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`;
       const res = await fetch(url);
@@ -71,29 +65,37 @@
       return res.json();
     }
 
-    // get title from raw file (no rate-limit)
+    // improved getTitleRaw with fallback to first non-empty line
     async function getTitleRaw(download_url, filename) {
-      const res = await fetch(download_url);
+      const res  = await fetch(download_url);
       const text = await res.text();
-      const line = text.split(/\r?\n/).find(l => l.startsWith('#'));
-      return line ? line.replace(/^#+\s*/, '') : filename.replace(/\.\w+$/, '');
+      const lines = text.split(/\r?\n/);
+
+      // 1) Markdown heading
+      let line = lines.find(l => l.trim().startsWith('#'));
+      if (line) return line.replace(/^#+\s*/, '').trim();
+
+      // 2) first actual line
+      line = lines.find(l => l.trim().length > 0);
+      if (line) return line.trim();
+
+      // 3) filename fallback
+      return filename.replace(/\.\w+$/, '');
     }
 
     (async () => {
       try {
-        // try cache
         let items = loadCache();
         if (!items) {
           status.textContent = 'Fetching file list…';
           const dir = await listDir(ROOT);
-          status.textContent = `Found ${dir.length} files, fetching titles…`;
+          status.textContent = `Found ${dir.length} files, grabbing titles…`;
 
           items = await Promise.all(dir.map(async f => {
-            const name  = f.name;  // e.g. "Test12.md"
+            const name  = f.name;
             const title = await getTitleRaw(f.download_url, name);
             return { name, title };
           }));
-
           saveCache(items);
         }
 
