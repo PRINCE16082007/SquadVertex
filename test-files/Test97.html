@@ -18,78 +18,49 @@
     .hero h1 { font-size:2.25rem; background: linear-gradient(90deg, #7e3af2, #c084fc); -webkit-background-clip: text; color: transparent; }
     .hero p { font-size:1rem; opacity:0.8; margin-top:0.5rem; }
 
-    /* Section titles */
-    .section-title { font-size:1.5rem; margin:1.5rem 0 1rem; border-left:4px solid #7e3af2; padding-left:0.75rem; }
-
-    /* Form */
-    form { background:#fff; padding:1.5rem; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
-    label { display:block; margin-bottom:0.5rem; font-weight:600; }
-    input, textarea { width:100%; padding:0.6rem; margin-bottom:1rem; border:1px solid #ccc; border-radius:4px; }
-    button { background:#7e3af2; color:#fff; border:none; padding:0.75rem 1.5rem; border-radius:6px; font-size:1rem; cursor:pointer; transition:transform 0.2s; }
-    button:hover { transform:scale(1.05); }
+    /* Instructions */
+    .info { background:#fff; padding:1rem; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.03); margin-bottom:1.5rem; }
+    .info p { font-size:0.95rem; }
 
     /* Chat */
-    #chat { margin-top:2rem; }
+    #chat { }
     #messages { max-height:300px; overflow-y:auto; background:#fff; padding:1rem; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.03); }
     .msg { margin-bottom:0.75rem; }
     .msg .author { font-weight:600; margin-bottom:0.25rem; }
     .msg .text { font-size:0.95rem; }
-
-    /* Hidden by default */
-    #chat, #logoutBtn { display:none; }
-    #logoutBtn { margin-top:1rem; background:#e11d48; }
+    #chatInput { width:calc(100% - 110px); padding:0.6rem; border:1px solid #ccc; border-radius:4px; }
+    #sendBtn { background:#7e3af2; color:#fff; border:none; padding:0.6rem 1rem; border-radius:4px; cursor:pointer; margin-left:0.5rem; }
   </style>
 </head>
 <body>
   <div class="container">
     <section class="hero">
       <h1>Set Up Your Event</h1>
-      <p>Tell us who you are, what you want, and we’ll take it from there. 🎬</p>
+      <p>Drop us a line with your event idea—videos, chat, voting. We’ll take it from there. 🚀</p>
     </section>
 
-    <!-- Ticket Request Form -->
-    <div id="requestSection">
-      <h2 class="section-title">📝 Request an Event Ticket</h2>
-      <form id="ticketForm">
-        <label for="name">Your Name</label>
-        <input type="text" id="name" required />
-
-        <label for="email">Email Address</label>
-        <input type="email" id="email" required />
-
-        <label for="eventTitle">Event Title</label>
-        <input type="text" id="eventTitle" required />
-
-        <label for="message">Message / Requirements</label>
-        <textarea id="message" rows="4" placeholder="Describe your video-flow, chat & voting needs…" required></textarea>
-
-        <button type="submit">Submit Request</button>
-      </form>
+    <!-- Quick Instructions -->
+    <div class="info">
+      <p><strong>How it works:</strong> As soon as you type your first message, we’ll see it in real time. We’ll reach out to plan your video-flow event, chat setup, voting rules, & fees. All messages auto-save in Firebase—no indexes needed.</p>
     </div>
 
-    <!-- Chat / Ticket Conversation -->
+    <!-- Chat UI -->
     <div id="chat">
-      <h2 class="section-title">💬 Your Ticket Chat</h2>
       <div id="messages"></div>
-      <input type="text" id="chatInput" placeholder="Type a message…" />
-      <button id="sendBtn">Send</button>
-      <button id="logoutBtn">End Session</button>
+      <div style="display:flex; margin-top:1rem;">
+        <input type="text" id="chatInput" placeholder="Start typing…"/>
+        <button id="sendBtn">Send</button>
+      </div>
     </div>
   </div>
 
   <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import {
-      getFirestore, collection, addDoc, doc,
-      onSnapshot, setDoc, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-    import {
-      getAuth, signInAnonymously, onAuthStateChanged,
-      signOut
-    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
 
-    // Firebase initialization
+    // Firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -102,95 +73,48 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    let ticketId, userUid;
+    let userUid;
 
-    // 1️⃣ sign in anonymously
+    // 1️⃣ Anonymous auth
     signInAnonymously(auth).catch(console.error);
     onAuthStateChanged(auth, user => {
       if (!user) return;
       userUid = user.uid;
-      const params = new URLSearchParams(location.search);
-      ticketId = params.get("ticket") || null;
-
-      if (ticketId) {
-        showChat();
-        listenMessages();
-      } else {
-        document.getElementById("requestSection").style.display = "block";
-      }
+      setupChatListener();
     });
 
-    // 2️⃣ handle ticket form submit
-    document.getElementById("ticketForm").addEventListener("submit", async e => {
-      e.preventDefault();
-      const name = nameInput.value.trim();
-      const email = emailInput.value.trim();
-      const title = eventTitle.value.trim();
-      const msg = message.value.trim();
-
-      // create ticket doc
-      const ticketRef = await addDoc(collection(db, "tickets"), {
-        createdBy: userUid,
-        name, email, title,
-        createdAt: serverTimestamp()
-      });
-      ticketId = ticketRef.id;
-
-      // initial message
-      await addDoc(collection(db, "tickets", ticketId, "messages"), {
-        author: name,
-        text: msg,
-        timestamp: serverTimestamp()
-      });
-
-      // redirect user to chat view
-      location.search = `?ticket=${ticketId}`;
-    });
-
-    // 3️⃣ chat UI
-    const messagesDiv = document.getElementById("messages");
-    const chatInput = document.getElementById("chatInput");
+    // 2️⃣ Send message
+    const input = document.getElementById("chatInput");
     const sendBtn = document.getElementById("sendBtn");
-    const logoutBtn = document.getElementById("logoutBtn");
-
     sendBtn.addEventListener("click", async () => {
-      const text = chatInput.value.trim();
+      const text = input.value.trim();
       if (!text) return;
-      await addDoc(collection(db, "tickets", ticketId, "messages"), {
+      await addDoc(collection(db, "tickets", userUid, "messages"), {
         author: "Creator",
         text,
         timestamp: serverTimestamp()
       });
-      chatInput.value = "";
+      input.value = "";
     });
 
-    logoutBtn.addEventListener("click", () => {
-      signOut(auth).then(() => location.reload());
-    });
-
-    function showChat() {
-      document.getElementById("requestSection").style.display = "none";
-      document.getElementById("chat").style.display = "block";
-      logoutBtn.style.display = "inline-block";
-    }
-
-    // 4️⃣ real-time listener
-    function listenMessages() {
-      const msgsCol = collection(db, "tickets", ticketId, "messages");
-      onSnapshot(msgsCol, snap => {
-        messagesDiv.innerHTML = "";
-        snap.docs.sort((a,b) => a.data().timestamp - b.data().timestamp)
+    // 3️⃣ Listen for incoming & own messages
+    function setupChatListener() {
+      const msgsRef = collection(db, "tickets", userUid, "messages");
+      onSnapshot(msgsRef, snap => {
+        const container = document.getElementById("messages");
+        container.innerHTML = "";
+        snap.docs
+          .sort((a,b) => a.data().timestamp - b.data().timestamp)
           .forEach(doc => {
             const { author, text } = doc.data();
             const el = document.createElement("div");
-            el.classList.add("msg");
+            el.className = "msg";
             el.innerHTML = `<div class="author">${author}</div><div class="text">${text}</div>`;
-            messagesDiv.appendChild(el);
+            container.appendChild(el);
           });
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        container.scrollTop = container.scrollHeight;
       });
     }
   </script>
 </body>
 </html>
-
