@@ -5,18 +5,88 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SquadVertex Dev Zone</title>
   <style>
-    body { font-family: sans-serif; padding: 2rem; background: #f9f9f9; }
-    h1 { margin-bottom: 1rem; }
-    input { margin-bottom: 1rem; padding: 0.5rem; width: 100%; box-sizing: border-box; }
-    ul { list-style: none; padding: 0; }
-    li { 
-      background: #fff; 
-      margin: 0.5rem 0; 
-      padding: 0.75rem 1rem; 
-      border-radius: 0.5rem; 
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    /* Base */
+    body {
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background: #f2f4f8;
+      color: #333;
+      margin: 0;
+      padding: 2rem;
+      line-height: 1.5;
     }
-    .loading { color: #888; }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Filter input */
+    #filter {
+      width: 100%;
+      max-width: 500px;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* Status */
+    .loading {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 1rem;
+    }
+
+    /* List */
+    ul#toc {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-width: 800px;
+    }
+    ul#toc li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff;
+      margin-bottom: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      font-size: 1rem;
+    }
+
+    /* File info */
+    .file-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .file-name {
+      font-weight: 600;
+      font-size: 1rem;
+      color: #111;
+    }
+    .file-title {
+      font-size: 0.95rem;
+      color: #555;
+    }
+
+    /* View button */
+    .view-btn {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.9rem;
+      background: #0366d6;
+      color: #fff;
+      border: none;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s ease;
+    }
+    .view-btn:hover {
+      background: #0356b6;
+    }
   </style>
 </head>
 <body>
@@ -29,6 +99,7 @@
     const OWNER     = 'PRINCE16082007';
     const REPO      = 'SquadVertex';
     const ROOT      = 'test-files';
+    const BRANCH    = 'main';
     const CACHE_KEY = 'devzone_toc_cache';
     const CACHE_TTL = 1000 * 60 * 60 * 6; // 6 hrs
 
@@ -38,10 +109,9 @@
 
     filter.addEventListener('input', () => {
       const q = filter.value.toLowerCase();
-      for (let li of tocEl.children) {
-        const txt = li.textContent.toLowerCase();
-        li.style.display = txt.includes(q) ? '' : 'none';
-      }
+      Array.from(tocEl.children).forEach(li => {
+        li.style.display = li.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
     });
 
     function loadCache() {
@@ -71,7 +141,7 @@
       const res  = await fetch(download_url);
       const text = await res.text();
 
-      // 1) <title>…</title>
+      // 1) HTML <title>
       const m = text.match(/<title>([^<]*)<\/title>/i);
       if (m && m[1].trim()) return m[1].trim();
 
@@ -79,13 +149,13 @@
       const md = text.split(/\r?\n/).find(l => l.trim().startsWith('#'));
       if (md) return md.replace(/^#+\s*/, '').trim();
 
-      // 3) First non-comment line
+      // 3) First non-comment, non-empty line
       const fb = text
         .split(/\r?\n/)
         .find(l => l.trim() && !l.trim().startsWith('<!--'));
       if (fb) return fb.trim().slice(0, 60);
 
-      // 4) filename fallback
+      // 4) Filename fallback
       return filename.replace(/\.\w+$/, '');
     }
 
@@ -96,10 +166,9 @@
           status.textContent = 'Fetching file list…';
           let dir = await listDir(ROOT);
 
-          // filter only Test*.*
+          // only Test<number> files
           dir = dir.filter(f => /^Test\d+/i.test(f.name));
-
-          // sort by numeric part: Test1, Test2, … Test10, Test12…
+          // sort numerically by that number
           dir.sort((a, b) => {
             const na = +(a.name.match(/^Test(\d+)/i)?.[1] || 0);
             const nb = +(b.name.match(/^Test(\d+)/i)?.[1] || 0);
@@ -107,21 +176,38 @@
           });
 
           status.textContent = `Found ${dir.length} Test files, grabbing titles…`;
-
           items = await Promise.all(dir.map(async f => ({
             name: f.name,
             title: await getTitleRaw(f.download_url, f.name)
           })));
-
           saveCache(items);
         }
 
         status.textContent = `Loaded ${items.length} titles!`;
-        for (let { name, title } of items) {
+        items.forEach(({ name, title }) => {
           const li = document.createElement('li');
-          li.textContent = `${name.replace(/\.\w+$/, '')} — ${title}`;
+          
+          // left: file info
+          const info = document.createElement('div');
+          info.className = 'file-info';
+          const fn = document.createElement('span');
+          fn.className = 'file-name';
+          fn.textContent = name.replace(/\.\w+$/, '');
+          const ft = document.createElement('span');
+          ft.className = 'file-title';
+          ft.textContent = title;
+          info.append(fn, ft);
+
+          // right: view button
+          const btn = document.createElement('a');
+          btn.className = 'view-btn';
+          btn.textContent = 'View';
+          btn.href = `https://github.com/${OWNER}/${REPO}/blob/${BRANCH}/${ROOT}/${encodeURIComponent(name)}`;
+          btn.target = '_blank';
+
+          li.append(info, btn);
           tocEl.appendChild(li);
-        }
+        });
       } catch (e) {
         status.textContent = 'Error: ' + e.message;
       }
