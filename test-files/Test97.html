@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Set Up Your Event | SquadVertex</title>
   <style>
-    /* Reset & base */
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: 'Poppins', sans-serif; background:#fafafa; color:#333; line-height:1.6; }
     .container { max-width: 600px; margin: 3rem auto; padding: 0 1rem; }
@@ -21,7 +20,7 @@
     .msg .author { font-weight:600; margin-bottom:0.25rem; }
     .msg .text { font-size:0.95rem; }
     .chat-input { display:flex; margin-top:1rem; }
-    .chat-input input { flex:1; }
+    .chat-input input { flex:1; padding:0.6rem; border:1px solid #ccc; border-radius:4px; }
     .chat-input button { margin-left:0.5rem; }
   </style>
 </head>
@@ -29,10 +28,9 @@
   <div class="container">
     <h1>Set Up Your Event</h1>
     <div class="info">
-      <p>Before we chat, tell us a bit about you. Once saved, you won’t be able to change it.</p>
+      <p>Before we chat, tell us a bit about you. Once saved, you can’t change it.</p>
     </div>
 
-    <!-- Profile Form -->
     <form id="profileForm">
       <label for="name">Your Name</label>
       <input type="text" id="name" required />
@@ -56,7 +54,6 @@
       <button type="submit">Save & Start Chat</button>
     </form>
 
-    <!-- Chat UI -->
     <div id="chat">
       <div id="messages"></div>
       <div class="chat-input">
@@ -82,43 +79,41 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
+
+    const profileForm = document.getElementById("profileForm");
+    const chatDiv = document.getElementById("chat");
+    const messagesDiv = document.getElementById("messages");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+
     let userUid;
 
     signInAnonymously(auth).catch(console.error);
-    onAuthStateChanged(auth, user => {
+    onAuthStateChanged(auth, async user => {
       if (!user) return;
       userUid = user.uid;
-      // check if profile already exists
       const profileRef = doc(db, "tickets", userUid);
       onSnapshot(profileRef, snap => {
         if (snap.exists()) {
-          document.getElementById("profileForm").style.display = "none";
+          profileForm.style.display = "none";
           showChat();
         }
       });
     });
 
-    document.getElementById("profileForm").addEventListener("submit", async e => {
+    profileForm.addEventListener("submit", async e => {
       e.preventDefault();
-      const profile = {
-        name: name.value.trim(),
-        age: parseInt(age.value),
-        ytName: ytName.value.trim(),
-        ytLink: ytLink.value.trim(),
-        feesReady: feesReady.value,
+      const profileData = {
+        name: document.getElementById("name").value.trim(),
+        age: parseInt(document.getElementById("age").value),
+        ytName: document.getElementById("ytName").value.trim(),
+        ytLink: document.getElementById("ytLink").value.trim(),
+        feesReady: document.getElementById("feesReady").value,
         createdAt: serverTimestamp()
       };
-      await setDoc(doc(db, "tickets", userUid), profile);
-      document.getElementById("profileForm").style.display = "none";
-      showChat();
+      await setDoc(doc(db, "tickets", userUid), profileData);
     });
 
-    function showChat() {
-      document.getElementById("chat").style.display = "block";
-      setupListener();
-    }
-
-    const sendBtn = document.getElementById("sendBtn");
     sendBtn.addEventListener("click", async () => {
       const text = chatInput.value.trim();
       if (!text) return;
@@ -130,21 +125,25 @@
       chatInput.value = "";
     });
 
-    function setupListener() {
+    function showChat() {
+      chatDiv.style.display = "block";
+      listenMessages();
+    }
+
+    function listenMessages() {
       const msgsRef = collection(db, "tickets", userUid, "messages");
       onSnapshot(msgsRef, snap => {
-        const container = document.getElementById("messages");
-        container.innerHTML = "";
+        messagesDiv.innerHTML = "";
         snap.docs
-          .sort((a,b) => a.data().timestamp - b.data().timestamp)
+          .sort((a, b) => a.data().timestamp.toMillis() - b.data().timestamp.toMillis())
           .forEach(doc => {
             const { author, text } = doc.data();
             const el = document.createElement("div");
             el.className = "msg";
             el.innerHTML = `<div class="author">${author}</div><div class="text">${text}</div>`;
-            container.appendChild(el);
+            messagesDiv.appendChild(el);
           });
-        container.scrollTop = container.scrollHeight;
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
       });
     }
   </script>
