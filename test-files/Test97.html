@@ -8,59 +8,69 @@
     /* Reset & base */
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: 'Poppins', sans-serif; background:#fafafa; color:#333; line-height:1.6; }
-    a { color:#5b21b6; text-decoration:none; }
-
-    /* Container */
     .container { max-width: 600px; margin: 3rem auto; padding: 0 1rem; }
-
-    /* Hero */
-    .hero { text-align:center; margin-bottom:2rem; }
-    .hero h1 { font-size:2.25rem; background: linear-gradient(90deg, #7e3af2, #c084fc); -webkit-background-clip: text; color: transparent; }
-    .hero p { font-size:1rem; opacity:0.8; margin-top:0.5rem; }
-
-    /* Instructions */
+    h1 { text-align:center; font-size:2.25rem; background: linear-gradient(90deg, #7e3af2, #c084fc); -webkit-background-clip: text; color: transparent; margin-bottom:1rem; }
     .info { background:#fff; padding:1rem; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.03); margin-bottom:1.5rem; }
-    .info p { font-size:0.95rem; }
-
-    /* Chat */
-    #chat { }
+    label { display:block; margin-top:1rem; font-weight:600; }
+    input, select, textarea { width:100%; padding:0.6rem; margin-top:0.25rem; border:1px solid #ccc; border-radius:4px; }
+    button { background:#7e3af2; color:#fff; border:none; padding:0.75rem 1.5rem; border-radius:6px; font-size:1rem; cursor:pointer; transition:transform 0.2s; margin-top:1rem; }
+    button:hover { transform:scale(1.05); }
+    #chat { display:none; margin-top:2rem; }
     #messages { max-height:300px; overflow-y:auto; background:#fff; padding:1rem; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.03); }
     .msg { margin-bottom:0.75rem; }
     .msg .author { font-weight:600; margin-bottom:0.25rem; }
     .msg .text { font-size:0.95rem; }
-    #chatInput { width:calc(100% - 110px); padding:0.6rem; border:1px solid #ccc; border-radius:4px; }
-    #sendBtn { background:#7e3af2; color:#fff; border:none; padding:0.6rem 1rem; border-radius:4px; cursor:pointer; margin-left:0.5rem; }
+    .chat-input { display:flex; margin-top:1rem; }
+    .chat-input input { flex:1; }
+    .chat-input button { margin-left:0.5rem; }
   </style>
 </head>
 <body>
   <div class="container">
-    <section class="hero">
-      <h1>Set Up Your Event</h1>
-      <p>Drop us a line with your event idea—videos, chat, voting. We’ll take it from there. 🚀</p>
-    </section>
-
-    <!-- Quick Instructions -->
+    <h1>Set Up Your Event</h1>
     <div class="info">
-      <p><strong>How it works:</strong> As soon as you type your first message, we’ll see it in real time. We’ll reach out to plan your video-flow event, chat setup, voting rules, & fees. All messages auto-save in Firebase—no indexes needed.</p>
+      <p>Before we chat, tell us a bit about you. Once saved, you won’t be able to change it.</p>
     </div>
+
+    <!-- Profile Form -->
+    <form id="profileForm">
+      <label for="name">Your Name</label>
+      <input type="text" id="name" required />
+
+      <label for="age">Your Age</label>
+      <input type="number" id="age" min="13" required />
+
+      <label for="ytName">YouTube Channel Name</label>
+      <input type="text" id="ytName" required />
+
+      <label for="ytLink">YouTube Channel Link</label>
+      <input type="url" id="ytLink" placeholder="https://youtube.com/…" required />
+
+      <label for="feesReady">Ready to pay event fees?</label>
+      <select id="feesReady" required>
+        <option value="">Select…</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+
+      <button type="submit">Save & Start Chat</button>
+    </form>
 
     <!-- Chat UI -->
     <div id="chat">
       <div id="messages"></div>
-      <div style="display:flex; margin-top:1rem;">
-        <input type="text" id="chatInput" placeholder="Start typing…"/>
+      <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="Start typing your event idea…" />
         <button id="sendBtn">Send</button>
       </div>
     </div>
   </div>
 
-  <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
 
-    // Firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -72,33 +82,55 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
-
     let userUid;
 
-    // 1️⃣ Anonymous auth
     signInAnonymously(auth).catch(console.error);
     onAuthStateChanged(auth, user => {
       if (!user) return;
       userUid = user.uid;
-      setupChatListener();
+      // check if profile already exists
+      const profileRef = doc(db, "tickets", userUid);
+      onSnapshot(profileRef, snap => {
+        if (snap.exists()) {
+          document.getElementById("profileForm").style.display = "none";
+          showChat();
+        }
+      });
     });
 
-    // 2️⃣ Send message
-    const input = document.getElementById("chatInput");
+    document.getElementById("profileForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const profile = {
+        name: name.value.trim(),
+        age: parseInt(age.value),
+        ytName: ytName.value.trim(),
+        ytLink: ytLink.value.trim(),
+        feesReady: feesReady.value,
+        createdAt: serverTimestamp()
+      };
+      await setDoc(doc(db, "tickets", userUid), profile);
+      document.getElementById("profileForm").style.display = "none";
+      showChat();
+    });
+
+    function showChat() {
+      document.getElementById("chat").style.display = "block";
+      setupListener();
+    }
+
     const sendBtn = document.getElementById("sendBtn");
     sendBtn.addEventListener("click", async () => {
-      const text = input.value.trim();
+      const text = chatInput.value.trim();
       if (!text) return;
       await addDoc(collection(db, "tickets", userUid, "messages"), {
         author: "Creator",
         text,
         timestamp: serverTimestamp()
       });
-      input.value = "";
+      chatInput.value = "";
     });
 
-    // 3️⃣ Listen for incoming & own messages
-    function setupChatListener() {
+    function setupListener() {
       const msgsRef = collection(db, "tickets", userUid, "messages");
       onSnapshot(msgsRef, snap => {
         const container = document.getElementById("messages");
