@@ -368,75 +368,64 @@
   </style>
 </head>
 <body>
-  <!-- Loading Screen -->
   <div id="loading">
     <div class="spinner"></div>
-    <div class="loading-text">Loading your event setup...</div>
-  </div>
-
-  <div class="container">
+    <div class="loading-text">Loading, please sign in...</div>
+  </div>  <div class="container">
     <header>
       <div class="logo">Squad<span>Vertex</span></div>
       <h1>Set Up Your Event</h1>
-      <p class="subtitle">Sign-in with Google is required to start planning. Once you save, you can’t change it.</p>
-    </header>
+      <p class="subtitle">Sign in with Google to start planning your event with us</p>
+    </header><!-- Profile Section -->
+<div id="profileSection" class="card">
+  <p>Before we chat, complete your profile. Once saved, you can't change it.</p>
+  <button id="googleSignIn">Sign in with Google</button>
+</div>
 
-    <!-- Google Sign-In Card -->
-    <div class="info card">
-      <p>Before we chat, sign in below. We’ll store your Google email automatically.</p>
-      <button id="googleSignIn">
-        <i class="fab fa-google"></i> Sign in with Google
-      </button>
-    </div>
+<!-- Profile Form -->
+<form id="profileForm" class="card" style="display:none;">
+  <label>Your Name</label>
+  <input type="text" id="name" readonly />
 
-    <!-- Profile Form -->
-    <form id="profileForm" class="card" style="display:none;">
-      <label for="name">Your Name</label>
-      <div class="input-group"><input type="text" id="name" required placeholder="Enter your full name"></div>
+  <label>Your Email</label>
+  <input type="email" id="email" readonly />
 
-      <label for="age">Your Age</label>
-      <div class="input-group"><input type="number" id="age" min="13" required placeholder="Your age"></div>
+  <label for="age">Your Age</label>
+  <input type="number" id="age" min="13" required placeholder="Your age" />
 
-      <label for="ytName">YouTube Channel Name</label>
-      <div class="input-group"><input type="text" id="ytName" required placeholder="Your channel name"></div>
+  <label for="ytName">YouTube Channel Name</label>
+  <input type="text" id="ytName" required placeholder="Your channel name" />
 
-      <label for="ytLink">YouTube Channel Link</label>
-      <div class="input-group"><input type="url" id="ytLink" required placeholder="https://youtube.com/..."></div>
+  <label for="ytLink">YouTube Channel Link</label>
+  <input type="url" id="ytLink" placeholder="https://youtube.com/..." required />
 
-      <label for="feesReady">Ready to pay event fees?</label>
-      <div class="input-group">
-        <select id="feesReady" required>
-          <option value="">Select…</option>
-          <option value="yes">Yes, I'm ready to pay</option>
-          <option value="no">No, not this time</option>
-        </select>
-      </div>
+  <label for="feesReady">Ready to pay event fees?</label>
+  <select id="feesReady" required>
+    <option value="">Select your status</option>
+    <option value="yes">Yes, ready to pay</option>
+    <option value="no">No, not now</option>
+  </select>
 
-      <button type="submit"><i class="fas fa-save"></i> Save & Start Chat</button>
-    </form>
+  <button type="submit">Save & Start Chat</button>
+</form>
 
-    <!-- Chat UI -->
-    <div id="chat">
-      <div class="chat-header">
-        <div class="admin-avatar">SV</div>
-        <div class="admin-info">
-          <h3>Support Team</h3>
-          <p>SquadVertex Event Specialists</p>
-        </div>
-      </div>
-      <div id="messages"></div>
-      <div class="chat-footer">
-        <div class="chat-input">
-          <input type="text" id="chatInput" placeholder="Describe your event idea..." />
-          <button id="sendBtn"><i class="fas fa-paper-plane"></i> Send</button>
-        </div>
-      </div>
+<!-- Chat UI -->
+<div id="chat" class="card" style="display:none;">
+  <div class="chat-header">
+    <div class="admin-avatar">SV</div>
+    <div>
+      <h3>Support Team</h3>
+      <p>SquadVertex Event Specialists</p>
     </div>
   </div>
+  <div id="messages"></div>
+  <div class="chat-input">
+    <input type="text" id="chatInput" placeholder="Describe your event idea..." />
+    <button id="sendBtn">Send</button>
+  </div>
+</div>
 
-  <footer>&copy; 2025 SquadVertex. All rights reserved.</footer>
-
-  <script type="module">
+  </div>  <footer style="text-align:center; padding:1rem 0; color:#777;">&copy; 2025 SquadVertex. All rights reserved.</footer>  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
     import { getFirestore, doc, setDoc, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
@@ -454,109 +443,114 @@
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
 
+    // DOM elements
     const loadingScreen = document.getElementById("loading");
-    const signInBtn = document.getElementById("googleSignIn");
+    const profileSection = document.getElementById("profileSection");
+    const googleSignInBtn = document.getElementById("googleSignIn");
     const profileForm = document.getElementById("profileForm");
     const chatDiv = document.getElementById("chat");
     const messagesDiv = document.getElementById("messages");
-    const sendBtn = document.getElementById("sendBtn");
     const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
 
-    let userUid, userEmail, userName = "Creator";
+    let userUid;
+    let userName;
 
-    function hideLoading() {
-      loadingScreen.style.opacity = 0;
-      setTimeout(() => loadingScreen.style.display = "none", 300);
-    }
+    // Show/hide loader
+    function hideLoading() { loadingScreen.style.display = 'none'; }
+    function showLoading(text) { loadingScreen.querySelector('.loading-text').textContent = text; loadingScreen.style.display = 'flex'; }
 
-    // 1️⃣ Google sign-in
-    signInBtn.addEventListener("click", async () => {
-      try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
-        userUid = user.uid;
-        userEmail = user.email;
-        userName = user.displayName || userEmail.split("@")[0];
-        hideLoading();
-        profileForm.style.display = "block";
-        document.getElementById("name").value = userName;
-      } catch (e) {
-        console.error("Sign-in error:", e);
-        hideLoading();
-        alert("Google sign-in failed. Try again.");
-      }
+    // Sign in with Google
+    googleSignInBtn.addEventListener('click', () => {
+      showLoading('Redirecting to Google...');
+      signInWithPopup(auth, provider).catch(err => { console.error(err); hideLoading(); });
     });
 
-    // 2️⃣ On auth change, check if profile exists
-    onAuthStateChanged(auth, user => {
+    // Auth state
+    onAuthStateChanged(auth, async user => {
       if (!user) return;
       userUid = user.uid;
-      userEmail = user.email;
-      const profileRef = doc(db, "tickets", userUid);
+      userName = user.displayName;
+      document.getElementById('name').value = user.displayName;
+      document.getElementById('email').value = user.email;
+
+      // Check existing profile
+      const profileRef = doc(db, 'tickets', userUid);
       onSnapshot(profileRef, snap => {
         hideLoading();
         if (snap.exists()) {
-          profileForm.style.display = "none";
-          chatDiv.style.display = "flex";
+          profileSection.style.display = 'none';
+          profileForm.style.display = 'none';
+          showChat();
+        } else {
+          profileSection.style.display = 'none';
+          profileForm.style.display = 'block';
         }
       });
     });
 
-    // 3️⃣ Profile form submit
-    profileForm.addEventListener("submit", async e => {
+    // Profile form submit
+    profileForm.addEventListener('submit', async e => {
       e.preventDefault();
+      showLoading('Saving profile...');
       const profileData = {
-        name: document.getElementById("name").value.trim(),
-        age: parseInt(document.getElementById("age").value),
-        ytName: document.getElementById("ytName").value.trim(),
-        ytLink: document.getElementById("ytLink").value.trim(),
-        feesReady: document.getElementById("feesReady").value,
-        email: userEmail,
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        age: parseInt(document.getElementById('age').value),
+        ytName: document.getElementById('ytName').value,
+        ytLink: document.getElementById('ytLink').value,
+        feesReady: document.getElementById('feesReady').value,
         createdAt: serverTimestamp()
       };
-      try {
-        await setDoc(doc(db, "tickets", userUid), profileData);
-      } catch (err) {
-        console.error("Save profile error:", err);
-        alert("Could not save profile—try again.");
-      }
+      await setDoc(doc(db, 'tickets', userUid), profileData);
     });
 
-    // 4️⃣ Send & listen chat
-    sendBtn.addEventListener("click", async () => {
+    // Show chat
+    function showChat() {
+      profileForm.style.display = 'none';
+      chatDiv.style.display = 'block';
+      listenMessages();
+      setTimeout(() => {
+        addMessageToUI('admin', 'SquadVertex Support', `Hi ${userName}! 👋 How can we help you plan your event today?`, null);
+      }, 500);
+    }
+
+    // Send message
+    sendBtn.addEventListener('click', async () => {
       const text = chatInput.value.trim();
       if (!text) return;
-      await addDoc(collection(db, "tickets", userUid, "messages"), {
-        author: userName,
-        sender: 'user',
-        text,
-        timestamp: serverTimestamp()
-      });
-      chatInput.value = "";
+      addMessageToUI('user', userName, text, null);
+      chatInput.value = '';
+      await addDoc(collection(db, 'tickets', userUid, 'messages'), { author: userName, text, sender: 'user', timestamp: serverTimestamp() });
     });
 
-    onSnapshot(collection(db, "tickets", userUid, "messages"), snap => {
-      messagesDiv.innerHTML = "";
-      snap.docs.sort((a,b) => a.data().timestamp?.toMillis() - b.data().timestamp?.toMillis())
-        .forEach(doc => {
+    // Listen messages
+    function listenMessages() {
+      const msgsRef = collection(db, 'tickets', userUid, 'messages');
+      onSnapshot(msgsRef, snap => {
+        messagesDiv.innerHTML = '';
+        snap.docs.sort((a,b) => a.data().timestamp?.toMillis() - b.data().timestamp?.toMillis()).forEach(doc => {
           const { author, text, sender } = doc.data();
-          const msgEl = document.createElement("div");
-          msgEl.className = `msg ${sender}`;
-          const avatarInitials = sender === 'user'
-            ? author.split(' ').map(n=>n[0]).join('').slice(0,2)
-            : 'SV';
-          msgEl.innerHTML = `
-            <div class="avatar">${avatarInitials}</div>
-            <div class="msg-content">
-              ${sender==='admin'?`<div class="author">${author}</div>`:''}
-              <div class="text">${text}</div>
-            </div>
-          `;
-          messagesDiv.appendChild(msgEl);
+          addMessageToUI(sender, author, text, null);
         });
+      });
+    }
+
+    // Add message to UI
+    function addMessageToUI(sender, author, text, avatarUrl) {
+      const el = document.createElement('div');
+      el.className = `msg ${sender}`;
+      el.innerHTML = `
+        <div class="msg-content">
+          ${sender==='admin'?`<div class="author">${author}</div>`:''}
+          <div class="text">${text}</div>
+        </div>`;
+      messagesDiv.appendChild(el);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
-  </script>
+    }
+
+    // Init
+    showLoading();
+  </script></body>
 </body>
 </html>
-
