@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dev Zone TOC</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    li { margin: 0.5rem 0; }
+    .loading { color: #888; }
+    input { margin-bottom: 1rem; padding: 0.5rem; width: 100%; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <h1>🚀 Dev Zone Contents</h1>
+  <input id="filter" placeholder="Filter titles…"/>
+  <p id="status" class="loading">Loading…</p>
+  <ul id="toc"></ul>
+
+  <script>
+    // —— CONFIG —— 
+    const OWNER = 'PRINCE16082007';
+    const REPO  = 'SquadVertex';
+    const ROOT  = 'test-files';        // <-- folder name in main branch
+
+    // —— CACHE KEYS & TTL —— 
+    const CACHE_KEY = 'devzone_toc_cache';
+    const CACHE_TTL = 1000 * 60 * 60 * 6; // 6 hours
+
+    const tocEl   = document.getElementById('toc');
+    const status  = document.getElementById('status');
+    const filter  = document.getElementById('filter');
+
+    // apply filter input
+    filter.addEventListener('input', () => {
+      const q = filter.value.toLowerCase();
+      for (let li of tocEl.children) {
+        li.style.display = li.textContent.toLowerCase().includes(q) ? '' : 'none';
+      }
+    });
+
+    // load from cache if fresh
+    function loadCache() {
+      try {
+        const { time, items } = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+        if (time && items && (Date.now() - time) < CACHE_TTL) {
+          return items;
+        }
+      } catch {}
+      return null;
+    }
+
+    // save to cache
+    function saveCache(items) {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ time: Date.now(), items }));
+    }
+
+    // fetch directory listing (1 API call)
+    async function listDir(path) {
+      const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
+      return res.json();
+    }
+
+    // get title from raw file (does NOT use API rate-limit)
+    async function getTitleRaw(download_url, filename) {
+      const res = await fetch(download_url);
+      const text = await res.text();
+      const line = text.split(/\r?\n/).find(l => l.startsWith('#'));
+      return line ? line.replace(/^#+\s*/, '') : filename;
+    }
+
+    (async () => {
+      try {
+        // try cache
+        let items = loadCache();
+        if (!items) {
+          status.textContent = 'Fetching file list…';
+          const dir = await listDir(ROOT);
+          status.textContent = `Found ${dir.length} files, fetching titles…`;
+
+          items = await Promise.all(dir.map(async f => {
+            const name = f.name;
+            const title = await getTitleRaw(f.download_url, name);
+            return title;
+          }));
+
+          saveCache(items);
+        }
+
+        status.textContent = `Loaded ${items.length} titles!`;
+        for (let t of items) {
+          const li = document.createElement('li');
+          li.textContent = t;
+          tocEl.appendChild(li);
+        }
+      } catch (e) {
+        status.textContent = 'Error: ' + e.message;
+      }
+    })();
+  </script>
+</body>
+</html>
