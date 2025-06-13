@@ -5,14 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dev Zone TOC</title>
   <style>
-    body { font-family: sans-serif; padding: 2rem; }
-    li { margin: 0.5rem 0; }
-    .loading { color: #888; }
+    body { font-family: sans-serif; padding: 2rem; background: #f9f9f9; }
+    h1 { margin-bottom: 1rem; }
     input { margin-bottom: 1rem; padding: 0.5rem; width: 100%; box-sizing: border-box; }
+    ul { list-style: none; padding: 0; }
+    li { 
+      background: #fff; 
+      margin: 0.5rem 0; 
+      padding: 0.75rem 1rem; 
+      border-radius: 0.5rem; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .loading { color: #888; }
   </style>
 </head>
 <body>
-  <h1>🚀 Dev Zone Contents</h1>
+  <h1>🚀 SquadVertex Test Files</h1>
   <input id="filter" placeholder="Filter titles…"/>
   <p id="status" class="loading">Loading…</p>
   <ul id="toc"></ul>
@@ -21,7 +29,7 @@
     // —— CONFIG —— 
     const OWNER = 'PRINCE16082007';
     const REPO  = 'SquadVertex';
-    const ROOT  = 'test-files';        // <-- folder name in main branch
+    const ROOT  = 'test-files';        // your folder in main branch
 
     // —— CACHE KEYS & TTL —— 
     const CACHE_KEY = 'devzone_toc_cache';
@@ -63,12 +71,12 @@
       return res.json();
     }
 
-    // get title from raw file (does NOT use API rate-limit)
+    // get title from raw file (no rate-limit)
     async function getTitleRaw(download_url, filename) {
       const res = await fetch(download_url);
       const text = await res.text();
       const line = text.split(/\r?\n/).find(l => l.startsWith('#'));
-      return line ? line.replace(/^#+\s*/, '') : filename;
+      return line ? line.replace(/^#+\s*/, '') : filename.replace(/\.\w+$/, '');
     }
 
     (async () => {
@@ -81,18 +89,18 @@
           status.textContent = `Found ${dir.length} files, fetching titles…`;
 
           items = await Promise.all(dir.map(async f => {
-            const name = f.name;
+            const name  = f.name;  // e.g. "Test12.md"
             const title = await getTitleRaw(f.download_url, name);
-            return title;
+            return { name, title };
           }));
 
           saveCache(items);
         }
 
         status.textContent = `Loaded ${items.length} titles!`;
-        for (let t of items) {
+        for (let { name, title } of items) {
           const li = document.createElement('li');
-          li.textContent = t;
+          li.textContent = `${name.replace(/\.\w+$/, '')} — ${title}`;
           tocEl.appendChild(li);
         }
       } catch (e) {
