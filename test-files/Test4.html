@@ -84,7 +84,7 @@
     }
     
     .container {
-      width: 850px;
+      width: 794px; /* Optimized for A4 paper */
       margin: 20px 0 40px;
       background: #fff;
       border: 1px solid #d1d9e6;
@@ -225,6 +225,7 @@
       border-collapse: collapse;
       margin-top: 20px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+      page-break-inside: avoid;
     }
     
     th, td {
@@ -380,6 +381,12 @@
       display: none;
     }
     
+    .page-break {
+      page-break-before: always;
+      height: 20px;
+      display: block;
+    }
+    
     @media print {
       .no-print {
         display: none;
@@ -403,6 +410,7 @@
         box-shadow: none;
         border: none;
         border-radius: 0;
+        width: 100%;
       }
     }
   </style>
@@ -570,22 +578,42 @@
     document.getElementById('downloadPdf').addEventListener('click', function() {
       const element = document.getElementById('content');
       
-      // Hide the download buttons before generating PDF
-      document.querySelector('.download-controls').style.display = 'none';
+      // Show loading indicator
+      const originalText = this.innerHTML;
+      this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating PDF...';
+      this.disabled = true;
       
-      // PDF generation options
+      // PDF generation options optimized for A4
       const options = {
-        margin: 10,
+        margin: [15, 10, 15, 10],
         filename: 'SquadVertex_Ledger_20250626.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          letterRendering: true
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait',
+          compress: true
+        },
+        pagebreak: { 
+          mode: ['avoid-all', 'css', 'legacy'] 
+        }
       };
       
       // Generate PDF
       html2pdf().set(options).from(element).save().then(() => {
-        // Show buttons again after PDF generation
-        document.querySelector('.download-controls').style.display = 'flex';
+        // Restore button text
+        this.innerHTML = originalText;
+        this.disabled = false;
+      }).catch(err => {
+        console.error('PDF generation error:', err);
+        this.innerHTML = originalText;
+        this.disabled = false;
+        alert('PDF generation failed. Please try again.');
       });
     });
     
