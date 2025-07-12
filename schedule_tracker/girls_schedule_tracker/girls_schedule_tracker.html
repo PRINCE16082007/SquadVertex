@@ -1187,4 +1187,99 @@
         where('date', '==', today)
       ));
 
-      const inactiveRoutines =
+      const inactiveRoutines = routinesSnap.docs.filter(doc => !doc.data().active);
+
+      if (inactiveRoutines.length > 0) {
+        alert('Please activate all routines before marking today!');
+        return;
+      }
+
+      // Update attendance record
+      await updateAttendance(user.uid, today, 'Yes');
+    };
+
+    // Reset Today
+    document.getElementById('resetBtn').onclick = async () => {
+      if (!confirm('Are you sure you want to reset today?')) return;
+      const user = auth.currentUser;
+      const today = currentDate.toISOString().split('T')[0];
+      await updateAttendance(user.uid, today, 'Missed');
+    };
+
+    // Calendar navigation
+    document.getElementById('prevMonthBtn').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      renderCalendar(auth.currentUser.uid);
+    });
+
+    document.getElementById('nextMonthBtn').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      renderCalendar(auth.currentUser.uid);
+    });
+
+    document.getElementById('todayBtn').addEventListener('click', () => {
+      currentDate = new Date();
+      renderCalendar(auth.currentUser.uid);
+    });
+
+    // Load Routines
+    async function loadRoutines(uid) {
+      const today = currentDate.toISOString().split('T')[0];
+      const snap = await getDocs(query(
+        collection(db, 'users', uid, 'rules'),
+        where('date', '==', today),
+        orderBy('date', 'desc')
+      ));
+
+      const list = document.getElementById('routineList');
+      list.innerHTML = '';
+
+      if (snap.empty) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-redo-alt"></i>
+            <p>No routines for today. Add your first routine!</p>
+          </div>
+        `;
+        document.getElementById('routineCount').textContent = '0 routines';
+        return;
+      }
+
+      document.getElementById('routineCount').textContent = `${snap.size} routine${snap.size !== 1 ? 's' : ''}`;
+
+      snap.docs.forEach(d => {
+        const r = d.data();
+        const item = document.createElement('div');
+        item.className = 'routine-item';
+        item.innerHTML = `
+          <input type="checkbox" class="routine-checkbox" data-id="${d.id}" ${r.active ? 'checked' : ''}>
+          <div class="routine-content">${r.desc}</div>
+          <div class="routine-actions">
+            <button class="delete-btn" data-id="${d.id}"><i class="fas fa-trash"></i></button>
+          </div>
+        `;
+
+        list.appendChild(item);
+
+        // Add event listener for checkbox
+        item.querySelector('.routine-checkbox').addEventListener('change', async e => {
+          await updateDoc(doc(db, 'users', uid, 'rules', e.target.dataset.id), {
+            active: e.target.checked
+          });
+        });
+      });
+
+      // Add event listeners for delete buttons
+      list.addEventListener('click', async e => {
+        if (e.target.closest('.delete-btn')) {
+          const btn = e.target.closest('.delete-btn');
+          if (confirm('Are you sure you want to delete this routine?')) {
+            await deleteDoc(doc(db, 'users', uid, 'rules', btn.dataset.id));
+            loadRoutines(uid);
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
