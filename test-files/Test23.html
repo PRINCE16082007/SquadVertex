@@ -1,172 +1,448 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>3D Text Animation with Drift Car & Sparkles</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SquadElite Plan - ₹299/month | SquadVertex</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=INR"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@900&display=swap');body, html {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        height: 100%;
-        background: radial-gradient(circle at center, #0a0a0a 0%, #000000 100%);
-        font-family: 'Poppins', sans-serif;
-        user-select: none;
-    }
-    #container {
-        position: fixed;
-        width: 100vw;
-        height: 100vh;
-        overflow: hidden;
-        top: 0;
-        left: 0;
-        z-index: 1;
-        touch-action: none;
-        cursor: grab;
-    }
-    #container:active {
-        cursor: grabbing;
-    }
-    canvas {
-        display: block;
-        outline: none;
-    }
-</style>
-
-</head>
-<body>
-    <div id="container"></div><!-- Use ES Modules for Three.js and examples -->
-<script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js';
-    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/controls/OrbitControls.js';
-    import { TextGeometry } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/geometries/TextGeometry.js';
-    import { FontLoader } from 'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/loaders/FontLoader.js';
-
-    (function() {
-        const container = document.getElementById('container');
-
-        // Scene, Camera and Renderer setup
-        const scene = new THREE.Scene();
-
-        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.set(0, 30, 100);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-        renderer.setClearColor(0x000000, 1);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        container.appendChild(renderer.domElement);
-
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.1;
-        controls.minDistance = 20;
-        controls.maxDistance = 200;
-        controls.maxPolarAngle = Math.PI / 2.1;
-
-        // Lights
-        scene.add(new THREE.AmbientLight(0x1f1f1f));
-        const dir1 = new THREE.DirectionalLight(0x00fff6, 1.8);
-        dir1.position.set(50,50,50);
-        dir1.castShadow = true;
-        dir1.shadow.mapSize.set(2048,2048);
-        scene.add(dir1);
-        const dir2 = new THREE.DirectionalLight(0x005577,0.8);
-        dir2.position.set(-50,30,-40);
-        scene.add(dir2);
-        const spot = new THREE.SpotLight(0x00efff,1.2);
-        spot.position.set(0,150,100);
-        spot.angle = Math.PI/4;
-        spot.penumbra = 0.3;
-        spot.decay = 2;
-        spot.distance = 400;
-        spot.castShadow = true;
-        scene.add(spot);
-
-        // Ground
-        const ground = new THREE.Mesh(
-            new THREE.CircleGeometry(120,64),
-            new THREE.MeshStandardMaterial({
-                color:0x001111, roughness:1, metalness:0.1,
-                emissive:0x001322, emissiveIntensity:0.8,
-                side: THREE.DoubleSide
-            })
-        );
-        ground.rotation.x = -Math.PI/2;
-        ground.position.y = -6;
-        ground.receiveShadow = true;
-        scene.add(ground);
-
-        // Gradient texture helper
-        function createGradientTexture() { /* ... unchanged ... */ }
-        function createSparkleTexture() { /* ... unchanged ... */ }
-
-        // Shaders
-        const vertexShader = `/* ... unchanged ... */`;
-        const fragmentShader = `/* ... unchanged ... */`;
-
-        const loader = new FontLoader();
-        let textMesh, textMaterial;
-        const textOptions = { size:20, height:5, curveSegments:12, bevelEnabled:true, bevelThickness:1.8, bevelSize:0.8, bevelSegments:4 };
-        const startTime = performance.now();
-
-        loader.load(
-            'https://cdn.jsdelivr.net/npm/three@0.152.2/examples/fonts/helvetiker_regular.typeface.json',
-            font => {
-                textOptions.font = font;
-                const geom = new TextGeometry('AWESOME', textOptions);
-                geom.center();
-                const gradTex = createGradientTexture();
-                textMaterial = new THREE.ShaderMaterial({
-                    uniforms: { baseTexture:{value:gradTex}, time:{value:0} },
-                    vertexShader, fragmentShader
-                });
-                textMesh = new THREE.Mesh(geom, textMaterial);
-                textMesh.castShadow = true;
-                scene.add(textMesh);
-            }
-        );
-
-        // Sparkles
-        const sparkleCount = 350;
-        const sparkleGeom = new THREE.BufferGeometry();
-        const positions = new Float32Array(sparkleCount*3);
-        const sizes = new Float32Array(sparkleCount);
-        for(let i=0;i<sparkleCount;i++){ /* ... unchanged ... */ }
-        sparkleGeom.setAttribute('position', new THREE.BufferAttribute(positions,3));
-        sparkleGeom.setAttribute('size', new THREE.BufferAttribute(sizes,1));
-        const sparkleMat = new THREE.PointsMaterial({
-            size:1.4, sizeAttenuation:true, map:createSparkleTexture(),
-            transparent:true, blending:THREE.AdditiveBlending,
-            depthWrite:false, opacity:0.8, color:new THREE.Color(0x00ffe7)
-        });
-        scene.add(new THREE.Points(sparkleGeom, sparkleMat));
-
-        // Car + trail setup (unchanged logic)
-        const car = new THREE.Group(); /* ... build car, wheels ... */
-        scene.add(car);
-        const trail = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ /* ... */ }));
-        scene.add(trail);
-
-        // Animation loop
-        function animate(time) {
-            const elapsed = (time - startTime)*0.001;
-            controls.update();
-            if(textMesh && textMaterial) {
-                /* update textMesh, uniforms ... */
-            }
-            /* update sparkles, car drift, trail ... */
-            renderer.render(scene, camera);
-            requestAnimationFrame(animate);
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
         }
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth/window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-        requestAnimationFrame(animate);
-    })();
-</script>
+        
+        .card {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 116, 139, 0.3);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero-section::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+            transform: rotate(30deg);
+        }
+        
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .glow {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        
+        .pay-button {
+            background: linear-gradient(135deg, #0c4a6e 0%, #075985 100%);
+            border: none;
+            transition: all 0.3s ease;
+        }
+        
+        .pay-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+        
+        .plan-card {
+            transition: all 0.3s ease;
+        }
+        
+        .plan-card:hover {
+            transform: scale(1.03);
+            z-index: 10;
+        }
+        
+        .badge {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen py-8 px-4">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-10">
+            <div class="flex items-center">
+                <div class="bg-blue-500 w-10 h-10 rounded-lg flex items-center justify-center mr-3">
+                    <i class="fas fa-crown text-white"></i>
+                </div>
+                <h1 class="text-2xl font-bold">Squad<span class="text-blue-400">Vertex</span></h1>
+            </div>
+            <nav>
+                <ul class="flex space-x-6">
+                    <li><a href="#" class="hover:text-blue-400 transition">Home</a></li>
+                    <li><a href="#" class="hover:text-blue-400 transition">Plans</a></li>
+                    <li><a href="#" class="hover:text-blue-400 transition">Features</a></li>
+                    <li><a href="#" class="hover:text-blue-400 transition">Support</a></li>
+                </ul>
+            </nav>
+        </header>
 
+        <!-- Hero Section -->
+        <section class="hero-section card p-8 mb-10">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="md:w-2/3 mb-6 md:mb-0">
+                    <span class="badge bg-blue-900 text-blue-300 text-sm font-semibold px-3 py-1 rounded-full mb-4 inline-block">ELITE PLAN</span>
+                    <h1 class="text-4xl md:text-5xl font-bold mb-4">Squad<span class="text-blue-400">Elite</span> – For the ones building legacies.</h1>
+                    <p class="text-xl text-blue-100 mb-6">No distractions. No limitations. Just pure potential unlocked.</p>
+                    
+                    <div class="flex items-center mb-6">
+                        <div class="text-3xl font-bold">₹299<span class="text-lg font-normal text-blue-200">/month</span></div>
+                        <div class="ml-4 px-3 py-1 bg-blue-900 text-blue-300 rounded-full text-sm">GST Extra</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-400 mr-2"></i>
+                            <span>Activate within 24 hours</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-400 mr-2"></i>
+                            <span>Valid for one Gmail ID</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-400 mr-2"></i>
+                            <span>Manually activated</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center p-4 bg-blue-900/30 rounded-lg">
+                        <div class="mr-4">
+                            <div class="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
+                                <i class="fas fa-check text-white"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="font-semibold">Status: <span class="text-green-400">Manually reviewed & activated</span></div>
+                            <div class="text-sm">Activation Time: Within 24 hours | Email required: For account linking</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="md:w-1/3 flex justify-center">
+                    <div class="relative">
+                        <div class="w-48 h-48 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full flex items-center justify-center">
+                            <i class="fas fa-crown text-6xl text-amber-300"></i>
+                        </div>
+                        <div class="absolute -top-2 -right-2 bg-amber-500 text-black font-bold px-3 py-1 rounded-full transform rotate-12">ELITE</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="mb-10">
+            <h2 class="text-3xl font-bold mb-8 text-center">🚀 Elite Features Breakdown</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Feature 1 -->
+                <div class="card p-6">
+                    <div class="flex items-start">
+                        <div class="feature-icon mr-4">
+                            <i class="fas fa-rocket text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">1 Active Premium Project</h3>
+                            <p class="text-slate-300">A dedicated slot to build your flagship project — nothing shared, no compromise.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Feature 2 -->
+                <div class="card p-6">
+                    <div class="flex items-start">
+                        <div class="feature-icon mr-4">
+                            <i class="fas fa-palette text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">Custom Branding & Theme Flex</h3>
+                            <p class="text-slate-300">Stand out from the crowd with your own color palette, fonts, and visual ID.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Feature 3 -->
+                <div class="card p-6">
+                    <div class="flex items-start">
+                        <div class="feature-icon mr-4">
+                            <i class="fas fa-cloud-upload-alt text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">File Hosting Upto 1GB</h3>
+                            <p class="text-slate-300">Upload docs, images, thumbnails — your creative assets in one place.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Feature 4 -->
+                <div class="card p-6">
+                    <div class="flex items-start">
+                        <div class="feature-icon mr-4">
+                            <i class="fas fa-globe-asia text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">Priority Discovery Placement</h3>
+                            <p class="text-slate-300">Get featured on SquadVertex homepage & recommendation modules (manual review-based).</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Feature 5 -->
+                <div class="card p-6">
+                    <div class="flex items-start">
+                        <div class="feature-icon mr-4">
+                            <i class="fas fa-badge-check text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">Profile Highlighting</h3>
+                            <p class="text-slate-300">Badge + Verified Tag + Showcased on "Elite Creators" section.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Feature 6 -->
+                <div class="card p-6">
+                    <div class="flex items-start">
+                        <div class="feature-icon mr-4">
+                            <i class="fas fa-chart-line text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">Basic Stats Dashboard</h3>
+                            <p class="text-slate-300">Simple metrics: profile visits, impressions, and project clicks.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Feature 7 -->
+                <div class="card p-6">
+                    <div class="flex items-start">
+                        <div class="feature-icon mr-4">
+                            <i class="fas fa-phone-alt text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">1:1 Strategy Call (Optional)</h3>
+                            <p class="text-slate-300">You'll receive a link for monthly feedback or creative planning with us.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Feature 8 -->
+                <div class="card p-6">
+                    <div class="flex items-start">
+                        <div class="feature-icon mr-4">
+                            <i class="fas fa-lock text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold mb-2">Early Access to Beta Tools</h3>
+                            <p class="text-slate-300">Try experimental features before others — be the trendsetter.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Billing Section -->
+        <section class="card p-8 mb-10">
+            <h2 class="text-3xl font-bold mb-6">🧾 Billing Details</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <div class="flex justify-between items-center p-4 bg-blue-900/30 rounded-lg mb-6">
+                        <div class="text-2xl font-bold">₹299<span class="text-lg font-normal text-blue-200">/month</span></div>
+                        <div class="flex items-center">
+                            <i class="fab fa-cc-paypal text-3xl text-blue-300 mr-2"></i>
+                            <span>PayPal</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-3">Tax Information</h3>
+                        <div class="flex items-center p-4 bg-slate-800/50 rounded-lg">
+                            <i class="fas fa-info-circle text-blue-400 mr-3 text-xl"></i>
+                            <p>GST NOT Included (You'll pay ₹299, but taxes are deducted at source)</p>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-amber-900/30 p-4 rounded-lg border border-amber-700">
+                        <h3 class="font-semibold text-amber-300 mb-2"><i class="fas fa-exclamation-triangle mr-2"></i>Important Note</h3>
+                        <p>After payment, you'll receive a confirmation mail within 24 hours. Your plan will activate only on the Gmail ID you provide below.</p>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-800/50 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold mb-4">Terms Snapshot</h3>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-400 mt-1 mr-2"></i>
+                            <span>You must accept Terms & Privacy Policy before checkout</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-400 mt-1 mr-2"></i>
+                            <span>Plan is non-refundable once activated</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check-circle text-green-400 mt-1 mr-2"></i>
+                            <span>Activity tracked & updated manually for now</span>
+                        </li>
+                    </ul>
+                    
+                    <div class="bg-black/40 p-4 rounded-lg mb-4">
+                        <pre class="text-sm text-green-400 overflow-x-auto">
+{
+  "email": "user@gmail.com",
+  "plan": "Elite",
+  "status": "Active",
+  "joinDate": "July 15, 2025",
+  "expireDate": "August 15, 2025",
+  "termsAccepted": true,
+  "termsTimestamp": "July 14, 2025 at 5:12PM UTC+5:30"
+}</pre>
+                    </div>
+                    <p class="text-sm text-slate-400"><i class="fas fa-lock mr-1"></i> Button will only activate if termsAccepted === true</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Activation Form -->
+        <section class="card p-8 mb-10">
+            <h2 class="text-3xl font-bold mb-6">🧾 Plan Activation Form</h2>
+            
+            <div class="max-w-2xl mx-auto">
+                <div class="mb-6">
+                    <label class="block text-lg font-medium mb-2">Gmail ID:</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <input type="email" class="w-full p-4 pl-10 bg-slate-800 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="yourname@gmail.com">
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <div class="flex items-start">
+                        <input type="checkbox" id="terms" class="mt-1 mr-3 w-5 h-5 text-blue-500 bg-slate-800 border-slate-700 rounded focus:ring-blue-600">
+                        <label for="terms" class="text-slate-300">
+                            I have read and accept the <a href="#" class="text-blue-400 hover:underline">Terms</a> and <a href="#" class="text-blue-400 hover:underline">Privacy Policy</a>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <button id="payButton" class="pay-button w-full py-4 rounded-lg font-bold text-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fab fa-paypal mr-3 text-xl"></i> Pay with PayPal (₹299)
+                    </button>
+                </div>
+                
+                <div class="text-center text-slate-400">
+                    <i class="fas fa-box mr-2"></i> ID: #paypal-container-ELITE
+                </div>
+            </div>
+        </section>
+
+        <!-- Downgrade Section -->
+        <section class="mb-10">
+            <h2 class="text-2xl font-bold mb-6 text-center">🔁 Want to downgrade?</h2>
+            <div class="flex justify-center space-x-8">
+                <div class="plan-card bg-slate-800/50 p-6 rounded-lg text-center w-64 transform transition">
+                    <h3 class="text-xl font-bold mb-2">SquadPro</h3>
+                    <div class="text-3xl font-bold mb-4">₹199<span class="text-base font-normal">/month</span></div>
+                    <button class="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition">Select Plan</button>
+                </div>
+                <div class="plan-card bg-slate-800/50 p-6 rounded-lg text-center w-64 transform transition">
+                    <h3 class="text-xl font-bold mb-2">SquadLite</h3>
+                    <div class="text-3xl font-bold mb-4">₹99<span class="text-base font-normal">/month</span></div>
+                    <button class="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition">Select Plan</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="text-center text-slate-500 pt-6 border-t border-slate-800">
+            <p>© 2025 SquadVertex. All rights reserved.</p>
+            <p class="mt-2">SquadElite Plan - ₹299/month (GST Extra)</p>
+        </footer>
+    </div>
+
+   <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+            authDomain: "squadvertex2007.firebaseapp.com",
+            projectId: "squadvertex2007",
+            storageBucket: "squadvertex2007.appspot.com",
+            messagingSenderId: "168905083514",
+            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        
+        // Initialize PayPal button
+        paypal.Buttons({
+            createOrder: function(data, actions) {
+                return actions.order.create({
+                    purchase_units: [{
+                        amount: {
+                            value: '299',
+                            currency_code: 'INR'
+                        }
+                    }]
+                });
+            },
+            onApprove: function(data, actions) {
+                return actions.order.capture().then(function(details) {
+                    alert('Payment completed! Your plan will be activated within 24 hours.');
+                    // Here you would typically send the user's email and plan details to your backend
+                });
+            }
+        }).render('#payButton');
+        
+        // Terms agreement toggle
+        const termsCheckbox = document.getElementById('terms');
+        const payButton = document.getElementById('payButton');
+        
+        termsCheckbox.addEventListener('change', function() {
+            payButton.disabled = !this.checked;
+        });
+        
+        // Initialize with button disabled
+        payButton.disabled = true;
+    </script>
 </body>
 </html>
