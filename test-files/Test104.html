@@ -1,98 +1,459 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SLN Chat</title>
   <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    :root { --primary: #6f42c1; --accent: #ffc107; }
-    /* Theme variables */
-    body.dark    { --bg:#1e1e2f; --text:#fff; --header:#2c2c3d; --input:#2c2c3d; }
-    body.candle  { --bg:#3e2f2f; --text:#f8f0e3; --header:#5a4132; --input:#7b5e57; }
-    body.rain    { --bg:#2f3e4f; --text:#e3f0f8; --header:#34566e; --input:#4a708a; }
-    body.blank   { --bg:#fafafa; --text:#333; --header:#e0e0e0; --input:#f5f5f5; }
+    :root {
+      --primary: #6f42c1;
+      --accent: #ffc107;
+      --transition-time: 0.3s;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      --border-radius: 16px;
+    }
+
     body {
       background: var(--bg);
       color: var(--text);
-      margin:0;
-      font-family:'Segoe UI',sans-serif;
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      transition: background-color var(--transition-time) ease;
+      overflow: hidden;
     }
-    .header-bar     { background: var(--header) !important; }
-    .chat-box       { flex:1; overflow-y:auto; padding:1rem; background: rgba(0,0,0,0.05); }
-    .mode-banner    { text-align:center; padding:.5rem; font-size:.9rem; }
-    .mode-chat      { background:#198754; color:#fff; }
-    .mode-ritual    { background:#0d6efd;    color:#fff; }
-    .msg-wrapper    { display:flex; align-items:flex-end; margin-bottom:1rem; }
-    .msg-wrapper.user { justify-content:flex-end; }
-    .message        { padding:.75rem 1rem; border-radius:1rem; max-width:75%; word-break:break-word; background: var(--input); color: var(--text); }
-    .user .message { background: var(--accent); color:#000; }
-    .ai .message   { opacity:.8; }
-    .avatar         { width:36px; height:36px; border-radius:50%; border:2px solid var(--accent); object-fit:cover; margin:0 .5rem; }
-    .input-area     { background: var(--input); padding:1rem; }
-    .input-area textarea { resize:none; border-radius:.5rem; border:1px solid #ccc; }
-    .fixed-input    { position:fixed; bottom:0; left:0; right:0; z-index:1000; }
-    .settings-icon  { background:var(--accent); border:none; color:#000; padding:.2rem .6rem; border-radius:.3rem; cursor:pointer; }
-    .settings-panel { position:absolute; top:60px; right:20px; background:var(--header); padding:1rem; border-radius:.5rem; width:220px; display:none; }
-    .settings-panel.show { display:block; }
-    .firestore-link { font-size:.8rem; color:#aaa; text-align:center; margin-top:.5rem; }
+
+    /* Theme Variables */
+    body.dark {
+      --bg: #1e1e2f;
+      --text: #e0e0e0;
+      --header: #2c2c3d;
+      --input: #2d2d3f;
+      --message-bg: #2a2a3a;
+      --user-message-bg: #ffc107;
+      --user-message-text: #1a1a1a;
+      --border: #3d3d50;
+      --hover: #3a3a4d;
+    }
+
+    body.candle {
+      --bg: #3e2f2f;
+      --text: #f8f0e3;
+      --header: #5a4132;
+      --input: #7b5e57;
+      --message-bg: #5a4a42;
+      --user-message-bg: #e9b44c;
+      --user-message-text: #2d1a12;
+      --border: #8b6d63;
+      --hover: #6d544b;
+    }
+
+    body.rain {
+      --bg: #2f3e4f;
+      --text: #e3f0f8;
+      --header: #34566e;
+      --input: #4a708a;
+      --message-bg: #3a546b;
+      --user-message-bg: #4da1a9;
+      --user-message-text: #0a1929;
+      --border: #5a7a94;
+      --hover: #4a6580;
+    }
+
+    body.blank {
+      --bg: #fafafa;
+      --text: #333;
+      --header: #e0e0e0;
+      --input: #f5f5f5;
+      --message-bg: #eeeeee;
+      --user-message-bg: #d4edda;
+      --user-message-text: #155724;
+      --border: #ddd;
+      --hover: #e9e9e9;
+    }
+
+    /* Header Styles */
+    .header-bar {
+      background: var(--header) !important;
+      padding: 0.8rem 1.5rem;
+      box-shadow: var(--shadow);
+      z-index: 100;
+      transition: all var(--transition-time);
+    }
+
+    /* Mode Banner */
+    .mode-banner {
+      text-align: center;
+      padding: 0.6rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all var(--transition-time);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .mode-chat { background: #198754; color: #fff; }
+    .mode-ritual { background: #0d6efd; color: #fff; }
+
+    /* Chat Box */
+    .chat-box {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 1rem 6rem;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      transition: background-color var(--transition-time);
+    }
+
+    /* Message Styles */
+    .msg-wrapper {
+      display: flex;
+      align-items: flex-end;
+      margin-bottom: 1.25rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-wrapper.user { justify-content: flex-end; }
+
+    .message {
+      padding: 0.85rem 1.2rem;
+      border-radius: var(--border-radius);
+      max-width: 85%;
+      word-break: break-word;
+      background: var(--message-bg);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      position: relative;
+      transition: all var(--transition-time);
+      border: 1px solid var(--border);
+    }
+
+    .user .message {
+      background: var(--user-message-bg);
+      color: var(--user-message-text);
+      border-radius: var(--border-radius) var(--border-radius) 0 var(--border-radius);
+    }
+
+    .ai .message {
+      border-radius: var(--border-radius) var(--border-radius) var(--border-radius) 0;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      object-fit: cover;
+      margin: 0 0.5rem;
+      background: var(--accent);
+      transition: all var(--transition-time);
+    }
+
+    /* Input Area */
+    .input-area {
+      background: var(--input);
+      padding: 1.2rem;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+      transition: all var(--transition-time);
+      border-top: 1px solid var(--border);
+    }
+
+    .input-area textarea {
+      resize: none;
+      border-radius: 0.8rem;
+      border: 1px solid var(--border);
+      background: var(--input);
+      color: var(--text);
+      padding: 0.8rem 1.2rem;
+      height: auto;
+      min-height: 46px;
+      max-height: 150px;
+      transition: all var(--transition-time);
+    }
+
+    .input-area textarea:focus {
+      box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.2);
+      border-color: var(--primary);
+    }
+
+    /* Placeholder Animation */
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    #chatInput::placeholder {
+      animation: pulse 2s infinite;
+    }
+
+    /* Button Styles */
+    .btn {
+      border-radius: 0.8rem;
+      transition: all 0.2s ease;
+      font-weight: 500;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    /* Copy Button */
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    .message:hover .copy-btn {
+      opacity: 1;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Privacy Notice */
+    .privacy-notice {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 0.8rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      max-width: 300px;
+      z-index: 2000;
+      backdrop-filter: blur(5px);
+    }
+
+    .privacy-notice summary {
+      cursor: pointer;
+      outline: none;
+      font-weight: 500;
+    }
+
+    .privacy-notice p {
+      margin: 0.5rem 0 0;
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+
+    /* Session Info */
+    .session-info {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.7);
+      background: rgba(0, 0, 0, 0.3);
+      padding: 3px 8px;
+      border-radius: 12px;
+      z-index: 100;
+    }
+
+    /* Toast for copy */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(40, 40, 40, 0.9);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 24px;
+      z-index: 2000;
+      animation: fadeInOut 2s forwards;
+      backdrop-filter: blur(5px);
+    }
+
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translate(-50%, 10px); }
+      20% { opacity: 1; transform: translate(-50%, 0); }
+      80% { opacity: 1; transform: translate(-50%, 0); }
+      100% { opacity: 0; transform: translate(-50%, -10px); }
+    }
+
+    /* Micro-interactions */
+    .btn-micro {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn-micro:hover {
+      transform: scale(1.05);
+    }
+
+    .btn-micro:active {
+      transform: scale(0.95);
+    }
+
+    /* Swipe indicator */
+    .swipe-indicator {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 193, 7, 0.2);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      display: none;
+      z-index: 1000;
+      backdrop-filter: blur(5px);
+      border: 1px solid var(--accent);
+    }
+
+    /* Theme transition */
+    body.theme-transition {
+      transition: background-color 0.6s ease, color 0.6s ease;
+    }
+
+    /* Loading indicator */
+    .loading-indicator {
+      display: flex;
+      justify-content: center;
+      padding: 10px;
+    }
+    .loading-indicator .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--accent);
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Welcome message */
+    .welcome-message {
+      text-align: center;
+      padding: 1.5rem;
+      max-width: 600px;
+      margin: 0 auto;
+      color: var(--accent);
+      font-size: 1.1rem;
+      font-weight: 500;
+      border-bottom: 1px dashed var(--accent);
+      margin-bottom: 1rem;
+    }
   </style>
 </head>
 <body class="dark">
   <div class="content d-flex flex-column" style="height:100vh">
+    <!-- Swipe Indicator -->
+    <div class="swipe-indicator">
+      <i class="fas fa-arrow-down me-2"></i>Swipe down to clear chat
+    </div>
+
+    <!-- Session Info -->
+    <div class="session-info">
+      Soulprint: <span id="soulprint"></span>
+    </div>
+
     <!-- Top Bar -->
-    <div id="headerBar" class="header-bar dark d-flex justify-content-between align-items-center px-4 py-2">
-      <div class="d-flex align-items-center gap-2">
-        <button id="settingsBtn" class="settings-icon">⚙️</button>
-        <select id="modeSelect" class="form-select form-select-sm">
+    <div id="headerBar" class="header-bar d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center">
+        <div class="me-3">
+          <i class="fas fa-brain fs-4" style="color: var(--accent);"></i>
+        </div>
+        <select id="modeSelect" class="form-select form-select-sm me-2 btn-micro">
           <option value="chat">Chat (Private)</option>
           <option value="ritual">Ritual (Public)</option>
         </select>
-      </div>
-      <div class="d-flex align-items-center gap-2">
-        <select id="langSelect" class="form-select form-select-sm"></select>
-        <select id="themeSelect" class="form-select form-select-sm">
+        <select id="themeSelect" class="form-select form-select-sm btn-micro">
           <option value="dark" selected>Night Sky</option>
           <option value="candle">Warm Candle</option>
           <option value="rain">Rain Window</option>
           <option value="blank">Blank Page</option>
         </select>
       </div>
-    </div><!-- Mode Banner -->
-<div id="modeBanner" class="mode-banner mode-chat">Private Chat mode</div>
+      <div>
+        <button id="panicBtn" class="btn btn-sm btn-outline-danger btn-micro">
+          <i class="fas fa-trash-alt me-1"></i>Clear
+        </button>
+      </div>
+    </div>
+    <div id="modeBanner" class="mode-banner mode-chat">
+      <i class="fas fa-lock me-2"></i>Private Chat Mode
+    </div>
 
-<!-- Chat Box -->
-<div id="chatBox" class="chat-box dark flex-grow-1 px-4 py-3"></div>
-<div class="firestore-link">Messages powered by Firebase Firestore</div>
+    <div id="chatBox" class="chat-box flex-grow-1">
+      <div id="welcomeMessage" class="welcome-message">
+        <i class="fas fa-spinner fa-spin me-2"></i>Starting your session...
+      </div>
+    </div>
 
-<!-- Download CSV -->
-<div class="text-center my-1">
-  <button id="downloadCsvBtn" class="btn btn-sm btn-outline-light" style="display:none;">Download CSV</button>
-</div>
+    <div class="text-center my-2 text-muted" style="font-size:.8rem">
+      Messages powered by Firebase Firestore
+    </div>
 
-<!-- Input -->
-<div id="inputArea" class="input-area dark fixed-input">
-  <div class="input-group">
-    <textarea id="chatInput" class="form-control" placeholder=""></textarea>
-    <button id="sendBtn" class="btn btn-primary ms-2"></button>
+    <div id="inputArea" class="input-area">
+      <div class="input-group">
+        <textarea
+          id="chatInput"
+          class="form-control"
+          placeholder="Type what you feel..."
+          rows="1"
+        ></textarea>
+        <button id="sendBtn" class="btn btn-primary ms-2 btn-micro">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
   </div>
-</div>
 
-  </div>  <!-- Settings Panel -->  <div id="settingsPanel" class="settings-panel dark">
-    <h6 class="text-light">Settings</h6>
-    <div class="mb-2">
-      <label class="form-label text-light">Auto-delete (hrs)</label>
-      <input type="number" id="ttlInput" class="form-control form-control-sm" value="12" min="1" max="48">
-    </div>
-    <div class="form-check form-switch text-light mb-2">
-      <input class="form-check-input" type="checkbox" id="aiReplyToggle" checked>
-      <label class="form-check-label" for="aiReplyToggle">AI Replies</label>
-    </div>
-    <small class="text-muted">CSV exports both private & public chats.</small>
-  </div>  <!-- Firebase & App Logic -->  <script>
+  <!-- Privacy Notice -->
+  <div class="privacy-notice">
+    <details>
+      <summary>Privacy Notice</summary>
+      <p>🕊️ “This space respects your silence. We don't store names, emails, or personal details. Every chat is a session of the soul — anonymous, ephemeral, and safe. For security and alignment, your session IDs are recorded but never traced to you.”</p>
+    </details>
+  </div>
+
+  <script>
+    // Apply theme transition class
+    document.body.classList.add('theme-transition');
+
     // Firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -102,162 +463,382 @@
       messagingSenderId: "168905083514",
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // Generate or retrieve anon ID
-    let userId = localStorage.getItem('sln_userId');
-    if (!userId) {
-      userId = 'SilentSoul' + Math.floor(Math.random()*1000 + 1);
-      localStorage.setItem('sln_userId', userId);
+    // Session management
+    let sessionId = localStorage.getItem('sln_sessionId');
+    let previousSessionId = null;
+    let userId = null;
+    let sessionChain = [];
+    let currentPublicRoom = null;
+    let welcomedPrivate = false;
+
+    function generateSessionId() {
+      return 'soul-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
     }
 
-    // i18n
-    const i18n = {
-      en: { placeholder:'Type what you feel...', send:'Send', chat:'Chat', ritual:'Ritual' },
-      hi: { placeholder:'जो महसूस करते हो यहाँ लिखो...', send:'भेजें', chat:'चैट', ritual:'रिचुअल' }
-    };
-    const langSelect = document.getElementById('langSelect');
-    Object.keys(i18n).forEach(code => {
-      const o = document.createElement('option'); o.value = code; o.textContent = code.toUpperCase();
-      langSelect.appendChild(o);
-    });
-    langSelect.value = 'en';
+    async function startNewSession() {
+      previousSessionId = sessionId;
+      sessionId = generateSessionId();
+
+      // Store session chain in Firestore
+      if (previousSessionId) {
+        try {
+          await db.collection("session_chains").add({
+            oldSessionId: previousSessionId,
+            newSessionId: sessionId,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (error) {
+          console.error("Error saving session chain:", error);
+        }
+      }
+
+      // Save new session to localStorage
+      localStorage.setItem('sln_sessionId', sessionId);
+
+      // Generate user ID for this session
+      userId = 'SilentSoul' + Math.floor(Math.random() * 1000 + 1);
+
+      // Update UI
+      document.getElementById('soulprint').textContent = sessionId.substring(0, 8) + '...';
+      document.getElementById('welcomeMessage').innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Starting your session...`;
+      
+      // Reset flags
+      welcomedPrivate = false;
+      currentPublicRoom = null;
+
+      return sessionId;
+    }
+
+    // Initialize session
+    if (!sessionId) {
+      startNewSession().then(() => {
+        loadMessages();
+      });
+    } else {
+      // If session exists, generate user ID
+      userId = 'SilentSoul' + Math.floor(Math.random() * 1000 + 1);
+      document.getElementById('soulprint').textContent = sessionId.substring(0, 8) + '...';
+      loadMessages();
+    }
 
     // Elements
-    const chatBox       = document.getElementById('chatBox');
-    const chatInput     = document.getElementById('chatInput');
-    const sendBtn       = document.getElementById('sendBtn');
-    const modeSelect    = document.getElementById('modeSelect');
-    const themeSelect   = document.getElementById('themeSelect');
-    const settingsBtn   = document.getElementById('settingsBtn');
-    const settingsPanel = document.getElementById('settingsPanel');
-    const modeBanner    = document.getElementById('modeBanner');
-    const downloadCsvBtn= document.getElementById('downloadCsvBtn');
-
-    // Language UI
-    function applyLanguage() {
-      const d = i18n[langSelect.value];
-      chatInput.placeholder       = d.placeholder;
-      sendBtn.textContent         = d.send;
-      modeSelect.options[0].text  = d.chat + ' (Private)';
-      modeSelect.options[1].text  = d.ritual + ' (Public)';
-    }
-    langSelect.onchange = applyLanguage;
-    applyLanguage();
+    const chatBox = document.getElementById('chatBox');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const modeSelect = document.getElementById('modeSelect');
+    const themeSelect = document.getElementById('themeSelect');
+    const panicBtn = document.getElementById('panicBtn');
+    const swipeIndicator = document.querySelector('.swipe-indicator');
+    const welcomeMessage = document.getElementById('welcomeMessage');
 
     // Theme switcher
     function applyTheme() {
-      document.body.classList.remove('dark','candle','rain','blank');
+      document.body.classList.remove('dark', 'candle', 'rain', 'blank');
       document.body.classList.add(themeSelect.value);
     }
-    themeSelect.onchange = applyTheme;
+
+    themeSelect.addEventListener('change', function() {
+      // Add temporary class for smooth transition
+      document.body.classList.add('theme-changing');
+      setTimeout(() => {
+        applyTheme();
+        document.body.classList.remove('theme-changing');
+      }, 10);
+    });
+
     applyTheme();
 
-    // Settings toggle
-    settingsBtn.onclick = () => settingsPanel.classList.toggle('show');
+    // Auto-resize textarea
+    function autoResize() {
+      chatInput.style.height = 'auto';
+      chatInput.style.height = (chatInput.scrollHeight) + 'px';
 
-    // Mode change & CSV button
-    modeSelect.onchange = () => {
-      const m = modeSelect.value;
-      modeBanner.textContent       = m==='chat'? 'Private Chat mode':'Public Ritual mode';
-      modeBanner.className         = `mode-banner ${m==='chat'?'mode-chat':'mode-ritual'}`;
-      downloadCsvBtn.style.display = m==='ritual'? 'inline-block':'none';
+      // Limit max height
+      if (chatInput.scrollHeight > 150) {
+        chatInput.style.overflowY = 'auto';
+      } else {
+        chatInput.style.overflowY = 'hidden';
+      }
+    }
+
+    chatInput.addEventListener('input', autoResize);
+
+    // Send message on Ctrl+Enter
+    chatInput.addEventListener('keydown', function(e) {
+      if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Censor abusive words
+    const abusiveWords = ['abuse', 'hate', 'stupid', 'idiot', 'fool', 'dumb', 'moron', 'retard', 'crap', 'shit', 'fuck', 'asshole', 'bitch', 'bastard'];
+    function censor(text) {
+      const pattern = new RegExp(`\\b(${abusiveWords.join('|')})\\b`, 'gi');
+      return text.replace(pattern, match => '*'.repeat(match.length));
+    }
+
+    // Welcome logic
+    function showWelcomePrivate() {
+      if (!welcomedPrivate) {
+        // Client-side only, not stored in Firestore
+        addMessage('EXELIS', `Welcome, ${userId}. I'm here to listen. Share what's on your mind.`, 'ai', false);
+        welcomedPrivate = true;
+      }
+    }
+
+    // Panic mode (clear UI)
+    async function panicMode() {
+      // Clear chat UI
+      chatBox.innerHTML = '<div id="welcomeMessage" class="welcome-message"><i class="fas fa-spinner fa-spin me-2"></i>Starting new session...</div>';
+      
+      // Clear input
+      chatInput.value = '';
+
+      // Start a new session
+      await startNewSession();
+
+      // Reset welcome flags
+      welcomedPrivate = false;
+      currentPublicRoom = null;
+
+      // Reload messages
       loadMessages();
-    };
+
+      // Show confirmation
+      showToast('Chat cleared. New session started.');
+    }
+
+    panicBtn.addEventListener('click', panicMode);
+
+    // Swipe detection for panic mode
+    let touchStartY = 0;
+
+    chatBox.addEventListener('touchstart', function(e) {
+      touchStartY = e.changedTouches[0].screenY;
+      swipeIndicator.style.display = 'block';
+    });
+
+    chatBox.addEventListener('touchmove', function(e) {
+      const touchY = e.changedTouches[0].screenY;
+      const diff = touchY - touchStartY;
+
+      // Show indicator if swiping down
+      if (diff > 50) {
+        swipeIndicator.style.display = 'block';
+      } else {
+        swipeIndicator.style.display = 'none';
+      }
+    });
+
+    chatBox.addEventListener('touchend', function(e) {
+      const touchEndY = e.changedTouches[0].screenY;
+      const diff = touchEndY - touchStartY;
+
+      // If swipe down more than 100px, trigger panic mode
+      if (diff > 100) {
+        panicMode();
+      }
+
+      swipeIndicator.style.display = 'none';
+    });
 
     // Firestore listeners
     let unsubscribe;
+
     function loadMessages() {
       if (unsubscribe) unsubscribe();
-      chatBox.innerHTML = '';
+
+      chatBox.innerHTML = '<div id="welcomeMessage" class="welcome-message"><i class="fas fa-spinner fa-spin me-2"></i>Loading messages...</div>';
+      welcomeMessage = document.getElementById('welcomeMessage');
+
       if (modeSelect.value === 'chat') {
-        // PRIVATE messages stored in `/private/{userId}/messages`
-        unsubscribe = db.collection('private')
-          .doc(userId)
-          .collection('messages')
-          .orderBy('ts')
-          .onSnapshot(snap => {
-            chatBox.innerHTML = '';
+        // Private mode
+        const ref = db.collection('private').doc(sessionId).collection('messages').orderBy('ts');
+
+        unsubscribe = ref.onSnapshot(snap => {
+          chatBox.innerHTML = '';
+          
+          if (snap.empty) {
+            showWelcomePrivate();
+          } else {
             snap.forEach(doc => {
               const m = doc.data();
-              addMessage(m.uid, m.text, (m.uid===userId)?'user':'ai');
+              addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai', true);
             });
-          });
+          }
+        }, error => {
+          console.error("Error loading messages:", error);
+          showToast("Error loading messages. Please try again.");
+        });
+
       } else {
-        // PUBLIC rituals
-        unsubscribe = db.collection('messages')
-          .where('mode','==','ritual')
-          .orderBy('ts')
-          .onSnapshot(snap => {
-            chatBox.innerHTML = '';
-            snap.forEach(doc => {
-              const m = doc.data();
-              addMessage(m.uid, m.text, (m.uid===userId)?'user':'ai');
-            });
+        // Public mode - random room assignment
+        if (currentPublicRoom === null) {
+          currentPublicRoom = Math.floor(Math.random() * 10);
+        }
+        
+        const ref = db.collection('public')
+          .where('room', '==', currentPublicRoom)
+          .orderBy('ts', 'desc')
+          .limit(25);
+
+        unsubscribe = ref.onSnapshot(snap => {
+          chatBox.innerHTML = '';
+
+          // Process messages in reverse order (oldest first)
+          const messages = [];
+          snap.forEach(doc => messages.push(doc.data()));
+          messages.reverse();
+
+          messages.forEach(m => {
+            addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai', true);
           });
+          
+          if (messages.length === 0) {
+            addMessage('EXELIS', `Welcome to public room #${currentPublicRoom+1}. Share your thoughts with others.`, 'ai', false);
+          }
+        }, error => {
+          console.error("Error loading public messages:", error);
+          showToast("Error loading public messages. Please try again.");
+        });
+
+        // Update banner
+        document.getElementById('modeBanner').className = 'mode-banner mode-ritual';
+        document.getElementById('modeBanner').innerHTML = `<i class="fas fa-users me-2"></i>Public Room #${currentPublicRoom + 1}`;
       }
     }
-    loadMessages();
+
+    modeSelect.addEventListener('change', function() {
+      // Update banner
+      if (modeSelect.value === 'chat') {
+        document.getElementById('modeBanner').className = 'mode-banner mode-chat';
+        document.getElementById('modeBanner').innerHTML = '<i class="fas fa-lock me-2"></i>Private Chat Mode';
+      } else {
+        document.getElementById('modeBanner').className = 'mode-banner mode-ritual';
+        document.getElementById('modeBanner').innerHTML = '<i class="fas fa-users me-2"></i>Public Ritual Mode';
+      }
+
+      loadMessages();
+    });
 
     // Send message
-    function sendMessage() {
-      const txt = chatInput.value.trim(); if (!txt) return;
+    async function sendMessage() {
+      const txt = chatInput.value.trim();
+      if (!txt) return;
+
       const now = firebase.firestore.FieldValue.serverTimestamp();
-      if (modeSelect.value === 'chat') {
-        // write to private
-        db.collection('private')
-          .doc(userId)
-          .collection('messages')
-          .add({ uid:userId, text:txt, ts:now });
-      } else {
-        // write to public
-        db.collection('messages')
-          .add({ uid:userId, text:txt, mode:'ritual', ts:now });
+      const censoredText = censor(txt);
+
+      // Add message to UI immediately
+      addMessage(userId, censoredText, 'user', false);
+
+      try {
+        if (modeSelect.value === 'chat') {
+          // Private mode - store in Firestore under session ID
+          const ref = db.collection('private').doc(sessionId).collection('messages');
+          await ref.add({ 
+            uid: userId, 
+            text: censoredText, 
+            ts: now 
+          });
+        } else {
+          // Public mode - store in public collection with room
+          if (currentPublicRoom === null) {
+            currentPublicRoom = Math.floor(Math.random() * 10);
+          }
+          
+          await db.collection('public').add({ 
+            uid: userId, 
+            text: censoredText, 
+            ts: now,
+            room: currentPublicRoom
+          });
+          
+          // Update banner to show current room
+          document.getElementById('modeBanner').innerHTML = `<i class="fas fa-users me-2"></i>Public Room #${currentPublicRoom + 1}`;
+        }
+      } catch (error) {
+        console.error("Error sending message:", error);
+        showToast("Failed to send message. Please try again.");
       }
+
       chatInput.value = '';
-      // AI reply
-      if (document.getElementById('aiReplyToggle').checked) {
-        setTimeout(() => {
-          const reply = modeSelect.value==='ritual'
-            ? i18n[langSelect.value].ritual + ' received.'
-            : 'You’re heard quietly.';
-          const target = (modeSelect.value==='chat')
-            ? db.collection('private').doc(userId).collection('messages')
-            : db.collection('messages');
-          target.add({ uid:'EXELIS', text:reply, mode:'ritual', ts:now });
-        }, 700);
+      autoResize();
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
       }
-    }
-    sendBtn.onclick = sendMessage;
-    chatInput.onkeydown = e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }};
+    });
 
-    // Add to UI
-    function addMessage(uid, text, cls) {
-      const w = document.createElement('div'); w.className = `msg-wrapper ${cls}`;
-      const img = document.createElement('img'); img.src = `https://ui-avatars.com/api/?name=${uid}&background=ffc107&color=000&size=64`;
+    // Add message to UI
+    function addMessage(uid, text, cls, animate) {
+      // Remove welcome message if present
+      const welcomeMessage = document.getElementById('welcomeMessage');
+      if (welcomeMessage && welcomeMessage.parentNode === chatBox) {
+        chatBox.removeChild(welcomeMessage);
+      }
+      
+      const w = document.createElement('div');
+      w.className = `msg-wrapper ${cls}`;
+      if (animate) w.style.animation = 'fadeIn 0.3s ease';
+
+      const img = document.createElement('img');
       img.className = 'avatar';
-      const m = document.createElement('div'); m.className = 'message'; m.textContent = text;
-      if (cls==='user') w.append(m, img); else w.append(img, m);
-      chatBox.appendChild(w); chatBox.scrollTop = chatBox.scrollHeight;
+      img.src = `https://ui-avatars.com/api/?name=${uid}&background=ffc107&color=000&size=64`;
+      img.onerror = () => { img.src = ''; };
+
+      const m = document.createElement('div');
+      m.className = 'message';
+      m.innerHTML = `<div class="message-text">${text}</div>`;
+
+      // Add copy button
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.innerHTML = '<i class="fas fa-copy fa-xs"></i>';
+      copyBtn.title = 'Copy message';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(text);
+        showToast('Message copied to clipboard');
+      });
+      m.appendChild(copyBtn);
+
+      if (cls === 'user') {
+        w.append(m, img);
+      } else {
+        w.append(img, m);
+      }
+
+      chatBox.appendChild(w);
+      chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // Download both private & public as CSV
-    downloadCsvBtn.onclick = async () => {
-      // fetch public
-      const pub = await db.collection('messages').where('mode','==','ritual').orderBy('ts').get();
-      // fetch private
-      const pri = await db.collection('private').doc(userId).collection('messages').orderBy('ts').get();
+    // Show toast notification
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
 
-      const rows = [['Mode','UID','Text','Timestamp']];
-      pub.forEach(d=>{ const m=d.data(); rows.push(['Public', m.uid, `"${m.text.replace(/"/g,'""')}"`, m.ts.toDate().toISOString()]); });
-      pri.forEach(d=>{ const m=d.data(); rows.push(['Private', m.uid, `"${m.text.replace(/"/g,'""')}"`, m.ts.toDate().toISOString()]); });
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 2000);
+    }
 
-      const csv = rows.map(r=>r.join(',')).join('\n');
-      const blob = new Blob([csv], {type:'text/csv'});
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a'); a.href=url; a.download='sln_chats.csv'; a.click();
-      URL.revokeObjectURL(url);
-    };
-  </script></body>
+    // Initialize
+    setTimeout(() => {
+      if (modeSelect.value === 'chat') {
+        showWelcomePrivate();
+      }
+    }, 1000);
+  </script>
+</body>
 </html>
