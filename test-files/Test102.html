@@ -1,142 +1,899 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SLN Chat</title>
-  <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    :root { --primary: #6f42c1; --accent: #ffc107; }
-    body.light { background: #fff; color: #000; }
-    body.dark { background: #1e1e2f; color: #fff; }
-    .header-bar.light { background: #f8f9fa; }
-    .header-bar.dark { background: #2c2c3d; }
-    .chat-box { flex:1; overflow-y:auto; padding:1rem; }
-    .chat-box.light { background: rgba(0,0,0,0.03); }
-    .chat-box.dark { background: rgba(255,255,255,0.05); }
-    .msg-wrapper { display:flex; align-items:flex-end; margin-bottom:1rem; }
-    .msg-wrapper.user { justify-content:flex-end; }
-    .msg-wrapper.ai { justify-content:flex-start; }
-    .message { padding:.75rem 1rem; border-radius:1rem; max-width:75%; word-break:break-word; }
-    .user.light .message { background: #cfe2ff; color: #000; }
-    .user.dark .message { background: #3b83bd; color: #fff; }
-    .ai.light .message { background: #e2e3e5; color: #000; }
-    .ai.dark .message { background: #4a4a5a; color: #fff; }
-    .avatar { width:36px; height:36px; border-radius:50%; border:2px solid var(--accent); object-fit:cover; }
-    .input-area { background: #f0f0f5; padding:1rem; }
-    .input-area.dark { background: #2c2c3d; }
-    .input-area textarea { resize:none; border-radius:.5rem; border:1px solid #ccc; }
-    .settings-icon { background:var(--accent); border:none; color:#000; padding:.2rem .6rem; border-radius:.3rem; cursor:pointer; }
-    .settings-panel { position:absolute; top:60px; right:20px; background:#2c2c3d; padding:1rem; border-radius:.5rem; width:220px; display:none; }
-    .settings-panel.show { display:block; }
-    .mode-banner { text-align:center; padding:.5rem; font-size:.9rem; }
-    .mode-chat { background:#198754; color:#fff; }
-    .mode-ritual { background:#0d6efd; color:#fff; }
-    .fixed-input { position:fixed; bottom:0; left:0; right:0; z-index:1000; }
-    .content { display:flex; flex-direction:column; height:100vh; }
-    .firestore-link { font-size:.8rem; color:#aaa; text-align:center; margin-top:.5rem; }
+    :root {
+      --primary: #6f42c1;
+      --accent: #ffc107;
+      --transition-time: 0.4s;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      --border-radius: 18px;
+    }
+    
+    body {
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      transition: background-color var(--transition-time) ease;
+      overflow: hidden;
+    }
+    
+    /* Theme Variables */
+    body.dark {
+      --bg: #1e1e2f;
+      --text: #e0e0e0;
+      --header: #2c2c3d;
+      --input: #2d2d3f;
+      --message-bg: #2a2a3a;
+      --user-message-bg: #ffc107;
+      --user-message-text: #1a1a1a;
+      --border: #3d3d50;
+      --hover: #3a3a4d;
+      --footer: #252536;
+    }
+    
+    body.candle {
+      --bg: #3e2f2f;
+      --text: #f8f0e3;
+      --header: #5a4132;
+      --input: #7b5e57;
+      --message-bg: #5a4a42;
+      --user-message-bg: #e9b44c;
+      --user-message-text: #2d1a12;
+      --border: #8b6d63;
+      --hover: #6d544b;
+      --footer: #4f3a32;
+    }
+    
+    body.rain {
+      --bg: #2f3e4f;
+      --text: #e3f0f8;
+      --header: #34566e;
+      --input: #4a708a;
+      --message-bg: #3a546b;
+      --user-message-bg: #4da1a9;
+      --user-message-text: #0a1929;
+      --border: #5a7a94;
+      --hover: #4a6580;
+      --footer: #2f4a60;
+    }
+    
+    body.blank {
+      --bg: #fafafa;
+      --text: #333;
+      --header: #e0e0e0;
+      --input: #f5f5f5;
+      --message-bg: #eeeeee;
+      --user-message-bg: #d4edda;
+      --user-message-text: #155724;
+      --border: #ddd;
+      --hover: #e9e9e9;
+      --footer: #f0f0f0;
+    }
+    
+    /* Header Styles */
+    .header-bar {
+      background: var(--header) !important;
+      padding: 0.8rem 1.5rem;
+      box-shadow: var(--shadow);
+      z-index: 100;
+      transition: all var(--transition-time);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    /* Mode Banner */
+    .mode-banner {
+      text-align: center;
+      padding: 0.8rem;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: all var(--transition-time);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      position: relative;
+      z-index: 50;
+    }
+    
+    .mode-chat { background: linear-gradient(135deg, #198754, #0d8a4f); color: #fff; }
+    .mode-ritual { background: linear-gradient(135deg, #0d6efd, #0b5ed7); color: #fff; }
+    
+    /* Chat Box */
+    .chat-box {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 1.5rem 7rem;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      transition: background-color var(--transition-time);
+      scroll-behavior: smooth;
+    }
+    
+    /* Message Styles */
+    .msg-wrapper {
+      display: flex;
+      align-items: flex-end;
+      margin-bottom: 1.5rem;
+      animation: fadeIn 0.4s ease;
+      max-width: 90%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    .msg-wrapper.user { 
+      justify-content: flex-end;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(15px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes scaleIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    
+    .message {
+      padding: 1rem 1.5rem;
+      border-radius: var(--border-radius);
+      max-width: 80%;
+      word-break: break-word;
+      background: var(--message-bg);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      position: relative;
+      transition: all var(--transition-time);
+      border: 1px solid var(--border);
+      animation: scaleIn 0.3s ease-out;
+    }
+    
+    .user .message {
+      background: var(--user-message-bg);
+      color: var(--user-message-text);
+      border-radius: var(--border-radius) var(--border-radius) 0 var(--border-radius);
+    }
+    
+    .ai .message {
+      border-radius: var(--border-radius) var(--border-radius) var(--border-radius) 0;
+      background: linear-gradient(135deg, var(--message-bg), rgba(0,0,0,0.1));
+    }
+    
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      object-fit: cover;
+      margin: 0 0.8rem;
+      background: var(--accent);
+      transition: all var(--transition-time);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #000;
+    }
+    
+    /* Input Area */
+    .input-area {
+      background: var(--input);
+      padding: 1.2rem 1.5rem;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      box-shadow: 0 -6px 15px rgba(0, 0, 0, 0.1);
+      transition: all var(--transition-time);
+      border-top: 1px solid var(--border);
+    }
+    
+    .input-area textarea {
+      resize: none;
+      border-radius: 1.2rem;
+      border: 1px solid var(--border);
+      background: var(--input);
+      color: var(--text);
+      padding: 1rem 1.5rem;
+      height: auto;
+      min-height: 56px;
+      max-height: 180px;
+      transition: all var(--transition-time);
+      font-size: 1.05rem;
+    }
+    
+    .input-area textarea:focus {
+      box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.25);
+      border-color: var(--primary);
+    }
+    
+    /* Placeholder Animation */
+    @keyframes pulse {
+      0% { opacity: 0.5; }
+      50% { opacity: 0.8; }
+      100% { opacity: 0.5; }
+    }
+    
+    #chatInput::placeholder {
+      animation: pulse 2.5s infinite;
+      color: rgba(var(--text-rgb), 0.7);
+    }
+    
+    /* Button Styles */
+    .btn {
+      border-radius: 1.2rem;
+      transition: all 0.25s ease;
+      font-weight: 500;
+      padding: 0.7rem 1.4rem;
+      font-size: 1.05rem;
+    }
+    
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .btn:active {
+      transform: translateY(1px);
+    }
+    
+    /* Copy Button */
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.25s ease;
+      cursor: pointer;
+      color: var(--text);
+      backdrop-filter: blur(2px);
+    }
+    
+    .message:hover .copy-btn {
+      opacity: 1;
+    }
+    
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: scale(1.1);
+    }
+    
+    /* Privacy Notice */
+    .privacy-notice {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.75);
+      color: white;
+      padding: 1rem;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      max-width: 320px;
+      z-index: 2000;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .privacy-notice summary {
+      cursor: pointer;
+      outline: none;
+      font-weight: 500;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+    }
+    
+    .privacy-notice summary i {
+      margin-right: 8px;
+    }
+    
+    .privacy-notice p {
+      margin: 0.8rem 0 0;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    
+    /* Session Info */
+    .session-info {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.8);
+      background: rgba(0, 0, 0, 0.35);
+      padding: 5px 12px;
+      border-radius: 16px;
+      z-index: 100;
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Toast for copy */
+    .toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(40, 40, 40, 0.9);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 30px;
+      z-index: 2000;
+      animation: fadeInOut 2.5s forwards;
+      backdrop-filter: blur(10px);
+      font-size: 0.9rem;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translate(-50%, 15px); }
+      20% { opacity: 1; transform: translate(-50%, 0); }
+      80% { opacity: 1; transform: translate(-50%, 0); }
+      100% { opacity: 0; transform: translate(-50%, -15px); }
+    }
+    
+    /* Micro-interactions */
+    .btn-micro {
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    
+    .btn-micro:hover {
+      transform: scale(1.08);
+    }
+    
+    .btn-micro:active {
+      transform: scale(0.95);
+    }
+    
+    /* Swipe indicator */
+    .swipe-indicator {
+      position: fixed;
+      top: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 193, 7, 0.25);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 0.85rem;
+      display: none;
+      z-index: 1000;
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--accent);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    /* Theme transition */
+    body.theme-transition {
+      transition: background-color 0.7s ease, color 0.7s ease;
+    }
+    
+    /* Firestore link */
+    .firestore-link {
+      text-align: center;
+      padding: 0.8rem;
+      font-size: 0.8rem;
+      color: rgba(var(--text-rgb), 0.6);
+      background: var(--footer);
+      border-top: 1px solid var(--border);
+    }
+    
+    /* Welcome message styling */
+    .welcome-message {
+      text-align: center;
+      padding: 1.5rem;
+      margin: 1rem auto;
+      max-width: 80%;
+      border-radius: var(--border-radius);
+      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.15), rgba(0,0,0,0.05));
+      border: 1px solid var(--primary);
+      animation: fadeIn 0.8s ease;
+    }
+    
+    /* Panic button */
+    #panicBtn {
+      transition: all 0.3s ease;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    
+    #panicBtn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 15px rgba(220, 53, 69, 0.4);
+    }
+    
+    /* Scrollbar styling */
+    .chat-box::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .chat-box::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+    }
+    
+    .chat-box::-webkit-scrollbar-thumb {
+      background: var(--accent);
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body class="dark">
-  <div class="content">
+  <div class="content d-flex flex-column" style="height:100vh">
+    <!-- Swipe Indicator -->
+    <div class="swipe-indicator">
+      <i class="fas fa-arrow-down me-2"></i>Swipe down to clear chat and start fresh
+    </div>
+    
+    <!-- Session Info -->
+    <div class="session-info">
+      <i class="fas fa-fingerprint me-1"></i>Soulprint: <span id="soulprint"></span>
+    </div>
+    
     <!-- Top Bar -->
-    <div id="headerBar" class="header-bar dark d-flex justify-content-between align-items-center px-4 py-2">
-      <div class="d-flex align-items-center gap-2">
-        <button id="settingsBtn" class="settings-icon">⚙️</button>
-        <select id="modeSelect" class="form-select form-select-sm">
-          <option value="chat">Chat (Private)</option>
-          <option value="ritual">Ritual (Public)</option>
+    <div id="headerBar" class="header-bar d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center">
+        <div class="me-3">
+          <i class="fas fa-brain fs-3" style="color: var(--accent);"></i>
+        </div>
+        <select id="modeSelect" class="form-select form-select-lg me-3 btn-micro">
+          <option value="chat">Private Chat</option>
+          <option value="ritual">Public Ritual</option>
         </select>
-      </div>
-      <div class="d-flex align-items-center gap-2">
-        <select id="langSelect" class="form-select form-select-sm"></select>
-        <select id="themeSelect" class="form-select form-select-sm">
+        <select id="themeSelect" class="form-select form-select-lg btn-micro">
           <option value="dark" selected>Night Sky</option>
           <option value="candle">Warm Candle</option>
           <option value="rain">Rain Window</option>
           <option value="blank">Blank Page</option>
         </select>
       </div>
-    </div><!-- Mode Banner -->
-<div id="modeBanner" class="mode-banner mode-chat">Private Chat mode</div>
-
-<!-- Chat Box -->
-<div id="chatBox" class="chat-box dark flex-grow-1 px-4 py-3"></div>
-
-<!-- Firestore hint -->
-<div class="firestore-link">Messages powered by Firebase Firestore</div>
-
-<!-- Input -->
-<div id="inputArea" class="input-area dark fixed-input">
-  <div class="input-group">
-    <textarea id="chatInput" class="form-control" placeholder=""></textarea>
-    <button id="sendBtn" class="btn btn-primary ms-2"></button>
+      <div>
+        <button id="panicBtn" class="btn btn-lg btn-outline-danger btn-micro">
+          <i class="fas fa-trash-alt me-2"></i>Clear Session
+        </button>
+      </div>
+    </div>
+    
+    <div id="modeBanner" class="mode-banner mode-chat">
+      <i class="fas fa-lock me-2"></i>Private Chat Mode
+    </div>
+    
+    <div id="chatBox" class="chat-box flex-grow-1"></div>
+    
+    <div class="firestore-link">
+      <i class="fas fa-database me-1"></i>Messages powered by Firebase Firestore
+    </div>
+    
+    <div id="inputArea" class="input-area">
+      <div class="input-group">
+        <textarea
+          id="chatInput"
+          class="form-control"
+          placeholder="Type what you feel..."
+          rows="1"
+        ></textarea>
+        <button id="sendBtn" class="btn btn-primary ms-3 btn-micro">
+          <i class="fas fa-paper-plane me-2"></i>Send
+        </button>
+      </div>
+    </div>
   </div>
-</div>
+  
+  <!-- Privacy Notice -->
+  <div class="privacy-notice">
+    <details>
+      <summary><i class="fas fa-shield-alt"></i>Privacy Notice</summary>
+      <p>🕊️ “This space respects your silence. We don't store names, emails, or personal details. Every chat is a session of the soul — anonymous, ephemeral, and safe. For security and alignment, your session IDs are recorded but never traced to you.”</p>
+    </details>
+  </div>
 
-  </div>  <!-- Settings Panel -->  <div id="settingsPanel" class="settings-panel dark">
-    <h6 class="text-light">Settings</h6>
-    <div class="mb-2">
-      <label class="form-label text-light">Auto-delete (hrs)</label>
-      <input type="number" id="ttlInput" class="form-control form-control-sm" value="12" min="1" max="48">
-    </div>
-    <div class="form-check form-switch text-light">
-      <input class="form-check-input" type="checkbox" id="aiReplyToggle" checked>
-      <label class="form-check-label" for="aiReplyToggle">AI Replies</label>
-    </div>
-  </div>  <!-- Firebase & App Logic -->  <script>
-    // Firebase init
+  <script>
+    // Set RGB values for themes
+    document.documentElement.style.setProperty('--text-rgb', 
+      getComputedStyle(document.documentElement).getPropertyValue('--text').trim().startsWith('#') 
+        ? hexToRgb(getComputedStyle(document.documentElement).getPropertyValue('--text').trim())
+        : '255, 255, 255');
+    
+    document.documentElement.style.setProperty('--primary-rgb', '111, 66, 193');
+    
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? 
+        `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` 
+        : '255, 255, 255';
+    }
+    
+    // Apply theme transition class
+    document.body.classList.add('theme-transition');
+    
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
       projectId: "squadvertex2007",
       storageBucket: "squadvertex2007.appspot.com",
       messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
+    
+    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-
-    // I18n
-    const i18n = { en:{placeholder:'Type what you feel...',send:'Send',chat:'Chat',ritual:'Ritual'},hi:{placeholder:'जो महसूस करते हो यहाँ लिखो...',send:'भेजें',chat:'चैट',ritual:'रिचुअल'} }; // add others...
-    const langSelect = document.getElementById('langSelect');
-    Object.keys(i18n).forEach(code=>{let opt=document.createElement('option');opt.value=code;opt.textContent=code.toUpperCase();langSelect.append(opt);}); langSelect.value='en';
-
-    const chatInput=document.getElementById('chatInput'), sendBtn=document.getElementById('sendBtn'),
-      modeSelect=document.getElementById('modeSelect'), themeSelect=document.getElementById('themeSelect'),
-      settingsBtn=document.getElementById('settingsBtn'), settingsPanel=document.getElementById('settingsPanel'),
-      modeBanner=document.getElementById('modeBanner'), chatBox=document.getElementById('chatBox');
-
-    // Language & UI
-    function applyLanguage(){const d=i18n[langSelect.value];chatInput.placeholder=d.placeholder;sendBtn.textContent=d.send;modeSelect.options[0].text=d.chat+' (Private)';modeSelect.options[1].text=d.ritual+' (Public)';}
-    langSelect.onchange=applyLanguage; applyLanguage();
-
-    function applyTheme(){const t=themeSelect.value;document.body.className=t==='light'?'light':'dark';['headerBar','chatBox','inputArea'].forEach(id=>{const el=document.getElementById(id);el.classList.toggle('light',t==='light');el.classList.toggle('dark',t!=='light');});}
-    themeSelect.onchange=applyTheme; applyTheme();
-
-    settingsBtn.onclick=()=>settingsPanel.classList.toggle('show');
-    modeSelect.onchange=()=>{modeBanner.textContent=modeSelect.value==='chat'?'Private Chat mode':'Public Ritual mode';modeBanner.className=`mode-banner ${modeSelect.value==='chat'?'mode-chat':'mode-ritual'}`;loadMessages();};
-
-    // User ID & avatar
-    const userId=localStorage.getItem('sln_user_id')||(()=>{const id='SilentSoul'+Math.floor(Math.random()*1000);localStorage.setItem('sln_user_id',id);return id;})();
-    function getAvatar(id){const cols=['ff6b6b','54a0ff','1dd1a1','feca57'],h=id.split('').reduce((a,b)=>a+b.charCodeAt(0),0);return`https://ui-avatars.com/api/?name=${id}&background=${cols[h%4]}&color=000&size=64`;}
-
-    // Firestore listener
-    let unsubscribe;
-    function loadMessages(){ if(unsubscribe) unsubscribe(); chatBox.innerHTML=''; const mode=modeSelect.value;
-      unsubscribe = db.collection('messages').where('mode','==',mode).orderBy('ts').onSnapshot(snap=>{chatBox.innerHTML='';snap.forEach(doc=>{const m=doc.data();addMessage(m.uid,m.text,m.uid===userId?'user':'ai');});});
+    
+    // Session management
+    let sessionId = localStorage.getItem('sln_sessionId');
+    let previousSessionId = null;
+    let userId = null;
+    let sessionChain = [];
+    
+    function generateSessionId() {
+      return 'soul-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
     }
-    loadMessages();
-
+    
+    function startNewSession() {
+      previousSessionId = sessionId;
+      sessionId = generateSessionId();
+      
+      // Store session chain in Firestore
+      if (previousSessionId) {
+        sessionChain.push({
+          oldSessionId: previousSessionId,
+          newSessionId: sessionId,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // Save session chain to Firestore
+        db.collection("session_chains").add({
+          oldSessionId: previousSessionId,
+          newSessionId: sessionId,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      
+      // Save new session to localStorage
+      localStorage.setItem('sln_sessionId', sessionId);
+      
+      // Generate user ID for this session
+      userId = 'SilentSoul' + Math.floor(Math.random() * 10000 + 1);
+      
+      // Update UI
+      document.getElementById('soulprint').textContent = sessionId.substring(0, 8) + '...';
+      
+      return sessionId;
+    }
+    
+    // Initialize session
+    if (!sessionId) {
+      startNewSession();
+    } else {
+      // If session exists, generate user ID
+      userId = 'SilentSoul' + Math.floor(Math.random() * 10000 + 1);
+      document.getElementById('soulprint').textContent = sessionId.substring(0, 8) + '...';
+    }
+    
+    // DOM Elements
+    const chatBox = document.getElementById('chatBox');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const modeSelect = document.getElementById('modeSelect');
+    const themeSelect = document.getElementById('themeSelect');
+    const panicBtn = document.getElementById('panicBtn');
+    const swipeIndicator = document.querySelector('.swipe-indicator');
+    
+    // Theme switcher
+    function applyTheme() {
+      document.body.classList.remove('dark', 'candle', 'rain', 'blank');
+      document.body.classList.add(themeSelect.value);
+      
+      // Update text RGB for placeholder
+      const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+      document.documentElement.style.setProperty('--text-rgb', 
+        textColor.startsWith('#') ? hexToRgb(textColor) : '255, 255, 255');
+    }
+    
+    themeSelect.addEventListener('change', function() {
+      // Add temporary class for smooth transition
+      document.body.classList.add('theme-changing');
+      setTimeout(() => {
+        applyTheme();
+        document.body.classList.remove('theme-changing');
+      }, 10);
+    });
+    
+    applyTheme();
+    
+    // Auto-resize textarea
+    function autoResize() {
+      chatInput.style.height = 'auto';
+      chatInput.style.height = (chatInput.scrollHeight) + 'px';
+      
+      // Limit max height
+      if (chatInput.scrollHeight > 180) {
+        chatInput.style.overflowY = 'auto';
+      } else {
+        chatInput.style.overflowY = 'hidden';
+      }
+    }
+    
+    chatInput.addEventListener('input', autoResize);
+    
+    // Send message on Ctrl+Enter
+    chatInput.addEventListener('keydown', function(e) {
+      if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+    
+    // Censor abusive words
+    const abusiveWords = ['abuse', 'hate', 'stupid', 'idiot', 'dumb', 'fool', 'loser']; 
+    function censor(text) {
+      const pattern = new RegExp(`\\b(${abusiveWords.join('|')})\\b`, 'gi');
+      return text.replace(pattern, match => '•'.repeat(match.length));
+    }
+    
+    // Welcome logic
+    let welcomedPrivate = false;
+    const welcomedPublic = new Set();
+    
+    function showWelcomePrivate() {
+      if (!welcomedPrivate) {
+        // Client-side only welcome
+        const welcomeDiv = document.createElement('div');
+        welcomeDiv.className = 'welcome-message';
+        welcomeDiv.innerHTML = `
+          <h4><i class="fas fa-dove me-2"></i>Welcome, Soul Traveler</h4>
+          <p class="mb-0">This is your private sanctuary. Share your thoughts freely.</p>
+        `;
+        chatBox.appendChild(welcomeDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        welcomedPrivate = true;
+      }
+    }
+    
+    // Panic mode (clear UI)
+    function panicMode() {
+      // Clear chat UI with animation
+      chatBox.style.opacity = 0;
+      setTimeout(() => {
+        chatBox.innerHTML = '';
+        chatBox.style.opacity = 1;
+      }, 300);
+      
+      // Clear input
+      chatInput.value = '';
+      autoResize();
+      
+      // Start a new session
+      startNewSession();
+      
+      // Reset welcome flags
+      welcomedPrivate = false;
+      welcomedPublic.clear();
+      
+      // If in private mode, show welcome again
+      if (modeSelect.value === 'chat') {
+        setTimeout(showWelcomePrivate, 500);
+      }
+      
+      // Show confirmation
+      showToast('Session cleared. New soulprint generated.');
+    }
+    
+    panicBtn.addEventListener('click', panicMode);
+    
+    // Swipe detection for panic mode
+    let touchStartY = 0;
+    
+    chatBox.addEventListener('touchstart', function(e) {
+      touchStartY = e.changedTouches[0].screenY;
+      swipeIndicator.style.display = 'block';
+    });
+    
+    chatBox.addEventListener('touchmove', function(e) {
+      const touchY = e.changedTouches[0].screenY;
+      const diff = touchY - touchStartY;
+      
+      // Show indicator if swiping down
+      if (diff > 50) {
+        swipeIndicator.style.display = 'block';
+      } else {
+        swipeIndicator.style.display = 'none';
+      }
+    });
+    
+    chatBox.addEventListener('touchend', function(e) {
+      const touchEndY = e.changedTouches[0].screenY;
+      const diff = touchEndY - touchStartY;
+      
+      // If swipe down more than 100px, trigger panic mode
+      if (diff > 100) {
+        panicMode();
+      }
+      
+      swipeIndicator.style.display = 'none';
+    });
+    
+    // Firestore listeners
+    let unsubscribe;
+    
+    function loadMessages() {
+      if (unsubscribe) unsubscribe();
+      
+      chatBox.innerHTML = '';
+      
+      if (modeSelect.value === 'chat') {
+        // Private mode
+        const ref = db.collection('private').doc(sessionId).collection('messages').orderBy('ts');
+        
+        unsubscribe = ref.onSnapshot(snap => {
+          snap.docChanges().forEach(change => {
+            if (change.type === 'added') {
+              const m = change.doc.data();
+              addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai', true);
+            }
+          });
+        });
+        
+        // Show welcome if not already shown
+        setTimeout(showWelcomePrivate, 500);
+      } else {
+        // Public mode - random room assignment
+        const room = Math.floor(Math.random() * 10);
+        const ref = db.collection('public')
+          .where('room', '==', room)
+          .orderBy('ts', 'desc')
+          .limit(25);
+        
+        unsubscribe = ref.onSnapshot(snap => {
+          chatBox.innerHTML = '';
+          
+          // Process messages in reverse order (oldest first)
+          const messages = [];
+          snap.forEach(doc => messages.push(doc.data()));
+          messages.reverse();
+          
+          messages.forEach(m => {
+            addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai', true);
+          });
+          
+          // Show welcome
+          const welcomeDiv = document.createElement('div');
+          welcomeDiv.className = 'welcome-message';
+          welcomeDiv.innerHTML = `
+            <h4><i class="fas fa-users me-2"></i>Public Ritual #${room + 1}</h4>
+            <p class="mb-0">You've entered a shared space. Be kind to fellow souls.</p>
+          `;
+          chatBox.prepend(welcomeDiv);
+          chatBox.scrollTop = chatBox.scrollHeight;
+        });
+        
+        // Update banner
+        document.getElementById('modeBanner').className = 'mode-banner mode-ritual';
+        document.getElementById('modeBanner').innerHTML = `<i class="fas fa-users me-2"></i>Public Ritual #${room + 1}`;
+      }
+    }
+    
+    modeSelect.addEventListener('change', function() {
+      // Update banner
+      if (modeSelect.value === 'chat') {
+        document.getElementById('modeBanner').className = 'mode-banner mode-chat';
+        document.getElementById('modeBanner').innerHTML = '<i class="fas fa-lock me-2"></i>Private Chat Mode';
+      } else {
+        document.getElementById('modeBanner').className = 'mode-banner mode-ritual';
+        document.getElementById('modeBanner').innerHTML = '<i class="fas fa-users me-2"></i>Public Ritual Mode';
+      }
+      
+      loadMessages();
+    });
+    
     // Send message
-    function sendMessage(){const txt=chatInput.value.trim();if(!txt)return;const mode=modeSelect.value;
-      db.collection('messages').add({uid:userId,text:txt,mode:mode,ts:firebase.firestore.FieldValue.serverTimestamp()});
-      chatInput.value=''; if(document.getElementById('aiReplyToggle').checked){setTimeout(()=>{const reply=mode==='ritual'?i18n[langSelect.value].ritual+' received.':'You’re heard quietly.';db.collection('messages').add({uid:'EXELIS',text:reply,mode:mode,ts:firebase.firestore.FieldValue.serverTimestamp()});},800);} }
-    sendBtn.onclick=sendMessage; chatInput.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}};
-
-    function addMessage(uid,text,cls){const w=document.createElement('div');w.className=`msg-wrapper ${cls} ${document.body.className}`;const img=document.createElement('img');img.src=getAvatar(uid);img.className='avatar';const msg=document.createElement('div');msg.className='message';msg.textContent=text; if(cls==='user')w.append(msg,img);else w.append(img,msg);chatBox.appendChild(w);chatBox.scrollTop=chatBox.scrollHeight;}  
-  </script></body>
+    async function sendMessage() {
+      const txt = chatInput.value.trim();
+      if (!txt) return;
+      
+      const now = firebase.firestore.FieldValue.serverTimestamp();
+      const censoredText = censor(txt);
+      
+      // Add message to UI immediately
+      addMessage(userId, censoredText, 'user', false);
+      
+      if (modeSelect.value === 'chat') {
+        // Private mode - store in Firestore under session ID
+        const ref = db.collection('private').doc(sessionId).collection('messages');
+        await ref.add({ 
+          uid: userId, 
+          text: censoredText, 
+          ts: now 
+        });
+      } else {
+        // Public mode - store in public collection with random room
+        const room = Math.floor(Math.random() * 10);
+        await db.collection('public').add({ 
+          uid: userId, 
+          text: censoredText, 
+          ts: now,
+          room: room
+        });
+      }
+      
+      chatInput.value = '';
+      autoResize();
+    }
+    
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+    
+    // Add message to UI
+    function addMessage(uid, text, cls, animate) {
+      const w = document.createElement('div');
+      w.className = `msg-wrapper ${cls}`;
+      if (animate) w.style.animation = 'fadeIn 0.4s ease';
+      
+      const img = document.createElement('div');
+      img.className = 'avatar';
+      img.textContent = uid.substring(0, 1);
+      
+      const m = document.createElement('div');
+      m.className = 'message';
+      m.innerHTML = `<div class="message-text">${text}</div>`;
+      
+      // Add copy button
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+      copyBtn.title = 'Copy message';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(text);
+        showToast('Copied to your soul journal');
+      });
+      m.appendChild(copyBtn);
+      
+      if (cls === 'user') {
+        w.append(m, img);
+      } else {
+        w.append(img, m);
+      }
+      
+      chatBox.appendChild(w);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+    
+    // Show toast notification
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerHTML = `<i class="fas fa-check-circle me-2"></i>${message}`;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 2500);
+    }
+    
+    // Initialize
+    loadMessages();
+  </script>
+</body>
 </html>
