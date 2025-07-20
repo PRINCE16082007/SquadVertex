@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SLN Chat - Fixed Session</title>
+  <title>SLN Chat</title>
   <!-- Bootstrap CSS -->
   <link
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
     rel="stylesheet"
   />
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -355,52 +358,19 @@
       border-bottom: 1px dashed var(--accent);
       margin-bottom: 1rem;
     }
-
-    /* Debug console */
-    .debug-console {
-      position: fixed;
-      bottom: 100px;
-      left: 0;
-      right: 0;
-      height: 200px;
-      background: rgba(0, 0, 0, 0.85);
-      color: #0f0;
-      padding: 10px;
-      font-family: monospace;
-      font-size: 12px;
-      overflow-y: auto;
-      z-index: 3000;
-      border-top: 2px solid #0f0;
-      display: none;
-    }
-    .debug-toggle {
-      position: fixed;
-      bottom: 90px;
-      right: 10px;
-      z-index: 3001;
-      background: #333;
-      color: white;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
     
-    /* Session status indicator */
-    .session-status {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
+    /* Status Indicator */
+    .status-indicator {
+      position: fixed;
+      bottom: 130px;
+      right: 20px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
-      margin-left: 5px;
+      z-index: 2000;
     }
-    .session-active {
-      background-color: #28a745;
-    }
-    .session-new {
-      background-color: #ffc107;
-      animation: pulse 1.5s infinite;
-    }
+    .status-connected { background-color: #4caf50; }
+    .status-disconnected { background-color: #f44336; }
   </style>
 </head>
 <body class="dark">
@@ -410,9 +380,12 @@
       <i class="fas fa-arrow-down me-2"></i>Swipe down to clear chat
     </div>
 
+    <!-- Status Indicator -->
+    <div id="statusIndicator" class="status-indicator status-connected" title="Connected"></div>
+
     <!-- Session Info -->
     <div class="session-info">
-      Soulprint: <span id="soulprint"></span><span id="sessionStatus" class="session-status session-new"></span>
+      Soulprint: <span id="soulprint"></span>
     </div>
 
     <!-- Top Bar -->
@@ -434,7 +407,7 @@
       </div>
       <div>
         <button id="panicBtn" class="btn btn-sm btn-outline-danger btn-micro">
-          <i class="fas fa-trash-alt me-1"></i>Clear Session
+          <i class="fas fa-trash-alt me-1"></i>Clear
         </button>
       </div>
     </div>
@@ -449,7 +422,7 @@
     </div>
 
     <div class="text-center my-2 text-muted" style="font-size:.8rem">
-      Secure anonymous messaging
+      Messages powered by Firebase Firestore
     </div>
 
     <div id="inputArea" class="input-area">
@@ -479,85 +452,326 @@
     // Apply theme transition class
     document.body.classList.add('theme-transition');
     
-    // Session management
-    let sessionId = null;
-    let userId = null;
-    let currentPublicRoom = null;
-    let welcomedPrivate = false;
+    // Status indicator
+    const statusIndicator = document.getElementById('statusIndicator');
     
-    // Generate a new session ID
+    // Firebase init
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    
+    // Enable offline persistence
+    db.enablePersistence()
+      .catch((err) => {
+        console.log('Firestore offline persistence not enabled:', err);
+      });
+    
+    // Monitor connection status
+    firebase.firestore().enableNetwork()
+      .then(() => {
+        statusIndicator.className = "status-indicator status-connected";
+        statusIndicator.title = "Connected";
+      })
+      .catch(() => {
+        statusIndicator.className = "status-indicator status-disconnected";
+        statusIndicator.title = "Disconnected";
+      });
+
+    // Session management
+    let sessionId = sessionStorage.getItem('sln_sessionId');
+    let userId = null;
+    let unsubscribe = null;
+    let welcomedPrivate = false;
+    let publicChatLoaded = false;
+
     function generateSessionId() {
       return 'soul-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
     }
-    
-    // Create a new session
-    function createNewSession() {
-      // Clear any previous session data
+
+    function startNewSession() {
+      // Clear old session from sessionStorage
+      sessionStorage.removeItem('sln_sessionId');
+      
+      // Generate new session ID
       sessionId = generateSessionId();
+      
+      // Save to sessionStorage
+      sessionStorage.setItem('sln_sessionId', sessionId);
+      
+      // Generate new user ID
       userId = 'SilentSoul' + Math.floor(Math.random() * 1000 + 1);
-      currentPublicRoom = null;
-      welcomedPrivate = false;
       
       // Update UI
       document.getElementById('soulprint').textContent = sessionId.substring(0, 8) + '...';
-      document.getElementById('sessionStatus').className = 'session-status session-new';
+      document.getElementById('welcomeMessage').innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Starting your session...`;
       
-      // Show session status animation
-      setTimeout(() => {
-        document.getElementById('sessionStatus').className = 'session-status session-active';
-      }, 3000);
+      // Reset flags
+      welcomedPrivate = false;
+      publicChatLoaded = false;
       
       return sessionId;
     }
-    
+
     // Initialize session
-    function initializeSession() {
-      createNewSession();
-      document.getElementById('welcomeMessage').innerHTML = 
-        `<div class="text-center">
-          <h5><i class="fas fa-star me-2"></i>New Session Started</h5>
-          <div class="mt-2 small">
-            <div>Session ID: ${sessionId.substring(0, 12)}...</div>
-            <div>User ID: ${userId}</div>
-          </div>
-        </div>`;
-      
-      // Show welcome message for private mode
-      if (document.getElementById('modeSelect').value === 'chat') {
-        showWelcomePrivate();
+    if (!sessionId) {
+      startNewSession();
+    } else {
+      // If session exists, generate user ID
+      userId = 'SilentSoul' + Math.floor(Math.random() * 1000 + 1);
+      document.getElementById('soulprint').textContent = sessionId.substring(0, 8) + '...';
+    }
+
+    // Elements
+    const chatBox = document.getElementById('chatBox');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const modeSelect = document.getElementById('modeSelect');
+    const themeSelect = document.getElementById('themeSelect');
+    const panicBtn = document.getElementById('panicBtn');
+    const swipeIndicator = document.querySelector('.swipe-indicator');
+    const welcomeMessage = document.getElementById('welcomeMessage');
+
+    // Theme switcher
+    function applyTheme() {
+      document.body.classList.remove('dark', 'candle', 'rain', 'blank');
+      document.body.classList.add(themeSelect.value);
+    }
+
+    themeSelect.addEventListener('change', function() {
+      // Add temporary class for smooth transition
+      document.body.classList.add('theme-changing');
+      setTimeout(() => {
+        applyTheme();
+        document.body.classList.remove('theme-changing');
+      }, 10);
+    });
+
+    applyTheme();
+
+    // Auto-resize textarea
+    function autoResize() {
+      chatInput.style.height = 'auto';
+      chatInput.style.height = (chatInput.scrollHeight) + 'px';
+
+      // Limit max height
+      if (chatInput.scrollHeight > 150) {
+        chatInput.style.overflowY = 'auto';
+      } else {
+        chatInput.style.overflowY = 'hidden';
       }
     }
-    
-    // Show welcome for private mode
+
+    chatInput.addEventListener('input', autoResize);
+
+    // Send message on Ctrl+Enter
+    chatInput.addEventListener('keydown', function(e) {
+      if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Censor abusive words
+    const abusiveWords = ['abuse', 'hate', 'stupid', 'idiot', 'fool', 'dumb', 'moron', 'retard', 'crap', 'shit', 'fuck', 'asshole', 'bitch', 'bastard'];
+    function censor(text) {
+      const pattern = new RegExp(`\\b(${abusiveWords.join('|')})\\b`, 'gi');
+      return text.replace(pattern, match => '*'.repeat(match.length));
+    }
+
+    // Welcome logic
     function showWelcomePrivate() {
       if (!welcomedPrivate) {
+        // Client-side only, not stored in Firestore
         addMessage('EXELIS', `Welcome, ${userId}. I'm here to listen. Share what's on your mind.`, 'ai', false);
         welcomedPrivate = true;
       }
     }
-    
-    // Panic mode (clear UI and start new session)
-    async function panicMode() {
+
+    // Panic mode (clear UI)
+    function panicMode() {
       // Clear chat UI
-      document.getElementById('chatBox').innerHTML = 
-        '<div id="welcomeMessage" class="welcome-message">' +
-          '<i class="fas fa-spinner fa-spin me-2"></i>Clearing session...' +
-        '</div>';
+      chatBox.innerHTML = '<div id="welcomeMessage" class="welcome-message"><i class="fas fa-spinner fa-spin me-2"></i>Starting new session...</div>';
       
       // Clear input
-      document.getElementById('chatInput').value = '';
+      chatInput.value = '';
       
-      // Start a new session after delay
-      setTimeout(initializeSession, 800);
-      
+      // Unsubscribe from current listener
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+
+      // Start a new session
+      startNewSession();
+
+      // If in private mode, show welcome again
+      if (modeSelect.value === 'chat') {
+        setTimeout(showWelcomePrivate, 500);
+      } else {
+        publicChatLoaded = false;
+        loadMessages();
+      }
+
       // Show confirmation
-      showToast('Session cleared. New session started.');
+      showToast('Chat cleared. New session started.');
     }
-    
+
+    panicBtn.addEventListener('click', panicMode);
+
+    // Swipe detection for panic mode
+    let touchStartY = 0;
+
+    chatBox.addEventListener('touchstart', function(e) {
+      touchStartY = e.changedTouches[0].screenY;
+      swipeIndicator.style.display = 'block';
+    });
+
+    chatBox.addEventListener('touchmove', function(e) {
+      const touchY = e.changedTouches[0].screenY;
+      const diff = touchY - touchStartY;
+
+      // Show indicator if swiping down
+      if (diff > 50) {
+        swipeIndicator.style.display = 'block';
+      } else {
+        swipeIndicator.style.display = 'none';
+      }
+    });
+
+    chatBox.addEventListener('touchend', function(e) {
+      const touchEndY = e.changedTouches[0].screenY;
+      const diff = touchEndY - touchStartY;
+
+      // If swipe down more than 100px, trigger panic mode
+      if (diff > 100) {
+        panicMode();
+      }
+
+      swipeIndicator.style.display = 'none';
+    });
+
+    // Firestore listeners
+    function loadMessages() {
+      if (unsubscribe) unsubscribe();
+
+      chatBox.innerHTML = '<div id="welcomeMessage" class="welcome-message"><i class="fas fa-spinner fa-spin me-2"></i>Loading messages...</div>';
+
+      if (modeSelect.value === 'chat') {
+        // Private mode
+        const ref = db.collection('private').doc(sessionId).collection('messages').orderBy('ts');
+
+        unsubscribe = ref.onSnapshot(snap => {
+          chatBox.innerHTML = '';
+          
+          if (snap.empty) {
+            showWelcomePrivate();
+          } else {
+            snap.forEach(doc => {
+              const m = doc.data();
+              addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai', true);
+            });
+          }
+        }, error => {
+          showToast("Error loading messages. Please try again.");
+        });
+
+      } else {
+        // Public mode
+        const ref = db.collection('public').orderBy('ts', 'desc').limit(25);
+
+        unsubscribe = ref.onSnapshot(snap => {
+          chatBox.innerHTML = '';
+
+          // Process messages in reverse order (oldest first)
+          const messages = [];
+          snap.forEach(doc => messages.push(doc.data()));
+          messages.reverse();
+
+          messages.forEach(m => {
+            addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai', true);
+          });
+          
+          if (!publicChatLoaded) {
+            addMessage('EXELIS', `Welcome to public chat. Share your thoughts with others.`, 'ai', false);
+            publicChatLoaded = true;
+          }
+        }, error => {
+          showToast("Error loading public messages. Please try again.");
+        });
+
+        // Update banner
+        document.getElementById('modeBanner').className = 'mode-banner mode-ritual';
+        document.getElementById('modeBanner').innerHTML = '<i class="fas fa-users me-2"></i>Public Chat Mode';
+      }
+    }
+
+    modeSelect.addEventListener('change', function() {
+      // Update banner
+      if (modeSelect.value === 'chat') {
+        document.getElementById('modeBanner').className = 'mode-banner mode-chat';
+        document.getElementById('modeBanner').innerHTML = '<i class="fas fa-lock me-2"></i>Private Chat Mode';
+      } else {
+        document.getElementById('modeBanner').className = 'mode-banner mode-ritual';
+        document.getElementById('modeBanner').innerHTML = '<i class="fas fa-users me-2"></i>Public Chat Mode';
+      }
+
+      loadMessages();
+    });
+
+    // Send message
+    async function sendMessage() {
+      const txt = chatInput.value.trim();
+      if (!txt) return;
+
+      const now = firebase.firestore.FieldValue.serverTimestamp();
+      const censoredText = censor(txt);
+
+      // Add message to UI immediately
+      addMessage(userId, censoredText, 'user', false);
+
+      try {
+        if (modeSelect.value === 'chat') {
+          // Private mode - store in Firestore under session ID
+          const ref = db.collection('private').doc(sessionId).collection('messages');
+          await ref.add({ 
+            uid: userId, 
+            text: censoredText, 
+            ts: now 
+          });
+        } else {
+          // Public mode - store in public collection
+          await db.collection('public').add({ 
+            uid: userId, 
+            text: censoredText, 
+            ts: now
+          });
+        }
+      } catch (error) {
+        showToast("Failed to send message. Please try again.");
+      }
+
+      chatInput.value = '';
+      autoResize();
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
     // Add message to UI
     function addMessage(uid, text, cls, animate) {
-      const chatBox = document.getElementById('chatBox');
-      
       // Remove welcome message if present
       const welcomeMessage = document.getElementById('welcomeMessage');
       if (welcomeMessage && welcomeMessage.parentNode === chatBox) {
@@ -567,16 +781,16 @@
       const w = document.createElement('div');
       w.className = `msg-wrapper ${cls}`;
       if (animate) w.style.animation = 'fadeIn 0.3s ease';
-      
+
       const img = document.createElement('img');
       img.className = 'avatar';
       img.src = `https://ui-avatars.com/api/?name=${uid}&background=ffc107&color=000&size=64`;
       img.onerror = () => { img.src = ''; };
-      
+
       const m = document.createElement('div');
       m.className = 'message';
       m.innerHTML = `<div class="message-text">${text}</div>`;
-      
+
       // Add copy button
       const copyBtn = document.createElement('button');
       copyBtn.className = 'copy-btn';
@@ -587,116 +801,36 @@
         showToast('Message copied to clipboard');
       });
       m.appendChild(copyBtn);
-      
+
       if (cls === 'user') {
         w.append(m, img);
       } else {
         w.append(img, m);
       }
-      
+
       chatBox.appendChild(w);
       chatBox.scrollTop = chatBox.scrollHeight;
     }
-    
+
     // Show toast notification
     function showToast(message) {
       const toast = document.createElement('div');
       toast.className = 'toast';
       toast.textContent = message;
       document.body.appendChild(toast);
-      
+
       setTimeout(() => {
         document.body.removeChild(toast);
       }, 2000);
     }
-    
-    // Theme switcher
-    function applyTheme() {
-      const theme = document.getElementById('themeSelect').value;
-      document.body.classList.remove('dark', 'candle', 'rain', 'blank');
-      document.body.classList.add(theme);
-    }
-    
-    // Auto-resize textarea
-    function autoResize() {
-      const chatInput = document.getElementById('chatInput');
-      chatInput.style.height = 'auto';
-      chatInput.style.height = (chatInput.scrollHeight) + 'px';
-      
-      if (chatInput.scrollHeight > 150) {
-        chatInput.style.overflowY = 'auto';
-      } else {
-        chatInput.style.overflowY = 'hidden';
+
+    // Initialize
+    setTimeout(() => {
+      loadMessages();
+      if (modeSelect.value === 'chat') {
+        showWelcomePrivate();
       }
-    }
-    
-    // Initialize everything
-    function initApp() {
-      // Set up theme
-      document.getElementById('themeSelect').addEventListener('change', applyTheme);
-      applyTheme();
-      
-      // Set up textarea resizing
-      document.getElementById('chatInput').addEventListener('input', autoResize);
-      
-      // Set up send button
-      document.getElementById('sendBtn').addEventListener('click', function() {
-        const txt = document.getElementById('chatInput').value.trim();
-        if (txt) {
-          addMessage(userId, txt, 'user', true);
-          document.getElementById('chatInput').value = '';
-          autoResize();
-          
-          // Simulate AI response after delay
-          setTimeout(() => {
-            const responses = [
-              "I understand how you feel. Tell me more about that.",
-              "That's an interesting perspective. How did that make you feel?",
-              "Thank you for sharing. What else is on your mind?",
-              "I appreciate your honesty. Would you like to explore this further?",
-              "Your thoughts are important. Please continue when you're ready."
-            ];
-            const response = responses[Math.floor(Math.random() * responses.length)];
-            addMessage('EXELIS', response, 'ai', true);
-          }, 1000);
-        }
-      });
-      
-      // Set up enter key to send
-      document.getElementById('chatInput').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          document.getElementById('sendBtn').click();
-        }
-      });
-      
-      // Set up panic button
-      document.getElementById('panicBtn').addEventListener('click', panicMode);
-      
-      // Set up mode selector
-      document.getElementById('modeSelect').addEventListener('change', function() {
-        const mode = this.value;
-        const banner = document.getElementById('modeBanner');
-        
-        if (mode === 'chat') {
-          banner.className = 'mode-banner mode-chat';
-          banner.innerHTML = '<i class="fas fa-lock me-2"></i>Private Chat Mode';
-          showWelcomePrivate();
-        } else {
-          banner.className = 'mode-banner mode-ritual';
-          banner.innerHTML = '<i class="fas fa-users me-2"></i>Public Ritual Mode';
-          
-          // Show public mode welcome
-          addMessage('EXELIS', `Welcome to public space. Share your thoughts with others.`, 'ai', false);
-        }
-      });
-      
-      // Initialize session
-      initializeSession();
-    }
-    
-    // Start the app when page loads
-    window.addEventListener('DOMContentLoaded', initApp);
+    }, 1000);
   </script>
 </body>
 </html>
