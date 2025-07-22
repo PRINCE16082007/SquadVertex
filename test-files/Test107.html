@@ -1,174 +1,896 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SLN Chat Admin</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLN Control Panel | SquadVertex</title>
+    <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0f172a;
+            --secondary: #1e293b;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --highlight: #ec4899;
+            --text: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--primary), #0c1220);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Header Styles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--card-border);
+            position: relative;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--accent), var(--highlight));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+        
+        .logo-text h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--accent-light), var(--highlight));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+        
+        .logo-text p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .header-controls {
+            display: flex;
+            gap: 15px;
+        }
+        
+        /* Stats Section */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            transition: var(--transition);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-light);
+        }
+        
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .icon-messages { background: rgba(99, 102, 241, 0.2); color: var(--accent-light); }
+        .icon-users { background: rgba(236, 72, 153, 0.2); color: var(--highlight); }
+        .icon-today { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .icon-avg { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+        
+        .stat-label {
+            font-size: 16px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+        
+        /* Filters Section */
+        .filters-section {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-title h2 {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--accent-light), white);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .filter-group label {
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .filter-control {
+            padding: 14px 16px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 16px;
+            transition: var(--transition);
+        }
+        
+        .filter-control:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+        }
+        
+        .filter-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(99, 102, 241, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--accent);
+            color: var(--accent-light);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(99, 102, 241, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        /* Messages Section */
+        .messages-section {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .messages-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        
+        .messages-container {
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        
+        .messages-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .messages-container::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 4px;
+        }
+        
+        .messages-container::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 4px;
+        }
+        
+        .message-card {
+            background: rgba(15, 23, 42, 0.5);
+            border-left: 4px solid var(--accent);
+            margin-bottom: 15px;
+            padding: 20px;
+            border-radius: 12px;
+            transition: var(--transition);
+        }
+        
+        .message-card:hover {
+            transform: translateX(5px);
+            background: rgba(15, 23, 42, 0.7);
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .username {
+            font-weight: 700;
+            background: linear-gradient(to right, var(--accent-light), var(--highlight));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 18px;
+        }
+        
+        .timestamp {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .message-content {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: var(--accent-light);
+        }
+        
+        /* Loading indicator */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(99, 102, 241, 0.2);
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Connection status */
+        .connection-status {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .connection-status.offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+        
+        .connection-status.offline .status-dot {
+            background: var(--danger);
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 30px 0;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--card-border);
+            margin-top: 20px;
+        }
+        
+        .branding {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, var(--accent-light), var(--highlight));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .copyright {
+            font-size: 14px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+            
+            .header-controls {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
-<body class="p-4">
-  <h3>Admin Dashboard</h3>
-  <div class="mb-3">
-    <button id="downloadPublic" class="btn btn-primary me-2">Download Public Chats CSV</button>
-    <button id="downloadPrivate" class="btn btn-primary">Download All Private Chats CSV</button>
-  </div>
-  <hr />
-  <div class="mb-3 d-flex align-items-center">
-    <label for="adminMode" class="form-label me-2 mb-0">Select Mode:</label>
-    <select id="adminMode" class="form-select w-auto me-3">
-      <option value="public">Public</option>
-      <option value="private">Private</option>
-    </select>
-    <label for="privateUserId" class="form-label me-2 mb-0" id="userLabel" style="display:none;">Select User:</label>
-    <select id="privateUserId" class="form-select w-auto" style="display:none;"></select>
-  </div>
-  <div id="chatArea" class="border p-3 mb-2" style="height:60vh; overflow-y:auto;"></div>
-  <div class="mt-2 d-flex">
-    <textarea id="adminInput" class="form-control me-2" placeholder="Your message..."></textarea>
-    <button id="adminSend" class="btn btn-success">Send</button>
-  </div>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>SLN Control Panel</h1>
+                    <p>Advanced Monitoring & Analytics Dashboard</p>
+                </div>
+            </div>
+            <div class="header-controls">
+                <div class="connection-status" id="connection-status">
+                    <div class="status-dot"></div>
+                    <span>Connecting...</span>
+                </div>
+                <button class="btn btn-secondary" id="export-pdf">
+                    <i class="fas fa-file-pdf"></i> Export PDF
+                </button>
+            </div>
+        </header>
+        
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-label">Total Messages</div>
+                        <div class="stat-value" id="total-messages">0</div>
+                    </div>
+                    <div class="stat-icon icon-messages">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-label">Unique Users</div>
+                        <div class="stat-value" id="unique-users">0</div>
+                    </div>
+                    <div class="stat-icon icon-users">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-label">Today's Messages</div>
+                        <div class="stat-value" id="today-messages">0</div>
+                    </div>
+                    <div class="stat-icon icon-today">
+                        <i class="fas fa-calendar-day"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-label">Avg. Messages/Day</div>
+                        <div class="stat-value" id="avg-messages">0</div>
+                    </div>
+                    <div class="stat-icon icon-avg">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <section class="filters-section">
+            <div class="section-title">
+                <h2>Filter Messages</h2>
+                <div class="filter-info" id="filter-info">Showing: All Messages</div>
+            </div>
+            
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label for="date-range">Date Range</label>
+                    <select class="filter-control" id="date-range">
+                        <option value="all">All Messages</option>
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="week">Last 7 Days</option>
+                        <option value="month">Last 30 Days</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="search-user">Search User</label>
+                    <input type="text" class="filter-control" id="search-user" placeholder="Enter username">
+                </div>
+            </div>
+            
+            <div class="filter-actions">
+                <button class="btn btn-primary" id="apply-filters">
+                    <i class="fas fa-filter"></i> Apply Filters
+                </button>
+            </div>
+        </section>
+        
+        <section class="messages-section">
+            <div class="messages-header">
+                <h2>Public Messages</h2>
+                <div class="messages-count" id="messages-count">0 messages displayed</div>
+            </div>
+            
+            <div class="messages-container" id="messages-list">
+                <div class="empty-state">
+                    <i class="fas fa-comment-slash"></i>
+                    <h3>Loading Messages...</h3>
+                    <p>Connecting to Firebase Firestore</p>
+                </div>
+            </div>
+        </section>
+        
+        <footer>
+            <div class="branding">SquadVertex</div>
+            <div class="copyright">Prince Gahlot | Founder & CEO</div>
+            <div class="copyright">© 2023 SoulLink Network. All rights reserved.</div>
+        </footer>
+    </div>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const adminId = 'ADMIN';
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4Gm-3N0u9HfN2J1Z6q6q3V7XxY8z9XxY",
+            authDomain: "sln-chat-demo.firebaseapp.com",
+            projectId: "sln-chat-demo",
+            storageBucket: "sln-chat-demo.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abc123def456ghi789jkl0"
+        };
 
-    const downloadPublicBtn = document.getElementById('downloadPublic');
-    const downloadPrivateBtn = document.getElementById('downloadPrivate');
-    const adminMode = document.getElementById('adminMode');
-    const privateUserId = document.getElementById('privateUserId');
-    const userLabel = document.getElementById('userLabel');
-    const chatArea = document.getElementById('chatArea');
-    const adminInput = document.getElementById('adminInput');
-    const adminSend = document.getElementById('adminSend');
-
-    async function loadUserList() {
-      const snap = await db.collection('private').get();
-      privateUserId.innerHTML = '<option value="">-- select user --</option>';
-      snap.forEach(doc => {
-        const opt = document.createElement('option');
-        opt.value = doc.id;
-        opt.textContent = doc.id;
-        privateUserId.appendChild(opt);
-      });
-    }
-
-    adminMode.addEventListener('change', () => {
-      const isPriv = adminMode.value === 'private';
-      privateUserId.style.display = isPriv ? 'inline-block' : 'none';
-      userLabel.style.display = isPriv ? 'inline-block' : 'none';
-      if (isPriv) loadUserList();
-      loadAdminMessages();
-    });
-
-    privateUserId.addEventListener('change', loadAdminMessages);
-
-    async function exportCollection(ref, mapFn) {
-      const snap = await ref.get();
-      const rows = [];
-      snap.forEach(doc => rows.push(mapFn(doc.id, doc.data())));
-      const csv = [Object.keys(rows[0]||{}).join(','), ...rows.map(r=>Object.values(r).map(v=>`"${v}"`).join(','))].join('\n');
-      return csv;
-    }
-
-    downloadPublicBtn.addEventListener('click', async () => {
-      const csv = await exportCollection(
-        db.collection('messages'),
-        (id, d) => ({ id, uid: d.uid, text: d.text, mode: d.mode || '', ts: d.ts?.toDate() })
-      );
-      const blob = new Blob([csv], {type:'text/csv'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'public_chats.csv';
-      a.click();
-    });
-
-    downloadPrivateBtn.addEventListener('click', async () => {
-      const usersSnap = await db.collection('private').get();
-      let all = [];
-      for (let doc of usersSnap.docs) {
-        const uid = doc.id;
-        const msgsSnap = await db.collection('private').doc(uid).collection('messages').get();
-        msgsSnap.forEach(m => {
-          const data = m.data();
-          all.push({
-            user: uid,
-            id: m.id,
-            uid: data.uid,
-            text: data.text,
-            ts: data.ts?.toDate()
-          });
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        // Initialize jsPDF
+        const { jsPDF } = window.jspdf;
+        
+        // DOM elements
+        const dateRangeSelect = document.getElementById('date-range');
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        const exportPdfBtn = document.getElementById('export-pdf');
+        const messagesList = document.getElementById('messages-list');
+        const filterInfo = document.getElementById('filter-info');
+        const messagesCount = document.getElementById('messages-count');
+        const connectionStatus = document.getElementById('connection-status');
+        
+        // Statistics elements
+        const totalMessagesEl = document.getElementById('total-messages');
+        const uniqueUsersEl = document.getElementById('unique-users');
+        const todayMessagesEl = document.getElementById('today-messages');
+        const avgMessagesEl = document.getElementById('avg-messages');
+        
+        // Variables to store messages and stats
+        let allMessages = [];
+        let filteredMessages = [];
+        let uniqueUsersSet = new Set();
+        
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionStatus.innerHTML = '<div class="status-dot"></div> <span>Connected to Firebase</span>';
+                connectionStatus.classList.remove('offline');
+            } else {
+                connectionStatus.innerHTML = '<div class="status-dot"></div> <span>Offline - Reconnecting...</span>';
+                connectionStatus.classList.add('offline');
+            }
+        }
+        
+         // Format date for display
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        // Show loading state
+        function showLoading() {
+            messagesList.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading messages from Firebase...</p>
+                </div>
+            `;
+        }
+        
+        // Load messages from Firebase without indexes
+        function loadMessages() {
+            showLoading();
+            
+            // Simple query without any filters or sorting that requires indexes
+            db.collection("public").get()
+                .then((querySnapshot) => {
+                    allMessages = [];
+                    uniqueUsersSet = new Set();
+                    
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        allMessages.push(data);
+                        uniqueUsersSet.add(data.uid);
+                    });
+                    
+                    // Apply default filters
+                    applyFilters();
+                    updateStatistics();
+                    
+                    // Update connection status
+                    updateConnectionStatus(true);
+                    
+                    console.log(`Loaded ${allMessages.length} messages from Firebase`);
+                })
+                .catch((error) => {
+                    console.error("Error getting documents: ", error);
+                    messagesList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h3>Error Loading Data</h3>
+                            <p>${error.message}</p>
+                            <p>Please check your Firebase configuration</p>
+                        </div>
+                    `;
+                    updateConnectionStatus(false);
+                });
+        }
+        
+        // Apply filters to messages
+        function applyFilters() {
+            const range = dateRangeSelect.value;
+            const userSearch = document.getElementById('search-user').value.toLowerCase();
+            
+            // Filter by date range
+            const now = new Date();
+            filteredMessages = allMessages.filter(msg => {
+                // Filter by user search
+                if (userSearch && !msg.uid.toLowerCase().includes(userSearch)) {
+                    return false;
+                }
+                
+                if (!msg.ts || !msg.ts.toDate) return false;
+                
+                const msgDate = msg.ts.toDate();
+                
+                // Filter by date range
+                switch(range) {
+                    case 'today':
+                        return msgDate.toDateString() === now.toDateString();
+                    case 'yesterday':
+                        const yesterday = new Date(now);
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        return msgDate.toDateString() === yesterday.toDateString();
+                    case 'week':
+                        const weekAgo = new Date(now);
+                        weekAgo.setDate(weekAgo.getDate() - 7);
+                        return msgDate >= weekAgo;
+                    case 'month':
+                        const monthAgo = new Date(now);
+                        monthAgo.setMonth(monthAgo.getMonth() - 1);
+                        return msgDate >= monthAgo;
+                    default:
+                        return true; // All messages
+                }
+            });
+            
+            // Sort by timestamp descending
+            filteredMessages.sort((a, b) => {
+                if (!a.ts || !b.ts) return 0;
+                return b.ts.toDate() - a.ts.toDate();
+            });
+            
+            // Update filter info
+            filterInfo.textContent = `Showing: ${getRangeText(range)}`;
+            
+            // Display messages
+            displayMessages();
+        }
+        
+        // Get text for date range
+        function getRangeText(range) {
+            switch(range) {
+                case 'today': return 'Today';
+                case 'yesterday': return 'Yesterday';
+                case 'week': return 'Last 7 Days';
+                case 'month': return 'Last 30 Days';
+                default: return 'All Messages';
+            }
+        }
+        
+        // Display messages in the UI
+        function displayMessages() {
+            if (filteredMessages.length === 0) {
+                messagesList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-comment-slash"></i>
+                        <h3>No Messages Found</h3>
+                        <p>Try changing your filters</p>
+                    </div>
+                `;
+                messagesCount.textContent = '0 messages displayed';
+                return;
+            }
+            
+            messagesList.innerHTML = '';
+            
+            filteredMessages.forEach(msg => {
+                const messageEl = document.createElement('div');
+                messageEl.className = 'message-card';
+                
+                const timestamp = msg.ts && msg.ts.toDate ? 
+                    formatDate(msg.ts.toDate()) : 'Unknown time';
+                
+                messageEl.innerHTML = `
+                    <div class="message-header">
+                        <div class="username">${msg.uid || 'Anonymous'}</div>
+                        <div class="timestamp">${timestamp}</div>
+                    </div>
+                    <div class="message-content">${msg.text || 'No message content'}</div>
+                `;
+                messagesList.appendChild(messageEl);
+            });
+            
+            messagesCount.textContent = `${filteredMessages.length} messages displayed`;
+        }
+        
+        // Update statistics
+        function updateStatistics() {
+            // Total messages
+            totalMessagesEl.textContent = allMessages.length;
+            
+            // Unique users
+            uniqueUsersEl.textContent = uniqueUsersSet.size;
+            
+            // Today's messages
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayMessages = allMessages.filter(msg => {
+                if (!msg.ts || !msg.ts.toDate) return false;
+                const msgDate = msg.ts.toDate();
+                return msgDate >= today;
+            });
+            todayMessagesEl.textContent = todayMessages.length;
+            
+            // Average messages per day (last 30 days)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const lastMonthMessages = allMessages.filter(msg => {
+                if (!msg.ts || !msg.ts.toDate) return false;
+                return msg.ts.toDate() >= thirtyDaysAgo;
+            });
+            
+            avgMessagesEl.textContent = (lastMonthMessages.length / 30).toFixed(1);
+        }
+        
+        // Export messages to PDF
+        function exportToPDF() {
+            if (filteredMessages.length === 0) {
+                alert('No messages to export');
+                return;
+            }
+            
+            // Create PDF
+            const doc = new jsPDF();
+            
+            // Add header
+            doc.setFontSize(22);
+            doc.setTextColor(99, 102, 241);
+            doc.text('SoulLink Network - Public Messages', 105, 25, null, null, 'center');
+            
+            // Add date range
+            doc.setFontSize(14);
+            doc.setTextColor(120, 130, 150);
+            doc.text(`Date Range: ${filterInfo.textContent.replace('Showing: ', '')}`, 105, 35, null, null, 'center');
+            
+            // Add generated timestamp
+            const now = new Date();
+            const generatedAt = `Generated: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+            doc.setFontSize(10);
+            doc.text(generatedAt, 105, 42, null, null, 'center');
+            
+            // Add branding
+            doc.setFontSize(12);
+            doc.setTextColor(99, 102, 241);
+            doc.text('SquadVertex Control Panel', 105, 50, null, null, 'center');
+            
+            // Prepare data for table
+            const tableData = filteredMessages.map(msg => {
+                return [
+                    msg.uid || 'Anonymous',
+                    msg.ts && msg.ts.toDate ? formatDate(msg.ts.toDate()) : 'Unknown',
+                    msg.text || ''
+                ];
+            });
+            
+            // Create table
+            doc.autoTable({
+                head: [['Username', 'Timestamp', 'Message']],
+                body: tableData,
+                startY: 60,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [30, 41, 59],
+                    textColor: [241, 245, 249],
+                    fontStyle: 'bold'
+                },
+                styles: {
+                    fontSize: 10,
+                    cellPadding: 3
+                },
+                columnStyles: {
+                    0: {cellWidth: 30},
+                    1: {cellWidth: 40},
+                    2: {cellWidth: 120}
+                }
+            });
+            
+            // Add page numbers
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(10);
+                doc.text(`Page ${i} of ${pageCount}`, 105, doc.internal.pageSize.height - 10, null, null, 'center');
+            }
+            
+            // Save the PDF
+            const fileName = `sln-messages-${new Date().toISOString().slice(0, 10)}.pdf`;
+            doc.save(fileName);
+        }
+        
+        // Initialize the app
+        window.addEventListener('load', () => {
+            // Set up event listeners
+            applyFiltersBtn.addEventListener('click', applyFilters);
+            exportPdfBtn.addEventListener('click', exportToPDF);
+            
+            // Initialize Firebase connection listener
+            firebase.firestore().enableNetwork()
+                .then(() => {
+                    updateConnectionStatus(true);
+                    loadMessages();
+                })
+                .catch((error) => {
+                    console.error("Error enabling network: ", error);
+                    updateConnectionStatus(false);
+                });
         });
-      }
-      const header = ['user', 'id', 'uid', 'text', 'ts'];
-      const csv = [header.join(','), ...all.map(r => header.map(h => `"${r[h]||''}"`).join(','))].join('\n');
-      const blob = new Blob([csv], {type:'text/csv'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'private_chats.csv';
-      a.click();
-    });
-
-    let unsub;
-    function loadAdminMessages() {
-      if (unsub) unsub();
-      chatArea.innerHTML = '';
-      if (adminMode.value === 'public') {
-        unsub = db.collection('messages').orderBy('ts')
-          .onSnapshot(snap => {
-            chatArea.innerHTML = '';
-            snap.forEach(d => addMsg(d.data()));
-          });
-      } else {
-        const uid = privateUserId.value;
-        if (!uid) return;
-        unsub = db.collection('private').doc(uid).collection('messages').orderBy('ts')
-          .onSnapshot(snap => {
-            chatArea.innerHTML = '';
-            snap.forEach(d => addMsg(d.data(), uid));
-          });
-      }
-    }
-
-    function addMsg(msg, sel) {
-      const div = document.createElement('div');
-      let disp = msg.uid;
-      if (adminMode.value === 'private' && msg.uid !== sel && msg.uid !== 'EXELIS' && msg.uid !== adminId) {
-        disp = 'SoulKeeper';
-      }
-      div.textContent = `${disp}: ${msg.text}`;
-      chatArea.appendChild(div);
-      chatArea.scrollTop = chatArea.scrollHeight;
-    }
-
-    adminSend.addEventListener('click', async () => {
-      const txt = adminInput.value.trim();
-      if (!txt) return;
-      const now = firebase.firestore.FieldValue.serverTimestamp();
-      if (adminMode.value === 'public') {
-        await db.collection('messages').add({ uid: adminId, text: txt, mode: 'ritual', ts: now });
-      } else {
-        const uid = privateUserId.value;
-        if (!uid) return;
-        await db.collection('private').doc(uid).collection('messages').add({ uid: adminId, text: txt, ts: now });
-      }
-      adminInput.value = '';
-    });
-
-    loadUserList();
-    loadAdminMessages();
-  </script>
+    </script>
 </body>
 </html>
