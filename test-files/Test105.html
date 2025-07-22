@@ -1,1291 +1,602 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SLN Chat</title>
-  <!-- Bootstrap CSS -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    :root {
-      --primary: #6f42c1;
-      --accent: #ffc107;
-      --transition-time: 0.3s;
-      --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      --border-radius: 16px;
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      transition: background-color var(--transition-time) ease;
-      overflow: hidden;
-      position: relative;
-    }
-
-    /* Theme Variables */
-    body.dark {
-      --bg: #1e1e2f;
-      --text: #e0e0e0;
-      --header: #2c2c3d;
-      --input: #2d2d3f;
-      --message-bg: #2a2a3a;
-      --user-message-bg: #ffc107;
-      --user-message-text: #1a1a1a;
-      --border: #3d3d50;
-      --hover: #3a3a4d;
-      --star-color: #ffc107;
-      --theme-icon: #ffc107;
-    }
-
-    body.candle {
-      --bg: #3e2f2f;
-      --text: #f8f0e3;
-      --header: #5a4132;
-      --input: #7b5e57;
-      --message-bg: #5a4a42;
-      --user-message-bg: #e9b44c;
-      --user-message-text: #2d1a12;
-      --border: #8b6d63;
-      --hover: #6d544b;
-      --star-color: #e9b44c;
-      --theme-icon: #e9b44c;
-    }
-
-    body.rain {
-      --bg: #2f3e4f;
-      --text: #e3f0f8;
-      --header: #34566e;
-      --input: #4a708a;
-      --message-bg: #3a546b;
-      --user-message-bg: #4da1a9;
-      --user-message-text: #0a1929;
-      --border: #5a7a94;
-      --hover: #4a6580;
-      --star-color: #4da1a9;
-      --theme-icon: #4da1a9;
-    }
-
-    body.blank {
-      --bg: #fafafa;
-      --text: #333;
-      --header: #e0e0e0;
-      --input: #f5f5f5;
-      --message-bg: #eeeeee;
-      --user-message-bg: #d4edda;
-      --user-message-text: #155724;
-      --border: #ddd;
-      --hover: #e9e9e9;
-      --star-color: #4caf50;
-      --theme-icon: #4caf50;
-    }
-
-    body.stellar {
-      --bg: #0a0a2a;
-      --text: #e0f7ff;
-      --header: #1a1a4a;
-      --input: #1f1f5a;
-      --message-bg: #2a2a6a;
-      --user-message-bg: #ff6b6b;
-      --user-message-text: #fff;
-      --border: #4a4a8a;
-      --hover: #3a3a7a;
-      --star-color: #ff6b6b;
-      --theme-icon: #ff6b6b;
-    }
-
-    /* Header Styles */
-    .header-bar {
-      background: var(--header) !important;
-      padding: 0.8rem 1.5rem;
-      box-shadow: var(--shadow);
-      z-index: 100;
-      transition: all var(--transition-time);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    /* Mode Banner */
-    .mode-banner {
-      text-align: center;
-      padding: 0.8rem;
-      font-size: 0.95rem;
-      font-weight: 600;
-      transition: all var(--transition-time);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      position: relative;
-      overflow: hidden;
-      border-radius: 0 0 12px 12px;
-      max-width: 280px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transform: translateY(-10px);
-      animation: slideDown 0.5s ease forwards;
-    }
-
-    @keyframes slideDown {
-      to { transform: translateY(0); }
-    }
-
-    .mode-banner::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
-      animation: shimmer 2s infinite;
-    }
-
-    @keyframes shimmer {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(100%); }
-    }
-
-    .mode-chat { 
-      background: linear-gradient(135deg, #198754, #0d8c5a);
-      color: #fff;
-      box-shadow: 0 4px 15px rgba(25, 135, 84, 0.3);
-    }
-    .mode-ritual { 
-      background: linear-gradient(135deg, #0d6efd, #0a58ca);
-      color: #fff;
-      box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);
-    }
-
-    /* Chat Box */
-    .chat-box {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1.5rem 1rem 6rem;
-      background: var(--bg);
-      display: flex;
-      flex-direction: column;
-      transition: background-color var(--transition-time);
-      position: relative;
-    }
-
-    /* Message Styles */
-    .msg-wrapper {
-      display: flex;
-      align-items: flex-end;
-      margin-bottom: 1.25rem;
-      animation: fadeIn 0.3s ease;
-      position: relative;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .msg-wrapper.user { justify-content: flex-end; }
-
-    .message {
-      padding: 0.85rem 1.2rem;
-      border-radius: var(--border-radius);
-      max-width: 85%;
-      word-break: break-word;
-      background: var(--message-bg);
-      color: var(--text);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      position: relative;
-      transition: all var(--transition-time);
-      border: 1px solid var(--border);
-      overflow: hidden;
-    }
-
-    .user .message {
-      background: var(--user-message-bg);
-      color: var(--user-message-text);
-      border-radius: var(--border-radius) var(--border-radius) 0 var(--border-radius);
-    }
-
-    .ai .message {
-      border-radius: var(--border-radius) var(--border-radius) var(--border-radius) 0;
-    }
-
-    .avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: 2px solid var(--accent);
-      object-fit: cover;
-      margin: 0 0.5rem;
-      background: var(--accent);
-      transition: all var(--transition-time);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: #000;
-    }
-
-    /* Input Area */
-    .input-area {
-      background: var(--input);
-      padding: 1.2rem;
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 1000;
-      box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
-      transition: all var(--transition-time);
-      border-top: 1px solid var(--border);
-    }
-
-    .input-area textarea {
-      resize: none;
-      border-radius: 0.8rem;
-      border: 1px solid var(--border);
-      background: var(--input);
-      color: var(--text);
-      padding: 0.8rem 1.2rem;
-      height: auto;
-      min-height: 46px;
-      max-height: 150px;
-      transition: all var(--transition-time);
-    }
-
-    .input-area textarea:focus {
-      box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.2);
-      border-color: var(--primary);
-      outline: none;
-    }
-
-    /* Placeholder Animation */
-    @keyframes pulse {
-      0% { opacity: 0.6; }
-      50% { opacity: 1; }
-      100% { opacity: 0.6; }
-    }
-
-    #chatInput::placeholder {
-      animation: pulse 2s infinite;
-      color: rgba(255,255,255,0.5);
-    }
-
-    /* Button Styles */
-    .btn {
-      border-radius: 0.8rem;
-      transition: all 0.2s ease;
-      font-weight: 500;
-    }
-
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .btn:active {
-      transform: translateY(0);
-    }
-
-    /* Copy Button */
-    .copy-btn {
-      position: absolute;
-      top: -15px;
-      right: 8px;
-      background: rgba(255, 255, 255, 0.9);
-      border: none;
-      border-radius: 12px;
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: all 0.2s ease;
-      cursor: pointer;
-      color: #333;
-      z-index: 10;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-
-    .msg-wrapper:hover .copy-btn {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .copy-btn:hover {
-      background: rgba(255, 255, 255, 1);
-      transform: scale(1.1);
-    }
-
-    /* Star Button */
-    .star-btn {
-      position: absolute;
-      top: -15px;
-      left: 8px;
-      background: rgba(255, 255, 255, 0.9);
-      border: none;
-      border-radius: 12px;
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: all 0.2s ease;
-      cursor: pointer;
-      color: #333;
-      z-index: 10;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-
-    .msg-wrapper.user .star-btn {
-      left: auto;
-      right: 8px;
-    }
-
-    .msg-wrapper:hover .star-btn {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .star-btn:hover {
-      background: rgba(255, 255, 255, 1);
-      transform: scale(1.1);
-    }
-
-    /* Session Info */
-    .session-info {
-      position: absolute;
-      top: 10px;
-      right: 15px;
-      font-size: 0.7rem;
-      color: rgba(255, 255, 255, 0.7);
-      background: rgba(0, 0, 0, 0.3);
-      padding: 3px 8px;
-      border-radius: 12px;
-      z-index: 100;
-      backdrop-filter: blur(5px);
-    }
-
-    /* Toast for copy */
-    .toast {
-      position: fixed;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(40, 40, 40, 0.9);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 24px;
-      z-index: 2000;
-      animation: fadeInOut 2s forwards;
-      backdrop-filter: blur(5px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-
-    @keyframes fadeInOut {
-      0% { opacity: 0; transform: translate(-50%, 10px); }
-      20% { opacity: 1; transform: translate(-50%, 0); }
-      80% { opacity: 1; transform: translate(-50%, 0); }
-      100% { opacity: 0; transform: translate(-50%, -10px); }
-    }
-
-    /* Micro-interactions */
-    .btn-micro {
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .btn-micro:hover {
-      transform: scale(1.05);
-    }
-
-    .btn-micro:active {
-      transform: scale(0.95);
-    }
-
-    /* Swipe indicator */
-    .swipe-indicator {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 193, 7, 0.2);
-      color: var(--text);
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      display: none;
-      z-index: 1000;
-      backdrop-filter: blur(5px);
-      border: 1px solid var(--accent);
-    }
-
-    /* Theme transition */
-    body.theme-transition {
-      transition: background-color 0.6s ease, color 0.6s ease;
-    }
-
-    /* Welcome message */
-    .welcome-message {
-      text-align: center;
-      padding: 1.5rem;
-      max-width: 600px;
-      margin: 0 auto;
-      color: var(--accent);
-      font-size: 1.1rem;
-      font-weight: 500;
-      border-bottom: 1px dashed var(--accent);
-      margin-bottom: 1rem;
-      background: rgba(0,0,0,0.1);
-      border-radius: 12px;
-      backdrop-filter: blur(5px);
-    }
-
-    /* Status Indicator */
-    .status-indicator {
-      position: fixed;
-      bottom: 130px;
-      right: 20px;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      z-index: 2000;
-      box-shadow: 0 0 8px currentColor;
-    }
-    .status-connected { background-color: #4caf50; }
-    .status-disconnected { background-color: #f44336; }
-
-    /* Session chain info */
-    .chain-info {
-      position: fixed;
-      bottom: 100px;
-      left: 20px;
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 8px;
-      border-radius: 8px;
-      font-size: 0.7rem;
-      z-index: 100;
-      max-width: 200px;
-      backdrop-filter: blur(5px);
-    }
-
-    /* Star reaction system */
-    .star-btn.starred {
-      opacity: 1;
-      color: var(--star-color);
-      background: rgba(255,255,255,0.95);
-    }
-
-    .star-btn.glow {
-      animation: glow 1s ease;
-    }
-
-    @keyframes glow {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.2); filter: drop-shadow(0 0 4px var(--star-color)); }
-      100% { transform: scale(1); }
-    }
-
-    /* Whisper window */
-    .whisper-window {
-      position: fixed;
-      top: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.7);
-      color: #fff;
-      padding: 12px 24px;
-      border-radius: 30px;
-      font-size: 0.9rem;
-      z-index: 1000;
-      backdrop-filter: blur(5px);
-      max-width: 80%;
-      text-align: center;
-      opacity: 0;
-      transition: opacity 1s ease;
-      font-family: Georgia, serif;
-      font-style: italic;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .whisper-visible {
-      opacity: 1;
-    }
-
-    .whisper-text {
-      letter-spacing: 0.5px;
-    }
-
-    /* Floating elements */
-    .floating-element {
-      position: absolute;
-      opacity: 0.7;
-      z-index: -1;
-      pointer-events: none;
-    }
-
-    /* Theme selector enhancements */
-    .theme-selector {
-      position: relative;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .theme-icon {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: var(--theme-icon);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #000;
-      font-size: 12px;
-      transition: all 0.3s ease;
-      box-shadow: 0 0 8px var(--theme-icon);
-    }
-
-    .theme-select:hover .theme-icon {
-      transform: rotate(15deg) scale(1.1);
-    }
-
-    /* Theme-specific backgrounds */
-    .theme-bg-element {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: -1;
-      opacity: 0.1;
-      transition: opacity 0.5s ease;
-    }
-
-    /* Dark theme stars */
-    .dark .theme-bg-element {
-      background-image: 
-        radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 10px),
-        radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 5px);
-      background-size: 50px 50px, 30px 30px;
-      background-position: 0 0, 15px 15px;
-      animation: starsMove 120s linear infinite;
-    }
-
-    @keyframes starsMove {
-      to { background-position: 500px 500px, 250px 250px; }
-    }
-
-    /* Candle theme flicker */
-    .candle .theme-bg-element {
-      background: radial-gradient(ellipse at center, rgba(231, 76, 60, 0.1) 0%, rgba(0,0,0,0) 70%);
-      animation: flicker 3s infinite alternate;
-    }
-
-    @keyframes flicker {
-      0% { opacity: 0.4; transform: scale(1); }
-      25% { opacity: 0.5; transform: scale(1.01); }
-      50% { opacity: 0.3; transform: scale(0.99); }
-      75% { opacity: 0.6; transform: scale(1.02); }
-      100% { opacity: 0.4; transform: scale(1); }
-    }
-
-    /* Rain theme animation */
-    .rain .theme-bg-element {
-      background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='20' cy='20' r='1' fill='%234da1a9' fill-opacity='0.4'/%3E%3Ccircle cx='40' cy='40' r='1' fill='%234da1a9' fill-opacity='0.4'/%3E%3Ccircle cx='60' cy='60' r='1' fill='%234da1a9' fill-opacity='0.4'/%3E%3Ccircle cx='80' cy='80' r='1' fill='%234da1a9' fill-opacity='0.4'/%3E%3C/svg%3E");
-      animation: rainFall 20s linear infinite;
-    }
-
-    @keyframes rainFall {
-      0% { background-position: 0% 0%; }
-      100% { background-position: 0% 100%; }
-    }
-
-    /* Blank theme pattern */
-    .blank .theme-bg-element {
-      background-image: 
-        linear-gradient(45deg, #e0e0e0 25%, transparent 25%), 
-        linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
-        linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
-      background-size: 20px 20px;
-      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-      opacity: 0.05;
-    }
-
-    /* Stellar theme animation */
-    .stellar .theme-bg-element {
-      background: radial-gradient(ellipse at center, rgba(255, 107, 107, 0.1) 0%, rgba(0,0,0,0) 70%);
-      animation: pulseGlow 4s infinite alternate;
-    }
-
-    @keyframes pulseGlow {
-      0% { opacity: 0.1; }
-      100% { opacity: 0.3; }
-    }
-
-    /* Theme selector dropdown */
-    .theme-select {
-      background: var(--input);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 0.25rem 0.5rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      transition: all 0.3s ease;
-    }
-
-    .theme-select:hover {
-      background: var(--hover);
-      transform: translateY(-2px);
-    }
-
-    /* Header controls */
-    .header-controls {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-      .header-bar {
-        flex-direction: column;
-        gap: 10px;
-        padding: 0.8rem;
-      }
-      
-      .header-controls {
-        width: 100%;
-        justify-content: space-between;
-      }
-      
-      .session-info {
-        top: 5px;
-        right: 5px;
-        font-size: 0.6rem;
-      }
-      
-      .message {
-        max-width: 75%;
-      }
-    }
-  </style>
-</head>
-<body class="dark">
-  <div class="theme-bg-element"></div>
-  
-  <div class="content d-flex flex-column" style="height:100vh">
-    <!-- Whisper Window -->
-    <div id="whisperWindow" class="whisper-window">
-      <div id="whisperText" class="whisper-text"></div>
-    </div>
-
-    <!-- Swipe Indicator -->
-    <div class="swipe-indicator">
-      <i class="fas fa-arrow-down me-2"></i>Swipe down to clear chat
-    </div>
-
-    <!-- Status Indicator -->
-    <div id="statusIndicator" class="status-indicator status-connected" title="Connected"></div>
-
-    <!-- Session Info -->
-    <div class="session-info">
-      Soulprint: <span id="soulprint"></span>
-    </div>
-
-    <!-- Session Chain Info -->
-    <div class="chain-info">
-      <i class="fas fa-link me-1"></i>Linked to main ID: <span id="mainIdDisplay"></span>
-    </div>
-
-    <!-- Top Bar -->
-    <div id="headerBar" class="header-bar">
-      <div class="d-flex align-items-center">
-        <div class="me-3">
-          <i class="fas fa-brain fs-4" style="color: var(--accent);"></i>
-        </div>
-        <div class="fw-bold" style="color: var(--accent);">SLN Chat</div>
-      </div>
-      
-      <div class="header-controls">
-        <select id="modeSelect" class="form-select form-select-sm me-2 btn-micro">
-          <option value="chat">Chat (Private)</option>
-          <option value="ritual">Ritual (Public)</option>
-        </select>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLN Chat Control Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1a1a2e;
+            --secondary: #16213e;
+            --accent: #0f3460;
+            --highlight: #e94560;
+            --text: #f1f1f1;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --card-bg: #1e293b;
+            --border: #334155;
+        }
         
-        <div class="theme-selector">
-          <div class="theme-select btn-micro" id="themeSelectContainer">
-            <div class="theme-icon">
-              <i class="fas fa-moon"></i>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 30px 0;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--highlight);
+        }
+        
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.8rem;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, var(--highlight), #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 10px rgba(233, 69, 96, 0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #a5b4cb;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 3fr;
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .panel {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+        }
+        
+        .panel-title {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+            font-size: 1.4rem;
+            color: var(--highlight);
+        }
+        
+        .panel-title i {
+            margin-right: 12px;
+            font-size: 1.6rem;
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 14px 20px 14px 50px;
+            border-radius: 50px;
+            border: 1px solid var(--border);
+            background: #2d3748;
+            color: var(--text);
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--highlight);
+            box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.3);
+        }
+        
+        .search-box i {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 25px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(to bottom right, var(--secondary), var(--accent));
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        
+        .stat-card h3 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            color: var(--highlight);
+        }
+        
+        .stat-card p {
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 25px;
+            background: #2d3748;
+            border-radius: 50px;
+            padding: 5px;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            cursor: pointer;
+            border-radius: 50px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .tab.active {
+            background: var(--highlight);
+            color: white;
+        }
+        
+        .tab:hover:not(.active) {
+            background: rgba(233, 69, 96, 0.2);
+        }
+        
+        .session-chain {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+        }
+        
+        .chain-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        
+        .chain-id {
+            font-weight: 700;
+            color: var(--highlight);
+            font-size: 1.1rem;
+        }
+        
+        .chain-path {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 20px 0;
+        }
+        
+        .session-node {
+            background: var(--accent);
+            padding: 12px 20px;
+            border-radius: 10px;
+            min-width: 120px;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s;
+        }
+        
+        .session-node:hover {
+            transform: translateY(-5px);
+            background: #1a3a6e;
+        }
+        
+        .session-node:after {
+            content: '→';
+            position: absolute;
+            right: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 1.5rem;
+        }
+        
+        .session-node:last-child:after {
+            display: none;
+        }
+        
+        .session-id {
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: var(--highlight);
+        }
+        
+        .session-time {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+        
+        .messages-container {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 20px;
+            flex-grow: 1;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+        }
+        
+        .message {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--highlight);
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        
+        .user-id {
+            color: var(--success);
+            font-weight: 500;
+        }
+        
+        .message-content {
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+        
+        .btn {
+            padding: 14px 25px;
+            border-radius: 50px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1rem;
+        }
+        
+        .btn-primary {
+            background: var(--highlight);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: var(--accent);
+            color: var(--text);
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @media (max-width: 900px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .chain-path {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .session-node:after {
+                content: '↓';
+                right: 50%;
+                top: 100%;
+                transform: translateX(50%);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SLN CHAT CONTROL PANEL</h1>
+            <p class="subtitle">Stitch and visualize private chat sessions using session chains to maintain user continuity across sessions</p>
+        </header>
+        
+        <div class="dashboard">
+            <div class="panel">
+                <div class="panel-title">
+                    <i class="fas fa-sliders-h"></i>
+                    <h2>Control Panel</h2>
+                </div>
+                
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search by Main ID..." id="searchInput">
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3>1,247</h3>
+                        <p>Active Sessions</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>5,812</h3>
+                        <p>Total Messages</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>892</h3>
+                        <p>User Chains</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>24</h3>
+                        <p>Active Now</p>
+                    </div>
+                </div>
+                
+                <h3>Recent Activity</h3>
+                <ul style="margin-top: 15px; list-style: none;">
+                    <li style="padding: 10px 0; border-bottom: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>SilentSoul123</span>
+                            <small>2 min ago</small>
+                        </div>
+                        <div style="color: #94a3b8; font-size: 0.9rem;">Started new session chain</div>
+                    </li>
+                    <li style="padding: 10px 0; border-bottom: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>MysticTraveler</span>
+                            <small>5 min ago</small>
+                        </div>
+                        <div style="color: #94a3b8; font-size: 0.9rem;">Sent message in public ritual</div>
+                    </li>
+                    <li style="padding: 10px 0;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>EternalSeeker</span>
+                            <small>12 min ago</small>
+                        </div>
+                        <div style="color: #94a3b8; font-size: 0.9rem;">Triggered panic mode</div>
+                    </li>
+                </ul>
+                
+                <div class="controls" style="margin-top: 30px;">
+                    <button class="btn btn-primary">
+                        <i class="fas fa-sync-alt"></i> Refresh Data
+                    </button>
+                </div>
             </div>
-            <select id="themeSelect" class="border-0 bg-transparent text-white">
-              <option value="dark" selected>Night Sky</option>
-              <option value="candle">Warm Candle</option>
-              <option value="rain">Rain Window</option>
-              <option value="blank">Blank Page</option>
-              <option value="stellar">Stellar</option>
-            </select>
-          </div>
+            
+            <div class="panel main-content">
+                <div class="panel-title">
+                    <i class="fas fa-link"></i>
+                    <h2>Session Chains</h2>
+                </div>
+                
+                <div class="tabs">
+                    <div class="tab active">Chain Visualization</div>
+                    <div class="tab">Message View</div>
+                    <div class="tab">User Analysis</div>
+                </div>
+                
+                <div class="session-chain">
+                    <div class="chain-header">
+                        <div>
+                            <span>Main ID:</span>
+                            <span class="chain-id">soul-1627389123-abcxyz</span>
+                        </div>
+                        <div>
+                            <span>Chain Length:</span>
+                            <span class="chain-id">4 Sessions</span>
+                        </div>
+                    </div>
+                    
+                    <div class="chain-path">
+                        <div class="session-node">
+                            <div class="session-id">soul-1627389123</div>
+                            <div class="session-time">Jun 27, 2023 14:32</div>
+                        </div>
+                        <div class="session-node">
+                            <div class="session-id">soul-1627391256</div>
+                            <div class="session-time">Jun 27, 2023 15:07</div>
+                        </div>
+                        <div class="session-node">
+                            <div class="session-id">soul-1627394521</div>
+                            <div class="session-time">Jun 27, 2023 16:02</div>
+                        </div>
+                        <div class="session-node">
+                            <div class="session-id">soul-1627401123</div>
+                            <div class="session-time">Jun 27, 2023 18:12</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel-title" style="margin-top: 20px;">
+                    <i class="fas fa-comments"></i>
+                    <h2>Stitched Messages</h2>
+                </div>
+                
+                <div class="messages-container">
+                    <div class="message">
+                        <div class="message-header">
+                            <span class="user-id">SilentSoul123</span>
+                            <span>Jun 27, 2023 14:35:23 (Session 1)</span>
+                        </div>
+                        <div class="message-content">
+                            Just joined the ritual. Feeling excited to connect with others on this journey.
+                        </div>
+                    </div>
+                    
+                    <div class="message">
+                        <div class="message-header">
+                            <span class="user-id">SilentSoul123</span>
+                            <span>Jun 27, 2023 14:42:11 (Session 1)</span>
+                        </div>
+                        <div class="message-content">
+                            Has anyone else experienced the energy shift today? It feels particularly strong.
+                        </div>
+                    </div>
+                    
+                    <div class="message">
+                        <div class="message-header">
+                            <span class="user-id">SilentSoul123</span>
+                            <span>Jun 27, 2023 15:10:05 (Session 2)</span>
+                        </div>
+                        <div class="message-content">
+                            Had to refresh but I'm back. Continuing my previous thought - I believe this energy is connected to the lunar cycle.
+                        </div>
+                    </div>
+                    
+                    <div class="message">
+                        <div class="message-header">
+                            <span class="user-id">SilentSoul123</span>
+                            <span>Jun 27, 2023 16:05:33 (Session 3)</span>
+                        </div>
+                        <div class="message-content">
+                            Just experienced a moment of clarity. The connection between mind and spirit feels stronger than ever.
+                        </div>
+                    </div>
+                    
+                    <div class="message">
+                        <div class="message-header">
+                            <span class="user-id">SilentSoul123</span>
+                            <span>Jun 27, 2023 18:15:47 (Session 4)</span>
+                        </div>
+                        <div class="message-content">
+                            Final thoughts before I sign off - this has been a profound experience. Thank you all for sharing this space.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-primary">
+                        <i class="fas fa-download"></i> Export Conversation
+                    </button>
+                    <button class="btn btn-secondary">
+                        <i class="fas fa-user-secret"></i> View User Profile
+                    </button>
+                    <button class="btn btn-secondary">
+                        <i class="fas fa-ban"></i> Flag User
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
-      
-      <div>
-        <button id="panicBtn" class="btn btn-sm btn-outline-danger btn-micro">
-          <i class="fas fa-trash-alt me-1"></i>Clear
-        </button>
-      </div>
-    </div>
-    
-    <div id="modeBanner" class="mode-banner mode-chat">
-      <i class="fas fa-lock me-2"></i>Private Chat Mode
     </div>
 
-    <div id="chatBox" class="chat-box flex-grow-1">
-      <div id="welcomeMessage" class="welcome-message">
-        <i class="fas fa-spinner fa-spin me-2"></i>Starting your session...
-      </div>
-    </div>
-
-    <div class="text-center my-2" style="font-size:.8rem; color: var(--text); opacity: 0.7;">
-      Messages powered by Firebase Firestore
-    </div>
-
-    <div id="inputArea" class="input-area">
-      <div class="input-group">
-        <textarea
-          id="chatInput"
-          class="form-control"
-          placeholder="Type what you feel..."
-          rows="1"
-        ></textarea>
-        <button id="sendBtn" class="btn btn-primary ms-2 btn-micro" style="background: var(--accent); border-color: var(--accent);">
-          <i class="fas fa-paper-plane"></i>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Apply theme transition class
-    document.body.classList.add('theme-transition');
-
-    // Status indicator
-    const statusIndicator = document.getElementById('statusIndicator');
-
-    // Firebase init
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    // Enable offline persistence
-    db.enablePersistence()
-      .catch((err) => {
-        console.log('Firestore offline persistence not enabled:', err);
-      });
-    // Monitor connection status
-    firebase.firestore().enableNetwork()
-      .then(() => {
-        statusIndicator.className = "status-indicator status-connected";
-        statusIndicator.title = "Connected";
-      })
-      .catch(() => {
-        statusIndicator.className = "status-indicator status-disconnected";
-        statusIndicator.title = "Disconnected";
-      });
-
-    // Session management with main ID and session chains
-    let mainId = localStorage.getItem('sln_mainId');
-    let sessionId = sessionStorage.getItem('sln_sessionId');
-    let userId = null;
-    let unsubscribe = null;
-    let welcomedPrivate = false;
-    let publicChatLoaded = false;
-
-    // Generate a unique ID
-    function generateUniqueId(prefix = '') {
-      return prefix + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-    }
-
-    // Initialize IDs
-    if (!mainId) {
-      mainId = generateUniqueId('main-');
-      localStorage.setItem('sln_mainId', mainId);
-    }
-
-    // Display main ID (first 8 chars)
-    document.getElementById('mainIdDisplay').textContent = mainId.substring(0, 8) + '...';
-
-    function startNewSession() {
-      const oldSessionId = sessionId;
-
-      // Generate new session ID
-      sessionId = generateUniqueId('soul-');
-
-      // Save to sessionStorage
-      sessionStorage.setItem('sln_sessionId', sessionId);
-
-      // Generate new user ID
-      userId = 'SilentSoul' + Math.floor(Math.random() * 1000 + 1);
-
-      // Update UI
-      document.getElementById('soulprint').textContent = sessionId.substring(0, 8) + '...';
-      document.getElementById('welcomeMessage').innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Starting your session...`;
-
-      // Reset flags
-      welcomedPrivate = false;
-      publicChatLoaded = false;
-
-      // Record session chain in Firestore
-      if (oldSessionId) {
-        db.collection("session_chains").add({
-          mainId: mainId,
-          oldSessionId: oldSessionId,
-          newSessionId: sessionId,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } else {
-        // First session for this main ID
-        db.collection("session_chains").add({
-          mainId: mainId,
-          oldSessionId: null,
-          newSessionId: sessionId,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      }
-
-      return sessionId;
-    }
-
-    // Initialize session
-    if (!sessionId) {
-      startNewSession();
-    } else {
-      // If session exists, generate user ID
-      userId = 'SilentSoul' + Math.floor(Math.random() * 1000 + 1);
-      document.getElementById('soulprint').textContent = sessionId.substring(0, 8) + '...';
-    }
-
-    // Elements
-    const chatBox = document.getElementById('chatBox');
-    const chatInput = document.getElementById('chatInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const modeSelect = document.getElementById('modeSelect');
-    const themeSelect = document.getElementById('themeSelect');
-    const panicBtn = document.getElementById('panicBtn');
-    const swipeIndicator = document.querySelector('.swipe-indicator');
-    const welcomeMessage = document.getElementById('welcomeMessage');
-    const whisperWindow = document.getElementById('whisperWindow');
-    const whisperText = document.getElementById('whisperText');
-    const themeSelectContainer = document.getElementById('themeSelectContainer');
-    const themeIcon = document.querySelector('.theme-icon');
-
-    // Theme switcher
-    function applyTheme() {
-      document.body.classList.remove('dark', 'candle', 'rain', 'blank', 'stellar');
-      document.body.classList.add(themeSelect.value);
-      
-      // Update theme icon
-      const icons = {
-        'dark': 'moon',
-        'candle': 'fire',
-        'rain': 'cloud-rain',
-        'blank': 'file',
-        'stellar': 'star'
-      };
-      
-      if (icons[themeSelect.value]) {
-        themeIcon.innerHTML = `<i class="fas fa-${icons[themeSelect.value]}"></i>`;
-      }
-    }
-
-    themeSelect.addEventListener('change', function() {
-      // Add temporary class for smooth transition
-      document.body.classList.add('theme-changing');
-      setTimeout(() => {
-        applyTheme();
-        document.body.classList.remove('theme-changing');
-      }, 10);
-    });
-
-    applyTheme();
-
-    // Auto-resize textarea
-    function autoResize() {
-      chatInput.style.height = 'auto';
-      chatInput.style.height = (chatInput.scrollHeight) + 'px';
-
-      // Limit max height
-      if (chatInput.scrollHeight > 150) {
-        chatInput.style.overflowY = 'auto';
-      } else {
-        chatInput.style.overflowY = 'hidden';
-      }
-    }
-
-    chatInput.addEventListener('input', autoResize);
-
-    // Send message on Ctrl+Enter
-    chatInput.addEventListener('keydown', function(e) {
-      if (e.ctrlKey && e.key === 'Enter') {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-
-    // Censor abusive words
-    const abusiveWords = ['abuse', 'hate', 'stupid', 'idiot', 'fool', 'dumb', 'moron', 'retard', 'crap', 'shit', 'fuck', 'asshole', 'bitch', 'bastard'];
-    function censor(text) {
-      const pattern = new RegExp(`\\b(${abusiveWords.join('|')})\\b`, 'gi');
-      return text.replace(pattern, match => '*'.repeat(match.length));
-    }
-
-    // Welcome logic
-    function showWelcomePrivate() {
-      if (!welcomedPrivate) {
-        // Client-side only, not stored in Firestore
-        addMessage('EXELIS', `Welcome, ${userId}. I'm here to listen. Share what's on your mind.`, 'ai', false);
-        welcomedPrivate = true;
-      }
-    }
-
-    // Panic mode (clear UI)
-    function panicMode() {
-      // Clear chat UI
-      chatBox.innerHTML = '<div id="welcomeMessage" class="welcome-message"><i class="fas fa-spinner fa-spin me-2"></i>Starting new session...</div>';
-
-      // Clear input
-      chatInput.value = '';
-
-      // Unsubscribe from current listener
-      if (unsubscribe) {
-        unsubscribe();
-        unsubscribe = null;
-      }
-
-      // Start a new session
-      startNewSession();
-
-      // If in private mode, show welcome again
-      if (modeSelect.value === 'chat') {
-        setTimeout(showWelcomePrivate, 500);
-      } else {
-        publicChatLoaded = false;
-        loadMessages();
-      }
-
-      // Show confirmation
-      showToast('Chat cleared. New session started.');
-    }
-
-    panicBtn.addEventListener('click', panicMode);
-
-    // Swipe detection for panic mode
-    let touchStartY = 0;
-
-    chatBox.addEventListener('touchstart', function(e) {
-      touchStartY = e.changedTouches[0].screenY;
-      swipeIndicator.style.display = 'block';
-    });
-
-    chatBox.addEventListener('touchmove', function(e) {
-      const touchY = e.changedTouches[0].screenY;
-      const diff = touchY - touchStartY;
-
-      // Show indicator if swiping down
-      if (diff > 50) {
-        swipeIndicator.style.display = 'block';
-      } else {
-        swipeIndicator.style.display = 'none';
-      }
-    });
-
-    chatBox.addEventListener('touchend', function(e) {
-      const touchEndY = e.changedTouches[0].screenY;
-      const diff = touchEndY - touchStartY;
-
-      // If swipe down more than 100px, trigger panic mode
-      if (diff > 100) {
-        panicMode();
-      }
-
-      swipeIndicator.style.display = 'none';
-    });
-
-    // Firestore listeners
-    function loadMessages() {
-      if (unsubscribe) unsubscribe();
-
-      chatBox.innerHTML = '<div id="welcomeMessage" class="welcome-message"><i class="fas fa-spinner fa-spin me-2"></i>Loading messages...</div>';
-
-      if (modeSelect.value === 'chat') {
-        // Private mode - use session ID
-        const ref = db.collection('private').doc(sessionId).collection('messages').orderBy('ts');
-
-        unsubscribe = ref.onSnapshot(snap => {
-          chatBox.innerHTML = '';
-
-          if (snap.empty) {
-            showWelcomePrivate();
-          } else {
-            snap.forEach(doc => {
-              const m = doc.data();
-              addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai', true);
+    <script>
+        // Tab functionality
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
             });
-          }
-        }, error => {
-          showToast("Error loading messages. Please try again.");
         });
-
-      } else {
-        // Public mode - use public collection
-        const ref = db.collection('public').orderBy('ts', 'desc').limit(25);
-
-        unsubscribe = ref.onSnapshot(snap => {
-          chatBox.innerHTML = '';
-
-          // Process messages in reverse order (oldest first)
-          const messages = [];
-          snap.forEach(doc => messages.push(doc.data()));
-          messages.reverse();
-
-          messages.forEach(m => {
-            addMessage(m.uid, m.text, m.uid === userId ? 'user' : 'ai', true);
-          });
-
-          if (!publicChatLoaded) {
-            addMessage('EXELIS', `Welcome to public chat. Share your thoughts with others.`, 'ai', false);
-            publicChatLoaded = true;
-          }
-        }, error => {
-          showToast("Error loading public messages. Please try again.");
+        
+        // Session node hover effect
+        const sessionNodes = document.querySelectorAll('.session-node');
+        sessionNodes.forEach(node => {
+            node.addEventListener('mouseenter', () => {
+                const sessionId = node.querySelector('.session-id').textContent;
+                document.querySelectorAll('.message').forEach(msg => {
+                    if(msg.querySelector('.message-header span:last-child').textContent.includes(sessionId)) {
+                        msg.style.borderLeft = '4px solid #4ade80';
+                    }
+                });
+            });
+            
+            node.addEventListener('mouseleave', () => {
+                document.querySelectorAll('.message').forEach(msg => {
+                    msg.style.borderLeft = '4px solid var(--highlight)';
+                });
+            });
         });
-
-        // Update banner
-        document.getElementById('modeBanner').className = 'mode-banner mode-ritual';
-        document.getElementById('modeBanner').innerHTML = '<i class="fas fa-users me-2"></i>Public Chat Mode';
-      }
-    }
-
-    modeSelect.addEventListener('change', function() {
-      // Update banner
-      if (modeSelect.value === 'chat') {
-        document.getElementById('modeBanner').className = 'mode-banner mode-chat';
-        document.getElementById('modeBanner').innerHTML = '<i class="fas fa-lock me-2"></i>Private Chat Mode';
-      } else {
-        document.getElementById('modeBanner').className = 'mode-banner mode-ritual';
-        document.getElementById('modeBanner').innerHTML = '<i class="fas fa-users me-2"></i>Public Chat Mode';
-      }
-
-      loadMessages();
-    });
-
-    // Send message
-    async function sendMessage() {
-      const txt = chatInput.value.trim();
-      if (!txt) return;
-
-      const now = firebase.firestore.FieldValue.serverTimestamp();
-      const censoredText = censor(txt);
-
-      // Add message to UI immediately
-      addMessage(userId, censoredText, 'user', false);
-
-      try {
-        if (modeSelect.value === 'chat') {
-          // Private mode - store in Firestore under session ID
-          const ref = db.collection('private').doc(sessionId).collection('messages');
-          await ref.add({ 
-            uid: userId, 
-            text: censoredText, 
-            ts: now 
-          });
-        } else {
-          // Public mode - store in public collection
-          await db.collection('public').add({ 
-            uid: userId, 
-            text: censoredText, 
-            ts: now
-          });
-        }
-      } catch (error) {
-        showToast("Failed to send message. Please try again.");
-      }
-
-      chatInput.value = '';
-      autoResize();
-    }
-
-    sendBtn.addEventListener('click', sendMessage);
-    chatInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-
-    // Star reaction system
-    function setupStarButton(button, msgId) {
-      // Check if already starred
-      const starred = localStorage.getItem(`star_${msgId}`) === 'true';
-      if (starred) {
-        button.classList.add('starred');
-      }
-
-      button.addEventListener('click', function() {
-        // Toggle star state
-        const isStarred = button.classList.contains('starred');
-        if (isStarred) {
-          button.classList.remove('starred');
-          localStorage.removeItem(`star_${msgId}`);
-        } else {
-          button.classList.add('starred');
-          button.classList.add('glow');
-          setTimeout(() => button.classList.remove('glow'), 1000);
-          localStorage.setItem(`star_${msgId}`, 'true');
-        }
-      });
-    }
-
-    // Add message to UI
-    function addMessage(uid, text, cls, animate) {
-      // Remove welcome message if present
-      const welcomeMessage = document.getElementById('welcomeMessage');
-      if (welcomeMessage && welcomeMessage.parentNode === chatBox) {
-        chatBox.removeChild(welcomeMessage);
-      }
-
-      const w = document.createElement('div');
-      w.className = `msg-wrapper ${cls}`;
-      if (animate) w.style.animation = 'fadeIn 0.3s ease';
-
-      const img = document.createElement('div');
-      img.className = 'avatar';
-      img.textContent = uid.substring(0, 2);
-
-      const m = document.createElement('div');
-      m.className = 'message';
-      m.innerHTML = `<div class="message-text">${text}</div>`;
-
-      // Generate unique ID for this message
-      const msgId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-      w.dataset.msgId = msgId;
-
-      // Add copy button
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'copy-btn';
-      copyBtn.innerHTML = '<i class="fas fa-copy fa-xs"></i>';
-      copyBtn.title = 'Copy message';
-      copyBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(text);
-        showToast('Message copied to clipboard');
-      });
-      w.appendChild(copyBtn);
-
-      // Add star button
-      const starBtn = document.createElement('button');
-      starBtn.className = 'star-btn';
-      starBtn.innerHTML = '<i class="far fa-star"></i>';
-      starBtn.title = 'Star this message';
-      w.appendChild(starBtn);
-
-      // Setup star button
-      setupStarButton(starBtn, msgId);
-
-      if (cls === 'user') {
-        w.append(m, img);
-      } else {
-        w.append(img, m);
-      }
-
-      chatBox.appendChild(w);
-      chatBox.scrollTop = chatBox.scrollHeight;
-
-      // Auto-star user messages after 30 seconds
-      if (cls === 'user') {
-        setTimeout(() => {
-          if (localStorage.getItem(`star_${msgId}`) !== 'true') {
-            starBtn.classList.add('starred');
-            starBtn.classList.add('glow');
-            setTimeout(() => starBtn.classList.remove('glow'), 1000);
-            localStorage.setItem(`star_${msgId}`, 'true');
-          }
-        }, 30000);
-      }
-    }
-
-    // Show toast notification
-    function showToast(message) {
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.textContent = message;
-      document.body.appendChild(toast);
-
-      setTimeout(() => {
-        document.body.removeChild(toast);
-      }, 2000);
-    }
-
-    // Whisper affirmations
-    const affirmations = [
-      "You are not late to your own life.",
-      "Even heavy hearts can float again.",
-      "You're doing better than you think.",
-      "Your presence is a gift to the world.",
-      "Growth happens at your own pace.",
-      "Your story is still being written.",
-      "Small steps still move you forward.",
-      "You are worthy of your own patience.",
-      "The world is better with you in it.",
-      "Your resilience is quietly extraordinary."
-    ];
-
-    function showWhisper() {
-      const text = affirmations[Math.floor(Math.random() * affirmations.length)];
-      whisperText.textContent = text;
-      whisperWindow.classList.add('whisper-visible');
-
-      setTimeout(() => {
-        whisperWindow.classList.remove('whisper-visible');
-      }, 5000);
-    }
-
-    // Start whisper interval
-    setInterval(showWhisper, 180000 + Math.random() * 120000); // 3-5 minutes
-    setTimeout(showWhisper, 10000); // Show first one after 10 seconds
-
-    // Initialize
-    setTimeout(() => {
-      loadMessages();
-      if (modeSelect.value === 'chat') {
-        showWelcomePrivate();
-      }
-    }, 1000);
-  </script>
+        
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('keyup', (e) => {
+            if(e.key === 'Enter') {
+                const searchTerm = searchInput.value.toLowerCase();
+                if(searchTerm) {
+                    document.querySelector('.chain-id').textContent = searchTerm;
+                    
+                    // Simulate search results
+                    const messages = document.querySelectorAll('.message');
+                    messages.forEach(msg => {
+                        const content = msg.querySelector('.message-content').textContent.toLowerCase();
+                        msg.style.display = content.includes(searchTerm) ? 'block' : 'none';
+                    });
+                }
+            }
+        });
+    </script>
 </body>
 </html>
