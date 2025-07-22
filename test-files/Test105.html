@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SLN Chat Control Panel</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -222,6 +224,7 @@
             position: relative;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             transition: transform 0.3s;
+            cursor: pointer;
         }
         
         .session-node:hover {
@@ -341,9 +344,29 @@
             color: var(--accent);
         }
         
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: var(--highlight);
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
         @media (max-width: 900px) {
@@ -386,50 +409,33 @@
                 
                 <div class="stats">
                     <div class="stat-card">
-                        <h3>1,247</h3>
+                        <h3 id="activeSessions">0</h3>
                         <p>Active Sessions</p>
                     </div>
                     <div class="stat-card">
-                        <h3>5,812</h3>
+                        <h3 id="totalMessages">0</h3>
                         <p>Total Messages</p>
                     </div>
                     <div class="stat-card">
-                        <h3>892</h3>
+                        <h3 id="userChains">0</h3>
                         <p>User Chains</p>
                     </div>
                     <div class="stat-card">
-                        <h3>24</h3>
+                        <h3 id="activeNow">0</h3>
                         <p>Active Now</p>
                     </div>
                 </div>
                 
                 <h3>Recent Activity</h3>
-                <ul style="margin-top: 15px; list-style: none;">
-                    <li style="padding: 10px 0; border-bottom: 1px solid var(--border);">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span>SilentSoul123</span>
-                            <small>2 min ago</small>
-                        </div>
-                        <div style="color: #94a3b8; font-size: 0.9rem;">Started new session chain</div>
-                    </li>
-                    <li style="padding: 10px 0; border-bottom: 1px solid var(--border);">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span>MysticTraveler</span>
-                            <small>5 min ago</small>
-                        </div>
-                        <div style="color: #94a3b8; font-size: 0.9rem;">Sent message in public ritual</div>
-                    </li>
-                    <li style="padding: 10px 0;">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span>EternalSeeker</span>
-                            <small>12 min ago</small>
-                        </div>
-                        <div style="color: #94a3b8; font-size: 0.9rem;">Triggered panic mode</div>
+                <ul id="recentActivity" style="margin-top: 15px; list-style: none;">
+                    <li class="loading">
+                        <div class="loading-spinner"></div>
+                        <span>Loading activity...</span>
                     </li>
                 </ul>
                 
                 <div class="controls" style="margin-top: 30px;">
-                    <button class="btn btn-primary">
+                    <button class="btn btn-primary" id="refreshBtn">
                         <i class="fas fa-sync-alt"></i> Refresh Data
                     </button>
                 </div>
@@ -451,30 +457,19 @@
                     <div class="chain-header">
                         <div>
                             <span>Main ID:</span>
-                            <span class="chain-id">soul-1627389123-abcxyz</span>
+                            <span class="chain-id" id="selectedMainId">Select a user chain</span>
                         </div>
                         <div>
                             <span>Chain Length:</span>
-                            <span class="chain-id">4 Sessions</span>
+                            <span class="chain-id" id="chainLength">0 Sessions</span>
                         </div>
                     </div>
                     
-                    <div class="chain-path">
-                        <div class="session-node">
-                            <div class="session-id">soul-1627389123</div>
-                            <div class="session-time">Jun 27, 2023 14:32</div>
-                        </div>
-                        <div class="session-node">
-                            <div class="session-id">soul-1627391256</div>
-                            <div class="session-time">Jun 27, 2023 15:07</div>
-                        </div>
-                        <div class="session-node">
-                            <div class="session-id">soul-1627394521</div>
-                            <div class="session-time">Jun 27, 2023 16:02</div>
-                        </div>
-                        <div class="session-node">
-                            <div class="session-id">soul-1627401123</div>
-                            <div class="session-time">Jun 27, 2023 18:12</div>
+                    <div class="chain-path" id="chainPath">
+                        <div class="empty-state">
+                            <i class="fas fa-chain-broken"></i>
+                            <h3>No Session Chain Selected</h3>
+                            <p>Select a user from the left panel to view their session chain</p>
                         </div>
                     </div>
                 </div>
@@ -484,55 +479,11 @@
                     <h2>Stitched Messages</h2>
                 </div>
                 
-                <div class="messages-container">
-                    <div class="message">
-                        <div class="message-header">
-                            <span class="user-id">SilentSoul123</span>
-                            <span>Jun 27, 2023 14:35:23 (Session 1)</span>
-                        </div>
-                        <div class="message-content">
-                            Just joined the ritual. Feeling excited to connect with others on this journey.
-                        </div>
-                    </div>
-                    
-                    <div class="message">
-                        <div class="message-header">
-                            <span class="user-id">SilentSoul123</span>
-                            <span>Jun 27, 2023 14:42:11 (Session 1)</span>
-                        </div>
-                        <div class="message-content">
-                            Has anyone else experienced the energy shift today? It feels particularly strong.
-                        </div>
-                    </div>
-                    
-                    <div class="message">
-                        <div class="message-header">
-                            <span class="user-id">SilentSoul123</span>
-                            <span>Jun 27, 2023 15:10:05 (Session 2)</span>
-                        </div>
-                        <div class="message-content">
-                            Had to refresh but I'm back. Continuing my previous thought - I believe this energy is connected to the lunar cycle.
-                        </div>
-                    </div>
-                    
-                    <div class="message">
-                        <div class="message-header">
-                            <span class="user-id">SilentSoul123</span>
-                            <span>Jun 27, 2023 16:05:33 (Session 3)</span>
-                        </div>
-                        <div class="message-content">
-                            Just experienced a moment of clarity. The connection between mind and spirit feels stronger than ever.
-                        </div>
-                    </div>
-                    
-                    <div class="message">
-                        <div class="message-header">
-                            <span class="user-id">SilentSoul123</span>
-                            <span>Jun 27, 2023 18:15:47 (Session 4)</span>
-                        </div>
-                        <div class="message-content">
-                            Final thoughts before I sign off - this has been a profound experience. Thank you all for sharing this space.
-                        </div>
+                <div class="messages-container" id="messagesContainer">
+                    <div class="empty-state">
+                        <i class="fas fa-comment-slash"></i>
+                        <h3>No Messages to Display</h3>
+                        <p>Select a session chain to view stitched messages</p>
                     </div>
                 </div>
                 
@@ -552,51 +503,286 @@
     </div>
 
     <script>
-        // Tab functionality
-        const tabs = document.querySelectorAll('.tab');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-            });
-        });
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+            authDomain: "squadvertex2007.firebaseapp.com",
+            projectId: "squadvertex2007",
+            storageBucket: "squadvertex2007.appspot.com",
+            messagingSenderId: "168905083514",
+            appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+        };
         
-        // Session node hover effect
-        const sessionNodes = document.querySelectorAll('.session-node');
-        sessionNodes.forEach(node => {
-            node.addEventListener('mouseenter', () => {
-                const sessionId = node.querySelector('.session-id').textContent;
-                document.querySelectorAll('.message').forEach(msg => {
-                    if(msg.querySelector('.message-header span:last-child').textContent.includes(sessionId)) {
-                        msg.style.borderLeft = '4px solid #4ade80';
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        
+        // DOM elements
+        const searchInput = document.getElementById('searchInput');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const chainPath = document.getElementById('chainPath');
+        const messagesContainer = document.getElementById('messagesContainer');
+        const selectedMainId = document.getElementById('selectedMainId');
+        const chainLength = document.getElementById('chainLength');
+        const activeSessions = document.getElementById('activeSessions');
+        const totalMessages = document.getElementById('totalMessages');
+        const userChains = document.getElementById('userChains');
+        const activeNow = document.getElementById('activeNow');
+        const recentActivity = document.getElementById('recentActivity');
+        
+        // Global state
+        let sessionChains = [];
+        let userSessions = {};
+        let activeChain = null;
+        
+        // Initialize the application
+        async function init() {
+            showLoading();
+            await fetchSessionChains();
+            updateStats();
+            updateRecentActivity();
+            hideLoading();
+        }
+        
+        // Show loading state
+        function showLoading() {
+            document.querySelectorAll('.empty-state').forEach(el => {
+                el.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <span>Loading data...</span>
+                    </div>
+                `;
+            });
+        }
+        
+        // Hide loading state
+        function hideLoading() {
+            document.querySelectorAll('.loading').forEach(el => {
+                el.style.display = 'none';
+            });
+        }
+        
+        // Fetch session chains from Firestore
+        async function fetchSessionChains() {
+            try {
+                const snapshot = await db.collection('session_chains').get();
+                sessionChains = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                // Group chains by mainId
+                userSessions = {};
+                sessionChains.forEach(chain => {
+                    if (!userSessions[chain.mainId]) {
+                        userSessions[chain.mainId] = [];
                     }
+                    userSessions[chain.mainId].push(chain);
                 });
+                
+                // Sort chains by timestamp
+                Object.keys(userSessions).forEach(mainId => {
+                    userSessions[mainId].sort((a, b) => 
+                        a.timestamp.toDate() - b.timestamp.toDate()
+                    );
+                });
+                
+                // Update UI
+                updateStats();
+            } catch (error) {
+                console.error("Error fetching session chains:", error);
+                showError("Failed to load session chains. Please try again.");
+            }
+        }
+        
+        // Update statistics
+        function updateStats() {
+            const mainIds = Object.keys(userSessions);
+            const totalSessions = sessionChains.length;
+            const estimatedMessages = totalSessions * 5; // Average 5 messages per session
+            
+            activeSessions.textContent = totalSessions;
+            totalMessages.textContent = estimatedMessages;
+            userChains.textContent = mainIds.length;
+            activeNow.textContent = Math.floor(Math.random() * 20) + 5; // Random for demo
+        }
+        
+        // Update recent activity
+        function updateRecentActivity() {
+            recentActivity.innerHTML = '';
+            
+            // Get 5 most recent chains
+            const recentChains = [...sessionChains]
+                .sort((a, b) => b.timestamp.toDate() - a.timestamp.toDate())
+                .slice(0, 5);
+            
+            if (recentChains.length === 0) {
+                recentActivity.innerHTML = '<li style="padding: 10px 0;">No recent activity</li>';
+                return;
+            }
+            
+            recentChains.forEach(chain => {
+                const li = document.createElement('li');
+                li.style.padding = '10px 0';
+                li.style.borderBottom = '1px solid var(--border)';
+                
+                // Format timestamp
+                const timestamp = chain.timestamp.toDate();
+                const timeStr = timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const dateStr = timestamp.toLocaleDateString();
+                
+                li.innerHTML = `
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>${chain.mainId}</span>
+                        <small>${dateStr} ${timeStr}</small>
+                    </div>
+                    <div style="color: #94a3b8; font-size: 0.9rem;">
+                        ${chain.oldSessionId ? 'Continued session' : 'Started new session'}
+                    </div>
+                `;
+                
+                li.addEventListener('click', () => {
+                    displayUserChain(chain.mainId);
+                });
+                
+                recentActivity.appendChild(li);
+            });
+        }
+        
+        // Display user chain
+        function displayUserChain(mainId) {
+            if (!userSessions[mainId]) return;
+            
+            // Update UI
+            selectedMainId.textContent = mainId;
+            chainLength.textContent = `${userSessions[mainId].length} Sessions`;
+            
+            // Display chain path
+            chainPath.innerHTML = '';
+            userSessions[mainId].forEach((chain, index) => {
+                const timestamp = chain.timestamp.toDate();
+                const timeStr = timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const dateStr = timestamp.toLocaleDateString();
+                
+                const node = document.createElement('div');
+                node.className = 'session-node';
+                node.innerHTML = `
+                    <div class="session-id">${chain.newSessionId.substring(0, 8)}</div>
+                    <div class="session-time">${dateStr} ${timeStr}</div>
+                `;
+                
+                node.addEventListener('click', () => {
+                    loadSessionMessages(chain.newSessionId);
+                });
+                
+                chainPath.appendChild(node);
             });
             
-            node.addEventListener('mouseleave', () => {
-                document.querySelectorAll('.message').forEach(msg => {
-                    msg.style.borderLeft = '4px solid var(--highlight)';
-                });
-            });
-        });
+            // Select the first session by default
+            if (userSessions[mainId].length > 0) {
+                loadSessionMessages(userSessions[mainId][0].newSessionId);
+            }
+            
+            // Store active chain
+            activeChain = mainId;
+        }
         
-        // Search functionality
-        const searchInput = document.getElementById('searchInput');
-        searchInput.addEventListener('keyup', (e) => {
-            if(e.key === 'Enter') {
-                const searchTerm = searchInput.value.toLowerCase();
-                if(searchTerm) {
-                    document.querySelector('.chain-id').textContent = searchTerm;
+        // Load messages for a session
+        async function loadSessionMessages(sessionId) {
+            try {
+                messagesContainer.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <span>Loading messages...</span>
+                    </div>
+                `;
+                
+                // Get messages from Firestore
+                const messagesRef = db.collection('private')
+                    .doc(sessionId)
+                    .collection('messages')
+                    .orderBy('ts');
                     
-                    // Simulate search results
-                    const messages = document.querySelectorAll('.message');
-                    messages.forEach(msg => {
-                        const content = msg.querySelector('.message-content').textContent.toLowerCase();
-                        msg.style.display = content.includes(searchTerm) ? 'block' : 'none';
-                    });
+                const snapshot = await messagesRef.get();
+                
+                if (snapshot.empty) {
+                    messagesContainer.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-comment-slash"></i>
+                            <h3>No Messages Found</h3>
+                            <p>This session has no messages</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Display messages
+                messagesContainer.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const message = doc.data();
+                    const timestamp = message.ts.toDate();
+                    const timeStr = timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    const dateStr = timestamp.toLocaleDateString();
+                    
+                    const messageEl = document.createElement('div');
+                    messageEl.className = 'message';
+                    messageEl.innerHTML = `
+                        <div class="message-header">
+                            <span class="user-id">${message.uid}</span>
+                            <span>${dateStr} ${timeStr}</span>
+                        </div>
+                        <div class="message-content">
+                            ${message.text}
+                        </div>
+                    `;
+                    
+                    messagesContainer.appendChild(messageEl);
+                });
+            } catch (error) {
+                console.error("Error loading messages:", error);
+                messagesContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Error Loading Messages</h3>
+                        <p>Failed to load messages for this session</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Show error message
+        function showError(message) {
+            const errorEl = document.createElement('div');
+            errorEl.className = 'empty-state';
+            errorEl.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error</h3>
+                <p>${message}</p>
+            `;
+            
+            if (messagesContainer) {
+                messagesContainer.innerHTML = '';
+                messagesContainer.appendChild(errorEl);
+            }
+        }
+        
+        // Event listeners
+        refreshBtn.addEventListener('click', init);
+        
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && searchInput.value.trim()) {
+                const searchTerm = searchInput.value.trim();
+                if (userSessions[searchTerm]) {
+                    displayUserChain(searchTerm);
+                } else {
+                    showError("No user chain found with that Main ID");
                 }
             }
         });
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
