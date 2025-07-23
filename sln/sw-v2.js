@@ -1,4 +1,4 @@
-const CACHE_NAME = "sln-cache-v1";
+const CACHE_NAME = "sln-cache-v2";
 const urlsToCache = [
   "/sln/",
   "/sln/sIn_chat.html",
