@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SLN Sanctuary | Entry Ritual</title>
-<link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -326,6 +326,80 @@
             50% { opacity: 0.7; }
         }
 
+        /* Install prompt styles */
+        .install-prompt {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 15, 30, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 12px 25px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3), 0 0 15px rgba(100, 100, 255, 0.2);
+            border: 1px solid rgba(100, 100, 150, 0.4);
+            pointer-events: none;
+        }
+
+        .install-prompt.visible {
+            opacity: 1;
+            pointer-events: all;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .install-prompt.hidden {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px);
+        }
+
+        .install-text {
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+        }
+
+        .install-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .install-btn {
+            background: rgba(100, 100, 150, 0.2);
+            border: none;
+            color: rgba(255, 255, 255, 0.9);
+            padding: 6px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .install-btn:hover {
+            background: rgba(120, 120, 180, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .install-btn.primary {
+            background: rgba(80, 120, 200, 0.3);
+            box-shadow: 0 0 10px rgba(80, 120, 200, 0.3);
+        }
+
+        .install-btn.primary:hover {
+            background: rgba(100, 140, 220, 0.4);
+        }
+
+        /* Adjust tap hint position */
+        .tap-hint {
+            bottom: 80px; /* Moved up to make space for install prompt */
+        }
+
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .line {
@@ -351,6 +425,23 @@
                 font-size: 1.4rem;
                 padding: 20px 30px;
             }
+            
+            .install-prompt {
+                width: 90%;
+                flex-direction: column;
+                text-align: center;
+                padding: 15px;
+                border-radius: 20px;
+            }
+            
+            .install-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .tap-hint {
+                bottom: 120px; /* More space on mobile */
+            }
         }
 
         @media (max-width: 480px) {
@@ -367,8 +458,17 @@
                 font-size: 1.2rem;
                 padding: 15px 20px;
             }
+            
+            .install-text {
+                font-size: 0.85rem;
+            }
+            
+            .install-btn {
+                padding: 5px 12px;
+                font-size: 0.8rem;
+            }
         }
-</style>
+    </style>
 </head>
 <body>
     <!-- Background Elements -->
@@ -409,6 +509,15 @@
     <div class="loading-text">Preparing your sanctuary…</div>
     <div class="tap-hint">Tap anywhere to enter</div>
     <div class="melt-message">You let it all go. You're ready.</div>
+    
+    <!-- Install Prompt -->
+    <div class="install-prompt" id="installPrompt">
+        <div class="install-text">Install SLN for a better experience?</div>
+        <div class="install-buttons">
+            <button class="install-btn" id="installCancel">Not Now</button>
+            <button class="install-btn primary" id="installConfirm">Install</button>
+        </div>
+    </div>
 
     <!-- Transition Overlay -->
     <div class="transition-overlay" id="transitionOverlay"></div>
@@ -475,6 +584,9 @@
                 // Fade out the entire body
                 document.body.style.opacity = 0;
 
+                // Hide the install prompt if visible
+                document.getElementById('installPrompt').classList.remove('visible');
+
                 // Redirect to main page after fade completes
                 setTimeout(() => {
                     // Redirect to chat.html page
@@ -513,14 +625,51 @@
                     container.appendChild(particle);
                 }
             }
+            
+            // Install Prompt Functionality
+            let installPromptEvent = null;
+            const installPrompt = document.getElementById('installPrompt');
+            const installConfirm = document.getElementById('installConfirm');
+            const installCancel = document.getElementById('installCancel');
+
+            // Listen for beforeinstallprompt event
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                installPromptEvent = e;
+                
+                // Show prompt after 7 seconds (after all text is visible)
+                setTimeout(() => {
+                    if (installPromptEvent) {
+                        installPrompt.classList.add('visible');
+                    }
+                }, 7000);
+            });
+
+            // Handle install confirmation
+            installConfirm.addEventListener('click', () => {
+                if (installPromptEvent) {
+                    installPromptEvent.prompt();
+                    installPromptEvent.userChoice.then((choice) => {
+                        installPrompt.classList.remove('visible');
+                        installPromptEvent = null;
+                    });
+                }
+            });
+
+            // Handle install cancellation
+            installCancel.addEventListener('click', () => {
+                installPrompt.classList.remove('visible');
+                // Hide for this session
+                installPromptEvent = null;
+            });
         });
+        
+        // Simulate service worker registration
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker registered'))
+                .catch(err => console.error('Service Worker registration failed:', err));
+        }
     </script>
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw-v2.js')
-      .then(reg => console.log('✅ Service Worker registered:', reg))
-      .catch(err => console.error('❌ Service Worker failed:', err));
-  }
-</script>
 </body>
 </html>
