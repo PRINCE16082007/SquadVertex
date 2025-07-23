@@ -1,8 +1,8 @@
 const CACHE_NAME = "sln-cache-v2";
 const urlsToCache = [
   "/sln/",
-  "/sln/sIn_chat.html",
-  "/sln/sIn_chat_interface.html",
+  "/sln/sln_chat.html",
+  "/sln/sln_chat_interface.html",
   "/sln/manifest.json",
   "/sln/android-chrome-192x192.png",
   "/sln/android-chrome-512x512.png",
