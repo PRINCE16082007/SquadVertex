@@ -264,12 +264,7 @@
       <h2>Join the Squad</h2>
       <p>Sign in with Google to manage your account on SquadVertex.</p>
 
-      <!-- reCAPTCHA Widget -->
-      <div class="recaptcha-container">
-        <div id="recaptcha-widget" class="g-recaptcha" data-sitekey="6LeK1FwrAAAAAIfwavd_BbyouEnL249oXlOkwyqK" data-callback="onRecaptchaSuccess"></div>
-
-      </div>
-      <div id="recaptcha-error" class="recaptcha-error">Please verify you're not a robot</div>
+      <div id="recaptcha-error" class="recaptcha-error hidden">reCAPTCHA verification failed.</div>
 
       <button id="googleSignInButton" class="google-btn" disabled>
         <img src="https://img.icons8.com/color/24/google-logo.png" alt="Google Icon">
@@ -294,40 +289,29 @@
     </footer>
   </div>
 
-  <!-- Firebase App -->
+  <!-- 🔥 Firebase Setup + Auth Logic -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import "../components/firebase_setup.js";
     import {
       getAuth,
       signInWithPopup,
       GoogleAuthProvider,
       signOut,
       onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
     import {
-      getFirestore,
       doc,
       getDoc,
       setDoc,
       updateDoc,
       serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
-    // 1) FIREBASE CONFIGURATION
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+    const auth = getAuth();
+    const db = window.db;
     const provider = new GoogleAuthProvider();
 
-    // 2) DOM ELEMENTS
+    // DOM Elements
     const termsCheckbox     = document.getElementById('terms-checkbox');
     const googleSignInBtn   = document.getElementById('googleSignInButton');
     const accountsListDiv   = document.getElementById('accounts-list');
@@ -339,33 +323,8 @@
     const goProfileBtn      = document.getElementById('go-profile-btn');
     const switchAccountBtn  = document.getElementById('switch-account-btn');
     const signoutBtn        = document.getElementById('signout-btn');
-    const recaptchaError    = document.getElementById('recaptcha-error');
 
-    // 3) reCAPTCHA STATE MANAGEMENT
-    let recaptchaVerified = false;
-
-    function verifyRecaptcha() {
-      const response = grecaptcha.getResponse();
-      recaptchaVerified = response.length > 0;
-
-      if (recaptchaVerified) {
-        recaptchaError.style.display = 'none';
-      } else {
-        recaptchaError.style.display = 'block';
-      }
-
-      updateGoogleButtonState();
-      return recaptchaVerified;
-    }
-
-    function resetRecaptcha() {
-      grecaptcha.reset();
-      recaptchaVerified = false;
-      recaptchaError.style.display = 'none';
-      updateGoogleButtonState();
-    }
-
-    // 4) LOCALSTORAGE UTILITIES FOR SAVED ACCOUNTS
+    // Saved Accounts
     function loadSavedAccounts() {
       const data = localStorage.getItem('savedAccounts');
       return data ? JSON.parse(data) : [];
@@ -408,7 +367,6 @@
         const useBtn = document.createElement('button');
         useBtn.textContent = 'Use';
         useBtn.addEventListener('click', () => {
-          // Trigger Google Sign-In; user picks that email in popup
           signInWithPopup(auth, provider).catch(err => alert(err.message));
         });
 
@@ -428,37 +386,27 @@
       accountsListDiv.classList.remove('hidden');
     }
 
-    // 5) GOOGLE BUTTON STATE MANAGEMENT
+    // Button state
     function updateGoogleButtonState() {
-      googleSignInBtn.disabled = !(termsCheckbox.checked && recaptchaVerified);
+      googleSignInBtn.disabled = !termsCheckbox.checked;
     }
 
-    // 6) ENABLE GOOGLE BUTTON WHEN TERMS ACCEPTED
-    termsCheckbox.addEventListener('change', () => {
-      updateGoogleButtonState();
-    });
+    termsCheckbox.addEventListener('change', updateGoogleButtonState);
 
-    // 7) GOOGLE SIGN-IN HANDLER
+    // Sign-In Handler
     googleSignInBtn.addEventListener('click', async () => {
       if (!termsCheckbox.checked) {
         alert("Please accept Terms & Conditions and Privacy Policy first.");
         return;
       }
 
-      // Verify reCAPTCHA
-      if (!verifyRecaptcha()) {
-        return;
-      }
-
       try {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
-        // **Firestore: Create or Update user document**
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
         const now = serverTimestamp();
         if (!userSnap.exists()) {
-          // First time signup
           await setDoc(userRef, {
             name: user.displayName || '',
             email: user.email,
@@ -467,7 +415,6 @@
             termsTimestamp: now
           });
         } else {
-          // Already exists—just update name/email/terms
           await updateDoc(userRef, {
             name: user.displayName || '',
             email: user.email,
@@ -475,61 +422,43 @@
             termsTimestamp: now
           });
         }
-
-        // Save email locally for switching
         addSavedAccount(user.email);
-
       } catch (error) {
         alert("Sign-in failed: " + error.message);
-        resetRecaptcha();
       }
     });
 
-    // 8) AUTH STATE LISTENER
+    // Auth State Listener
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        // User signed in → show Signed-In View
         signedOutView.classList.add('hidden');
         signedInView.style.display = 'block';
         displayNameEl.textContent = user.displayName || '(No Name)';
         displayEmailEl.textContent = user.email;
       } else {
-        // User signed out → show Signed-Out View + saved accounts
         signedInView.style.display = 'none';
         signedOutView.classList.remove('hidden');
         renderSavedAccounts();
         termsCheckbox.checked = false;
-        resetRecaptcha();
+        updateGoogleButtonState();
       }
     });
 
-    // 9) “Go to Profile” BUTTON HANDLER
     goProfileBtn.addEventListener('click', () => {
-      // Yahan replace kar dena with your real profile page
       window.location.href = 'profile.html';
     });
 
-    // 10) SIGN OUT HANDLER
     signoutBtn.addEventListener('click', () => {
       signOut(auth).catch(err => alert(err.message));
     });
 
-    // 11) SWITCH ACCOUNT HANDLER
     switchAccountBtn.addEventListener('click', () => {
-      // Sign out current user, then saved accounts will show up
       signOut(auth).catch(err => alert(err.message));
     });
 
-    // 12) INITIAL RENDER OF SAVED ACCOUNTS ON PAGE LOAD
     document.addEventListener('DOMContentLoaded', () => {
       renderSavedAccounts();
-
-      // Make sure this is in the global scope for reCAPTCHA to find it!
-window.onRecaptchaSuccess = function() {
-  recaptchaVerified = true;
-  recaptchaError.style.display = 'none';
-  updateGoogleButtonState();
-};
+      updateGoogleButtonState();
     });
   </script>
 </body>
