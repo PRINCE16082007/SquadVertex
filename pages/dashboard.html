@@ -677,12 +677,12 @@
       }
   </style>
 <script type="module">
-  // ✅ Firebase v11.9.0 imports (CDN)
+  // 🔐 Firebase SDK v11.9.0 imports
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
   import { getFirestore } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-  import { initializeAppCheck, ReCaptchaV3Provider, getToken } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
+  import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
 
-  // ✅ Firebase Config
+  // 🔧 Your Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
     authDomain: "squadvertex2007.firebaseapp.com",
@@ -692,8 +692,9 @@
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
   };
 
-  // ✅ Initialize Firebase App
+  // 🚀 Initialize Firebase
   const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
   // ✅ Enable App Check with reCAPTCHA v3
   const appCheck = initializeAppCheck(app, {
@@ -701,96 +702,88 @@
     isTokenAutoRefreshEnabled: true
   });
 
-  // ✅ Firestore Init
-  const db = getFirestore(app);
-
-  // ✅ Expose to global scope
+  // 🌐 Expose globally
   window.firebaseApp = app;
   window.db = db;
   window.appCheck = appCheck;
 
-  // ✅ Force get App Check Token to test
-  try {
-    const tokenResult = await getToken(appCheck, true);
-    console.log("✅ AppCheck Token:", tokenResult.token);
-  } catch (err) {
-    console.error("❌ Failed to get AppCheck token:", err.message);
+  // 🪵 Log init
+  console.log("✅ Firebase initialized.");
+  appCheck?.then?.(() => console.log("✅ AppCheck ready")).catch((e) => console.warn("⚠️ AppCheck error:", e.message));
+
+  // 🐛 DEBUG CONSOLE WINDOW
+  function initDebugConsole() {
+    const dbg = document.createElement('div');
+    Object.assign(dbg.style, {
+      position: 'fixed',
+      bottom: '10px',
+      right: '10px',
+      width: '280px',
+      maxHeight: '45vh',
+      background: 'rgba(0, 0, 0, 0.95)',
+      color: '#0f0',
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      lineHeight: '1.2',
+      padding: '10px',
+      overflowY: 'auto',
+      zIndex: 999999,
+      border: '2px solid #0f0',
+      borderRadius: '6px',
+      cursor: 'move'
+    });
+    dbg.id = 'mobile-debug-console';
+    document.body.appendChild(dbg);
+
+    let isDown = false, startX, startY, origX, origY;
+    dbg.addEventListener('mousedown', e => {
+      isDown = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      origX = parseInt(dbg.style.right);
+      origY = parseInt(dbg.style.bottom);
+      e.preventDefault();
+    });
+    document.addEventListener('mouseup', () => isDown = false);
+    document.addEventListener('mousemove', e => {
+      if (!isDown) return;
+      const dx = startX - e.clientX;
+      const dy = e.clientY - startY;
+      dbg.style.right = (origX + dx) + 'px';
+      dbg.style.bottom = (origY + dy) + 'px';
+    });
+
+    function logToWindow(type, args) {
+      const msg = document.createElement('div');
+      msg.textContent = `[${type.toUpperCase()}] ` + Array.from(args).map(a => {
+        try { return typeof a === 'object' ? JSON.stringify(a) : a; }
+        catch { return a; }
+      }).join(' ');
+      dbg.appendChild(msg);
+      dbg.scrollTop = dbg.scrollHeight;
+    }
+
+    ['log', 'info', 'warn', 'error', 'debug'].forEach(fn => {
+      const orig = console[fn].bind(console);
+      console[fn] = function (...args) {
+        orig(...args);
+        logToWindow(fn, args);
+      };
+    });
+
+    window.addEventListener('error', e => {
+      console.error('UncaughtError:', e.message, 'at', `${e.filename}:${e.lineno}`);
+    });
+
+    console.log("🐞 Debug Console Activated");
   }
 
-  // ✅ Custom Debug Console for Mobile
-  (function () {
-    function initDebugConsole() {
-      const dbg = document.createElement('div');
-      Object.assign(dbg.style, {
-        position: 'fixed',
-        bottom: '10px',
-        right: '10px',
-        width: '280px',
-        maxHeight: '45vh',
-        background: 'rgba(0, 0, 0, 0.95)',
-        color: '#0f0',
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        lineHeight: '1.2',
-        padding: '10px',
-        overflowY: 'auto',
-        zIndex: 2147483647,
-        border: '2px solid #0f0',
-        borderRadius: '6px',
-        cursor: 'move'
-      });
-      dbg.id = 'mobile-debug-console';
-      document.body.appendChild(dbg);
-
-      // Drag feature
-      let isDown = false, startX, startY, origX, origY;
-      dbg.addEventListener('mousedown', e => {
-        isDown = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        origX = parseInt(dbg.style.right);
-        origY = parseInt(dbg.style.bottom);
-        e.preventDefault();
-      });
-      document.addEventListener('mouseup', () => isDown = false);
-      document.addEventListener('mousemove', e => {
-        if (!isDown) return;
-        const dx = startX - e.clientX;
-        const dy = e.clientY - startY;
-        dbg.style.right = (origX + dx) + 'px';
-        dbg.style.bottom = (origY + dy) + 'px';
-      });
-
-      // Console override
-      function logToWindow(type, args) {
-        const msg = document.createElement('div');
-        msg.textContent = '[' + type.toUpperCase() + '] ' + Array.from(args).map(a => {
-          try { return typeof a === 'object' ? JSON.stringify(a) : a; }
-          catch { return a; }
-        }).join(' ');
-        dbg.appendChild(msg);
-        dbg.scrollTop = dbg.scrollHeight;
-      }
-
-      ['log', 'info', 'warn', 'error', 'debug'].forEach(fn => {
-        const orig = console[fn].bind(console);
-        console[fn] = function (...args) {
-          orig(...args);
-          logToWindow(fn, args);
-        };
-      });
-
-      window.addEventListener('error', e => {
-        console.error('UncaughtError:', e.message, 'at', e.filename + ':' + e.lineno);
-      });
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initDebugConsole);
-    } else {
-      initDebugConsole();
-    }
-  })();
+  // ⏱ Init debug console after DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDebugConsole);
+  } else {
+    initDebugConsole();
+  }
 </script>
 </head>
 <body>
