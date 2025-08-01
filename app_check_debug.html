@@ -2,85 +2,97 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>App Check Debug</title>
-
   <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      padding: 2rem; 
-      background: #f4f4f4; 
-      color: #333;
+    body { font-family: Arial, sans-serif; padding:2rem; background:#f4f4f4; color:#333; }
+    h1 { margin-bottom:1rem; }
+    #output {
+      padding:1rem;
+      background:#fff;
+      border:1px solid #ddd;
+      border-radius:4px;
+      font-size:1.2rem;
     }
-    h1 { margin-bottom: 1rem; }
-    #output { 
-      padding: 1rem; 
-      background: #fff; 
-      border: 1px solid #ddd; 
-      border-radius: 4px; 
-      font-size: 1.2rem; 
+    #toggle-debug-btn {
+      position:fixed;
+      bottom: calc(50vh + 20px);
+      right:10px;
+      padding:8px 12px;
+      background:#333;
+      color:#0f0;
+      border:none;
+      border-radius:4px;
+      cursor:pointer;
+      font-family:monospace;
+      z-index:2147483648;
     }
-    /* Debug console styles override */
-    #debug-console { 
-      width: 400px !important; 
-      height: 50vh !important; 
-    }
+    /* ensure debug console has the same ID */
+    #debug-console { /* overridden in script */ }
   </style>
 
   <script type="module">
-    // 1) Floating Debug Console (large, verbose)
+    // 1) Floating Debug Console + Toggle Button
     (function(){
+      let dbg, isVisible=true;
       function initDebugConsole() {
-        const dbg = document.createElement('div');
+        // create toggle button
+        const btn = document.createElement('button');
+        btn.id = 'toggle-debug-btn';
+        btn.textContent = 'Hide Debug';
+        btn.onclick = () => {
+          isVisible = !isVisible;
+          dbg.style.display = isVisible ? 'block' : 'none';
+          btn.textContent = isVisible ? 'Hide Debug' : 'Show Debug';
+        };
+        document.body.appendChild(btn);
+
+        // create debug console
+        dbg = document.createElement('div');
         Object.assign(dbg.style, {
-          position: 'fixed',
-          bottom: '0',
-          right: '0',
-          width: '400px',
-          height: '50vh',
-          background: 'rgba(0,0,0,0.9)',
-          color: '#0f0',
-          fontFamily: 'monospace',
-          fontSize: '12px',
-          lineHeight: '1.2',
-          padding: '8px',
-          overflowY: 'auto',
-          zIndex: 2147483647,
-          borderTopLeftRadius: '6px',
-          cursor: 'move'
+          position:'fixed', bottom:'0', right:'0',
+          width:'400px', height:'50vh',
+          background:'rgba(0,0,0,0.9)', color:'#0f0',
+          fontFamily:'monospace', fontSize:'12px',
+          lineHeight:'1.2', padding:'8px',
+          overflowY:'auto', zIndex:2147483647,
+          borderTopLeftRadius:'6px', cursor:'move'
         });
         dbg.id = 'debug-console';
         document.body.appendChild(dbg);
 
-        let isDown=false, sx, sy, ox, oy;
+        // dragging
+        let down=false, sx, sy, ox, oy;
         dbg.addEventListener('mousedown', e=>{
-          isDown=true; sx=e.clientX; sy=e.clientY;
-          ox=dbg.getBoundingClientRect().right - window.innerWidth;
-          oy=window.innerHeight - dbg.getBoundingClientRect().bottom;
+          down=true; sx=e.clientX; sy=e.clientY;
+          const rect = dbg.getBoundingClientRect();
+          ox = window.innerWidth - rect.right;
+          oy = window.innerHeight - rect.bottom;
           e.preventDefault();
         });
-        document.addEventListener('mouseup', ()=> isDown=false);
+        document.addEventListener('mouseup', ()=>down=false);
         document.addEventListener('mousemove', e=>{
-          if(!isDown) return;
+          if(!down) return;
           dbg.style.right = (ox + sx - e.clientX) + 'px';
           dbg.style.bottom = (oy + e.clientY - sy) + 'px';
         });
 
+        // logging helper
         function log(type,args){
-          const msg=document.createElement('div');
-          msg.textContent='['+type.toUpperCase()+'] '+ 
-            Array.from(args).map(a=> typeof a==='object'? JSON.stringify(a): a).join(' ');
-          dbg.appendChild(msg);
+          const m = document.createElement('div');
+          m.textContent = '['+type.toUpperCase()+'] ' +
+            Array.from(args).map(a=> typeof a==='object' ? JSON.stringify(a) : a ).join(' ');
+          dbg.appendChild(m);
           dbg.scrollTop = dbg.scrollHeight;
         }
-
         ['log','info','warn','error','debug'].forEach(fn=>{
-          const o=console[fn].bind(console);
-          console[fn]=(...a)=>{ o(...a); log(fn,a); };
+          const orig = console[fn].bind(console);
+          console[fn] = (...a) => { orig(...a); log(fn,a); };
         });
-        window.addEventListener('error',e=>
+        window.addEventListener('error', e=>
           console.error('UncaughtError:', e.message, `${e.filename}:${e.lineno}`)
         );
+
         console.log('🐞 Debug Console Ready');
       }
       if(document.readyState==='loading')
@@ -93,7 +105,7 @@
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
     import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
 
-    // — your Firebase config
+    // your config
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -103,36 +115,33 @@
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
-    console.log('✅ Firebase app initialized');
+    console.log('✅ Firebase initialized');
 
-    // Initialize App Check with reCAPTCHA v3
+    // App Check
     initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider("6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"),
       isTokenAutoRefreshEnabled: true
     });
-    console.log('✅ App Check (reCAPTCHA v3) initialized');
+    console.log('✅ App Check initialized');
 
-    // Initialize Firestore
     const db = getFirestore(app);
 
-    // 3) Fetch and display test/test1 → name
+    // fetch test/test1
     window.addEventListener('DOMContentLoaded', async () => {
-      const output = document.getElementById('output');
+      const out = document.getElementById('output');
       try {
         const snap = await getDoc(doc(db, 'test', 'test1'));
-        if (snap.exists()) {
-          const data = snap.data();
-          console.log('🗂️ Retrieved document:', data);
-          output.textContent = data.name ?? '[no “name” field]';
+        if(snap.exists()){
+          console.log('🗂 Retrieved:', snap.data());
+          out.textContent = snap.data().name;
         } else {
-          console.warn('⚠️ Document test/test1 not found');
-          output.textContent = '[document not found]';
+          console.warn('⚠️ test/test1 not found');
+          out.textContent = '[no document]';
         }
-      } catch (e) {
+      } catch(e) {
         console.error('🔥 Firestore error:', e.code, e.message);
-        output.textContent = `Error: ${e.code}`;
+        out.textContent = `Error: ${e.code}`;
       }
     });
   </script>
