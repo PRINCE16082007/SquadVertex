@@ -92,10 +92,6 @@
       font-weight: 600;
     }
 
-    .form-group {
-      margin-bottom: 20px;
-    }
-
     .terms-group {
       display: flex;
       align-items: flex-start;
@@ -327,7 +323,6 @@
       font-size: 20px;
     }
 
-    /* Saved Accounts Section */
     .saved-accounts {
       margin: 20px 0;
       padding: 15px;
@@ -593,6 +588,12 @@
     const savedAccountsSection = document.getElementById('saved-accounts');
     const accountsList = document.getElementById('accounts-list');
 
+    // Enable Google button when terms are accepted
+    termsCheckbox.addEventListener('change', () => {
+      googleSignInBtn.disabled = !termsCheckbox.checked;
+      console.log('Terms accepted. Signup button enabled:', !termsCheckbox.checked);
+    });
+
     // Saved Accounts Functions
     function loadSavedAccounts() {
       const data = localStorage.getItem('savedAccounts');
@@ -646,7 +647,11 @@
         useBtn.className = 'account-btn use-btn';
         useBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Use';
         useBtn.addEventListener('click', () => {
-          // Sign in with this account
+          if (!termsCheckbox.checked) {
+            alert("Please accept Terms & Conditions first.");
+            return;
+          }
+          console.log('Signing in with saved account:', email);
           signInWithGoogle();
         });
         
@@ -665,21 +670,20 @@
       });
     }
 
-    // Button state
-    termsCheckbox.addEventListener('change', () => {
-      googleSignInBtn.disabled = !termsCheckbox.checked;
-    });
-
-    // Sign-In Handler
+    // Sign-In Handler (FIXED)
     async function signInWithGoogle() {
+      console.log('SignInWithGoogle function called');
+      
       if (!termsCheckbox.checked) {
         alert("Please accept Terms & Conditions and Privacy Policy first.");
         return;
       }
 
       try {
+        console.log('Initiating Google sign-in...');
         const result = await auth.signInWithPopup(provider);
         const user = result.user;
+        console.log('Google sign-in successful:', user.email);
 
         // Check if user exists in Firestore
         const userRef = db.collection('users').doc(user.uid);
@@ -696,6 +700,7 @@
         const formattedDate = new Date().toLocaleString('en-US', dateOptions);
 
         if (!userDoc.exists) {
+          console.log('Creating new user in Firestore');
           // New user - create document with all fields
           await userRef.set({
             email: user.email,
@@ -721,9 +726,11 @@
           // Show success message
           successMessage.style.display = 'flex';
 
-          // Set transaction date
+         // Set transaction date
           transDate.textContent = formattedDate;
+          console.log('New user created successfully');
         } else {
+          console.log('Updating existing user');
           // Existing user - update only lastLogin
           await userRef.update({
             lastLogin: now
@@ -737,6 +744,7 @@
         signupForm.style.display = 'none';
         signedInView.style.display = 'block';
         displayNameEl.textContent = user.displayName || 'User';
+        console.log('UI updated for signed-in user');
 
       } catch (error) {
         console.error("Sign-in error:", error);
@@ -744,8 +752,9 @@
       }
     }
 
-    // Attach signInWithGoogle to the button
+    // Attach signInWithGoogle to the button (FIXED)
     googleSignInBtn.addEventListener('click', signInWithGoogle);
+    console.log('Google sign-in button event listener attached');
 
     // Sign out handler
     signoutBtn.addEventListener('click', () => {
@@ -756,6 +765,7 @@
         termsCheckbox.checked = false;
         googleSignInBtn.disabled = true;
         renderSavedAccounts();
+        console.log('User signed out');
       }).catch(error => {
         alert("Sign-out failed: " + error.message);
       });
@@ -770,13 +780,14 @@
         termsCheckbox.checked = false;
         googleSignInBtn.disabled = true;
         renderSavedAccounts();
+        console.log('Switching accounts');
       });
     });
 
     // Go to profile handler
     goProfileBtn.addEventListener('click', () => {
-      alert("Redirecting to dashboard...");
-      // In a real app: window.location.href = '/dashboard.html';
+      console.log('Redirecting to dashboard');
+      window.location.href = '../pages/dashboard.html';
     });
 
     // Initialize page
@@ -798,9 +809,11 @@
         
         // Hide saved accounts when signed in
         savedAccountsSection.style.display = 'none';
+        console.log('User is signed in:', user.email);
       } else {
         // Show saved accounts when signed out
         renderSavedAccounts();
+        console.log('User is signed out');
       }
     });
 
@@ -820,6 +833,7 @@
 
     // Initial render of saved accounts
     renderSavedAccounts();
+    console.log('Page initialized');
   </script>
 </body>
 </html>
