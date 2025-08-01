@@ -7,7 +7,6 @@
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js"></script>
-  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     * {
@@ -93,10 +92,6 @@
       font-weight: 600;
     }
 
-    .form-group {
-      margin-bottom: 20px;
-    }
-
     .terms-group {
       display: flex;
       align-items: flex-start;
@@ -160,19 +155,6 @@
       cursor: not-allowed;
       transform: none;
       box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
-    }
-
-    .recaptcha-container {
-      margin: 20px 0;
-      display: flex;
-      justify-content: center;
-    }
-
-    .recaptcha-error {
-      color: #dc3545;
-      font-size: 14px;
-      margin-top: 8px;
-      display: none;
     }
 
     .signed-in-view {
@@ -341,21 +323,106 @@
       font-size: 20px;
     }
 
+    .saved-accounts {
+      margin: 20px 0;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 10px;
+      border: 1px solid #e9ecef;
+    }
+
+    .saved-accounts h3 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: #2b8a3e;
+      display: flex;
+      align-items: center;
+    }
+
+    .saved-accounts h3 i {
+      margin-right: 10px;
+    }
+
+    .accounts-list {
+      margin-top: 10px;
+    }
+
+    .account-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .account-email {
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .account-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .account-btn {
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .use-btn {
+      background: #2b8a3e;
+      color: white;
+    }
+
+    .use-btn:hover {
+      background: #237032;
+    }
+
+    .remove-btn {
+      background: #f8f9fa;
+      color: #495057;
+      border: 1px solid #e9ecef;
+    }
+
+    .remove-btn:hover {
+      background: #e9ecef;
+    }
+
     @media (max-width: 480px) {
       .content {
         padding: 20px 15px;
       }
-      
+
       .user-info {
         grid-template-columns: 1fr;
       }
-      
+
       .actions {
         flex-direction: column;
       }
-      
+
       .btn {
         width: 100%;
+      }
+      
+      .account-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      
+      .account-actions {
+        width: 100%;
+        justify-content: flex-end;
       }
     }
   </style>
@@ -381,10 +448,16 @@
 
       <!-- Signup Form -->
       <div id="signup-form">
+        <!-- Saved Accounts Section -->
+        <div class="saved-accounts" id="saved-accounts" style="display: none;">
+          <h3><i class="fas fa-user-circle"></i> Saved Accounts</h3>
+          <div class="accounts-list" id="accounts-list"></div>
+        </div>
+        
         <div class="card">
           <h2 class="card-title">Create Your Account</h2>
           <p>Join thousands of creators who are building their future with SquadVertex.</p>
-          
+
           <div class="terms-group">
             <input type="checkbox" id="terms-checkbox">
             <label for="terms-checkbox">
@@ -397,7 +470,7 @@
             Sign Up with Google
           </button>
         </div>
-        
+
         <div class="card">
           <h2 class="card-title">What You Get</h2>
           <ul style="list-style: none; padding-left: 10px;">
@@ -426,7 +499,7 @@
         <div class="welcome-card">
           <h2>Welcome to SquadVertex, <span id="display-name"></span>!</h2>
           <p>Your account has been successfully created with SquadVertex. You now have access to our creator tools and resources.</p>
-          
+
           <div class="user-info">
             <div class="info-item">
               <div class="info-label">Plan</div>
@@ -446,7 +519,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="transaction-card">
           <h3>Welcome Bonus</h3>
           <div class="transaction-item">
@@ -464,10 +537,13 @@
             </div>
           </div>
         </div>
-        
+
         <div class="actions">
           <button class="btn" id="go-profile-btn">
             <i class="fas fa-tachometer-alt"></i> Go to Dashboard
+          </button>
+          <button class="btn btn-outline" id="switch-account-btn">
+            <i class="fas fa-exchange-alt"></i> Switch Account
           </button>
           <button class="btn btn-outline" id="signout-btn">
             <i class="fas fa-sign-out-alt"></i> Sign Out
@@ -482,7 +558,7 @@
   </div>
 
   <script>
-    // Firebase configuration - replace with your actual config
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBk3X5H6f4z7Z7qy1W6s4Y2Zv3Xz8w9x0y",
       authDomain: "squadvertex-app.firebaseapp.com",
@@ -506,16 +582,94 @@
     const displayNameEl = document.getElementById('display-name');
     const successMessage = document.getElementById('success-message');
     const signoutBtn = document.getElementById('signout-btn');
+    const switchAccountBtn = document.getElementById('switch-account-btn');
     const goProfileBtn = document.getElementById('go-profile-btn');
     const transDate = document.getElementById('trans-date');
+    const savedAccountsSection = document.getElementById('saved-accounts');
+    const accountsList = document.getElementById('accounts-list');
 
-    // Button state
+    // Enable Google button when terms are accepted
     termsCheckbox.addEventListener('change', () => {
       googleSignInBtn.disabled = !termsCheckbox.checked;
     });
 
+    // Saved Accounts Functions
+    function loadSavedAccounts() {
+      const data = localStorage.getItem('savedAccounts');
+      return data ? JSON.parse(data) : [];
+    }
+
+    function saveAccounts(arr) {
+      localStorage.setItem('savedAccounts', JSON.stringify(arr));
+    }
+
+    function addSavedAccount(email) {
+      if (!email) return;
+      const accounts = loadSavedAccounts();
+      if (!accounts.includes(email)) {
+        accounts.push(email);
+        saveAccounts(accounts);
+      }
+      renderSavedAccounts();
+    }
+
+    function removeSavedAccount(email) {
+      let accounts = loadSavedAccounts();
+      accounts = accounts.filter(e => e !== email);
+      saveAccounts(accounts);
+      renderSavedAccounts();
+    }
+
+    function renderSavedAccounts() {
+      const accounts = loadSavedAccounts();
+      accountsList.innerHTML = '';
+      
+      if (accounts.length === 0) {
+        savedAccountsSection.style.display = 'none';
+        return;
+      }
+      
+      savedAccountsSection.style.display = 'block';
+      
+      accounts.forEach(email => {
+        const accountItem = document.createElement('div');
+        accountItem.className = 'account-item';
+        
+        const emailSpan = document.createElement('span');
+        emailSpan.className = 'account-email';
+        emailSpan.textContent = email;
+        
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'account-actions';
+        
+        const useBtn = document.createElement('button');
+        useBtn.className = 'account-btn use-btn';
+        useBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Use';
+        useBtn.addEventListener('click', () => {
+          if (!termsCheckbox.checked) {
+            alert("Please accept Terms & Conditions first.");
+            return;
+          }
+          signInWithGoogle();
+        });
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'account-btn remove-btn';
+        removeBtn.innerHTML = '<i class="fas fa-times"></i> Remove';
+        removeBtn.addEventListener('click', () => {
+          removeSavedAccount(email);
+        });
+        
+        actionsDiv.appendChild(useBtn);
+        actionsDiv.appendChild(removeBtn);
+        accountItem.appendChild(emailSpan);
+        accountItem.appendChild(actionsDiv);
+        accountsList.appendChild(accountItem);
+      });
+    }
+
     // Sign-In Handler
-    googleSignInBtn.addEventListener('click', async () => {
+    async function signInWithGoogle() {
       if (!termsCheckbox.checked) {
         alert("Please accept Terms & Conditions and Privacy Policy first.");
         return;
@@ -524,11 +678,11 @@
       try {
         const result = await auth.signInWithPopup(provider);
         const user = result.user;
-        
+
         // Check if user exists in Firestore
         const userRef = db.collection('users').doc(user.uid);
         const userDoc = await userRef.get();
-        
+
         const now = firebase.firestore.Timestamp.now();
         const dateOptions = { 
           year: 'numeric', 
@@ -538,7 +692,7 @@
           minute: '2-digit'
         };
         const formattedDate = new Date().toLocaleString('en-US', dateOptions);
-        
+
         if (!userDoc.exists) {
           // New user - create document with all fields
           await userRef.set({
@@ -553,7 +707,7 @@
             termsAccepted: true,
             termsTimestamp: now
           });
-          
+
           // Create transaction subcollection
           const transactionRef = userRef.collection('transactions').doc();
           await transactionRef.set({
@@ -561,10 +715,10 @@
             reason: "Welcome to SquadVertex!",
             timestamp: now
           });
-          
+
           // Show success message
           successMessage.style.display = 'flex';
-          
+
           // Set transaction date
           transDate.textContent = formattedDate;
         } else {
@@ -573,17 +727,23 @@
             lastLogin: now
           });
         }
-        
+
+        // Add to saved accounts
+        addSavedAccount(user.email);
+
         // Update UI
         signupForm.style.display = 'none';
         signedInView.style.display = 'block';
         displayNameEl.textContent = user.displayName || 'User';
-        
+
       } catch (error) {
         console.error("Sign-in error:", error);
         alert("Sign-in failed: " + error.message);
       }
-    });
+    }
+
+   // Attach signInWithGoogle to the button
+    googleSignInBtn.addEventListener('click', signInWithGoogle);
 
     // Sign out handler
     signoutBtn.addEventListener('click', () => {
@@ -593,15 +753,27 @@
         successMessage.style.display = 'none';
         termsCheckbox.checked = false;
         googleSignInBtn.disabled = true;
+        renderSavedAccounts();
       }).catch(error => {
         alert("Sign-out failed: " + error.message);
       });
     });
 
+    // Switch account handler
+    switchAccountBtn.addEventListener('click', () => {
+      auth.signOut().then(() => {
+        signedInView.style.display = 'none';
+        signupForm.style.display = 'block';
+        successMessage.style.display = 'none';
+        termsCheckbox.checked = false;
+        googleSignInBtn.disabled = true;
+        renderSavedAccounts();
+      });
+    });
+
     // Go to profile handler
     goProfileBtn.addEventListener('click', () => {
-      alert("Redirecting to dashboard...");
-      // In a real app: window.location.href = '/dashboard.html';
+      window.location.href = '../pages/dashboard.html';
     });
 
     // Initialize page
@@ -610,7 +782,7 @@
         signupForm.style.display = 'none';
         signedInView.style.display = 'block';
         displayNameEl.textContent = user.displayName || 'User';
-        
+
         // Set current date for the transaction
         const dateOptions = { 
           year: 'numeric', 
@@ -620,22 +792,31 @@
           minute: '2-digit'
         };
         transDate.textContent = new Date().toLocaleString('en-US', dateOptions);
+        
+        // Hide saved accounts when signed in
+        savedAccountsSection.style.display = 'none';
+      } else {
+        // Show saved accounts when signed out
+        renderSavedAccounts();
       }
     });
 
     // Add animation to buttons on hover
-    const buttons = document.querySelectorAll('.btn, .google-btn');
+    const buttons = document.querySelectorAll('.btn, .google-btn, .account-btn');
     buttons.forEach(button => {
       button.addEventListener('mouseenter', () => {
         button.style.transform = 'translateY(-2px)';
         button.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.1)';
       });
-      
+
       button.addEventListener('mouseleave', () => {
         button.style.transform = 'translateY(0)';
         button.style.boxShadow = '0 3px 8px rgba(0, 0, 0, 0.08)';
       });
     });
+
+    // Initial render of saved accounts
+    renderSavedAccounts();
   </script>
 </body>
 </html>
