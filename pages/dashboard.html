@@ -930,169 +930,214 @@
     </div>
   </footer>
 
-  <!-- 🔐 App Check debug token for dev (remove in prod!) -->
-<script>
-  window.FIREBASE_APPCHECK_DEBUG_TOKEN = '921F43AC-8D27-4612-92D6-6478A3CD1FC8';
-</script>
+<!-- Firebase SDK -->    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
-<!-- ⚙️ Firebase compat SDKs -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>
-
-<!-- 🚀 Firebase init + App Check -->
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-  };
-
-  // 1️⃣ Init Firebase App
-  firebase.initializeApp(firebaseConfig);
-
-  // 2️⃣ Activate App Check (uses debug token if on localhost)
-  firebase.appCheck().activate(
-    '6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx',
-    true  // auto token refresh
-  );
-
-  // 3️⃣ Grab Auth & Firestore refs
-  const auth = firebase.auth();
-  const db   = firebase.firestore();
-</script>
-
-<!-- ✅ Main logic: UI + Auth/AuthState + Firestore + counters, etc. -->
-<script>
-  // DOM shortcuts
-  const hamburger       = document.getElementById('hamburger');
-  const sidebar         = document.getElementById('sidebar');
-  const profileDropdown = document.getElementById('profileDropdown');
-  const dropdownMenu    = document.getElementById('dropdownMenu');
-  const logoutBtn       = document.getElementById('logoutBtn');
-  const toggleSidebar   = document.getElementById('toggleSidebar');
-  const mainContent     = document.getElementById('mainContent');
-
-  const profileName     = document.getElementById('profileName');
-  const profileEmail    = document.getElementById('profileEmail');
-  const profileStatus   = document.getElementById('profileStatus');
-  const svxPoints       = document.getElementById('svxPoints');
-  const eventsCount     = document.getElementById('eventsCount');
-  const planName        = document.getElementById('planName');
-  const joinDate        = document.getElementById('joinDate');
-  const expireDate      = document.getElementById('expireDate');
-  const daysCounter     = document.getElementById('daysCounter');
-  const hoursCounter    = document.getElementById('hoursCounter');
-  const avatarInitial   = document.getElementById('avatarInitial');
-  const avatarImage     = document.getElementById('avatarImage');
-  const profileInitial  = document.getElementById('profileInitial');
-
-  // Sidebar toggles
-  hamburger.addEventListener('click', ()=> sidebar.classList.toggle('show'));
-  toggleSidebar.addEventListener('click', ()=>{
-    sidebar.classList.toggle('collapsed');
-    mainContent.classList.toggle('sidebar-collapsed');
-    const icon = toggleSidebar.querySelector('i');
-    icon.className = sidebar.classList.contains('collapsed')
-      ? 'fas fa-chevron-right'
-      : 'fas fa-chevron-left';
-  });
-
-  // Profile dropdown
-  profileDropdown.addEventListener('click', e=>{
-    e.stopPropagation();
-    dropdownMenu.classList.toggle('show');
-  });
-  document.addEventListener('click', e=>{
-    if (!profileDropdown.contains(e.target)) 
-      dropdownMenu.classList.remove('show');
-  });
-
-  // Logout
-  logoutBtn.addEventListener('click', ()=>{
-    auth.signOut().then(()=>{
-      window.location.href = '../legal/sign_up.html';
-    });
-  });
-
-  // Duration counter
-  function updateAccountDuration(startDate) {
-    const diff = Date.now() - startDate;
-    daysCounter.textContent  = Math.floor(diff / 864e5);
-    hoursCounter.textContent = Math.floor((diff % 864e5) / 36e5);
-  }
-
-  // Count Events
-  async function countEvents(uid) {
-    try {
-      let cnt = 0;
-      const snap = await db.collection('events').get();
-      for (const doc of snap.docs) {
-        const uidRef    = doc.ref.collection('userVotes').doc(uid);
-        const voteSnap1 = await uidRef.get();
-        if (voteSnap1.exists) { cnt++; continue; }
-
-        const voteSnap2 = await doc.ref.collection('votes')
-                              .where('userId','==',uid).get();
-        if (!voteSnap2.empty) cnt++;
-      }
-      return cnt;
-    } catch {
-      console.error('Error counting events');
-      return 0;
-    }
-  }
-
-  // Date & Number formatting
-  const fmtDate = d=>{
-    const dt = d.toDate? d.toDate() : new Date(d);
-    return dt.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  };
-  const fmtNum = n=> n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',');
-
-  // Auth state
-  auth.onAuthStateChanged(async user=>{
-    if (!user) {
-      console.log('No user → redirect');
-      return void(window.location.href = '../legal/sign_up.html');
-    }
-
-    // Avatar initial / image
-    const init = user.displayName?.charAt(0) || user.email.charAt(0);
-    profileInitial.textContent = avatarInitial.textContent = init;
-    if (user.photoURL) {
-      avatarInitial.style.display = 'none';
-      avatarImage.style.display    = 'block';
-      avatarImage.src             = user.photoURL;
-    }
-
-    // Profile info
-    profileName.textContent  = user.displayName || user.email;
-    profileEmail.textContent = user.email;
-
-    try {
-      const doc = await db.collection('users').doc(user.uid).get();
-      const data = doc.data() || {};
-      svxPoints.textContent     = fmtNum(data.svx || 0);
-      profileStatus.textContent = data.status || 'Active Member';
-      planName.textContent      = data.plan   || 'Free Plan';
-      joinDate.textContent      = fmtDate(data.joinDate || user.metadata.creationTime);
-      expireDate.textContent    = data.expireDate? fmtDate(data.expireDate) : '-';
-
-      eventsCount.textContent = await countEvents(user.uid);
-
-      const start = data.joinDate?.toDate?.() 
-                    || new Date(user.metadata.creationTime);
-      updateAccountDuration(start.getTime());
-      setInterval(()=> updateAccountDuration(start.getTime()), 60000);
-    } catch (err) {
-      console.error('Profile load error', err);
-    }
-  });
-</script>
+  <script>    
+  // Firebase configuration    
+  const firebaseConfig = {    
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",    
+    authDomain: "squadvertex2007.firebaseapp.com",    
+    projectId: "squadvertex2007",    
+    storageBucket: "squadvertex2007.appspot.com",    
+    messagingSenderId: "168905083514",    
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"    
+  };    
+    
+  // Initialize Firebase    
+  firebase.initializeApp(firebaseConfig);    
+  const auth = firebase.auth();    
+  const db = firebase.firestore();    
+    
+  // DOM Elements    
+  const hamburger = document.getElementById('hamburger');    
+  const sidebar = document.getElementById('sidebar');    
+  const profileDropdown = document.getElementById('profileDropdown');    
+  const dropdownMenu = document.getElementById('dropdownMenu');    
+  const logoutBtn = document.getElementById('logoutBtn');    
+  const toggleSidebar = document.getElementById('toggleSidebar');    
+  const mainContent = document.getElementById('mainContent');    
+    
+  // Profile elements    
+  const profileName = document.getElementById('profileName');    
+  const profileEmail = document.getElementById('profileEmail');    
+  const profileStatus = document.getElementById('profileStatus');    
+  const svxPoints = document.getElementById('svxPoints');    
+  const eventsCount = document.getElementById('eventsCount');    
+  const planName = document.getElementById('planName');    
+  const planStatus = document.getElementById('planStatus');    
+  const joinDate = document.getElementById('joinDate');    
+  const expireDate = document.getElementById('expireDate');    
+  const daysCounter = document.getElementById('daysCounter');    
+  const hoursCounter = document.getElementById('hoursCounter');    
+  const profileAvatar = document.getElementById('profileAvatar');    
+  const avatarInitial = document.getElementById('avatarInitial');    
+  const avatarImage = document.getElementById('avatarImage');    
+  const profileInitial = document.getElementById('profileInitial');    
+    
+  // Toggle sidebar on mobile    
+  hamburger.addEventListener('click', () => {    
+    sidebar.classList.toggle('show');    
+  });    
+    
+  // Toggle sidebar collapse on desktop    
+  toggleSidebar.addEventListener('click', () => {    
+    sidebar.classList.toggle('collapsed');    
+    mainContent.classList.toggle('sidebar-collapsed');    
+    
+    // Update toggle icon    
+    const icon = toggleSidebar.querySelector('i');    
+    if (sidebar.classList.contains('collapsed')) {    
+      icon.className = 'fas fa-chevron-right';    
+    } else {    
+      icon.className = 'fas fa-chevron-left';    
+    }    
+  });    
+    
+  // Toggle profile dropdown    
+  profileDropdown.addEventListener('click', (e) => {    
+    e.stopPropagation();    
+    dropdownMenu.classList.toggle('show');    
+  });    
+    
+  // Close dropdown when clicking elsewhere    
+  document.addEventListener('click', (e) => {    
+    if (!profileDropdown.contains(e.target)) {    
+      dropdownMenu.classList.remove('show');    
+    }    
+  });    
+    
+  // Logout functionality    
+  logoutBtn.addEventListener('click', () => {    
+    auth.signOut().then(() => {    
+      window.location.href = '../Sign-Up.html';    
+    });    
+  });    
+    
+  // Update account duration counter    
+  function updateAccountDuration(startDate) {    
+    const now = new Date();    
+    const diff = now - startDate;    
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));    
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));    
+    
+    daysCounter.textContent = days;    
+    hoursCounter.textContent = hours;    
+  }    
+    
+  // Count events participated by user    
+  async function countEvents(uid) {    
+    let count = 0;    
+    try {    
+      const eventsSnapshot = await db.collection('events').get();    
+    
+      for (const eventDoc of eventsSnapshot.docs) {    
+        const eventId = eventDoc.id;    
+    
+        const userVoteRef = db.collection('events').doc(eventId).collection('userVotes').doc(uid);    
+        const userVoteDoc = await userVoteRef.get();    
+    
+        if (userVoteDoc.exists) {    
+          count++;    
+          continue;    
+        }    
+    
+        const votesRef = db.collection('events').doc(eventId).collection('votes');    
+        const votesSnapshot = await votesRef.where('userId', '==', uid).get();    
+    
+        if (!votesSnapshot.empty) {    
+          count++;    
+        }    
+      }    
+    
+      return count;    
+    } catch (error) {    
+      console.error("Error counting events:", error);    
+      return 0;    
+    }    
+  }    
+    
+  // Format date (fixed)    
+  function formatDate(date) {    
+    const jsDate = date && date.toDate ? date.toDate() : new Date(date);    
+    return jsDate.toLocaleDateString('en-US', {    
+      year: 'numeric',    
+      month: 'long',    
+      day: 'numeric'    
+    });    
+  }    
+    
+  // Format number with commas    
+  function formatNumber(num) {    
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");    
+  }    
+    
+  // Auth state    
+  auth.onAuthStateChanged(async (user) => {    
+    if (user) {    
+      console.log("User is signed in:", user);    
+    
+      const initial = user.displayName ? user.displayName.charAt(0) : user.email.charAt(0);    
+      profileInitial.textContent = initial;    
+      avatarInitial.textContent = initial;    
+    
+      if (user.photoURL) {    
+        avatarInitial.style.display = 'none';    
+        avatarImage.style.display = 'block';    
+        avatarImage.src = user.photoURL;    
+      } else {    
+        avatarInitial.style.display = 'block';    
+        avatarImage.style.display = 'none';    
+      }    
+    
+      profileName.textContent = user.displayName || user.email;    
+      profileEmail.textContent = user.email;    
+    
+      try {    
+        const userDoc = await db.collection('users').doc(user.uid).get();    
+    
+        if (userDoc.exists) {    
+          const userData = userDoc.data();    
+    
+          svxPoints.textContent = formatNumber(userData.svx || 0);    
+          profileStatus.textContent = userData.status || 'Active Member';    
+          planName.textContent = userData.plan || 'Free Plan';    
+    
+          if (userData.joinDate) {    
+            joinDate.textContent = formatDate(userData.joinDate);    
+          } else {    
+            joinDate.textContent = formatDate(user.metadata.creationTime);    
+          }    
+    
+          if (userData.expireDate) {    
+            expireDate.textContent = formatDate(userData.expireDate);    
+          } else {    
+            expireDate.textContent = '-';    
+          }    
+    
+          const eventCount = await countEvents(user.uid);    
+          eventsCount.textContent = eventCount;    
+    
+          const startDate = userData.joinDate    
+            ? (userData.joinDate.toDate ? userData.joinDate.toDate() : new Date(userData.joinDate))    
+            : new Date(user.metadata.creationTime);    
+          updateAccountDuration(startDate);    
+          setInterval(() => updateAccountDuration(startDate), 60000);    
+        } else {    
+          console.log("No user document found");    
+          svxPoints.textContent = "0";    
+          eventsCount.textContent = "0";    
+          joinDate.textContent = formatDate(user.metadata.creationTime);    
+          updateAccountDuration(new Date(user.metadata.creationTime));    
+        }    
+      } catch (error) {    
+        console.error("Error getting user document:", error);    
+      }    
+    } else {    
+      console.log("User is signed out");    
+      window.location.href = '../legal/sign_up.html';    
+    }    
+  });    
+</script> 
 </body>
 </html>
