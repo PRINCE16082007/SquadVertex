@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign Up - SquadVertex</title>
-  <!-- Using Firebase compatibility scripts -->
+  <!-- Firebase App, App Check, and services (compat) -->
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -67,6 +68,7 @@
       font-size: 28px;
       margin-bottom: 8px;
       font-weight: 700;
+      letter-spacing: 0.5px;
     }
 
     .header p {
@@ -84,6 +86,12 @@
       padding: 20px;
       margin-bottom: 20px;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
     }
 
     .card-title {
@@ -115,6 +123,7 @@
       color: #2b8a3e;
       text-decoration: none;
       font-weight: 600;
+      position: relative;
     }
 
     .terms-group a:hover {
@@ -161,6 +170,7 @@
     .signed-in-view {
       display: none;
       margin-top: 20px;
+      animation: fadeIn 0.5s ease-in-out;
     }
 
     .welcome-card {
@@ -189,6 +199,11 @@
       border-radius: 8px;
       padding: 15px;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      transition: transform 0.3s;
+    }
+
+    .info-item:hover {
+      transform: translateY(-3px);
     }
 
     .info-label {
@@ -317,6 +332,7 @@
       margin-bottom: 20px;
       display: flex;
       align-items: center;
+      animation: fadeIn 0.5s ease-in-out;
     }
 
     .success-message i {
@@ -330,6 +346,7 @@
       background-color: #f8f9fa;
       border-radius: 10px;
       border: 1px solid #e9ecef;
+      animation: slideIn 0.4s ease-out;
     }
 
     .saved-accounts h3 {
@@ -357,6 +374,11 @@
       border-radius: 8px;
       margin-bottom: 10px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      transition: transform 0.2s;
+    }
+
+    .account-item:hover {
+      transform: translateX(5px);
     }
 
     .account-email {
@@ -398,6 +420,22 @@
       background: #e9ecef;
     }
 
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideIn {
+      from { 
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to { 
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     @media (max-width: 480px) {
       .content {
         padding: 20px 15px;
@@ -414,17 +452,66 @@
       .btn {
         width: 100%;
       }
-      
+
       .account-item {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
       }
-      
+
       .account-actions {
         width: 100%;
         justify-content: flex-end;
       }
+    }
+
+    .console-panel {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 14px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .console-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      color: #9cdcfe;
+    }
+
+    .console-toggle {
+      background: none;
+      border: none;
+      color: #9cdcfe;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .console-line {
+      margin-bottom: 5px;
+    }
+
+    .console-error {
+      color: #f48771;
+    }
+
+    .console-success {
+      color: #6a9955;
+    }
+
+    .console-warning {
+      color: #dcdcaa;
+    }
+
+    .console-info {
+      color: #9cdcfe;
     }
   </style>
 </head>
@@ -454,7 +541,7 @@
           <h3><i class="fas fa-user-circle"></i> Saved Accounts</h3>
           <div class="accounts-list" id="accounts-list"></div>
         </div>
-        
+
         <div class="card">
           <h2 class="card-title">Create Your Account</h2>
           <p>Join thousands of creators who are building their future with SquadVertex.</p>
@@ -552,6 +639,15 @@
         </div>
       </div>
 
+      <!-- Console Panel -->
+      <div class="console-panel" id="console-panel">
+        <div class="console-header">
+          <span>Firestore Operations Console</span>
+          <button class="console-toggle" id="console-toggle">Hide</button>
+        </div>
+        <div id="console-content"></div>
+      </div>
+
       <footer>
         <p>© 2024 SquadVertex | <a href="#">Terms</a> | <a href="#">Privacy</a> | <a href="#">Support</a></p>
       </footer>
@@ -561,16 +657,23 @@
   <script>
     // Firebase configuration
     const firebaseConfig = {
-      apiKey: "AIzaSyBk3X5H6f4z7Z7qy1W6s4Y2Zv3Xz8w9x0y",
-      authDomain: "squadvertex-app.firebaseapp.com",
-      projectId: "squadvertex-app",
-      storageBucket: "squadvertex-app.appspot.com",
-      messagingSenderId: "123456789012",
-      appId: "1:123456789012:web:abcdef1234567890abcdef"
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
 
     // Initialize Firebase with compatibility API
     firebase.initializeApp(firebaseConfig);
+    
+    // Initialize Firebase App Check - SINGLE INITIALIZATION
+    firebase.appCheck().activate(
+      '6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx', 
+      true // isTokenAutoRefreshEnabled
+    );
+
     const auth = firebase.auth();
     const db = firebase.firestore();
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -588,20 +691,46 @@
     const transDate = document.getElementById('trans-date');
     const savedAccountsSection = document.getElementById('saved-accounts');
     const accountsList = document.getElementById('accounts-list');
+    const consolePanel = document.getElementById('console-panel');
+    const consoleContent = document.getElementById('console-content');
+    const consoleToggle = document.getElementById('console-toggle');
+
+    // Console Logging System
+    function logToConsole(message, type = 'info') {
+      const logLine = document.createElement('div');
+      logLine.className = `console-line console-${type}`;
+      logLine.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+      consoleContent.appendChild(logLine);
+      consolePanel.scrollTop = consolePanel.scrollHeight;
+      consolePanel.style.display = 'block';
+    }
+
+    consoleToggle.addEventListener('click', () => {
+      if (consolePanel.style.display === 'none') {
+        consolePanel.style.display = 'block';
+        consoleToggle.textContent = 'Hide';
+      } else {
+        consolePanel.style.display = 'none';
+        consoleToggle.textContent = 'Show';
+      }
+    });
 
     // Enable Google button when terms are accepted
     termsCheckbox.addEventListener('change', () => {
       googleSignInBtn.disabled = !termsCheckbox.checked;
+      logToConsole(`Terms accepted: ${termsCheckbox.checked}`, 'info');
     });
 
     // Saved Accounts Functions
     function loadSavedAccounts() {
       const data = localStorage.getItem('savedAccounts');
+      logToConsole(`Loading saved accounts from localStorage`, 'info');
       return data ? JSON.parse(data) : [];
     }
 
     function saveAccounts(arr) {
       localStorage.setItem('savedAccounts', JSON.stringify(arr));
+      logToConsole(`Saved accounts to localStorage`, 'info');
     }
 
     function addSavedAccount(email) {
@@ -610,6 +739,7 @@
       if (!accounts.includes(email)) {
         accounts.push(email);
         saveAccounts(accounts);
+        logToConsole(`Added account: ${email}`, 'success');
       }
       renderSavedAccounts();
     }
@@ -618,49 +748,51 @@
       let accounts = loadSavedAccounts();
       accounts = accounts.filter(e => e !== email);
       saveAccounts(accounts);
+      logToConsole(`Removed account: ${email}`, 'warning');
       renderSavedAccounts();
     }
 
     function renderSavedAccounts() {
       const accounts = loadSavedAccounts();
       accountsList.innerHTML = '';
-      
+
       if (accounts.length === 0) {
         savedAccountsSection.style.display = 'none';
         return;
       }
-      
+
       savedAccountsSection.style.display = 'block';
-      
+
       accounts.forEach(email => {
         const accountItem = document.createElement('div');
         accountItem.className = 'account-item';
-        
+
         const emailSpan = document.createElement('span');
         emailSpan.className = 'account-email';
         emailSpan.textContent = email;
-        
+
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'account-actions';
-        
+
         const useBtn = document.createElement('button');
         useBtn.className = 'account-btn use-btn';
         useBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Use';
         useBtn.addEventListener('click', () => {
           if (!termsCheckbox.checked) {
             alert("Please accept Terms & Conditions first.");
+            logToConsole('Sign in attempt without accepting terms', 'error');
             return;
           }
           signInWithGoogle();
         });
-        
+
         const removeBtn = document.createElement('button');
         removeBtn.className = 'account-btn remove-btn';
         removeBtn.innerHTML = '<i class="fas fa-times"></i> Remove';
         removeBtn.addEventListener('click', () => {
           removeSavedAccount(email);
         });
-        
+
         actionsDiv.appendChild(useBtn);
         actionsDiv.appendChild(removeBtn);
         accountItem.appendChild(emailSpan);
@@ -669,33 +801,38 @@
       });
     }
 
-    // Sign-In Handler (Fixed with compatibility API)
+    // Sign-In Handler - FIXED DOCUMENT CREATION
     async function signInWithGoogle() {
       if (!termsCheckbox.checked) {
         alert("Please accept Terms & Conditions and Privacy Policy first.");
+        logToConsole('Sign in attempt without accepting terms', 'error');
         return;
       }
+
+      logToConsole('Starting Google sign-in process...', 'info');
 
       try {
         const result = await auth.signInWithPopup(provider);
         const user = result.user;
-
-        // Check if user exists in Firestore
         const userRef = db.collection('users').doc(user.uid);
-        const userDoc = await userRef.get();
+        logToConsole(`User signed in: ${user.email} (${user.uid})`, 'success');
 
         const now = firebase.firestore.Timestamp.now();
-        const dateOptions = { 
+        const formattedDate = new Date().toLocaleString('en-US', { 
           year: 'numeric', 
           month: 'short', 
           day: 'numeric',
           hour: '2-digit',
           minute: '2-digit'
-        };
-        const formattedDate = new Date().toLocaleString('en-US', dateOptions);
+        });
+
+        const userDoc = await userRef.get();
+        logToConsole(`Checking user document existence...`, 'info');
 
         if (!userDoc.exists) {
-          // New user - create document with all fields
+          logToConsole('Creating new user document...', 'info');
+
+          // Create user document with all required fields
           await userRef.set({
             email: user.email,
             expireDate: "Never",
@@ -709,24 +846,28 @@
             termsTimestamp: now
           });
 
-          // Create transaction subcollection
-          const transactionRef = userRef.collection('transactions').doc();
-          await transactionRef.set({
+          logToConsole('User document created successfully', 'success');
+
+          // Create transaction document
+          logToConsole('Creating welcome transaction...', 'info');
+          await userRef.collection('transactions').add({
             amount: 100,
             reason: "Welcome to SquadVertex!",
             timestamp: now
           });
 
+          logToConsole('Transaction document created successfully', 'success');
+
           // Show success message
           successMessage.style.display = 'flex';
-
-          // Set transaction date
           transDate.textContent = formattedDate;
+          logToConsole('New user onboarding completed', 'success');
         } else {
-          // Existing user - update only lastLogin
+          logToConsole('Updating existing user document...', 'info');
           await userRef.update({
             lastLogin: now
           });
+          logToConsole('User document updated successfully', 'success');
         }
 
         // Add to saved accounts
@@ -736,9 +877,11 @@
         signupForm.style.display = 'none';
         signedInView.style.display = 'block';
         displayNameEl.textContent = user.displayName || 'User';
+        logToConsole('UI updated for signed-in user', 'info');
 
       } catch (error) {
         console.error("Sign-in error:", error);
+        logToConsole(`Sign-in failed: ${error.message}`, 'error');
         alert("Sign-in failed: " + error.message);
       }
     }
@@ -755,7 +898,9 @@
         termsCheckbox.checked = false;
         googleSignInBtn.disabled = true;
         renderSavedAccounts();
+        logToConsole('User signed out', 'info');
       }).catch(error => {
+        logToConsole(`Sign-out failed: ${error.message}`, 'error');
         alert("Sign-out failed: " + error.message);
       });
     });
@@ -769,12 +914,14 @@
         termsCheckbox.checked = false;
         googleSignInBtn.disabled = true;
         renderSavedAccounts();
+        logToConsole('Switching accounts', 'info');
       });
     });
 
     // Go to profile handler
     goProfileBtn.addEventListener('click', () => {
-      window.location.href = '../pages/dashboard.html';
+      logToConsole('Redirecting to dashboard...', 'info');
+      alert("Redirecting to dashboard... (Demo)");
     });
 
     // Initialize page
@@ -783,22 +930,14 @@
         signupForm.style.display = 'none';
         signedInView.style.display = 'block';
         displayNameEl.textContent = user.displayName || 'User';
+        logToConsole(`User authenticated: ${user.email}`, 'success');
 
-        // Set current date for the transaction
-        const dateOptions = { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        };
-        transDate.textContent = new Date().toLocaleString('en-US', dateOptions);
-        
         // Hide saved accounts when signed in
         savedAccountsSection.style.display = 'none';
       } else {
         // Show saved accounts when signed out
         renderSavedAccounts();
+        logToConsole('No user authenticated', 'info');
       }
     });
 
@@ -818,6 +957,11 @@
 
     // Initial render of saved accounts
     renderSavedAccounts();
+
+    // Log initialization
+    logToConsole('Application initialized', 'success');
+    logToConsole('Firebase connected successfully', 'success');
+    logToConsole('Waiting for user interaction...', 'info');
   </script>
 </body>
 </html>
