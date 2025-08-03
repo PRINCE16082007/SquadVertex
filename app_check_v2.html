@@ -1,111 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Firebase App Check Debug</title>
-  <style>
-    body {
-      font-family: monospace;
-      background: #1e1e1e;
-      color: #0f0;
-      padding: 2rem;
-      margin: 0;
-    }
-
-    h1 {
-      margin-bottom: 1rem;
-      color: #fff;
-    }
-
-    #output {
-      white-space: pre-wrap;
-      background: #111;
-      border: 1px solid #444;
-      padding: 1rem;
-      border-radius: 6px;
-      max-height: 60vh;
-      overflow-y: auto;
-      scroll-behavior: smooth;
-    }
-
-    #toggle-debug-btn {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 8px 14px;
-      background: #333;
-      color: #0f0;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      z-index: 2147483647;
-    }
-  </style>
-</head>
-<body>
-  <h1>🔥 Firebase App Check Debugger</h1>
-  <div id="output">Initializing...</div>
-  <button id="toggle-debug-btn">Hide Logs</button>
-
+  <title>Modular Firebase AppCheck</title>
   <script type="module">
     import { db, auth, appCheckReady } from './components/firebase_setup.js';
     import { doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
 
-    const output = document.getElementById('output');
-    const toggleBtn = document.getElementById('toggle-debug-btn');
-
-    const log = (...args) => {
-      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : a).join(' ');
-      output.textContent += '\n' + msg;
-      output.scrollTop = output.scrollHeight;
-      console.log(...args);
-    };
-
-    // Toggle Logs Button
-    toggleBtn.onclick = () => {
-      const visible = output.style.display !== 'none';
-      output.style.display = visible ? 'none' : 'block';
-      toggleBtn.textContent = visible ? 'Show Logs' : 'Hide Logs';
-    };
-
-    // App Check Token (modular import se)
-    try {
+    async function init() {
       const token = await appCheckReady;
-      log("✅ App Check Token Ready:", token.token);
-    } catch (err) {
-      log("❌ App Check Token Error:", err.message);
-    }
+      console.log("✅ Token Ready:", token);
 
-    // Firebase Auth Listener
-    try {
-      onAuthStateChanged(auth, user => {
-        if (user) {
-          log("👤 Auth User ID:", user.uid);
-          log("📧 Email:", user.email || "No email");
-          fetchTestDoc();
-        } else {
-          log("👤 Not signed in.");
-        }
-      });
-    } catch (err) {
-      log("⚠️ Auth Error:", err.message);
-    }
+      const docRef = doc(db, "test", "test1");
+      const docSnap = await getDoc(docRef);
 
-    // Firestore Access
-    async function fetchTestDoc() {
-      try {
-        const snap = await getDoc(doc(db, "test", "test1"));
-        if (snap.exists()) {
-          log("📄 Document Data:", snap.data());
-        } else {
-          log("⚠️ Document not found.");
-        }
-      } catch (e) {
-        log("🔥 Firestore Error:", e.code, e.message);
+      if (docSnap.exists()) {
+        console.log("🔥 Data:", docSnap.data());
+      } else {
+        console.log("❌ No document");
       }
     }
+
+    init();
   </script>
+</head>
+<body>
+  <h1>App Check V2 Demo</h1>
 </body>
 </html>
