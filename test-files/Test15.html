@@ -6,29 +6,83 @@
   <title>Channel Management Portal</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-<!-- Mega Logger: paste this in <head> of your HTML -->
+<!-- Debug Window + Mega Logger: paste this in <head>, before styles -->
 <script>
 (function(){
-  // Keep original console funcs
+  // 🏗️ Build the debug panel
+  const panel = document.createElement('div');
+  Object.assign(panel.style, {
+    position: 'fixed',
+    bottom: '0',
+    left: '0',
+    right: '0',
+    maxHeight: '40%',
+    background: 'rgba(0,0,0,0.8)',
+    color: '#0f0',
+    fontFamily: 'monospace',
+    fontSize: '12px',
+    overflowY: 'auto',
+    padding: '8px',
+    zIndex: '999999',
+    lineHeight: '1.2',
+  });
+  document.documentElement.appendChild(panel);
+
+  // 🔘 Toggle button
+  const btn = document.createElement('button');
+  btn.textContent = '🕵️‍♂️ Debug';
+  Object.assign(btn.style, {
+    position: 'fixed',
+    bottom: '40%',
+    right: '0',
+    background: '#222',
+    color: '#0f0',
+    border: 'none',
+    padding: '6px 10px',
+    fontFamily: 'monospace',
+    fontSize: '12px',
+    cursor: 'pointer',
+    zIndex: '1000000',
+  });
+  btn.addEventListener('click', () => {
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  });
+  document.documentElement.appendChild(btn);
+
+  // 📦 Keep original console
   const orig = { ...console };
   const levels = ['log','info','warn','error','debug'];
 
-  // Override console methods
+  // 📝 Helper to print to panel
+  function write(level, args) {
+    const ts = new Date().toISOString();
+    const msg = args.map(a =>
+      typeof a === 'object' ? JSON.stringify(a) : String(a)
+    ).join(' ');
+    const line = document.createElement('div');
+    line.textContent = `[${ts}] [${level.toUpperCase()}] ${msg}`;
+    if (level === 'error' || level === 'warn') {
+      line.style.color = level === 'error' ? '#f55' : '#ff5';
+    }
+    panel.appendChild(line);
+    // auto-scroll
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  // 🔄 Override console.*
   levels.forEach(level => {
     console[level] = (...args) => {
-      const ts = new Date().toISOString();
-      orig[level](`[${ts}] [${level.toUpperCase()}]`, ...args);
+      orig[level](...args);
+      write(level, args);
     };
   });
 
-  // Catch uncaught errors
+  // 🌪️ Catch errors
   window.addEventListener('error', e => {
-    console.error(`🔴 Uncaught Error: "${e.message}" at ${e.filename}:${e.lineno}:${e.colno}`);
+    console.error(`Uncaught Error: "${e.message}" at ${e.filename}:${e.lineno}:${e.colno}`);
   });
-
-  // Catch unhandled promise rejections
   window.addEventListener('unhandledrejection', e => {
-    console.error('🔴 Unhandled Promise Rejection:', e.reason);
+    console.error('Unhandled Promise Rejection:', e.reason);
   });
 })();
 </script>
