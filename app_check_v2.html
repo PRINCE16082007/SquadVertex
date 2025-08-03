@@ -1,104 +1,111 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Modular Firebase AppCheck with Debug</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Firebase App Check Debug</title>
   <style>
-    #debug-console {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      max-height: 200px;
-      overflow-y: auto;
-      background: #111;
-      color: #0f0;
+    body {
       font-family: monospace;
-      font-size: 13px;
-      padding: 10px;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
-      display: none;
-      z-index: 9999;
+      background: #1e1e1e;
+      color: #0f0;
+      padding: 2rem;
+      margin: 0;
     }
-    #toggle-debug {
-      position: fixed;
-      bottom: 210px;
-      right: 20px;
-      background: #000;
+
+    h1 {
+      margin-bottom: 1rem;
       color: #fff;
-      border: none;
+    }
+
+    #output {
+      white-space: pre-wrap;
+      background: #111;
+      border: 1px solid #444;
+      padding: 1rem;
+      border-radius: 6px;
+      max-height: 60vh;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
+    #toggle-debug-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
       padding: 8px 14px;
+      background: #333;
+      color: #0f0;
+      border: none;
+      border-radius: 4px;
       cursor: pointer;
-      border-radius: 5px;
-      z-index: 9999;
+      z-index: 2147483647;
     }
   </style>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-    import { initializeAppCheck, getToken } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
-
-    const debugLog = (msg) => {
-      const logBox = document.getElementById('debug-console');
-      const entry = document.createElement('div');
-      entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      logBox.appendChild(entry);
-      logBox.scrollTop = logBox.scrollHeight;
-      console.log(msg);
-    };
-
-    // 🛠️ Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // ⚙️ App Check with debug token
-    const appCheck = initializeAppCheck(app, {
-      provider: new self.FirebaseAppCheck.DebugProvider(),
-      isTokenAutoRefreshEnabled: true
-    });
-
-    const init = async () => {
-      debugLog("🚀 App initialization started.");
-
-      try {
-        const token = await getToken(appCheck, /* forceRefresh */ false);
-        debugLog("✅ App Check token acquired: " + token.token);
-
-        const docRef = doc(db, "test", "test1");
-        debugLog("📄 Fetching document: test/test1...");
-
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          debugLog("🔥 Document Data: " + JSON.stringify(docSnap.data()));
-        } else {
-          debugLog("❌ No such document found.");
-        }
-      } catch (err) {
-        debugLog("💥 Error occurred: " + err.message);
-      }
-    };
-
-    window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('toggle-debug').addEventListener('click', () => {
-        const debugBox = document.getElementById('debug-console');
-        debugBox.style.display = debugBox.style.display === 'none' ? 'block' : 'none';
-      });
-      init();
-    });
-  </script>
 </head>
 <body>
-  <h1>App Check V2 Demo with Debug Logs</h1>
-  <button id="toggle-debug">🪵 Toggle Debug Log</button>
-  <div id="debug-console"></div>
+  <h1>🔥 Firebase App Check Debugger</h1>
+  <div id="output">Initializing...</div>
+  <button id="toggle-debug-btn">Hide Logs</button>
+
+  <script type="module">
+    import { db, auth, appCheckReady } from './components/firebase_setup.js';
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+
+    const output = document.getElementById('output');
+    const toggleBtn = document.getElementById('toggle-debug-btn');
+
+    const log = (...args) => {
+      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : a).join(' ');
+      output.textContent += '\n' + msg;
+      output.scrollTop = output.scrollHeight;
+      console.log(...args);
+    };
+
+    // Toggle Logs Button
+    toggleBtn.onclick = () => {
+      const visible = output.style.display !== 'none';
+      output.style.display = visible ? 'none' : 'block';
+      toggleBtn.textContent = visible ? 'Show Logs' : 'Hide Logs';
+    };
+
+    // App Check Token (modular import se)
+    try {
+      const token = await appCheckReady;
+      log("✅ App Check Token Ready:", token.token);
+    } catch (err) {
+      log("❌ App Check Token Error:", err.message);
+    }
+
+    // Firebase Auth Listener
+    try {
+      onAuthStateChanged(auth, user => {
+        if (user) {
+          log("👤 Auth User ID:", user.uid);
+          log("📧 Email:", user.email || "No email");
+          fetchTestDoc();
+        } else {
+          log("👤 Not signed in.");
+        }
+      });
+    } catch (err) {
+      log("⚠️ Auth Error:", err.message);
+    }
+
+    // Firestore Access
+    async function fetchTestDoc() {
+      try {
+        const snap = await getDoc(doc(db, "test", "test1"));
+        if (snap.exists()) {
+          log("📄 Document Data:", snap.data());
+        } else {
+          log("⚠️ Document not found.");
+        }
+      } catch (e) {
+        log("🔥 Firestore Error:", e.code, e.message);
+      }
+    }
+  </script>
 </body>
 </html>
