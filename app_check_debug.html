@@ -1,111 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>App Check Debug</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Firebase App Check Debug</title>
   <style>
-    body { font-family: Arial, sans-serif; padding:2rem; background:#f4f4f4; color:#333; }
-    h1 { margin-bottom:1rem; }
+    body {
+      font-family: monospace;
+      background: #1e1e1e;
+      color: #0f0;
+      padding: 2rem;
+    }
+
+    h1 {
+      margin-bottom: 1rem;
+      color: #fff;
+    }
+
     #output {
-      padding:1rem;
-      background:#fff;
-      border:1px solid #ddd;
-      border-radius:4px;
-      font-size:1.2rem;
+      white-space: pre-wrap;
+      background: #111;
+      border: 1px solid #444;
+      padding: 1rem;
+      border-radius: 6px;
+      max-height: 60vh;
+      overflow-y: auto;
     }
+
     #toggle-debug-btn {
-      position:fixed;
-      bottom: calc(50vh + 20px);
-      right:10px;
-      padding:8px 12px;
-      background:#333;
-      color:#0f0;
-      border:none;
-      border-radius:4px;
-      cursor:pointer;
-      font-family:monospace;
-      z-index:2147483648;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 8px 14px;
+      background: #333;
+      color: #0f0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 2147483647;
     }
-    /* ensure debug console has the same ID */
-    #debug-console { /* overridden in script */ }
   </style>
+</head>
+<body>
+  <h1>🔥 Firebase App Check Debugger</h1>
+  <div id="output">Initializing...</div>
+  <button id="toggle-debug-btn">Hide Logs</button>
 
   <script type="module">
-    // 1) Floating Debug Console + Toggle Button
-    (function(){
-      let dbg, isVisible=true;
-      function initDebugConsole() {
-        // create toggle button
-        const btn = document.createElement('button');
-        btn.id = 'toggle-debug-btn';
-        btn.textContent = 'Hide Debug';
-        btn.onclick = () => {
-          isVisible = !isVisible;
-          dbg.style.display = isVisible ? 'block' : 'none';
-          btn.textContent = isVisible ? 'Hide Debug' : 'Show Debug';
-        };
-        document.body.appendChild(btn);
-
-        // create debug console
-        dbg = document.createElement('div');
-        Object.assign(dbg.style, {
-          position:'fixed', bottom:'0', right:'0',
-          width:'400px', height:'50vh',
-          background:'rgba(0,0,0,0.9)', color:'#0f0',
-          fontFamily:'monospace', fontSize:'12px',
-          lineHeight:'1.2', padding:'8px',
-          overflowY:'auto', zIndex:2147483647,
-          borderTopLeftRadius:'6px', cursor:'move'
-        });
-        dbg.id = 'debug-console';
-        document.body.appendChild(dbg);
-
-        // dragging
-        let down=false, sx, sy, ox, oy;
-        dbg.addEventListener('mousedown', e=>{
-          down=true; sx=e.clientX; sy=e.clientY;
-          const rect = dbg.getBoundingClientRect();
-          ox = window.innerWidth - rect.right;
-          oy = window.innerHeight - rect.bottom;
-          e.preventDefault();
-        });
-        document.addEventListener('mouseup', ()=>down=false);
-        document.addEventListener('mousemove', e=>{
-          if(!down) return;
-          dbg.style.right = (ox + sx - e.clientX) + 'px';
-          dbg.style.bottom = (oy + e.clientY - sy) + 'px';
-        });
-
-        // logging helper
-        function log(type,args){
-          const m = document.createElement('div');
-          m.textContent = '['+type.toUpperCase()+'] ' +
-            Array.from(args).map(a=> typeof a==='object' ? JSON.stringify(a) : a ).join(' ');
-          dbg.appendChild(m);
-          dbg.scrollTop = dbg.scrollHeight;
-        }
-        ['log','info','warn','error','debug'].forEach(fn=>{
-          const orig = console[fn].bind(console);
-          console[fn] = (...a) => { orig(...a); log(fn,a); };
-        });
-        window.addEventListener('error', e=>
-          console.error('UncaughtError:', e.message, `${e.filename}:${e.lineno}`)
-        );
-
-        console.log('🐞 Debug Console Ready');
-      }
-      if(document.readyState==='loading')
-        document.addEventListener('DOMContentLoaded', initDebugConsole);
-      else initDebugConsole();
-    })();
-
-    // 2) Firebase + App Check + Firestore
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-    import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
+    import {
+      initializeAppCheck,
+      ReCaptchaV3Provider,
+      getToken
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInAnonymously
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
 
-    // your config
+    const output = document.getElementById('output');
+    const log = (...args) => {
+      const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : a).join(' ');
+      output.textContent += '\n' + msg;
+      output.scrollTop = output.scrollHeight;
+      console.log(...args);
+    };
+
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -116,38 +78,59 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    console.log('✅ Firebase initialized');
+    log("✅ Firebase initialized");
 
-    // App Check
-    initializeAppCheck(app, {
+    const appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider("6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"),
       isTokenAutoRefreshEnabled: true
     });
-    console.log('✅ App Check initialized');
 
-    const db = getFirestore(app);
+    log("✅ App Check initialized");
 
-    // fetch test/test1
-    window.addEventListener('DOMContentLoaded', async () => {
-      const out = document.getElementById('output');
-      try {
-        const snap = await getDoc(doc(db, 'test', 'test1'));
-        if(snap.exists()){
-          console.log('🗂 Retrieved:', snap.data());
-          out.textContent = snap.data().name;
-        } else {
-          console.warn('⚠️ test/test1 not found');
-          out.textContent = '[no document]';
-        }
-      } catch(e) {
-        console.error('🔥 Firestore error:', e.code, e.message);
-        out.textContent = `Error: ${e.code}`;
+    try {
+      const tokenResult = await getToken(appCheck, /* forceRefresh */ true);
+      log("🔑 App Check Token:", tokenResult.token);
+    } catch (err) {
+      log("❌ Failed to get App Check token:", err.message);
+    }
+
+    const auth = getAuth();
+    signInAnonymously(auth)
+      .then(() => log("✅ Signed in anonymously"))
+      .catch(e => log("❌ Auth Error:", e.message));
+
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        log("👤 Auth User ID:", user.uid);
+        fetchTestDoc(user.uid);
       }
     });
+
+    async function fetchTestDoc(uid) {
+      try {
+        const db = getFirestore(app);
+        const snap = await getDoc(doc(db, "test", "test1"));
+        if (snap.exists()) {
+          log("📄 Document Data:", snap.data());
+        } else {
+          log("⚠️ Document not found.");
+        }
+      } catch (e) {
+        log("🔥 Firestore error:", e.code, e.message);
+      }
+    }
+
+    // Toggle visibility
+    const toggleBtn = document.getElementById('toggle-debug-btn');
+    toggleBtn.onclick = () => {
+      if (output.style.display === 'none') {
+        output.style.display = 'block';
+        toggleBtn.textContent = 'Hide Logs';
+      } else {
+        output.style.display = 'none';
+        toggleBtn.textContent = 'Show Logs';
+      }
+    };
   </script>
-</head>
-<body>
-  <h1>Test Collection Demo</h1>
-  <div id="output">Loading…</div>
 </body>
 </html>
