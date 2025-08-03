@@ -7,76 +7,93 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
 
+ <script> 
+//if using this code snippet directly into main code, then please keep it in head section within a script tag.
+(function(){
+  function initDebugConsole() {
+    // create the debug container
+    const dbg = document.createElement('div');
+    Object.assign(dbg.style, {
+      position: 'fixed',
+      bottom: '10px',
+      right: '10px',
+      width: '280px',
+      maxHeight: '45vh',
+      background: 'rgba(0, 0, 0, 0.95)',
+      color: '#0f0',
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      lineHeight: '1.2',
+      padding: '10px',
+      overflowY: 'auto',
+      zIndex: 2147483647,    // max z-index
+      border: '2px solid #0f0',
+      borderRadius: '6px',
+      cursor: 'move'
+    });
+    dbg.id = 'mobile-debug-console';
+    document.body.appendChild(dbg);
+
+    // make it draggable
+    let isDown = false, startX, startY, origX, origY;
+    dbg.addEventListener('mousedown', e => {
+      isDown = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      origX = parseInt(dbg.style.right);
+      origY = parseInt(dbg.style.bottom);
+      e.preventDefault();
+    });
+    document.addEventListener('mouseup', () => isDown = false);
+    document.addEventListener('mousemove', e => {
+      if (!isDown) return;
+      const dx = startX - e.clientX;
+      const dy = e.clientY - startY;
+      dbg.style.right = (origX + dx) + 'px';
+      dbg.style.bottom = (origY + dy) + 'px';
+    });
+
+    // utility to append messages
+    function logToWindow(type, args) {
+      const msg = document.createElement('div');
+      msg.textContent = '[' + type.toUpperCase() + '] ' + Array.from(args).map(a => {
+        try { return typeof a==='object' ? JSON.stringify(a) : a; }
+        catch { return a; }
+      }).join(' ');
+      dbg.appendChild(msg);
+      dbg.scrollTop = dbg.scrollHeight;
+    }
+
+    // override console methods
+    ['log','info','warn','error','debug'].forEach(fn => {
+      const orig = console[fn].bind(console);
+      console[fn] = function(...args) {
+        orig(...args);
+        logToWindow(fn, args);
+      };
+    });
+
+    // catch uncaught errors
+    window.addEventListener('error', e => {
+      console.error('UncaughtError:', e.message, 'at', e.filename + ':' + e.lineno);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDebugConsole);
+  } else {
+    initDebugConsole();
+  }
+})();
+
+<!-- 1️⃣ Firebase App + App Check FIRST -->
   <script type="module">
-    // 👇 DEBUG TOKEN for localhost/testing (must match one you added in Firebase Console)
-    self.FIREBASE_APPCHECK_DEBUG_TOKEN = "921F43AC-8D27-4612-92D6-6478A3CD1FC8";
-
-    // 👾 Floating Debug Console
-    (function(){
-      function initDebugConsole() {
-        const dbg = document.createElement('div');
-        Object.assign(dbg.style, {
-          position: 'fixed',
-          bottom: '10px',
-          right: '10px',
-          width: '280px',
-          maxHeight: '45vh',
-          background: 'rgba(0,0,0,0.95)',
-          color: '#0f0',
-          fontFamily: 'monospace',
-          fontSize: '12px',
-          lineHeight: '1.2',
-          padding: '10px',
-          overflowY: 'auto',
-          zIndex: 999999,
-          border: '2px solid #0f0',
-          borderRadius: '6px',
-          cursor: 'move'
-        });
-        dbg.id = 'mobile-debug-console';
-        document.body.appendChild(dbg);
-
-        let isDown=false, sx, sy, ox, oy;
-        dbg.addEventListener('mousedown', e=>{
-          isDown=true; sx=e.clientX; sy=e.clientY;
-          ox=parseInt(dbg.style.right); oy=parseInt(dbg.style.bottom);
-          e.preventDefault();
-        });
-        document.addEventListener('mouseup', ()=> isDown=false);
-        document.addEventListener('mousemove', e=>{
-          if(!isDown) return;
-          dbg.style.right = (ox + (sx - e.clientX)) + 'px';
-          dbg.style.bottom = (oy + (e.clientY - sy)) + 'px';
-        });
-
-        function logToWindow(type,args){
-          const msg = document.createElement('div');
-          msg.textContent = '['+type.toUpperCase()+'] '+
-            Array.from(args).map(a=> typeof a==='object'? JSON.stringify(a): a ).join(' ');
-          dbg.appendChild(msg);
-          dbg.scrollTop = dbg.scrollHeight;
-        }
-        ['log','info','warn','error','debug'].forEach(fn=>{
-          const o = console[fn].bind(console);
-          console[fn]=(...a)=>{ o(...a); logToWindow(fn,a); };
-        });
-        window.addEventListener('error', e=>
-          console.error('UncaughtError:',e.message,`${e.filename}:${e.lineno}`)
-        );
-        console.log('🐞 Debug Console Activated');
-      }
-      if(document.readyState==='loading')
-        document.addEventListener('DOMContentLoaded', initDebugConsole);
-      else initDebugConsole();
-    })();
-
-    // 🛠 Firebase & App Check Init
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
-    import { getFirestore } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-    import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
+    import {
+      initializeAppCheck,
+      ReCaptchaV3Provider
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
 
-    // 🔑 Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -86,30 +103,18 @@
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
 
-    // 🚀 Initialize Firebase
     const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db   = getFirestore(app);
 
-    // 🔒 Initialize App Check with reCAPTCHA v3
+    // 👇 IMPORTANT: This makes Firebase APIs respect App Check
     initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider("6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"),
       isTokenAutoRefreshEnabled: true
     });
-    console.log("✅ App Check initialized");
 
-    // 🔍 Verify App Check Token (optional, for extra certainty)
-    import { getToken } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
-    getToken(app, true)
-      .then(r=> console.log("🔥 AppCheck token:", r.token))
-      .catch(e=> console.warn("⚠️ AppCheck token error:", e.message));
-
-    // 👤 Auth state listener
-    onAuthStateChanged(auth, user => {
-      if(user) console.log("✅ User signed in:", user.uid);
-      else     console.warn("⚠️ No user signed in");
-    });
+    // Save to window if you want to use app later
+    window.firebaseApp = app;
   </script>
+</script>
   <style>
     :root {
       --primary: #1db954;
