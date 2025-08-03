@@ -6,87 +6,132 @@
   <title>Channel Management Portal</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-<!-- Debug Window + Mega Logger: paste this in <head>, before styles -->
+<!-- Floating Draggable Debug Window — paste this just before </body> -->
 <script>
 (function(){
-  // 🏗️ Build the debug panel
-  const panel = document.createElement('div');
-  Object.assign(panel.style, {
-    position: 'fixed',
-    bottom: '0',
-    left: '0',
-    right: '0',
-    maxHeight: '40%',
-    background: 'rgba(0,0,0,0.8)',
-    color: '#0f0',
-    fontFamily: 'monospace',
-    fontSize: '12px',
-    overflowY: 'auto',
-    padding: '8px',
-    zIndex: '999999',
-    lineHeight: '1.2',
-  });
-  document.documentElement.appendChild(panel);
+  // Wait until <body> exists
+  function init() {
+    // 🏗️ Create panel
+    const panel = document.createElement('div');
+    Object.assign(panel.style, {
+      position: 'fixed',
+      bottom: '20px',
+      right: '20px',
+      width: '320px',
+      height: '240px',
+      background: 'rgba(0,0,0,0.85)',
+      color: '#0f0',
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      overflowY: 'auto',
+      borderRadius: '8px',
+      padding: '8px',
+      zIndex: '999999',
+      boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
+      resize: 'both',
+    });
+    document.body.appendChild(panel);
 
-  // 🔘 Toggle button
-  const btn = document.createElement('button');
-  btn.textContent = '🕵️‍♂️ Debug';
-  Object.assign(btn.style, {
-    position: 'fixed',
-    bottom: '40%',
-    right: '0',
-    background: '#222',
-    color: '#0f0',
-    border: 'none',
-    padding: '6px 10px',
-    fontFamily: 'monospace',
-    fontSize: '12px',
-    cursor: 'pointer',
-    zIndex: '1000000',
-  });
-  btn.addEventListener('click', () => {
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-  });
-  document.documentElement.appendChild(btn);
+    // 🔲 Header for dragging
+    const header = document.createElement('div');
+    header.textContent = '🔍 DEBUG';
+    Object.assign(header.style, {
+      cursor: 'move',
+      background: '#111',
+      padding: '4px',
+      borderRadius: '6px 6px 0 0',
+      fontWeight: 'bold',
+      textAlign: 'center',
+    });
+    panel.prepend(header);
 
-  // 📦 Keep original console
-  const orig = { ...console };
-  const levels = ['log','info','warn','error','debug'];
+    // 🖱️ Make draggable
+    (function makeDraggable(el, handle){
+      let dx=0, dy=0, dragging=false;
+      handle.addEventListener('mousedown', e => {
+        dragging = true;
+        dx = e.clientX - el.offsetLeft;
+        dy = e.clientY - el.offsetTop;
+        document.body.style.userSelect = 'none';
+      });
+      document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        el.style.left = (e.clientX - dx) + 'px';
+        el.style.top  = (e.clientY - dy) + 'px';
+        el.style.bottom = 'auto';
+        el.style.right = 'auto';
+      });
+      document.addEventListener('mouseup', () => {
+        dragging = false;
+        document.body.style.userSelect = '';
+      });
+    })(panel, header);
 
-  // 📝 Helper to print to panel
-  function write(level, args) {
-    const ts = new Date().toISOString();
-    const msg = args.map(a =>
-      typeof a === 'object' ? JSON.stringify(a) : String(a)
-    ).join(' ');
-    const line = document.createElement('div');
-    line.textContent = `[${ts}] [${level.toUpperCase()}] ${msg}`;
-    if (level === 'error' || level === 'warn') {
-      line.style.color = level === 'error' ? '#f55' : '#ff5';
+    // 🔘 Toggle button
+    const btn = document.createElement('button');
+    btn.textContent = '🐞';
+    Object.assign(btn.style, {
+      position: 'fixed',
+      bottom: '20px',
+      right: '360px',
+      background: '#222',
+      color: '#0f0',
+      border: 'none',
+      borderRadius: '4px',
+      padding: '6px',
+      fontSize: '14px',
+      cursor: 'pointer',
+      zIndex: '1000000',
+    });
+    btn.addEventListener('click', () => {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+    document.body.appendChild(btn);
+
+    // 📦 Original console
+    const orig = { ...console };
+    const levels = ['log','info','warn','error','debug'];
+
+    // 📝 Write to panel
+    function write(level, args) {
+      const ts = new Date().toISOString();
+      const txt = args.map(a =>
+        typeof a === 'object' ? JSON.stringify(a) : a
+      ).join(' ');
+      const line = document.createElement('div');
+      line.textContent = `[${ts}] [${level.toUpperCase()}] ${txt}`;
+      if (level==='error') line.style.color='#f55';
+      if (level==='warn')  line.style.color='#ff5';
+      panel.appendChild(line);
+      panel.scrollTop = panel.scrollHeight;
     }
-    panel.appendChild(line);
-    // auto-scroll
-    panel.scrollTop = panel.scrollHeight;
+
+    // 🔄 Override console
+    levels.forEach(lvl => {
+      console[lvl] = (...args) => {
+        orig[lvl](...args);
+        write(lvl, args);
+      };
+    });
+
+    // 🌪️ Catch errors
+    window.addEventListener('error', e => {
+      console.error(`Uncaught Error: "${e.message}" at ${e.filename}:${e.lineno}:${e.colno}`);
+    });
+    window.addEventListener('unhandledrejection', e => {
+      console.error('Unhandled Promise Rejection:', e.reason);
+    });
   }
 
-  // 🔄 Override console.*
-  levels.forEach(level => {
-    console[level] = (...args) => {
-      orig[level](...args);
-      write(level, args);
-    };
-  });
-
-  // 🌪️ Catch errors
-  window.addEventListener('error', e => {
-    console.error(`Uncaught Error: "${e.message}" at ${e.filename}:${e.lineno}:${e.colno}`);
-  });
-  window.addEventListener('unhandledrejection', e => {
-    console.error('Unhandled Promise Rejection:', e.reason);
-  });
+  // If body ready, init; else wait
+  if (document.readyState==='loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else init();
 })();
 </script>
+
   <style>
+    /* Styles remain the same as in your original code */
     * {
       box-sizing: border-box;
       margin: 0;
@@ -478,22 +523,22 @@
       .flex-group {
         flex-direction: column;
       }
-      
+
       .flex-group button {
         width: 100%;
       }
-      
+
       .stats {
         flex-direction: column;
         gap: 15px;
         align-items: center;
       }
-      
+
       .channel-info {
         flex-direction: column;
         text-align: center;
       }
-      
+
       .channel-details {
         text-align: center;
       }
@@ -512,25 +557,25 @@
 
     <div class="status-card">
       <div class="channel-info">
-        <img id="channelLogo" class="channel-logo" src="https://i.ibb.co/0jT2d8R/logo.png" alt="Channel Logo">
+        <img id="channelLogo" class="channel-logo" src="https://via.placeholder.com/100" alt="Channel Logo">
         <div class="channel-details">
-          <div class="channel-name" id="channelName">Tech Reviews Channel</div>
-          <div class="channel-id">Channel ID: <span id="displayID">UCXyz123Abc456Def</span></div>
-          <a href="#" class="channel-url" id="displayLink" target="_blank">https://youtube.com/@techreviews</a>
+          <div class="channel-name" id="channelName">Loading...</div>
+          <div class="channel-id">Channel ID: <span id="displayID">Loading...</span></div>
+          <a href="#" class="channel-url" id="displayLink" target="_blank">Loading...</a>
         </div>
       </div>
-      
+
       <div class="stats">
         <div class="stat-box">
-          <div class="stat-value" id="shortsCount">12</div>
+          <div class="stat-value" id="shortsCount">0</div>
           <div class="stat-label">Fan Shorts</div>
         </div>
         <div class="stat-box">
-          <div class="stat-value" id="videosCount">8</div>
+          <div class="stat-value" id="videosCount">0</div>
           <div class="stat-label">Fan Replays</div>
         </div>
         <div class="stat-box">
-          <div class="stat-value" id="instaCountDisplay">12.8K</div>
+          <div class="stat-value" id="instaCountDisplay">0</div>
           <div class="stat-label">Instagram Followers</div>
         </div>
       </div>
@@ -541,31 +586,31 @@
         <i class="fas fa-sliders-h"></i>
         <h2>Channel Setup</h2>
       </div>
-      
+
       <div class="form-group">
         <label for="channelURL"><i class="fas fa-link"></i> YouTube Channel URL</label>
-        <input type="text" id="channelURL" placeholder="https://www.youtube.com/..." value="https://youtube.com/@techreviews">
+        <input type="text" id="channelURL" placeholder="https://www.youtube.com/...">
       </div>
-      
+
       <div class="flex-group">
         <button id="resolveChannelBtn"><i class="fas fa-search"></i> Resolve & Save</button>
         <button id="saveSettingsBtn"><i class="fas fa-save"></i> Save Settings</button>
       </div>
-      
+
       <div class="form-group">
         <label for="desc"><i class="fas fa-align-left"></i> Channel Description</label>
-        <textarea id="desc" placeholder="Enter your channel description">Welcome to Tech Reviews! We bring you the latest gadget reviews and tech news.</textarea>
+        <textarea id="desc" placeholder="Enter your channel description"></textarea>
       </div>
-      
+
       <div class="flex-group">
         <div class="form-group" style="flex: 1;">
           <label for="instaCount"><i class="fab fa-instagram"></i> Instagram Followers</label>
-          <input type="number" id="instaCount" placeholder="e.g. 12800" value="12800">
+          <input type="number" id="instaCount" placeholder="e.g. 12800">
         </div>
-        
+
         <div class="form-group" style="flex: 1;">
           <label for="instaLink"><i class="fab fa-instagram"></i> Instagram URL</label>
-          <input type="text" id="instaLink" placeholder="https://instagram.com/..." value="https://instagram.com/techreviews">
+          <input type="text" id="instaLink" placeholder="https://instagram.com/...">
         </div>
       </div>
     </div>
@@ -575,59 +620,45 @@
         <i class="fas fa-film"></i>
         <h2>Content Management</h2>
       </div>
-      
+
       <div class="list-container">
         <div class="list-header">
           <h3><i class="fas fa-video"></i> Fan Shorts</h3>
         </div>
-        
+
         <div class="flex-group">
-          <input type="text" id="newShortURL" placeholder="YouTube Short URL" value="https://youtube.com/shorts/abc123">
+          <input type="text" id="newShortURL" placeholder="YouTube Short URL">
           <button id="addShortBtn"><i class="fas fa-plus"></i> Add</button>
         </div>
-        
+
         <div class="item-list">
-          <div id="shortsList">
-            <div class="list-item">
-              <div class="list-item-content">https://youtube.com/shorts/xyz789</div>
-              <button><i class="fas fa-trash"></i> Remove</button>
-            </div>
-            <div class="list-item">
-              <div class="list-item-content">https://youtube.com/shorts/def456</div>
-              <button><i class="fas fa-trash"></i> Remove</button>
-            </div>
-          </div>
+          <div id="shortsList"></div>
         </div>
       </div>
-      
+
       <div class="list-container" style="margin-top: 30px;">
         <div class="list-header">
           <h3><i class="fas fa-play-circle"></i> Fan Replays</h3>
         </div>
-        
+
         <div class="flex-group">
-          <input type="text" id="newVideoURL" placeholder="YouTube Video URL" value="https://youtube.com/watch?v=abc123">
+          <input type="text" id="newVideoURL" placeholder="YouTube Video URL">
           <button id="addVideoBtn"><i class="fas fa-plus"></i> Add</button>
         </div>
-        
+
         <div class="item-list">
-          <div id="videoList">
-            <div class="list-item">
-              <div class="list-item-content">https://youtube.com/watch?v=xyz789</div>
-              <button><i class="fas fa-trash"></i> Remove</button>
-            </div>
-          </div>
+          <div id="videoList"></div>
         </div>
       </div>
     </div>
   </div>
-  
+
   <div id="notification" class="notification"></div>
-  
+
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
-  
+
   <script>
     // Firebase configuration
     const firebaseConfig = {
@@ -654,12 +685,17 @@
     const addVideoBtn = document.getElementById('addVideoBtn');
     const notification = document.getElementById('notification');
 
+    // Firestore references
+    const settingsRef = db.collection(col).doc('settings');
+    const shortsRef = db.collection(col).doc('shorts');
+    const videosRef = db.collection(col).doc('videos');
+
     // Notification function
     function showNotification(message, type) {
       notification.textContent = message;
       notification.className = `notification ${type} show`;
       notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
-      
+
       setTimeout(() => {
         notification.classList.remove('show');
       }, 3000);
@@ -671,7 +707,7 @@
         /youtube\.com\/channel\/([A-Za-z0-9_-]+)/,
         /youtube\.com\/(c\/|@)([A-Za-z0-9_-]+)/
       ];
-      
+
       for (const pattern of patterns) {
         const match = url.match(pattern);
         if (match) return match[1] || match[2];
@@ -714,15 +750,16 @@
         const desc = document.getElementById('desc').value.trim();
         const instaCount = document.getElementById('instaCount').value;
         const instaLink = document.getElementById('instaLink').value.trim();
-        
+
         const settings = {
           channelLink: link,
           desc,
           instaCount: parseInt(instaCount, 10),
-          instaLink
+          instaLink,
+          lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
         };
-        
-        await db.collection(col).doc('settings').set(settings, { merge: true });
+
+        await settingsRef.set(settings, { merge: true });
         showNotification('Settings saved successfully!', 'success');
       } catch (error) {
         console.error('Error saving settings:', error);
@@ -738,7 +775,7 @@
           showNotification('Please enter a YouTube URL', 'error');
           return;
         }
-        
+
         let channelId = extractChannelID(url);
         if (!channelId) {
           const username = extractChannelID(url);
@@ -746,23 +783,28 @@
             channelId = await getChannelIDFromUsername(username);
           }
         }
-        
+
         if (!channelId) {
           showNotification('Could not resolve channel ID', 'error');
           return;
         }
-        
+
         const details = await fetchChannelDetails(channelId);
         if (details) {
           document.getElementById('channelName').textContent = details.title;
-          document.getElementById('channelLogo').src = details.thumbnails.default.url;
+          document.getElementById('channelLogo').src = details.thumbnails.high.url;
+          document.getElementById('displayLink').href = url;
+          document.getElementById('displayLink').textContent = url;
+          document.getElementById('displayID').textContent = channelId;
         }
-        
-        await db.collection(col).doc('settings').update({
-          channelId: channelId
-        });
-        
-        document.getElementById('displayID').textContent = channelId;
+
+        await settingsRef.set({
+          channelId: channelId,
+          channelName: details.title,
+          channelLogo: details.thumbnails.high.url,
+          channelLink: url
+        }, { merge: true });
+
         showNotification(`Channel ID resolved: ${channelId}`, 'success');
       } catch (error) {
         console.error('Error resolving channel:', error);
@@ -771,102 +813,209 @@
     }
 
     // Add item to array in Firestore
-    async function addToArray(collectionName, value) {
+    async function addToArray(collectionRef, value) {
       try {
-        if (!value) return;
+        if (!value) {
+          showNotification('Please enter a URL', 'error');
+          return false;
+        }
+
+        const doc = await collectionRef.get();
+        let content = [];
+        if (doc.exists) {
+          content = doc.data().content || [];
+        }
         
-        const docRef = db.collection(col).doc(collectionName);
-        await docRef.set({
-          content: firebase.firestore.FieldValue.arrayUnion(value)
-        }, { merge: true });
+        // Prevent duplicates
+        if (content.includes(value)) {
+          showNotification('URL already exists', 'error');
+          return false;
+        }
         
-        showNotification(`Item added to ${collectionName}`, 'success');
+        content.push(value);
+        
+        await collectionRef.set({ content }, { merge: true });
+        showNotification(`Item added successfully`, 'success');
         return true;
       } catch (error) {
-        console.error(`Error adding to ${collectionName}:`, error);
+        console.error(`Error adding item:`, error);
         showNotification(`Failed to add item`, 'error');
         return false;
       }
     }
 
     // Remove item from array in Firestore
-    async function removeFromArray(collectionName, value) {
+    async function removeFromArray(collectionRef, value) {
       try {
-        await db.collection(col).doc(collectionName).update({
-          content: firebase.firestore.FieldValue.arrayRemove(value)
-        });
+        const doc = await collectionRef.get();
+        if (!doc.exists) return;
+
+        let content = doc.data().content || [];
+        content = content.filter(item => item !== value);
+
+        await collectionRef.set({ content }, { merge: true });
         showNotification('Item removed', 'success');
       } catch (error) {
-        console.error(`Error removing from ${collectionName}:`, error);
+        console.error('Error removing item:', error);
         showNotification('Failed to remove item', 'error');
       }
+    }
+
+    // Render list items
+    function renderList(containerId, items, collectionRef) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+
+      if (!items || items.length === 0) {
+        container.innerHTML = '<div class="list-item">No items found</div>';
+        return;
+      }
+
+      items.forEach(item => {
+        const listItem = document.createElement('div');
+        listItem.className = 'list-item';
+        listItem.innerHTML = `
+          <div class="list-item-content">${item}</div>
+          <button><i class="fas fa-trash"></i> Remove</button>
+        `;
+        
+        listItem.querySelector('button').addEventListener('click', async () => {
+          await removeFromArray(collectionRef, item);
+          renderList(containerId, items.filter(i => i !== item), collectionRef);
+        });
+        
+        container.appendChild(listItem);
+      });
+    }
+
+    // Load data from Firestore
+    async function loadData() {
+      try {
+        // Load settings
+        const settingsDoc = await settingsRef.get();
+        if (settingsDoc.exists) {
+          const settings = settingsDoc.data();
+          document.getElementById('channelURL').value = settings.channelLink || '';
+          document.getElementById('desc').value = settings.desc || '';
+          document.getElementById('instaCount').value = settings.instaCount || '';
+          document.getElementById('instaLink').value = settings.instaLink || '';
+          
+          if (settings.channelName) {
+            document.getElementById('channelName').textContent = settings.channelName;
+          }
+          if (settings.channelLogo) {
+            document.getElementById('channelLogo').src = settings.channelLogo;
+          }
+          if (settings.channelId) {
+            document.getElementById('displayID').textContent = settings.channelId;
+          }
+          if (settings.channelLink) {
+            document.getElementById('displayLink').href = settings.channelLink;
+            document.getElementById('displayLink').textContent = settings.channelLink;
+          }
+          if (settings.instaCount) {
+            document.getElementById('instaCountDisplay').textContent = settings.instaCount.toLocaleString();
+          }
+        }
+
+        // Load shorts
+        const shortsDoc = await shortsRef.get();
+        if (shortsDoc.exists) {
+          const shorts = shortsDoc.data().content || [];
+          document.getElementById('shortsCount').textContent = shorts.length;
+          renderList('shortsList', shorts, shortsRef);
+        } else {
+          document.getElementById('shortsCount').textContent = '0';
+          renderList('shortsList', [], shortsRef);
+        }
+
+        // Load videos
+        const videosDoc = await videosRef.get();
+        if (videosDoc.exists) {
+          const videos = videosDoc.data().content || [];
+          document.getElementById('videosCount').textContent = videos.length;
+          renderList('videoList', videos, videosRef);
+        } else {
+          document.getElementById('videosCount').textContent = '0';
+          renderList('videoList', [], videosRef);
+        }
+
+      } catch (error) {
+        console.error('Error loading data:', error);
+        showNotification('Failed to load data', 'error');
+      }
+    }
+
+    // Set up real-time listeners
+    function setupListeners() {
+      settingsRef.onSnapshot((doc) => {
+        if (doc.exists) {
+          const settings = doc.data();
+          if (settings.channelName) {
+            document.getElementById('channelName').textContent = settings.channelName;
+          }
+          if (settings.channelLogo) {
+            document.getElementById('channelLogo').src = settings.channelLogo;
+          }
+          if (settings.channelId) {
+            document.getElementById('displayID').textContent = settings.channelId;
+          }
+          if (settings.channelLink) {
+            document.getElementById('displayLink').href = settings.channelLink;
+            document.getElementById('displayLink').textContent = settings.channelLink;
+          }
+          if (settings.instaCount) {
+            document.getElementById('instaCountDisplay').textContent = settings.instaCount.toLocaleString();
+          }
+        }
+      });
+
+      shortsRef.onSnapshot((doc) => {
+        if (doc.exists) {
+          const shorts = doc.data().content || [];
+          document.getElementById('shortsCount').textContent = shorts.length;
+          renderList('shortsList', shorts, shortsRef);
+        }
+      });
+
+      videosRef.onSnapshot((doc) => {
+        if (doc.exists) {
+          const videos = doc.data().content || [];
+          document.getElementById('videosCount').textContent = videos.length;
+          renderList('videoList', videos, videosRef);
+        }
+      });
     }
 
     // Event listeners
     resolveBtn.addEventListener('click', resolveChannel);
     saveBtn.addEventListener('click', saveSettings);
-    
+
     addShortBtn.addEventListener('click', async () => {
       const url = document.getElementById('newShortURL').value.trim();
       if (url) {
-        const success = await addToArray('shorts', url);
+        const success = await addToArray(shortsRef, url);
         if (success) {
-          const listItem = document.createElement('div');
-          listItem.className = 'list-item';
-          listItem.innerHTML = `
-            <div class="list-item-content">${url}</div>
-            <button><i class="fas fa-trash"></i> Remove</button>
-          `;
-          document.getElementById('shortsList').appendChild(listItem);
           document.getElementById('newShortURL').value = '';
-          
-          // Add remove functionality
-          listItem.querySelector('button').addEventListener('click', async () => {
-            await removeFromArray('shorts', url);
-            listItem.remove();
-          });
         }
       }
     });
-    
+
     addVideoBtn.addEventListener('click', async () => {
       const url = document.getElementById('newVideoURL').value.trim();
       if (url) {
-        const success = await addToArray('videos', url);
+        const success = await addToArray(videosRef, url);
         if (success) {
-          const listItem = document.createElement('div');
-          listItem.className = 'list-item';
-          listItem.innerHTML = `
-            <div class="list-item-content">${url}</div>
-            <button><i class="fas fa-trash"></i> Remove</button>
-          `;
-          document.getElementById('videoList').appendChild(listItem);
           document.getElementById('newVideoURL').value = '';
-          
-          // Add remove functionality
-          listItem.querySelector('button').addEventListener('click', async () => {
-            await removeFromArray('videos', url);
-            listItem.remove();
-          });
         }
       }
     });
 
-    // Initialize existing remove buttons
-    document.querySelectorAll('.list-item button').forEach(button => {
-      const listItem = button.closest('.list-item');
-      const content = listItem.querySelector('.list-item-content').textContent;
-      
-      button.addEventListener('click', async () => {
-        const collection = listItem.closest('#shortsList') ? 'shorts' : 'videos';
-        await removeFromArray(collection, content);
-        listItem.remove();
-      });
+    // Initialize
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadData();
+      setupListeners();
     });
-
-    // Simulate loading settings (in a real app, this would come from Firestore)
-    document.getElementById('instaCountDisplay').textContent = 
-      (12800).toLocaleString();
   </script>
 </body>
 </html>
