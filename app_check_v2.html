@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Modular Firebase AppCheck with Debug</title>
+  <style>
+    #debug-console {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #111;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 13px;
+      padding: 10px;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 9999;
+    }
+    #toggle-debug {
+      position: fixed;
+      bottom: 210px;
+      right: 20px;
+      background: #000;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      cursor: pointer;
+      border-radius: 5px;
+      z-index: 9999;
+    }
+  </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+    import { initializeAppCheck, getToken } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
+
+    const debugLog = (msg) => {
+      const logBox = document.getElementById('debug-console');
+      const entry = document.createElement('div');
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      logBox.appendChild(entry);
+      logBox.scrollTop = logBox.scrollHeight;
+      console.log(msg);
+    };
+
+    // 🛠️ Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // ⚙️ App Check with debug token
+    const appCheck = initializeAppCheck(app, {
+      provider: new self.FirebaseAppCheck.DebugProvider(),
+      isTokenAutoRefreshEnabled: true
+    });
+
+    const init = async () => {
+      debugLog("🚀 App initialization started.");
+
+      try {
+        const token = await getToken(appCheck, /* forceRefresh */ false);
+        debugLog("✅ App Check token acquired: " + token.token);
+
+        const docRef = doc(db, "test", "test1");
+        debugLog("📄 Fetching document: test/test1...");
+
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          debugLog("🔥 Document Data: " + JSON.stringify(docSnap.data()));
+        } else {
+          debugLog("❌ No such document found.");
+        }
+      } catch (err) {
+        debugLog("💥 Error occurred: " + err.message);
+      }
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('toggle-debug').addEventListener('click', () => {
+        const debugBox = document.getElementById('debug-console');
+        debugBox.style.display = debugBox.style.display === 'none' ? 'block' : 'none';
+      });
+      init();
+    });
+  </script>
+</head>
+<body>
+  <h1>App Check V2 Demo with Debug Logs</h1>
+  <button id="toggle-debug">🪵 Toggle Debug Log</button>
+  <div id="debug-console"></div>
+</body>
+</html>
