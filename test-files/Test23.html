@@ -1,10 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Secure Chat Login</title>
+  <!-- 1) Load Supabase JS library first -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: Arial, sans-serif; padding: 2rem; }
@@ -16,20 +16,17 @@
   <h1>Secure Chat Login</h1>
   <button id="login-btn">Sign in with Google</button>
   <div id="status"></div>
-  <div id="debug"></div>
-
-  <script>
-    // Initialize Supabase
+  <div id="debug"></div>  <!-- 2) Initialize and run logic after library load -->  <script>
+    // Alias the global supabase object to avoid shadowing issues
     const SUPA_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
     const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg';
-    const supabase = supabase.createClient(SUPA_URL, SUPA_KEY);
+    const supaClient = supabase.createClient(SUPA_URL, SUPA_KEY);
 
     function logDebug(msg) {
-      const dbg = document.getElementById('debug');
-      dbg.textContent += msg + '\n';
+      document.getElementById('debug').textContent += msg + '\n';
     }
 
-    // Device fingerprint
+    // Device fingerprint function
     async function getDeviceFingerprint() {
       const info = [
         navigator.userAgent,
@@ -49,10 +46,10 @@
       return hash;
     }
 
-    // Trigger Google OAuth via Supabase
+    // Google OAuth via Supabase
     document.getElementById('login-btn').onclick = async () => {
       logDebug('Triggering OAuth sign-in');
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supaClient.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: window.location.origin }
       });
@@ -62,26 +59,26 @@
       }
     };
 
-    // Handle callback and registration
+    // On page load, check session & register device
     window.onload = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supaClient.auth.getSession();
       if (error) {
-        logDebug('GetSession Error: ' + error.message);
+        logDebug('getSession Error: ' + error.message);
         return;
       }
       if (!session) {
         logDebug('No active session');
         return;
       }
-      logDebug('Session found: ' + JSON.stringify(session.user));
+      logDebug('Session active: ' + JSON.stringify(session.user));
 
       const email = session.user.email;
       const name = session.user.user_metadata.full_name || session.user.user_metadata.name || email;
       const deviceHash = await getDeviceFingerprint();
 
-      logDebug('Calling Edge Function with:', JSON.stringify({ email, name, deviceHash }));
+      logDebug('Calling Edge Function with payload ' + JSON.stringify({ email, name, deviceHash }));
       try {
-        const res = await fetch(SUPA_URL.replace('.co', '') + '.functions.supabase.co/register-user', {
+        const res = await fetch(`https://${SUPA_URL.split('://')[1].split('.co')[0]}.functions.supabase.co/register-user`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, name, deviceHash })
@@ -102,6 +99,5 @@
         document.getElementById('status').textContent = 'Network or server error.';
       }
     };
-  </script>
-</body>
+  </script></body>
 </html>
