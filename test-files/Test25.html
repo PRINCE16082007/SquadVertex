@@ -8,19 +8,19 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: Arial, sans-serif; padding: 2rem; }
-    #status { margin-top: 1rem; }
+    #status { margin-top: 1rem; color: #333; }
     #debug { margin-top: 1rem; padding: 1rem; background: #f5f5f5; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; font-size: 0.9rem; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <h1>Registering Your Device...</h1>
-  <div id="status"></div>
-  <div id="debug"></div>
+  <div id="status">Initializing...</div>
+  <pre id="debug"></pre>
 
   <script>
-    // Initialize Supabase client
+    // Configuration
     const SUPA_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
-    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg'; // replace
+    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg'; // Replace with your anon key
     const supaClient = supabase.createClient(SUPA_URL, SUPA_KEY);
 
     // Debug logger
@@ -30,8 +30,9 @@
 ';
     }
 
+    // Generate device fingerprint
     async function getDeviceFingerprint() {
-      const info = [
+      const components = [
         navigator.userAgent,
         navigator.language,
         screen.width,
@@ -42,39 +43,42 @@
         navigator.hardwareConcurrency,
         navigator.platform
       ];
-      logDebug('Fingerprint inputs: ' + info.join(' | '));
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(info.join('::')));
-      const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-      logDebug('Fingerprint hash: ' + hash);
-      return hash;
+      logDebug('Fingerprint data: ' + components.join(' | '));
+      const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(components.join('::')));
+      const hashArray = Array.from(new Uint8Array(buffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      logDebug('Fingerprint hash: ' + hashHex);
+      return hashHex;
     }
 
-    window.onload = async () => {
+    async function runRegistration() {
       try {
-        logDebug('Page loaded, checking session');
-        const { data: { session }, error: sessErr } = await supaClient.auth.getSession();
-        if (sessErr) {
-          logDebug('getSession Error: ' + sessErr.message);
-          document.getElementById('status').textContent = 'Error getting session.';
-          return;
-        }
+        logDebug('Checking session...');
+        document.getElementById('status').textContent = 'Checking session...';
+
+        const { data: { session }, error: sessionError } = await supaClient.auth.getSession();
+        if (sessionError) throw new Error('Session error: ' + sessionError.message);
         if (!session) {
-          logDebug('No active session, redirecting to login');
+          logDebug('No active session. Redirecting to login.');
+          document.getElementById('status').textContent = 'No session. Redirecting to login...';
           window.location.href = '/login.html';
           return;
         }
-        logDebug('Session active: ' + session.user.email);
-        document.getElementById('status').textContent = 'Session found, generating fingerprint...';
 
+        logDebug('Session found for: ' + session.user.email);
+        document.getElementById('status').textContent = 'Generating fingerprint...';
         const deviceHash = await getDeviceFingerprint();
 
-        // Build Edge Function URL
-        const projectRef = SUPA_URL.split('://')[1].split('.supabase.co')[0];
+        const projectRef = SUPA_URL.replace('https://', '').replace('.supabase.co', '');
         const functionUrl = `https://${projectRef}.functions.supabase.co/register-user`;
-        logDebug('Calling Edge Function at: ' + functionUrl);
+        logDebug('Calling function: ' + functionUrl);
         document.getElementById('status').textContent = 'Registering device...';
 
-        const payload = { email: session.user.email, name: session.user.user_metadata.full_name || session.user.email, deviceHash };
+        const payload = {
+          email: session.user.email,
+          name: session.user.user_metadata.full_name || session.user.email,
+          deviceHash
+        };
         logDebug('Payload: ' + JSON.stringify(payload));
 
         const res = await fetch(functionUrl, {
@@ -82,20 +86,23 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
-        logDebug('Edge Function response: ' + JSON.stringify(data));
+        const result = await res.json();
+        logDebug('Function result: ' + JSON.stringify(result));
 
-        if (data.status === 'authorized' || data.status === 'registered') {
-          document.getElementById('status').textContent = 'Success! Redirecting to chat...';
-          setTimeout(() => window.location.href = '/chat.html', 1500);
+        if (result.status === 'authorized' || result.status === 'registered') {
+          document.getElementById('status').textContent = 'Device registered! Redirecting...';
+          setTimeout(() => { window.location.href = '/chat.html'; }, 1500);
         } else {
-          document.getElementById('status').textContent = 'Access Denied: ' + (data.reason || data.error);
+          document.getElementById('status').textContent = 'Access denied: ' + (result.reason || result.error);
         }
-      } catch (err) {
-        logDebug('Unexpected Error: ' + err);
-        document.getElementById('status').textContent = 'Unexpected error.';
+      } catch (e) {
+        logDebug('Error: ' + e.message);
+        document.getElementById('status').textContent = 'Error occurred. See debug.';
       }
-    };
+    }
+
+    // Execute on load
+    window.addEventListener('DOMContentLoaded', runRegistration);
   </script>
 </body>
 </html>
