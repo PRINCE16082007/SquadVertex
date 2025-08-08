@@ -4,11 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Register Device</title>
+  <!-- Load Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: Arial, sans-serif; padding: 2rem; }
     #status { margin-top: 1rem; }
-    #debug { margin-top: 1rem; padding: 1rem; background: #f5f5f5; border: 1px solid #ddd; font-size: 0.9rem; white-space: pre-wrap; }
+    #debug { margin-top: 1rem; padding: 1rem; background: #f5f5f5; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; font-size: 0.9rem; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -17,18 +18,30 @@
   <div id="debug"></div>
 
   <script>
+    // Initialize Supabase client
     const SUPA_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
     const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg'; // replace
     const supaClient = supabase.createClient(SUPA_URL, SUPA_KEY);
 
+    // Debug logger
     function logDebug(msg) {
-      document.getElementById('debug').textContent += msg + '\n';
+      const dbg = document.getElementById('debug');
+      dbg.textContent += msg + '
+';
     }
 
     async function getDeviceFingerprint() {
-      const info = [navigator.userAgent, navigator.language, screen.width,
-        screen.height, screen.colorDepth, new Date().getTimezoneOffset(),
-        window.devicePixelRatio, navigator.hardwareConcurrency, navigator.platform];
+      const info = [
+        navigator.userAgent,
+        navigator.language,
+        screen.width,
+        screen.height,
+        screen.colorDepth,
+        new Date().getTimezoneOffset(),
+        window.devicePixelRatio,
+        navigator.hardwareConcurrency,
+        navigator.platform
+      ];
       logDebug('Fingerprint inputs: ' + info.join(' | '));
       const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(info.join('::')));
       const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
@@ -37,31 +50,50 @@
     }
 
     window.onload = async () => {
-      // 1) get session
-      const { data: { session }, error } = await supaClient.auth.getSession();
-      if (error) return logDebug('getSession Error: ' + error.message);
-      if (!session) return logDebug('No active session');
-      logDebug('Logged in as: ' + session.user.email);
+      try {
+        logDebug('Page loaded, checking session');
+        const { data: { session }, error: sessErr } = await supaClient.auth.getSession();
+        if (sessErr) {
+          logDebug('getSession Error: ' + sessErr.message);
+          document.getElementById('status').textContent = 'Error getting session.';
+          return;
+        }
+        if (!session) {
+          logDebug('No active session, redirecting to login');
+          window.location.href = '/login.html';
+          return;
+        }
+        logDebug('Session active: ' + session.user.email);
+        document.getElementById('status').textContent = 'Session found, generating fingerprint...';
 
-      // 2) fingerprint
-      const deviceHash = await getDeviceFingerprint();
+        const deviceHash = await getDeviceFingerprint();
 
-      // 3) call Edge Function
-      const payload = { email: session.user.email, name: session.user.user_metadata.full_name || session.user.email, deviceHash };
-      const functionUrl = SUPA_URL.replace('://', '://')
-        .replace('.co','') + '.functions.supabase.co/register-user';
-      logDebug('Calling Edge Function: ' + functionUrl);
-      const res = await fetch(functionUrl, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      logDebug('Function response: ' + JSON.stringify(data));
+        // Build Edge Function URL
+        const projectRef = SUPA_URL.split('://')[1].split('.supabase.co')[0];
+        const functionUrl = `https://${projectRef}.functions.supabase.co/register-user`;
+        logDebug('Calling Edge Function at: ' + functionUrl);
+        document.getElementById('status').textContent = 'Registering device...';
 
-      if (data.status === 'authorized' || data.status === 'registered') {
-        document.getElementById('status').textContent = 'Success! Redirecting to chat...';
-        setTimeout(() => window.location.href = '/chat.html', 1500);
-      } else {
-        document.getElementById('status').textContent = 'Access Denied: ' + (data.reason || data.error);
+        const payload = { email: session.user.email, name: session.user.user_metadata.full_name || session.user.email, deviceHash };
+        logDebug('Payload: ' + JSON.stringify(payload));
+
+        const res = await fetch(functionUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        logDebug('Edge Function response: ' + JSON.stringify(data));
+
+        if (data.status === 'authorized' || data.status === 'registered') {
+          document.getElementById('status').textContent = 'Success! Redirecting to chat...';
+          setTimeout(() => window.location.href = '/chat.html', 1500);
+        } else {
+          document.getElementById('status').textContent = 'Access Denied: ' + (data.reason || data.error);
+        }
+      } catch (err) {
+        logDebug('Unexpected Error: ' + err);
+        document.getElementById('status').textContent = 'Unexpected error.';
       }
     };
   </script>
