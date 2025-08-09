@@ -1,98 +1,180 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Register Device</title>
-  <!-- Load Supabase JS -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Register Device — Secure Chat</title>
+
+  <!-- Supabase client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- FingerprintJS2 (open-source) -->
+  <script src="https://cdn.jsdelivr.net/npm/fingerprintjs2@2.1.0/dist/fingerprint2.min.js"></script>
+
   <style>
-    body { font-family: Arial, sans-serif; padding: 2rem; }
-    #status { margin-top: 1rem; color: #333; }
-    #debug { margin-top: 1rem; padding: 1rem; background: #f5f5f5; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; font-size: 0.9rem; white-space: pre-wrap; }
+    body { font-family: Inter, Arial, sans-serif; padding: 1.5rem; color: #111 }
+    h1 { font-size: 1.25rem; margin-bottom: .5rem; }
+    #status { margin: .5rem 0 1rem; color: #333 }
+    pre#debug { background:#f6f8fa; border:1px solid #ddd; padding: .8rem; max-height:320px; overflow:auto; white-space:pre-wrap; font-size:13px; }
+    .muted { color:#666; font-size:13px; }
   </style>
 </head>
 <body>
-  <h1>Registering Your Device...</h1>
-  <div id="status">Initializing...</div>
-  <pre id="debug"></pre>
+  <h1>Registering your device…</h1>
+  <div id="status" class="muted">Initializing…</div>
+  <pre id="debug">Logs:\n</pre>
 
   <script>
-    // Supabase client
+    // ---------- CONFIG ----------
     const SUPA_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
-    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg'; // replace with your anon key
-    const supaClient = supabase.createClient(SUPA_URL, SUPA_KEY);
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg'; // <-- replace with your anon/public key
+    const supa = supabase.createClient(SUPA_URL, SUPA_ANON);
 
     const statusEl = document.getElementById('status');
-    const debugEl = document.getElementById('debug');
-    function log(msg) {
-      debugEl.textContent += msg + '
-';
+    const dbgEl = document.getElementById('debug');
+    function log(...args) {
+      const line = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+      dbgEl.textContent += line + '\n';
+      dbgEl.scrollTop = dbgEl.scrollHeight;
+      console.log('[register]', ...args);
     }
 
-    async function getDeviceFingerprint() {
-      const data = [
-        navigator.userAgent, navigator.language,
-        screen.width, screen.height, screen.colorDepth,
-        new Date().getTimezoneOffset(), window.devicePixelRatio,
-        navigator.hardwareConcurrency, navigator.platform
-      ];
-      log('Fingerprint inputs: ' + data.join(' | '));
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data.join('::')));
-      const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-      log('Fingerprint hash: ' + hex);
-      return hex;
+    // ---------- fingerprint using FingerprintJS2 ----------
+    function getFp2() {
+      // FingerprintJS2 uses a callback style.
+      return new Promise((resolve) => {
+        // Wait a tick - recommended by library to improve entropy collection
+        setTimeout(() => {
+          try {
+            // eslint-disable-next-line no-undef
+            new Fingerprint2().get(function(result, components){
+              // result is a 32-char hash string (good for our deviceHash)
+              resolve({ result, components });
+            });
+          } catch (e) {
+            resolve({ result: null, error: e });
+          }
+        }, 50);
+      });
     }
 
-    async function runRegistration() {
-      statusEl.textContent = 'Checking session...';
-      log('Running supaClient.auth.getUser()');
-      const { data: { user }, error: userErr } = await supaClient.auth.getUser();
-      if (userErr || !user) {
-        log('No user session. Redirecting to login.');
-        statusEl.textContent = 'No session. Redirecting...';
-        return window.location.href = '/login.html';
-      }
-
-      log('User found: ' + user.email);
-      statusEl.textContent = 'Generating fingerprint...';
-      const deviceHash = await getDeviceFingerprint();
-
+    // ---------- helper: call edge function ----------
+    async function callRegisterFunction(payload) {
       const projectRef = SUPA_URL.split('://')[1].split('.supabase.co')[0];
       const fnUrl = `https://${projectRef}.functions.supabase.co/register-user`;
-      log('Calling Edge Function: ' + fnUrl);
-      statusEl.textContent = 'Registering device...';
+      log('Calling edge function at:', fnUrl);
+      log('Payload:', payload);
+      const res = await fetch(fnUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      let json;
+      try { json = await res.json(); } catch (e) { json = { error: 'invalid-json-response', detail: String(e) }; }
+      return { ok: res.ok, status: res.status, json };
+    }
 
-      const payload = { email: user.email, name: user.user_metadata.full_name || user.email, deviceHash };
-      log('Payload: ' + JSON.stringify(payload));
+    // ---------- main flow ----------
+    async function run() {
+      statusEl.textContent = 'Handling magic link / session...';
+      log('Start registration workflow');
 
+      // 1) If token is present in URL (magic link flow), exchange it
       try {
-        const res = await fetch(fnUrl, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        // getSessionFromUrl will parse access_token from URL and store it.
+        // This helps in some cases where getSession() is not yet populated.
+        const fromUrl = await supa.auth.getSessionFromUrl({ storeSession: true }).catch(e => {
+          // Not always required; ignore errors but log them
+          log('getSessionFromUrl() error or no token in URL:', e?.message || e);
         });
-        const result = await res.json();
-        log('Edge Function result: ' + JSON.stringify(result));
-
-        if (result.status === 'authorized' || result.status === 'registered') {
-          statusEl.textContent = 'Success! Redirecting to chat...';
-          return setTimeout(() => window.location.href = '/chat.html', 1500);
-        } else {
-          statusEl.textContent = 'Access Denied: ' + (result.reason || result.error);
-        }
+        if (fromUrl) log('getSessionFromUrl() result:', fromUrl);
       } catch (err) {
-        log('Fetch error: ' + err);
-        statusEl.textContent = 'Network error.';
+        log('getSessionFromUrl() threw:', err);
+      }
+
+      // 2) Try to get the current user
+      statusEl.textContent = 'Retrieving user...';
+      const { data: userData, error: userErr } = await supa.auth.getUser().catch(e => ({ error:e }));
+      if (userErr) {
+        log('getUser error:', userErr);
+      }
+      const user = userData && userData.user ? userData.user : null;
+      if (!user) {
+        // If no user yet, wait for auth event (edge case where redirect didn't refresh storage)
+        log('No active user session found. Listening for SIGNED_IN event (5s timeout).');
+        statusEl.textContent = 'Waiting for magic-link sign-in...';
+        let signedIn = false;
+        const timeout = setTimeout(() => {
+          if (!signedIn) {
+            log('Auth event timed out (no SIGNED_IN). Redirecting back to login.');
+            statusEl.textContent = 'No session. Redirecting to login…';
+            // small delay for user to see message then redirect
+            setTimeout(() => window.location.href = '/login.html', 900);
+          }
+        }, 5000); // 5s wait
+
+        supa.auth.onAuthStateChange((event, session) => {
+          log('Auth event:', event, session ? 'session present' : '(no session)');
+          if (event === 'SIGNED_IN' && session) {
+            signedIn = true;
+            clearTimeout(timeout);
+            // kick off registration now that user is signed in
+            doRegister(session.user);
+          }
+        });
+        return;
+      }
+
+      // 3) If user found, proceed to fingerprint + register
+      doRegister(user);
+    }
+
+    async function doRegister(user) {
+      try {
+        statusEl.textContent = 'Generating device fingerprint...';
+        log('User found:', user.email);
+
+        // Use FingerprintJS2
+        const { result, components, error } = await getFp2();
+        if (error) {
+          log('FingerprintJS2 error:', error);
+          statusEl.textContent = 'Fingerprint error. See debug.';
+          return;
+        }
+        const deviceHash = result || ('fp_fallback_' + Math.random().toString(36).slice(2,9));
+        log('Fingerprint result:', deviceHash);
+        log('Fingerprint components sample:', components && components.slice(0,4));
+
+        // 4) Call register-user edge function
+        statusEl.textContent = 'Registering device with server...';
+        const payload = {
+          email: user.email,
+          name: (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || user.email,
+          deviceHash
+        };
+
+        const { ok, status, json } = await callRegisterFunction(payload);
+        log('Edge function returned status:', status, 'ok:', ok);
+        log('Edge function body:', json);
+
+        if (ok && (json.status === 'authorized' || json.status === 'registered')) {
+          statusEl.textContent = 'Device registered. Redirecting to chat…';
+          setTimeout(() => window.location.href = '/chat.html', 900);
+        } else if (json.status === 'unauthorized') {
+          statusEl.textContent = 'Access denied: unauthorized device.';
+          log('Unauthorized device. Server response:', json);
+        } else {
+          statusEl.textContent = 'Server error: see debug.';
+          log('Unexpected server response:', json);
+        }
+
+      } catch (e) {
+        statusEl.textContent = 'Unexpected error. See debug.';
+        log('doRegister exception:', e);
       }
     }
 
-    // Listen for auth state change if link navigation hasn't refreshed localStorage
-    supaClient.auth.onAuthStateChange((event, session) => {
-      log('Auth event: ' + event);
-      if (event === 'SIGNED_IN') runRegistration();
-    });
-
-    // Start registration after script loads
-    window.addEventListener('load', runRegistration);
+    // Start
+    window.addEventListener('DOMContentLoaded', run);
   </script>
 </body>
 </html>
