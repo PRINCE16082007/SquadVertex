@@ -1,0 +1,188 @@
+<!-- authorize.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Authorize Secure Chat</title>
+
+  <!-- Firebase (v9 compat or modular) - we use compat for simplicity -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+
+  <!-- FingerprintJS2 -->
+  <script src="https://cdn.jsdelivr.net/npm/fingerprintjs2@2.1.0/dist/fingerprint2.min.js"></script>
+
+  <style>
+    body{font-family:Inter,Arial;padding:18px;max-width:760px;margin:auto}
+    h1{margin:0 0 8px}
+    #status{color:#333;margin:8px 0}
+    button{padding:10px 14px;margin-top:8px}
+    pre#debug{background:#f6f8fa;border:1px solid #ddd;padding:10px;white-space:pre-wrap;max-height:320px;overflow:auto}
+    .hashBox{padding:8px;border:1px dashed #bbb;margin-top:8px;background:#fff}
+  </style>
+</head>
+<body>
+  <h1>Authorize Secure Chat</h1>
+  <p class="muted">This page will register your device for the secure chat. You must already be signed in with Google on this browser (Firebase). Click "Generate fingerprint & Authorize" to proceed.</p>
+
+  <div id="status">Idle</div>
+  <button id="btnAuth">Generate fingerprint & Authorize</button>
+  <div id="fingerWrap" style="display:none">
+    <div style="margin-top:10px">Device fingerprint (you can copy & save):</div>
+    <div class="hashBox" id="hashBox"></div>
+  </div>
+
+  <pre id="debug">Logs:\n</pre>
+
+<script>
+ // 🔧 Your Firebase config
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+  };
+const EDGE_FN_URL = "https://dvjihjkyenzkacviywgk.supabase.co/functions/v1/register-user"; // replace
+/* ------------------------------------------ */
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+
+const btn = document.getElementById('btnAuth');
+const statusEl = document.getElementById('status');
+const dbg = document.getElementById('debug');
+const hashBox = document.getElementById('hashBox');
+const fingerprintWrap = document.getElementById('fingerWrap');
+
+function log(...args){ const s = args.map(a=>typeof a==='string'?a:JSON.stringify(a)).join(' '); dbg.textContent += s + '\n'; dbg.scrollTop = dbg.scrollHeight; console.log('[auth-page]', ...args); }
+
+async function getFingerprint() {
+  // FingerprintJS2 uses a callback; wrap in Promise
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      try {
+        new Fingerprint2().get(function(result, components){
+          resolve({ ok:true, hash: result, components });
+        });
+      } catch(e) {
+        resolve({ ok:false, error:e });
+      }
+    }, 50);
+  });
+}
+
+async function fallbackSha256() {
+  try {
+    const parts = [
+      navigator.userAgent||'',
+      navigator.language||'',
+      screen.width||'',
+      screen.height||'',
+      screen.colorDepth||'',
+      new Date().getTimezoneOffset(),
+      window.devicePixelRatio||'',
+      navigator.hardwareConcurrency||'',
+      navigator.platform||''
+    ];
+    const raw = parts.join('::');
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+    const hex = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    return { ok:true, hash:'sha2_'+hex };
+  } catch(e) { return { ok:false, error:e } }
+}
+
+async function callEdge(idToken, deviceHash) {
+  log('Calling edge function with deviceHash', deviceHash);
+  statusEl.textContent = 'Calling server...';
+  try {
+    const res = await fetch(EDGE_FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken, deviceHash })
+    });
+    const json = await res.json().catch(()=>({ error:'invalid-json' }));
+    log('Edge response status', res.status, json);
+    return { ok: res.ok, status: res.status, body: json };
+  } catch(e) {
+    log('Edge call error', e);
+    return { ok:false, error:e };
+  }
+}
+
+btn.onclick = async () => {
+  try {
+    statusEl.textContent = 'Checking firebase sign-in...';
+    const user = auth.currentUser;
+    if (!user) {
+      statusEl.textContent = 'No firebase user detected on this browser. Open the sign-in page and sign in first.';
+      log('No firebase user. currentUser=null');
+      return;
+    }
+    log('Firebase user found', user.email);
+    // ask explicitly
+    if (!confirm(`Authorize secure chat using this device for ${user.email}?`)) {
+      log('User cancelled authorization');
+      return;
+    }
+
+    statusEl.textContent = 'Generating fingerprint...';
+    log('Running FingerprintJS2...');
+    const fp = await getFingerprint();
+    let deviceHash;
+    if (fp.ok && fp.hash) {
+      deviceHash = 'fp2_'+fp.hash;
+      log('FingerprintJS2 OK', deviceHash);
+    } else {
+      log('FingerprintJS2 failed, trying SHA256 fallback', fp.error);
+      const fb = await fallbackSha256();
+      if (fb.ok) {
+        deviceHash = fb.hash;
+        log('Fallback SHA256 ok', deviceHash);
+      } else {
+        deviceHash = 'fallback_' + Math.random().toString(36).slice(2,10);
+        log('Using random fallback id', deviceHash);
+      }
+    }
+
+    // show fingerprint to user
+    fingerprintWrap.style.display = 'block';
+    hashBox.textContent = deviceHash;
+
+    // request ID token from Firebase
+    statusEl.textContent = 'Getting firebase idToken...';
+    const idToken = await user.getIdToken(/* forceRefresh= */ true);
+    log('Got idToken (length)', idToken ? idToken.length : 0);
+
+    // confirm with user one more time (explicit consent)
+    if (!confirm('Send this device fingerprint and authorize this browser?')) {
+      log('User revoked before send');
+      statusEl.textContent = 'Authorization cancelled';
+      return;
+    }
+
+    // send to edge function
+    statusEl.textContent = 'Sending to server...';
+    const ret = await callEdge(idToken, deviceHash);
+    if (ret.ok && ret.body && (ret.body.status === 'registered' || ret.body.status === 'authorized')) {
+      statusEl.textContent = 'Device registered/authorized. Redirecting to chat...';
+      log('Authorized/Registered. server body:', ret.body);
+      setTimeout(()=> window.location.href = '/sln/chat.html', 900);
+    } else if (ret.body && ret.body.status === 'unauthorized') {
+      statusEl.textContent = 'Unauthorized device. Access denied.';
+      log('unauthorized', ret.body);
+    } else {
+      statusEl.textContent = 'Server error - see logs';
+      log('Unexpected server reply', ret);
+    }
+
+  } catch (e) {
+    log('Exception in auth flow', e);
+    statusEl.textContent = 'Error - check debug';
+  }
+};
+</script>
+</body>
+</html>
