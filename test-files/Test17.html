@@ -608,12 +608,12 @@
 </head>
 <body>
     <div class="particles" id="particles"></div>
-    
+
     <div class="user-status">
         <div class="user-avatar">SV</div>
         <span id="username">Loading...</span>
     </div>
-    
+
     <div class="container">
         <header class="header">
             <div class="logo">
@@ -622,7 +622,7 @@
             <h1>Choose Your Vibe</h1>
             <p>Select a template that perfectly matches your personal style. Preview each one before making your final choice.</p>
         </header>
-        
+
         <div class="alert">
             <i class="fas fa-exclamation-triangle"></i>
             <div class="alert-content">
@@ -630,28 +630,28 @@
                 <div>You can only use one template at a time. Please preview before making your choice. This action is not reversible.</div>
             </div>
         </div>
-        
+
         <div id="loading" class="loading">
             <div class="loading-spinner"></div>
-            <p>Connecting to Firebase...</p>
+            <p id="loadingText">Connecting to Firebase...</p>
         </div>
-        
+
         <div id="templatesContainer" class="templates-grid" style="display: none;">
             <!-- Templates will be loaded dynamically -->
         </div>
     </div>
-    
+
     <!-- Modal -->
-    <div class="modal" id="confirmationModal">
-        <div class="modal-content">
+    <div class="modal" id="confirmationModal" aria-hidden="true">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
             <div class="modal-header">
                 <i class="fas fa-exclamation-triangle"></i>
-                <h2>Confirm Template Selection</h2>
+                <h2 id="modalTitle">Confirm Template Selection</h2>
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to use the <strong id="templateName">[Template Name]</strong> template?</p>
                 <p><strong>This action cannot be undone.</strong></p>
-                <p>Your current template will be replaced and all previous settings will be lost.</p>
+                <p>Your current template will be replaced and previous settings may be lost.</p>
             </div>
             <div class="modal-actions">
                 <button class="btn-modal btn-modal-cancel" id="cancelBtn">Cancel</button>
@@ -659,13 +659,13 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Toast Notification -->
-    <div class="toast" id="toast">
+    <div class="toast" id="toast" role="status" aria-live="polite">
         <i class="fas fa-check-circle"></i>
         <div id="toastMessage">Template selected successfully!</div>
     </div>
-    
+
     <div class="footer">
         <p>&copy; 2023 SquadVertex Creator Platform. All rights reserved.</p>
     </div>
@@ -681,11 +681,15 @@
             appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
         };
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
+        // Initialize Firebase (compat)
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch (e) {
+            console.error("Firebase init error:", e);
+        }
         const db = firebase.firestore();
         const auth = firebase.auth();
-        
+
         // DOM Elements
         const modal = document.getElementById('confirmationModal');
         const cancelBtn = document.getElementById('cancelBtn');
@@ -694,25 +698,25 @@
         const toastMessage = document.getElementById('toastMessage');
         const templatesContainer = document.getElementById('templatesContainer');
         const loadingIndicator = document.getElementById('loading');
+        const loadingText = document.getElementById('loadingText');
         const templateNameElement = document.getElementById('templateName');
         const particlesContainer = document.getElementById('particles');
         const usernameElement = document.getElementById('username');
-        
+
         // Create floating particles
         function createParticles() {
             const particleCount = 30;
             for (let i = 0; i < particleCount; i++) {
                 const particle = document.createElement('div');
                 particle.classList.add('particle');
-                
-                // Random properties
+
                 const size = Math.random() * 30 + 10;
                 const posX = Math.random() * 100;
                 const posY = Math.random() * 100;
                 const animationDuration = Math.random() * 20 + 10;
                 const animationDelay = Math.random() * 5;
                 const opacity = Math.random() * 0.3 + 0.1;
-                
+
                 particle.style.width = `${size}px`;
                 particle.style.height = `${size}px`;
                 particle.style.left = `${posX}%`;
@@ -720,16 +724,17 @@
                 particle.style.animationDuration = `${animationDuration}s`;
                 particle.style.animationDelay = `${animationDelay}s`;
                 particle.style.opacity = opacity;
-                
+
                 particlesContainer.appendChild(particle);
             }
         }
-        
+
         // State
         let selectedTemplate = null;
         let currentUser = null;
         let userTemplateSelection = null;
-        
+        let saving = false;
+
         // Template Data
         const templates = {
             templateA: {
@@ -763,102 +768,136 @@
                 imageUrl: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
             }
         };
-        
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            createParticles();
-            
-            // Authenticate user with Firebase
-            auth.signInAnonymously()
-                .then(() => {
-                    auth.onAuthStateChanged(user => {
-                        if (user) {
-                            currentUser = user;
-                            usernameElement.textContent = "Guest User";
-                            checkTemplateSelection();
-                        } else {
-                            console.log("User is not signed in");
-                        }
-                    });
-                })
-                .catch(error => {
-                    console.error("Authentication error: ", error);
-                    loadingIndicator.querySelector('p').textContent = "Error connecting to Firebase";
-                });
-            
-            // Set up event listeners
-            setupEventListeners();
-        });
-        
-        function setupEventListeners() {
-            // Modal buttons
-            cancelBtn.addEventListener('click', hideModal);
-            confirmBtn.addEventListener('click', confirmTemplateSelection);
+
+        // Helpers - UI
+        function showLoading(text) {
+            loadingIndicator.style.display = 'flex';
+            loadingText.textContent = text || "Connecting to Firebase...";
+            templatesContainer.style.display = 'none';
         }
-        
+        function hideLoading() {
+            loadingIndicator.style.display = 'none';
+            templatesContainer.style.display = 'grid';
+        }
         function showModal(templateName) {
             templateNameElement.textContent = templateName;
             modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
         }
-        
         function hideModal() {
             modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
         }
-        
-        function showToast(message) {
+        function showToast(message, isError) {
             toastMessage.textContent = message;
             toast.classList.add('active');
+            if (isError) toast.classList.add('error');
             setTimeout(() => {
                 toast.classList.remove('active');
+                toast.classList.remove('error');
             }, 3500);
         }
-        
+
         function copyToClipboard(text) {
+            if (!navigator.clipboard) {
+                showToast("Copy not supported", true);
+                return;
+            }
             navigator.clipboard.writeText(text).then(() => {
                 showToast("Link copied to clipboard!");
             }).catch(err => {
                 console.error('Could not copy text: ', err);
-                showToast("Failed to copy link");
+                showToast("Failed to copy link", true);
             });
         }
-        
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            createParticles();
+
+            showLoading("Connecting to Firebase...");
+            // Authenticate user with Firebase (anonymous)
+            auth.signInAnonymously()
+                .then((cred) => {
+                    // signed in
+                    currentUser = cred.user;
+                    usernameElement.textContent = `Guest-${currentUser.uid.slice(0,6)}`;
+                    // After sign-in, load template selection
+                    checkTemplateSelection();
+                })
+                .catch(error => {
+                    console.error("Authentication error: ", error);
+                    // If admin-restricted or anonymous disabled, tell user
+                    if (error && error.code === 'auth/admin-restricted-operation') {
+                        loadingText.textContent = "Anonymous sign-in blocked (admin restricted). Use a real account or enable anonymous auth in Firebase Console.";
+                    } else if (error && error.code === 'auth/operation-not-allowed') {
+                        loadingText.textContent = "Anonymous sign-in is disabled for this project. Enable it in Firebase Console > Authentication > Sign-in methods.";
+                    } else {
+                        loadingText.textContent = "Error connecting to Firebase";
+                    }
+                    showToast("Firebase auth failed", true);
+                });
+
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            cancelBtn.addEventListener('click', hideModal);
+            confirmBtn.addEventListener('click', confirmTemplateSelection);
+
+            // Close modal on outside click
+            window.addEventListener('click', (e) => {
+                if (modal.classList.contains('active') && !document.querySelector('.modal-content').contains(e.target)) {
+                    hideModal();
+                }
+            });
+
+            // Close on Esc
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.classList.contains('active')) hideModal();
+            });
+        }
+
         function checkTemplateSelection() {
-            // Reference to the user's profile template document
+            if (!currentUser) {
+                showToast("No authenticated user", true);
+                loadingText.textContent = "Not authenticated";
+                return;
+            }
+
             const templateRef = db.collection('users')
                 .doc(currentUser.uid)
                 .collection('profile')
                 .doc('profile_template');
-            
+
             templateRef.get()
-                .then(doc => {
-                    if (doc.exists) {
-                        userTemplateSelection = doc.data().template_id;
+                .then(docSnap => {
+                    if (docSnap.exists) {
+                        userTemplateSelection = docSnap.data().template_id;
                         showToast("Your template selection loaded");
                     } else {
                         userTemplateSelection = null;
                     }
-                    
-                    // Render templates
+
                     renderTemplates();
-                    
-                    // Hide loading, show templates
-                    loadingIndicator.style.display = 'none';
-                    templatesContainer.style.display = 'grid';
+                    hideLoading();
                 })
                 .catch(error => {
                     console.error("Error getting template: ", error);
-                    loadingIndicator.querySelector('p').textContent = "Error loading templates";
+                    loadingText.textContent = "Error loading templates";
+                    showToast("Failed to load selection", true);
                 });
         }
-        
+
         function renderTemplates() {
             templatesContainer.innerHTML = '';
-            
+
             Object.values(templates).forEach(template => {
                 const isSelected = userTemplateSelection === template.id;
-                
+
                 const templateCard = document.createElement('div');
-                templateCard.className = `template-card template-${template.id.charAt(template.id.length - 1).toLowerCase()}`;
+                templateCard.className = `template-card template-${template.id}`;
+                templateCard.style.borderColor = template.color || '#ddd';
                 templateCard.innerHTML = `
                     <div class="template-header">
                         <div class="template-name">${template.name}</div>
@@ -868,10 +907,10 @@
                         <img src="${template.imageUrl}" alt="${template.name} Template">
                     </div>
                     <div class="template-actions">
-                        <button class="btn btn-preview tooltip" data-tooltip="View live template">
+                        <button class="btn btn-preview" title="View live template">
                             <i class="fas fa-eye"></i> Preview
                         </button>
-                        <button class="btn btn-copy tooltip" data-tooltip="Copy template link to share">
+                        <button class="btn btn-copy" title="Copy template link to share">
                             <i class="fas fa-link"></i> Copy Link
                         </button>
                         <button class="btn btn-use" data-template="${template.id}">
@@ -879,65 +918,69 @@
                         </button>
                     </div>
                 `;
-                
+
                 if (isSelected) {
                     const badge = document.createElement('div');
                     badge.className = 'selected-badge';
                     badge.innerHTML = '<i class="fas fa-check"></i> Selected';
                     templateCard.appendChild(badge);
-                    
-                    // Disable the use button
+
+                    // Disable the use button visually
                     const useButton = templateCard.querySelector('.btn-use');
                     useButton.classList.add('disabled');
+                    useButton.disabled = true;
                 }
-                
-                // Add event listeners to buttons
+
                 const previewBtn = templateCard.querySelector('.btn-preview');
                 const copyBtn = templateCard.querySelector('.btn-copy');
                 const useBtn = templateCard.querySelector('.btn-use');
-                
+
                 previewBtn.addEventListener('click', () => {
                     window.open(template.liveUrl, '_blank');
                 });
-                
+
                 copyBtn.addEventListener('click', () => {
                     copyToClipboard(template.previewUrl);
                 });
-                
+
                 if (!isSelected) {
                     useBtn.addEventListener('click', () => {
                         selectedTemplate = template.id;
                         showModal(template.name);
                     });
                 }
-                
+
                 templatesContainer.appendChild(templateCard);
             });
         }
-        
+
         function confirmTemplateSelection() {
-            if (!selectedTemplate) return;
-            
-            // Save to Firestore
-            saveTemplateToFirestore(selectedTemplate);
+            if (!selectedTemplate || !currentUser || saving) return;
+            saving = true;
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = "Saving...";
+            saveTemplateToFirestore(selectedTemplate)
+                .finally(() => {
+                    saving = false;
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = "Confirm Selection";
+                });
         }
-        
+
         function saveTemplateToFirestore(templateId) {
-            // Firestore save implementation
+            // prepare data
             const templateData = {
                 template_id: templateId,
                 selected_at: firebase.firestore.FieldValue.serverTimestamp(),
                 preview_url: templates[templateId].previewUrl
             };
-            
-            // Reference to the user's profile template document
+
             const templateRef = db.collection('users')
                 .doc(currentUser.uid)
                 .collection('profile')
                 .doc('profile_template');
-            
-            // Save to Firestore
-            templateRef.set(templateData, { merge: true })
+
+            return templateRef.set(templateData, { merge: true })
                 .then(() => {
                     console.log("Template saved successfully!");
                     userTemplateSelection = templateId;
@@ -947,7 +990,12 @@
                 })
                 .catch((error) => {
                     console.error("Error saving template: ", error);
-                    showToast("Failed to save template");
+                    // If there's an auth/permission problem, surface helpful message
+                    if (error && error.code === 'permission-denied') {
+                        showToast("Permission denied — check Firestore rules", true);
+                    } else {
+                        showToast("Failed to save template", true);
+                    }
                 });
         }
     </script>
