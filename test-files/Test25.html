@@ -18,91 +18,81 @@
   <pre id="debug"></pre>
 
   <script>
-    // Configuration
+    // Supabase client
     const SUPA_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
-    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg'; // Replace with your anon key
+    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg'; // replace with your anon key
     const supaClient = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-    // Debug logger
-    function logDebug(msg) {
-      const dbg = document.getElementById('debug');
-      dbg.textContent += msg + '
+    const statusEl = document.getElementById('status');
+    const debugEl = document.getElementById('debug');
+    function log(msg) {
+      debugEl.textContent += msg + '
 ';
     }
 
-    // Generate device fingerprint
     async function getDeviceFingerprint() {
-      const components = [
-        navigator.userAgent,
-        navigator.language,
-        screen.width,
-        screen.height,
-        screen.colorDepth,
-        new Date().getTimezoneOffset(),
-        window.devicePixelRatio,
-        navigator.hardwareConcurrency,
-        navigator.platform
+      const data = [
+        navigator.userAgent, navigator.language,
+        screen.width, screen.height, screen.colorDepth,
+        new Date().getTimezoneOffset(), window.devicePixelRatio,
+        navigator.hardwareConcurrency, navigator.platform
       ];
-      logDebug('Fingerprint data: ' + components.join(' | '));
-      const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(components.join('::')));
-      const hashArray = Array.from(new Uint8Array(buffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      logDebug('Fingerprint hash: ' + hashHex);
-      return hashHex;
+      log('Fingerprint inputs: ' + data.join(' | '));
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data.join('::')));
+      const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+      log('Fingerprint hash: ' + hex);
+      return hex;
     }
 
     async function runRegistration() {
+      statusEl.textContent = 'Checking session...';
+      log('Running supaClient.auth.getUser()');
+      const { data: { user }, error: userErr } = await supaClient.auth.getUser();
+      if (userErr || !user) {
+        log('No user session. Redirecting to login.');
+        statusEl.textContent = 'No session. Redirecting...';
+        return window.location.href = '/login.html';
+      }
+
+      log('User found: ' + user.email);
+      statusEl.textContent = 'Generating fingerprint...';
+      const deviceHash = await getDeviceFingerprint();
+
+      const projectRef = SUPA_URL.split('://')[1].split('.supabase.co')[0];
+      const fnUrl = `https://${projectRef}.functions.supabase.co/register-user`;
+      log('Calling Edge Function: ' + fnUrl);
+      statusEl.textContent = 'Registering device...';
+
+      const payload = { email: user.email, name: user.user_metadata.full_name || user.email, deviceHash };
+      log('Payload: ' + JSON.stringify(payload));
+
       try {
-        logDebug('Checking session...');
-        document.getElementById('status').textContent = 'Checking session...';
-
-        const { data: { session }, error: sessionError } = await supaClient.auth.getSession();
-        if (sessionError) throw new Error('Session error: ' + sessionError.message);
-        if (!session) {
-          logDebug('No active session. Redirecting to login.');
-          document.getElementById('status').textContent = 'No session. Redirecting to login...';
-          window.location.href = '/login.html';
-          return;
-        }
-
-        logDebug('Session found for: ' + session.user.email);
-        document.getElementById('status').textContent = 'Generating fingerprint...';
-        const deviceHash = await getDeviceFingerprint();
-
-        const projectRef = SUPA_URL.replace('https://', '').replace('.supabase.co', '');
-        const functionUrl = `https://${projectRef}.functions.supabase.co/register-user`;
-        logDebug('Calling function: ' + functionUrl);
-        document.getElementById('status').textContent = 'Registering device...';
-
-        const payload = {
-          email: session.user.email,
-          name: session.user.user_metadata.full_name || session.user.email,
-          deviceHash
-        };
-        logDebug('Payload: ' + JSON.stringify(payload));
-
-        const res = await fetch(functionUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        const res = await fetch(fnUrl, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
         const result = await res.json();
-        logDebug('Function result: ' + JSON.stringify(result));
+        log('Edge Function result: ' + JSON.stringify(result));
 
         if (result.status === 'authorized' || result.status === 'registered') {
-          document.getElementById('status').textContent = 'Device registered! Redirecting...';
-          setTimeout(() => { window.location.href = '/chat.html'; }, 1500);
+          statusEl.textContent = 'Success! Redirecting to chat...';
+          return setTimeout(() => window.location.href = '/chat.html', 1500);
         } else {
-          document.getElementById('status').textContent = 'Access denied: ' + (result.reason || result.error);
+          statusEl.textContent = 'Access Denied: ' + (result.reason || result.error);
         }
-      } catch (e) {
-        logDebug('Error: ' + e.message);
-        document.getElementById('status').textContent = 'Error occurred. See debug.';
+      } catch (err) {
+        log('Fetch error: ' + err);
+        statusEl.textContent = 'Network error.';
       }
     }
 
-    // Execute on load
-    window.addEventListener('DOMContentLoaded', runRegistration);
+    // Listen for auth state change if link navigation hasn't refreshed localStorage
+    supaClient.auth.onAuthStateChange((event, session) => {
+      log('Auth event: ' + event);
+      if (event === 'SIGNED_IN') runRegistration();
+    });
+
+    // Start registration after script loads
+    window.addEventListener('load', runRegistration);
   </script>
 </body>
 </html>
