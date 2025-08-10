@@ -1,423 +1,52 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Channel Management Portal</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Channel Management Portal — SVX-VPP-007</title>
+
+  <!-- Font Awesome for icons -->
+  <script src="https://kit.fontawesome.com/a2d9b6d3c6.js" crossorigin="anonymous"></script>
+
   <style>
-    /* Styles remain the same as in your original code */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
-    }
+    /* Basic styling — replace with your main stylesheet as needed */
+    :root { --accent: #5b7cff; --bg: #0f1724; --card: #0b1220; --muted: #9aa4bf; }
+    body{font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;margin:0;background:linear-gradient(180deg,#071029 0%, #071830 100%);color:#e6eef8}
+    .container{max-width:980px;margin:28px auto;padding:20px}
+    header{display:flex;align-items:center;gap:18px}
+    .logo-container{width:60px;height:60px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#7b9bff);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(50,60,90,0.25)}
+    .logo-container i{font-size:24px;color:white}
+    h1{font-size:20px;margin:0}
+    .subtitle{margin:0;color:var(--muted);font-size:13px}
 
-    :root {
-      --primary: #d63384;
-      --primary-light: #e34b95;
-      --secondary: #4a6fa5;
-      --accent: #6f42c1;
-      --light-bg: #f8f9fa;
-      --card-bg: #ffffff;
-      --text: #212529;
-      --text-muted: #6c757d;
-      --border: #dee2e6;
-      --success: #28a745;
-      --error: #dc3545;
-      --warning: #ffc107;
-      --info: #17a2b8;
-      --radius: 10px;
-      --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      --transition: all 0.3s ease;
-    }
+    .status-card{display:flex;justify-content:space-between;gap:20px;background:rgba(255,255,255,0.03);padding:18px;border-radius:12px;margin-top:18px}
+    .channel-info{display:flex;gap:12px;align-items:center}
+    .channel-logo{width:80px;height:80px;border-radius:10px;object-fit:cover}
+    .channel-name{font-weight:700}
+    .stats{display:flex;gap:12px;align-items:center}
+    .stat-box{background:rgba(255,255,255,0.02);padding:10px;border-radius:8px;text-align:center;min-width:110px}
+    .stat-value{font-size:18px;font-weight:700}
+    .stat-label{font-size:12px;color:var(--muted)}
 
-    body {
-      background: var(--light-bg);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 20px;
-      line-height: 1.6;
-    }
+    .card{background:rgba(255,255,255,0.02);padding:16px;border-radius:12px;margin-top:18px}
+    .card-header{display:flex;align-items:center;gap:10px}
+    .card-header h2{margin:0}
+    .form-group{margin-top:12px}
+    label{display:block;margin-bottom:6px;color:var(--muted)}
+    input[type='text'], input[type='number'], textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit}
+    textarea{min-height:90px}
+    .flex-group{display:flex;gap:10px;margin-top:12px}
+    button{background:var(--accent);border:none;padding:10px 12px;border-radius:8px;color:white;cursor:pointer}
+    .list-container{margin-top:12px}
+    .list-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.01);margin-top:8px}
+    .list-item button{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);padding:6px;border-radius:6px}
 
-    .container {
-      max-width: 1000px;
-      margin: 0 auto;
-    }
+    .notification{position:fixed;right:18px;bottom:18px;background:#0b1220;color:#fff;padding:12px 14px;border-radius:10px;box-shadow:0 8px 30px rgba(3,8,20,0.6);opacity:0;transform:translateY(10px);transition:all .28s ease;z-index:999}
+    .notification.show{opacity:1;transform:translateY(0)}
+    .notification.success{background:linear-gradient(90deg,#1bbf88,#17a673)}
+    .notification.error{background:linear-gradient(90deg,#f35357,#c43a3f)}
 
-    header {
-      text-align: center;
-      padding: 30px 0;
-      margin-bottom: 30px;
-      position: relative;
-    }
-
-    .logo-container {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      margin-bottom: 20px;
-      box-shadow: var(--shadow);
-    }
-
-    .logo-container i {
-      font-size: 36px;
-      color: white;
-    }
-
-    h1 {
-      font-size: 2.2rem;
-      margin-bottom: 10px;
-      color: var(--text);
-      font-weight: 700;
-      background: linear-gradient(90deg, var(--primary), var(--accent));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .subtitle {
-      color: var(--text-muted);
-      font-size: 1.1rem;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    .card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 30px;
-      margin-bottom: 30px;
-      border: 1px solid var(--border);
-      transition: var(--transition);
-    }
-
-    .card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 25px;
-      padding-bottom: 15px;
-      border-bottom: 2px solid rgba(214, 51, 132, 0.1);
-    }
-
-    .card-header i {
-      background: rgba(214, 51, 132, 0.1);
-      width: 50px;
-      height: 50px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 12px;
-      margin-right: 15px;
-      color: var(--primary);
-      font-size: 1.4rem;
-    }
-
-    .card-header h2 {
-      font-size: 1.6rem;
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .status-card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 25px;
-      margin-bottom: 30px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-      border: 1px solid var(--border);
-    }
-
-    .status-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 4px;
-      background: linear-gradient(90deg, var(--primary), var(--accent));
-    }
-
-    .channel-info {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-      margin-bottom: 25px;
-      flex-wrap: wrap;
-    }
-
-    .channel-logo {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      border: 3px solid var(--primary);
-      box-shadow: 0 0 20px rgba(214, 51, 132, 0.15);
-      object-fit: cover;
-    }
-
-    .channel-details {
-      text-align: left;
-    }
-
-    .channel-name {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 5px;
-      color: var(--text);
-    }
-
-    .channel-id {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      margin-bottom: 10px;
-    }
-
-    .channel-url {
-      color: var(--primary);
-      font-weight: 500;
-      text-decoration: none;
-      transition: var(--transition);
-    }
-
-    .channel-url:hover {
-      color: var(--accent);
-      text-decoration: underline;
-    }
-
-    .stats {
-      display: flex;
-      justify-content: center;
-      gap: 30px;
-      margin-top: 20px;
-    }
-
-    .stat-box {
-      background: rgba(214, 51, 132, 0.05);
-      padding: 15px 20px;
-      border-radius: var(--radius);
-      min-width: 150px;
-    }
-
-    .stat-value {
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--primary);
-      margin-bottom: 5px;
-    }
-
-    .stat-label {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 500;
-      color: var(--text);
-      font-size: 1rem;
-    }
-
-    input, textarea, button {
-      width: 100%;
-      padding: 14px;
-      border-radius: var(--radius);
-      font-size: 1rem;
-      transition: var(--transition);
-    }
-
-    input, textarea {
-      border: 1px solid var(--border);
-      background: var(--card-bg);
-      color: var(--text);
-    }
-
-    input:focus, textarea:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(214, 51, 132, 0.2);
-    }
-
-    textarea {
-      min-height: 120px;
-      resize: vertical;
-    }
-
-    button {
-      background: linear-gradient(90deg, var(--primary), var(--accent));
-      color: white;
-      border: none;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    button:hover {
-      background: linear-gradient(90deg, var(--primary-light), #7d55d4);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 15px rgba(214, 51, 132, 0.3);
-    }
-
-    button:active {
-      transform: translateY(0);
-    }
-
-    .flex-group {
-      display: flex;
-      gap: 15px;
-      margin-bottom: 15px;
-    }
-
-    .flex-group input {
-      flex: 1;
-    }
-
-    .flex-group button {
-      width: auto;
-      padding: 14px 25px;
-    }
-
-    .list-container {
-      margin-top: 20px;
-    }
-
-    .list-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .list-header h3 {
-      font-size: 1.3rem;
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    .item-list {
-      max-height: 300px;
-      overflow-y: auto;
-      padding-right: 10px;
-    }
-
-    .list-item {
-      background: rgba(214, 51, 132, 0.03);
-      padding: 15px;
-      border-radius: var(--radius);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      border: 1px solid var(--border);
-      transition: var(--transition);
-    }
-
-    .list-item:hover {
-      background: rgba(214, 51, 132, 0.08);
-      border-color: rgba(214, 51, 132, 0.3);
-    }
-
-    .list-item-content {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      margin-right: 15px;
-      color: var(--text);
-    }
-
-    .list-item button {
-      width: auto;
-      padding: 8px 15px;
-      font-size: 0.9rem;
-      border-radius: 6px;
-      background: var(--light-bg);
-      color: var(--error);
-      border: 1px solid var(--border);
-    }
-
-    .list-item button:hover {
-      background: var(--error);
-      color: white;
-      box-shadow: 0 3px 10px rgba(220, 53, 69, 0.3);
-    }
-
-    .notification {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 15px 25px;
-      border-radius: var(--radius);
-      color: white;
-      font-weight: 500;
-      box-shadow: var(--shadow);
-      z-index: 1000;
-      transform: translateX(120%);
-      transition: transform 0.3s ease;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .notification.show {
-      transform: translateX(0);
-    }
-
-    .notification.success {
-      background: var(--success);
-    }
-
-    .notification.error {
-      background: var(--error);
-    }
-
-    @media (max-width: 768px) {
-      .flex-group {
-        flex-direction: column;
-      }
-
-      .flex-group button {
-        width: 100%;
-      }
-
-      .stats {
-        flex-direction: column;
-        gap: 15px;
-        align-items: center;
-      }
-
-      .channel-info {
-        flex-direction: column;
-        text-align: center;
-      }
-
-      .channel-details {
-        text-align: center;
-      }
-    }
+    a.channel-url{color:var(--accent);text-decoration:none}
   </style>
 </head>
 <body>
@@ -426,8 +55,10 @@
       <div class="logo-container">
         <i class="fas fa-satellite"></i>
       </div>
-      <h1>Channel Management Portal</h1>
-      <p class="subtitle">SVX-VPP-007 - Manage your YouTube channel settings and content</p>
+      <div>
+        <h1>Channel Management Portal</h1>
+        <p class="subtitle">SVX-VPP-007 - Manage your YouTube channel settings and content</p>
+      </div>
     </header>
 
     <div class="status-card">
@@ -530,12 +161,13 @@
 
   <div id="notification" class="notification"></div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+  <!-- Firebase (compat) SDKs v11.9.0 -->
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
 
   <script>
-    // Firebase configuration
+    // ----- CONFIG -----
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -545,70 +177,109 @@
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const col = "003-channel";
-
-    // YouTube API Key
+    // YouTube API Key (be mindful of quotas)
     const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
 
-    // DOM Elements
+    // ----- INIT -----
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // DOM elements
     const resolveBtn = document.getElementById('resolveChannelBtn');
     const saveBtn = document.getElementById('saveSettingsBtn');
     const addShortBtn = document.getElementById('addShortBtn');
     const addVideoBtn = document.getElementById('addVideoBtn');
     const notification = document.getElementById('notification');
 
-    // Firestore references
-    const settingsRef = db.collection(col).doc('settings');
-    const shortsRef = db.collection(col).doc('shorts');
-    const videosRef = db.collection(col).doc('videos');
+    // Firestore refs (initialized after auth)
+    let currentUID = null;
+    let profileDataRef = null;
+    let settingsRef = null;
+    let shortsRef = null;
+    let videosRef = null;
 
-    // Notification function
-    function showNotification(message, type) {
-      notification.textContent = message;
+    function setUID(uid) {
+      currentUID = uid;
+      profileDataRef = db.collection('users').doc(uid).collection('profile_data');
+      settingsRef = profileDataRef.doc('settings');
+      shortsRef = profileDataRef.doc('shorts');
+      videosRef = profileDataRef.doc('videos');
+    }
+
+    // Optional admin/test helper
+    function initForUID(uid) {
+      setUID(uid);
+      loadData();
+      setupListeners();
+    }
+
+    // ---- Notifications ----
+    function showNotification(message, type = 'success') {
       notification.className = `notification ${type} show`;
       notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
-
-      setTimeout(() => {
-        notification.classList.remove('show');
-      }, 3000);
+      if (notification.hideTimeout) clearTimeout(notification.hideTimeout);
+      notification.hideTimeout = setTimeout(() => notification.classList.remove('show'), 3000);
     }
 
-    // Extract channel ID from URL
-    function extractChannelID(url) {
-      const patterns = [
-        /youtube\.com\/channel\/([A-Za-z0-9_-]+)/,
-        /youtube\.com\/(c\/|@)([A-Za-z0-9_-]+)/
-      ];
-
-      for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match) return match[1] || match[2];
+    // ---- YouTube URL parsing & lookups ----
+    function parseYouTubeURL(url) {
+      try {
+        const u = new URL(url);
+        const path = u.pathname.replace(/\/+$/, '');
+        // channel id
+        const ch = path.match(/^\/channel\/([A-Za-z0-9_-]+)/);
+        if (ch) return { channelId: ch[1] };
+        // handle like /@handle
+        const handle = path.match(/^\/@([A-Za-z0-9_-]+)/);
+        if (handle) return { handle: handle[1] };
+        // /c/custom or /user/username
+        const custom = path.match(/^\/(?:c|user)\/([A-Za-z0-9_-]+)/);
+        if (custom) return { custom: custom[1] };
+        // watch?v=VIDEO_ID
+        const vidParam = u.searchParams.get('v');
+        if (vidParam) return { videoId: vidParam };
+        // youtu.be/VIDEO_ID
+        if (u.hostname.includes('youtu.be')) {
+          const short = path.match(/^\/([A-Za-z0-9_-]+)/);
+          if (short) return { videoId: short[1] };
+        }
+        // fallback: maybe they pasted a username or channel name directly
+        return { unknown: true };
+      } catch (e) {
+        return { unknown: true };
       }
-      return null;
     }
 
-    // Get channel ID from username
     async function getChannelIDFromUsername(username) {
       try {
-        const response = await fetch(
-          `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${username}&type=channel&key=${YT_API_KEY}`
+        const resp = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(username)}&type=channel&key=${YT_API_KEY}`
         );
-        const data = await response.json();
+        const data = await resp.json();
         return data.items?.[0]?.id?.channelId || null;
-      } catch (error) {
-        console.error('Error fetching channel ID:', error);
+      } catch (e) {
+        console.error('Error fetching channel ID from username:', e);
         return null;
       }
     }
 
-    // Fetch channel details
-    async function fetchChannelDetails(id) {
+    async function getChannelIdFromVideo(videoId) {
+      try {
+        const resp = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YT_API_KEY}`
+        );
+        const data = await resp.json();
+        return data.items?.[0]?.snippet?.channelId || null;
+      } catch (e) {
+        console.error('Error fetching channel ID from video:', e);
+        return null;
+      }
+    }
+
+    async function fetchChannelDetails(channelId) {
       try {
         const response = await fetch(
-          `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${id}&key=${YT_API_KEY}`
+          `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${channelId}&key=${YT_API_KEY}`
         );
         const data = await response.json();
         return data.items?.[0]?.snippet || null;
@@ -618,9 +289,11 @@
       }
     }
 
-    // Save settings to Firestore
+    // ---- Saving settings ----
     async function saveSettings() {
       try {
+        if (!settingsRef) { showNotification('No user signed in. Cannot save settings.', 'error'); return; }
+
         const link = document.getElementById('channelURL').value.trim();
         const desc = document.getElementById('desc').value.trim();
         const instaCount = document.getElementById('instaCount').value;
@@ -629,7 +302,7 @@
         const settings = {
           channelLink: link,
           desc,
-          instaCount: parseInt(instaCount, 10),
+          instaCount: instaCount ? parseInt(instaCount, 10) : null,
           instaLink,
           lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
         };
@@ -642,93 +315,89 @@
       }
     }
 
-    // Resolve channel ID and save
+    // ---- Resolve channel and save channelId ----
     async function resolveChannel() {
       try {
-        const url = document.getElementById('channelURL').value.trim();
-        if (!url) {
-          showNotification('Please enter a YouTube URL', 'error');
-          return;
+        if (!settingsRef) { showNotification('No signed-in user (UID). Cannot save for user.', 'error'); return; }
+
+        const urlInput = document.getElementById('channelURL').value.trim();
+        if (!urlInput) { showNotification('Please enter a YouTube URL', 'error'); return; }
+
+        const parsed = parseYouTubeURL(urlInput);
+        let channelId = parsed.channelId || null;
+
+        if (!channelId && parsed.videoId) {
+          channelId = await getChannelIdFromVideo(parsed.videoId);
         }
 
-        let channelId = extractChannelID(url);
-        if (!channelId) {
-          const username = extractChannelID(url);
-          if (username) {
-            channelId = await getChannelIDFromUsername(username);
-          }
+        if (!channelId && (parsed.handle || parsed.custom)) {
+          channelId = await getChannelIDFromUsername(parsed.handle || parsed.custom);
         }
 
-        if (!channelId) {
-          showNotification('Could not resolve channel ID', 'error');
-          return;
+        if (!channelId && parsed.unknown) {
+          // try searching the raw input as fallback
+          channelId = await getChannelIDFromUsername(urlInput);
         }
+
+        if (!channelId) { showNotification('Could not resolve channel ID', 'error'); return; }
 
         const details = await fetchChannelDetails(channelId);
-        if (details) {
-          document.getElementById('channelName').textContent = details.title;
-          document.getElementById('channelLogo').src = details.thumbnails.high.url;
-          document.getElementById('displayLink').href = url;
-          document.getElementById('displayLink').textContent = url;
-          document.getElementById('displayID').textContent = channelId;
-        }
 
+        const channelName = details?.title || 'Unknown channel';
+        const channelLogo = details?.thumbnails?.high?.url || document.getElementById('channelLogo').src || '';
+
+        // update UI
+        document.getElementById('channelName').textContent = channelName;
+        if (channelLogo) document.getElementById('channelLogo').src = channelLogo;
+        document.getElementById('displayLink').href = urlInput;
+        document.getElementById('displayLink').textContent = urlInput;
+        document.getElementById('displayID').textContent = channelId;
+
+        // persist under users/[UID]/profile_data/settings
         await settingsRef.set({
-          channelId: channelId,
-          channelName: details.title,
-          channelLogo: details.thumbnails.high.url,
-          channelLink: url
+          channelId,
+          channelName,
+          channelLogo,
+          channelLink: urlInput,
+          lastResolvedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
 
-        showNotification(`Channel ID resolved: ${channelId}`, 'success');
+        showNotification(`Channel ID resolved and saved: ${channelId}`, 'success');
       } catch (error) {
         console.error('Error resolving channel:', error);
         showNotification('Failed to resolve channel', 'error');
       }
     }
 
-    // Add item to array in Firestore
-    async function addToArray(collectionRef, value) {
+    // ---- Add / Remove helpers for array docs ----
+    async function addToArray(docRef, value) {
       try {
-        if (!value) {
-          showNotification('Please enter a URL', 'error');
-          return false;
-        }
+        if (!docRef) { showNotification('No signed-in user. Cannot add item.', 'error'); return false; }
+        if (!value) { showNotification('Please enter a URL', 'error'); return false; }
 
-        const doc = await collectionRef.get();
+        const doc = await docRef.get();
         let content = [];
-        if (doc.exists) {
-          content = doc.data().content || [];
-        }
-
-        // Prevent duplicates
-        if (content.includes(value)) {
-          showNotification('URL already exists', 'error');
-          return false;
-        }
-
+        if (doc.exists) content = doc.data().content || [];
+        if (content.includes(value)) { showNotification('URL already exists', 'error'); return false; }
         content.push(value);
-
-        await collectionRef.set({ content }, { merge: true });
-        showNotification(`Item added successfully`, 'success');
+        await docRef.set({ content }, { merge: true });
+        showNotification('Item added successfully', 'success');
         return true;
       } catch (error) {
-        console.error(`Error adding item:`, error);
-        showNotification(`Failed to add item`, 'error');
+        console.error('Error adding item:', error);
+        showNotification('Failed to add item', 'error');
         return false;
       }
     }
 
-    // Remove item from array in Firestore
-    async function removeFromArray(collectionRef, value) {
+    async function removeFromArray(docRef, value) {
       try {
-        const doc = await collectionRef.get();
+        if (!docRef) { showNotification('No signed-in user. Cannot remove item.', 'error'); return; }
+        const doc = await docRef.get();
         if (!doc.exists) return;
-
         let content = doc.data().content || [];
         content = content.filter(item => item !== value);
-
-        await collectionRef.set({ content }, { merge: true });
+        await docRef.set({ content }, { merge: true });
         showNotification('Item removed', 'success');
       } catch (error) {
         console.error('Error removing item:', error);
@@ -736,37 +405,34 @@
       }
     }
 
-    // Render list items
+    // ---- Render lists ----
     function renderList(containerId, items, collectionRef) {
       const container = document.getElementById(containerId);
       container.innerHTML = '';
-
       if (!items || items.length === 0) {
         container.innerHTML = '<div class="list-item">No items found</div>';
         return;
       }
-
       items.forEach(item => {
         const listItem = document.createElement('div');
         listItem.className = 'list-item';
         listItem.innerHTML = `
           <div class="list-item-content">${item}</div>
-          <button><i class="fas fa-trash"></i> Remove</button>
+          <button title="Remove"><i class="fas fa-trash"></i> Remove</button>
         `;
-
         listItem.querySelector('button').addEventListener('click', async () => {
           await removeFromArray(collectionRef, item);
           renderList(containerId, items.filter(i => i !== item), collectionRef);
         });
-
         container.appendChild(listItem);
       });
     }
 
-    // Load data from Firestore
+    // ---- Load data ----
     async function loadData() {
       try {
-        // Load settings
+        if (!settingsRef) return; // nothing to load
+
         const settingsDoc = await settingsRef.get();
         if (settingsDoc.exists) {
           const settings = settingsDoc.data();
@@ -775,25 +441,16 @@
           document.getElementById('instaCount').value = settings.instaCount || '';
           document.getElementById('instaLink').value = settings.instaLink || '';
 
-          if (settings.channelName) {
-            document.getElementById('channelName').textContent = settings.channelName;
-          }
-          if (settings.channelLogo) {
-            document.getElementById('channelLogo').src = settings.channelLogo;
-          }
-          if (settings.channelId) {
-            document.getElementById('displayID').textContent = settings.channelId;
-          }
+          if (settings.channelName) document.getElementById('channelName').textContent = settings.channelName;
+          if (settings.channelLogo) document.getElementById('channelLogo').src = settings.channelLogo;
+          if (settings.channelId) document.getElementById('displayID').textContent = settings.channelId;
           if (settings.channelLink) {
             document.getElementById('displayLink').href = settings.channelLink;
             document.getElementById('displayLink').textContent = settings.channelLink;
           }
-          if (settings.instaCount) {
-            document.getElementById('instaCountDisplay').textContent = settings.instaCount.toLocaleString();
-          }
+          if (settings.instaCount) document.getElementById('instaCountDisplay').textContent = settings.instaCount.toLocaleString();
         }
 
-        // Load shorts
         const shortsDoc = await shortsRef.get();
         if (shortsDoc.exists) {
           const shorts = shortsDoc.data().content || [];
@@ -804,7 +461,6 @@
           renderList('shortsList', [], shortsRef);
         }
 
-        // Load videos
         const videosDoc = await videosRef.get();
         if (videosDoc.exists) {
           const videos = videosDoc.data().content || [];
@@ -814,34 +470,27 @@
           document.getElementById('videosCount').textContent = '0';
           renderList('videoList', [], videosRef);
         }
-
       } catch (error) {
         console.error('Error loading data:', error);
         showNotification('Failed to load data', 'error');
       }
     }
 
-    // Set up real-time listeners
+    // ---- Real-time listeners ----
     function setupListeners() {
+      if (!settingsRef || !shortsRef || !videosRef) return;
+
       settingsRef.onSnapshot((doc) => {
         if (doc.exists) {
           const settings = doc.data();
-          if (settings.channelName) {
-            document.getElementById('channelName').textContent = settings.channelName;
-          }
-          if (settings.channelLogo) {
-            document.getElementById('channelLogo').src = settings.channelLogo;
-          }
-          if (settings.channelId) {
-            document.getElementById('displayID').textContent = settings.channelId;
-          }
+          if (settings.channelName) document.getElementById('channelName').textContent = settings.channelName;
+          if (settings.channelLogo) document.getElementById('channelLogo').src = settings.channelLogo;
+          if (settings.channelId) document.getElementById('displayID').textContent = settings.channelId;
           if (settings.channelLink) {
             document.getElementById('displayLink').href = settings.channelLink;
             document.getElementById('displayLink').textContent = settings.channelLink;
           }
-          if (settings.instaCount) {
-            document.getElementById('instaCountDisplay').textContent = settings.instaCount.toLocaleString();
-          }
+          if (settings.instaCount) document.getElementById('instaCountDisplay').textContent = settings.instaCount.toLocaleString();
         }
       });
 
@@ -862,35 +511,41 @@
       });
     }
 
-    // Event listeners
+    // ---- Event bindings ----
     resolveBtn.addEventListener('click', resolveChannel);
     saveBtn.addEventListener('click', saveSettings);
 
     addShortBtn.addEventListener('click', async () => {
       const url = document.getElementById('newShortURL').value.trim();
+      if (!shortsRef) { showNotification('No signed-in user. Cannot add short.', 'error'); return; }
       if (url) {
         const success = await addToArray(shortsRef, url);
-        if (success) {
-          document.getElementById('newShortURL').value = '';
-        }
+        if (success) document.getElementById('newShortURL').value = '';
       }
     });
 
     addVideoBtn.addEventListener('click', async () => {
       const url = document.getElementById('newVideoURL').value.trim();
+      if (!videosRef) { showNotification('No signed-in user. Cannot add video.', 'error'); return; }
       if (url) {
         const success = await addToArray(videosRef, url);
-        if (success) {
-          document.getElementById('newVideoURL').value = '';
-        }
+        if (success) document.getElementById('newVideoURL').value = '';
       }
     });
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', async () => {
-      await loadData();
-      setupListeners();
+    // ---- Auth init: wait for signed-in user before initializing refs ----
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        setUID(user.uid);
+        loadData();
+        setupListeners();
+      } else {
+        console.warn('No user signed in. Call initForUID(uid) to test with a specific user.');
+      }
     });
+
+    // If you want to optionally start without auth in development uncomment and call:
+    // initForUID('SOME_TEST_UID');
   </script>
 </body>
 </html>
