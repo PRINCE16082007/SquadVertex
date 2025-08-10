@@ -6,7 +6,7 @@
   <title>Channel Management Portal</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    /* Styles remain the same as in your original code */
+    /* Styles remain the same */
     * {
       box-sizing: border-box;
       margin: 0;
@@ -620,7 +620,7 @@
     }
   }
 
-  // Save settings to Firestore
+  // Save settings to Firestore (automatically creates doc if not exists)
   async function saveSettings() {
     try {
       const link = document.getElementById('channelURL').value.trim();
@@ -636,6 +636,7 @@
         lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
       };
 
+      // This will create the document if it doesn't exist
       await settingsRef.set(settings, { merge: true });
       showNotification('Settings saved successfully!', 'success');
     } catch (error) {
@@ -644,7 +645,7 @@
     }
   }
 
-  // Resolve channel ID and save
+  // Resolve channel ID and save (automatically creates doc if not exists)
   async function resolveChannel() {
     try {
       const url = document.getElementById('channelURL').value.trim();
@@ -675,6 +676,7 @@
         document.getElementById('displayID').textContent = channelId;
       }
 
+      // This will create the document if it doesn't exist
       await settingsRef.set({
         channelId: channelId,
         channelName: details.title,
@@ -689,7 +691,7 @@
     }
   }
 
-  // Add item to array in Firestore
+  // Add item to array in Firestore (automatically creates doc if not exists)
   async function addToArray(collectionRef, value) {
     try {
       if (!value) {
@@ -697,8 +699,9 @@
         return false;
       }
 
-      const doc = await collectionRef.get();
       let content = [];
+      // Get document if exists
+      const doc = await collectionRef.get();
       if (doc.exists) {
         content = doc.data().content || [];
       }
@@ -711,6 +714,7 @@
 
       content.push(value);
 
+      // This will create the document if it doesn't exist
       await collectionRef.set({ content }, { merge: true });
       showNotification(`Item added successfully`, 'success');
       return true;
@@ -768,7 +772,7 @@
   // Load data from Firestore
   async function loadData() {
     try {
-      // Load settings
+      // Load settings - if doc doesn't exist, it will return empty
       const settingsDoc = await settingsRef.get();
       if (settingsDoc.exists) {
         const settings = settingsDoc.data();
@@ -795,10 +799,10 @@
         }
       }
 
-      // Load shorts
+      // Load shorts - if doc doesn't exist, show empty
       const shortsDoc = await shortsRef.get();
-      if (shortsDoc.exists) {
-        const shorts = shortsDoc.data().content || [];
+      if (shortsDoc.exists && shortsDoc.data().content) {
+        const shorts = shortsDoc.data().content;
         document.getElementById('shortsCount').textContent = shorts.length;
         renderList('shortsList', shorts, shortsRef);
       } else {
@@ -806,10 +810,10 @@
         renderList('shortsList', [], shortsRef);
       }
 
-      // Load videos
+      // Load videos - if doc doesn't exist, show empty
       const videosDoc = await videosRef.get();
-      if (videosDoc.exists) {
-        const videos = videosDoc.data().content || [];
+      if (videosDoc.exists && videosDoc.data().content) {
+        const videos = videosDoc.data().content;
         document.getElementById('videosCount').textContent = videos.length;
         renderList('videoList', videos, videosRef);
       } else {
@@ -848,18 +852,24 @@
     });
 
     shortsRef.onSnapshot((doc) => {
-      if (doc.exists) {
-        const shorts = doc.data().content || [];
+      if (doc.exists && doc.data().content) {
+        const shorts = doc.data().content;
         document.getElementById('shortsCount').textContent = shorts.length;
         renderList('shortsList', shorts, shortsRef);
+      } else {
+        document.getElementById('shortsCount').textContent = '0';
+        renderList('shortsList', [], shortsRef);
       }
     });
 
     videosRef.onSnapshot((doc) => {
-      if (doc.exists) {
-        const videos = doc.data().content || [];
+      if (doc.exists && doc.data().content) {
+        const videos = doc.data().content;
         document.getElementById('videosCount').textContent = videos.length;
         renderList('videoList', videos, videosRef);
+      } else {
+        document.getElementById('videosCount').textContent = '0';
+        renderList('videoList', [], videosRef);
       }
     });
   }
