@@ -1,1033 +1,830 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Choose Your Vibe - Template Selector</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
-            color: #fff;
-            min-height: 100vh;
-            overflow-x: hidden;
-            position: relative;
-        }
-
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            position: relative;
-            z-index: 10;
-        }
-
-        .header {
-            text-align: center;
-            padding: 40px 0;
-            margin-bottom: 20px;
-        }
-
-        .logo {
-            font-size: 4rem;
-            margin-bottom: 15px;
-            color: white;
-            text-shadow: 0 0 15px rgba(255,255,255,0.5);
-            animation: pulse 3s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        .header h1 {
-            font-size: 2.8rem;
-            margin-bottom: 15px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-
-        .header p {
-            font-size: 1.3rem;
-            max-width: 700px;
-            margin: 0 auto;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-
-        .alert {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            color: white;
-            padding: 16px 25px;
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            margin-bottom: 30px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-        }
-
-        .alert i {
-            margin-right: 15px;
-            font-size: 1.8rem;
-            color: #ff6b6b;
-        }
-
-        .alert-content {
-            flex: 1;
-        }
-
-        .alert h3 {
-            font-size: 1.3rem;
-            margin-bottom: 5px;
-        }
-
-        .templates-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-            gap: 35px;
-            margin-top: 20px;
-        }
-
-        .template-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            position: relative;
-        }
-
-        .template-card:hover {
-            transform: translateY(-15px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .template-header {
-            padding: 24px 24px 16px;
-            text-align: center;
-            position: relative;
-            z-index: 2;
-        }
-
-        .template-name {
-            font-size: 1.9rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-            letter-spacing: -0.5px;
-            text-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .template-desc {
-            font-size: 1.1rem;
-            max-width: 300px;
-            margin: 0 auto;
-            line-height: 1.5;
-            opacity: 0.9;
-        }
-
-        .template-preview {
-            height: 240px;
-            position: relative;
-            overflow: hidden;
-            margin: 0 15px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            border: 2px solid rgba(255,255,255,0.1);
-        }
-
-        .template-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.7s ease;
-        }
-
-        .template-card:hover .template-preview img {
-            transform: scale(1.08);
-        }
-
-        .template-preview::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(to bottom, rgba(0,0,0,0) 60%, rgba(0,0,0,0.5));
-            pointer-events: none;
-            border-radius: 15px;
-        }
-
-        .template-actions {
-            padding: 24px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: auto;
-        }
-
-        .btn {
-            padding: 14px 20px;
-            border: none;
-            border-radius: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: all 0.3s ease;
-            flex: 1;
-            min-width: 130px;
-            font-size: 1rem;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-        }
-
-        .btn-preview {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-        }
-
-        .btn-preview:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-3px);
-        }
-
-        .btn-copy {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-        }
-
-        .btn-copy:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-3px);
-        }
-
-        .btn-use {
-            color: white;
-            flex: 100%;
-            font-size: 1.1rem;
-            padding: 16px;
-            letter-spacing: 0.5px;
-            border: none;
-            font-weight: 700;
-        }
-
-        .btn-use:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-        }
-
-        .btn-use.disabled {
-            background: rgba(255, 255, 255, 0.1) !important;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .selected-badge {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 8px 20px;
-            border-radius: 30px;
-            font-size: 1rem;
-            font-weight: 700;
-            z-index: 10;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        /* Template specific colors */
-        .template-a .template-name { color: #ff9ec0; }
-        .template-a .btn-use { background: linear-gradient(to right, #ff6b9c, #ff3d7f); }
-
-        .template-b .template-name { color: #a3a8ff; }
-        .template-b .btn-use { background: linear-gradient(to right, #5d67ff, #3a43d4); }
-
-        .template-c .template-name { color: #a1f5c2; }
-        .template-c .btn-use { background: linear-gradient(to right, #2ecc71, #27ae60); }
-
-        /* Modal */
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(5px);
-        }
-
-        .modal.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .modal-content {
-            background: rgba(45, 45, 60, 0.9);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-radius: 20px;
-            width: 90%;
-            max-width: 500px;
-            padding: 40px;
-            transform: translateY(30px);
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
-            position: relative;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .modal-content::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 6px;
-            background: linear-gradient(to right, #ff6b9c, #5d67ff, #2ecc71);
-        }
-
-        .modal.active .modal-content {
-            transform: translateY(0);
-        }
-
-        .modal-header {
-            margin-bottom: 25px;
-            text-align: center;
-        }
-
-        .modal-header i {
-            font-size: 4rem;
-            margin-bottom: 15px;
-            background: linear-gradient(to right, #ff6b9c, #5d67ff);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        .modal-header h2 {
-            font-size: 2.2rem;
-            color: white;
-            margin-bottom: 10px;
-            text-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        }
-
-        .modal-body {
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        .modal-body p {
-            margin-bottom: 15px;
-            font-size: 1.2rem;
-            line-height: 1.7;
-            color: rgba(255,255,255,0.9);
-        }
-
-        .modal-body strong {
-            color: white;
-            font-weight: 700;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-        }
-
-        .btn-modal {
-            padding: 16px 32px;
-            border-radius: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            min-width: 150px;
-            font-size: 1.1rem;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-        }
-
-        .btn-modal-cancel {
-            background: rgba(255, 255, 255, 0.15);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: white;
-        }
-
-        .btn-modal-cancel:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: translateY(-3px);
-        }
-
-        .btn-modal-confirm {
-            background: linear-gradient(to right, #5d67ff, #ff6b9c);
-            color: white;
-            border: none;
-            font-weight: 700;
-        }
-
-        .btn-modal-confirm:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(93, 103, 255, 0.3);
-        }
-
-        /* Toast notification */
-        .toast {
-            position: fixed;
-            bottom: 40px;
-            right: 40px;
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 1001;
-            border-left: 5px solid rgba(255,255,255,0.5);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .toast.active {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .toast i {
-            font-size: 2rem;
-            color: white;
-        }
-
-        /* Tooltip */
-        .tooltip {
-            position: relative;
-        }
-
-        .tooltip:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 130%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(30, 30, 40, 0.9);
-            color: white;
-            padding: 10px 18px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            white-space: nowrap;
-            z-index: 10;
-            font-weight: 500;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .tooltip:hover::before {
-            content: '';
-            position: absolute;
-            bottom: 120%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 8px solid transparent;
-            border-top-color: rgba(30, 30, 40, 0.9);
-        }
-
-        /* Responsive */
-        @media (max-width: 900px) {
-            .templates-grid {
-                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                gap: 25px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .templates-grid {
-                grid-template-columns: 1fr;
-                max-width: 500px;
-                margin: 0 auto;
-            }
-
-            .modal-actions {
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            .btn-modal {
-                width: 100%;
-            }
-
-            .header h1 {
-                font-size: 2.2rem;
-            }
-
-            .alert {
-                padding: 14px 20px;
-            }
-        }
-
-        /* Loading indicator */
-        .loading {
-            text-align: center;
-            padding: 60px 0;
-        }
-
-        .loading-spinner {
-            width: 60px;
-            height: 60px;
-            border: 5px solid rgba(255,255,255,0.2);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1.2s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading p {
-            color: rgba(255,255,255,0.9);
-            font-size: 1.2rem;
-        }
-
-        /* User status */
-        .user-status {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(255, 255, 255, 0.15);
-            padding: 12px 20px;
-            border-radius: 30px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-            font-weight: 600;
-            color: white;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255,255,255,0.1);
-            z-index: 100;
-        }
-
-        .user-avatar {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: linear-gradient(to right, #ff6b9c, #5d67ff);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 1.2rem;
-        }
-
-        /* Footer */
-        .footer {
-            text-align: center;
-            margin-top: 60px;
-            padding-top: 30px;
-            color: rgba(255,255,255,0.7);
-            font-size: 1rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-
-        /* Floating particles */
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        .particle {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.15);
-            animation: float 15s infinite linear;
-        }
-
-        @keyframes float {
-            0% { transform: translateY(0) translateX(0) rotate(0deg); }
-            100% { transform: translateY(-100vh) translateX(100px) rotate(360deg); }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal Template No.067</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-green: #4CAF50;
+      --secondary-green: #388E3C;
+      --accent-green: #8BC34A;
+      --dark-green: #1B5E20;
+      --light-beige: #F5F5DC;
+      --earth-brown: #795548;
+      --stone-gray: #9E9E9E;
+      --light-gray: #f5f5f5;
+      --white: #ffffff;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: var(--light-beige);
+      color: #333;
+      line-height: 1.6;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f5f5dc"/><path d="M0 100 Q 50 80, 100 100 T 200 100" stroke="%23e8f5e9" stroke-width="40" fill="none"/></svg>');
+      background-size: 200px 200px;
+    }
+
+    /* Channel Banner */
+    .channel-banner {
+      width: 100%;
+      height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-size: cover;
+      background-position: center;
+      background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), 
+                         url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23388E3C"/><circle cx="20" cy="20" r="15" fill="%234CAF50" opacity="0.6"/><circle cx="70" cy="30" r="12" fill="%234CAF50" opacity="0.6"/><circle cx="40" cy="70" r="18" fill="%234CAF50" opacity="0.6"/></svg>');
+      position: relative;
+      overflow: hidden;
+    }
+
+    .banner-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(25, 118, 210, 0.1) 100%);
+    }
+
+    /* Channel Details */
+    .channel-details {
+      text-align: center;
+      padding: 30px 20px;
+      background: var(--white);
+      border-radius: 0 0 12px 12px;
+      position: relative;
+      box-shadow: var(--shadow);
+      max-width: 1200px;
+      margin: -50px auto 0;
+      z-index: 10;
+    }
+
+    .channel-logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 5px solid var(--white);
+      object-fit: cover;
+      margin: -80px auto 15px;
+      box-shadow: var(--shadow);
+      background-color: var(--light-gray);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary-green);
+    }
+
+    .channel-name {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 2.5rem;
+      margin: 10px 0;
+      color: var(--dark-green);
+      font-weight: 700;
+    }
+
+    .channel-tagline {
+      font-size: 1.2rem;
+      color: var(--earth-brown);
+      max-width: 600px;
+      margin: 0 auto 20px;
+      font-weight: 500;
+    }
+
+    .channel-description {
+      font-size: 1rem;
+      color: #555;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    /* Social Media Icons */
+    .social-media {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .social-media a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: var(--earth-brown);
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 50px;
+      background: var(--light-gray);
+      transition: all 0.3s ease;
+      min-width: 200px;
+      justify-content: center;
+    }
+
+    .social-media a:hover {
+      background: var(--primary-green);
+      color: var(--white);
+      transform: translateY(-3px);
+    }
+
+    .social-media img {
+      width: 24px;
+      height: 24px;
+    }
+
+    .social-media .skeleton {
+      display: inline-block;
+      width: 100px;
+      height: 1.2em;
+      background: var(--light-gray);
+      border-radius: 4px;
+      animation: skeleton-loading 1.5s infinite;
+    }
+
+    @keyframes skeleton-loading {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .social-data-loaded {
+      animation: none;
+      opacity: 1 !important;
+      background: transparent !important;
+      width: auto !important;
+    }
+
+    /* Navigation Buttons */
+    .nav-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      margin: 40px 20px;
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .nav-button {
+      background-color: var(--primary-green);
+      color: var(--white);
+      padding: 14px 30px;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      letter-spacing: 1px;
+      font-family: 'Montserrat', sans-serif;
+      box-shadow: var(--shadow);
+      min-width: 220px;
+    }
+
+    .nav-button:hover {
+      background-color: var(--secondary-green);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Main Content */
+    .main {
+      display: flex;
+      flex-direction: column;
+      gap: 50px;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 20px auto 40px;
+    }
+
+    /* Sections */
+    .section-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.8rem;
+      color: var(--dark-green);
+      margin-bottom: 25px;
+      padding-bottom: 10px;
+      border-bottom: 3px solid var(--accent-green);
+      display: inline-block;
+    }
+
+    .shorts-section, .replays-section, .top-contributors {
+      background: var(--white);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .section-pattern {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100px;
+      height: 100px;
+      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><path d="M0 20 Q 10 15, 20 20 T 40 20" stroke="%238BC34A" stroke-width="2" fill="none"/></svg>');
+      opacity: 0.1;
+    }
+
+    .shorts-grid, .replays-grid {
+      display: grid;
+      gap: 25px;
+    }
+
+    .shorts-item, .replays-item {
+      background: var(--light-gray);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .shorts-item:hover, .replays-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .shorts-item { 
+      aspect-ratio: 9/16;
+    }
+
+    .replays-item { 
+      aspect-ratio: 16/9;
+    }
+
+    .shorts-item iframe, .replays-item iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    .video-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--light-gray);
+      color: var(--stone-gray);
+      font-size: 14px;
+    }
+
+    /* Top Contributors Section - Coming Soon Animation */
+    .top-contributors {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+    }
+
+    .construction-container {
+      position: relative;
+      width: 250px;
+      height: 200px;
+      margin: 20px auto;
+    }
+
+    .building {
+      position: absolute;
+      bottom: 0;
+      width: 80px;
+      height: 120px;
+      background: #795548;
+      border-radius: 5px 5px 0 0;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .windows {
+      position: absolute;
+      top: 20px;
+      left: 10px;
+      width: 60px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .window {
+      width: 15px;
+      height: 20px;
+      background: #FFD54F;
+      border-radius: 2px;
+    }
+
+    .crane {
+      position: absolute;
+      width: 150px;
+      height: 150px;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .crane-tower {
+      position: absolute;
+      width: 8px;
+      height: 120px;
+      background: #607D8B;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 0;
+    }
+
+    .crane-arm {
+      position: absolute;
+      width: 120px;
+      height: 6px;
+      background: #607D8B;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .crane-hook {
+      position: absolute;
+      width: 10px;
+      height: 40px;
+      background: #607D8B;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      animation: hook-swing 3s infinite ease-in-out;
+    }
+
+    .crane-weight {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: #F44336;
+      border-radius: 50%;
+      top: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      animation: weight-lift 4s infinite;
+    }
+
+    @keyframes hook-swing {
+      0%, 100% { transform: translateX(-50%) rotate(-5deg); }
+      50% { transform: translateX(-50%) rotate(5deg); }
+    }
+
+    @keyframes weight-lift {
+      0% { top: 120px; }
+      50% { top: 40px; }
+      100% { top: 120px; }
+    }
+
+    .coming-soon {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.8rem;
+      color: var(--dark-green);
+      margin-top: 30px;
+      font-weight: 600;
+    }
+
+    .note {
+      font-size: 0.9rem;
+      color: var(--stone-gray);
+      margin-top: 20px;
+      font-style: italic;
+    }
+
+    /* Footer */
+    footer {
+      background-color: var(--dark-green);
+      color: var(--white);
+      padding: 40px 20px;
+      text-align: center;
+      border-top: 3px solid var(--accent-green);
+    }
+
+    .footer-content {
+      max-width: 1000px;
+      margin: auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+      text-align: left;
+    }
+
+    .footer-section {
+      padding: 15px;
+    }
+
+    .footer-section h3 {
+      color: var(--accent-green);
+      font-family: 'Montserrat', sans-serif;
+      margin-bottom: 15px;
+      font-size: 1.3rem;
+    }
+
+    .footer-section p {
+      opacity: 0.8;
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+
+    .copyright {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.9rem;
+      opacity: 0.7;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+      .channel-banner {
+        height: 200px;
+      }
+
+      .channel-logo {
+        width: 100px;
+        height: 100px;
+        margin-top: -60px;
+      }
+
+      .channel-name {
+        font-size: 2rem;
+      }
+
+      .shorts-grid, .replays-grid { 
+        grid-template-columns: 1fr; 
+      }
+
+      .nav-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .nav-button {
+        width: 100%;
+        max-width: 300px;
+      }
+
+      .shorts-section, .replays-section, .top-contributors {
+        padding: 20px;
+      }
+
+      .social-media a {
+        min-width: 160px;
+      }
+    }
+
+    @media (min-width: 769px) {
+      .replays-grid { 
+        grid-template-columns: repeat(3, 1fr); 
+      }
+
+      .shorts-grid { 
+        grid-template-columns: repeat(4, 1fr); 
+      }
+    }
+
+    @media (min-width: 992px) {
+      .shorts-grid { 
+        grid-template-columns: repeat(5, 1fr); 
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="particles" id="particles"></div>
-
-  <div class="user-status">
-      <div class="user-avatar">SV</div>
-      <span id="username">Loading...</span>
+  <div class="channel-banner" id="channel-banner">
+    <div class="banner-overlay"></div>
   </div>
 
-  <div class="container">
-      <header class="header">
-          <div class="logo"><i class="fas fa-palette"></i></div>
-          <h1>Choose Your Vibe</h1>
-          <p>Select a template that perfectly matches your personal style. Preview each one before making your final choice.</p>
-      </header>
+  <div class="channel-details">
+    <img id="channel-logo" src="https://www.squadvertex.great-site.net/assets/default-logo.png" alt="Channel Logo" class="channel-logo" style="width:96px;height:96px;border-radius:12px;">
+    <h1 id="channel-name" class="channel-name">SquadVertex</h1>
+    <p id="channel-tagline" class="channel-tagline">Gaming • Strategy • Community</p>
+    <p id="channel-description" class="channel-description">SquadVertex — built for creators. This is a default portal view. Visit a user-specific portal with <code>?id=&lt;UID&gt;</code>.</p>
 
-      <div class="alert">
-          <i class="fas fa-exclamation-triangle"></i>
-          <div class="alert-content">
-              <h3>Important Notice</h3>
-              <div>You can only use one template at a time. Preview before choosing. This action is not reversible.</div>
-          </div>
-      </div>
-
-      <div id="loading" class="loading">
-          <div class="loading-spinner"></div>
-          <p id="loadingText">Checking authentication...</p>
-      </div>
-
-      <div id="authCTAs" style="display:none; margin: 1rem 0;">
-        <p>Please sign in with a real account to manage your portal templates.</p>
-        <button id="btnGoogleSignIn" class="btn">Sign in with Google</button>
-        <a href="../legal/sign_up.html" class="btn" style="margin-left:8px;">Go to Sign In / Sign Up</a>
-      </div>
-
-      <div id="templatesContainer" class="templates-grid" style="display:none;">
-          <!-- Templates injected here -->
-      </div>
+    <div class="social-media">
+      <a id="youtube-link" href="#" target="_blank">
+        <img src="https://img.icons8.com/color/48/youtube-play.png" alt="YouTube">
+        <span id="youtube-subs" class="social-counter">1,200,000 Subscribers</span>
+      </a>
+      <a id="instagram-link" href="#" target="_blank">
+        <img src="https://img.icons8.com/color/48/instagram-new.png" alt="Instagram">
+        <span id="instagram-followers" class="social-counter">120k Followers</span>
+      </a>
+    </div>
   </div>
 
-  <!-- Modal -->
-  <div class="modal" id="confirmationModal" aria-hidden="true">
-      <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-          <div class="modal-header">
-              <i class="fas fa-exclamation-triangle"></i>
-              <h2 id="modalTitle">Confirm Template Selection</h2>
-          </div>
-          <div class="modal-body">
-              <p>Are you sure you want to use the <strong id="templateName">[Template Name]</strong> template?</p>
-              <p><strong>This action cannot be undone.</strong></p>
-              <p>Your current template will be replaced and previous settings may be lost.</p>
-          </div>
-          <div class="modal-actions">
-              <button class="btn-modal btn-modal-cancel" id="cancelBtn">Cancel</button>
-              <button class="btn-modal btn-modal-confirm" id="confirmBtn">Confirm Selection</button>
-          </div>
-      </div>
+  <div class="nav-buttons">
+    <button class="nav-button" onclick="location.href='#'">Explore Content</button>
+    <button class="nav-button" onclick="location.href='#'">Submit Replay</button>
+    <button class="nav-button">Leaderboard</button>
+    <button class="nav-button">Submit via Email</button>
   </div>
 
-  <!-- Toast Notification -->
-  <div class="toast" id="toast" role="status" aria-live="polite" style="display:none;">
-      <i class="fas fa-check-circle"></i>
-      <div id="toastMessage">Template selected successfully!</div>
-  </div>
-
-  <div class="footer">
-      <p>&copy; 2023 SquadVertex Creator Platform. All rights reserved.</p>
-  </div>
-
-  <script>
-  /**********************************************************
-   * Final Template Selector — robust + delegated events
-   * - No anonymous auth
-   * - Delegated click handlers (btn-preview, btn-copy, btn-use)
-   * - Visible mobile debug panel
-   * - Optimistic save + revert on failure
-   **********************************************************/
-
-  // CONFIG
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-  };
-
-  // DOM refs
-  const loadingEl = document.getElementById('loading');
-  const loadingText = document.getElementById('loadingText');
-  const authCTAs = document.getElementById('authCTAs');
-  const googleSignInBtn = document.getElementById('btnGoogleSignIn');
-  const templatesContainer = document.getElementById('templatesContainer');
-  const modal = document.getElementById('confirmationModal');
-  const cancelBtn = document.getElementById('cancelBtn');
-  const confirmBtn = document.getElementById('confirmBtn');
-  const toast = document.getElementById('toast');
-  const toastMessage = document.getElementById('toastMessage');
-  const templateNameElement = document.getElementById('templateName');
-  const usernameElement = document.getElementById('username');
-
-  // state
-  let firebaseReady = false;
-  let db = null;
-  let auth = null;
-  let currentUser = null;
-  let userTemplateSelection = null;
-  let selectedTemplate = null;
-  let saving = false;
-  let lastSaveAttemptWas = null;
-
-  // templates
-  const templates = {
-    templateA: { id: "templateA", name: "Soft Pink", previewUrl: "https://squadvertex2007.web.app/templates/a", liveUrl: "https://squadvertex2007.web.app/preview/a", imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#fcd4ec", vibe:"Girlish, soft" },
-    templateB: { id: "templateB", name: "Dark Minimal", previewUrl: "https://squadvertex2007.web.app/templates/b", liveUrl: "https://squadvertex2007.web.app/preview/b", imageUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#101010", vibe:"Bold, minimal" },
-    templateC: { id: "templateC", name: "Nature Green", previewUrl: "https://squadvertex2007.web.app/templates/c", liveUrl: "https://squadvertex2007.web.app/preview/c", imageUrl:"https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#c8f5c2", vibe:"Calming, peaceful" }
-  };
-
-  /* UI helpers */
-  function showLoading(msg){ loadingEl.style.display='flex'; templatesContainer.style.display='none'; authCTAs.style.display='none'; loadingText.textContent = msg || "Loading..."; }
-  function hideLoading(){ loadingEl.style.display='none'; templatesContainer.style.display='grid'; }
-  function showAuthCTAs(){ authCTAs.style.display = 'block'; templatesContainer.style.display='none'; loadingEl.style.display='none'; }
-  function showModal(name){ templateNameElement.textContent = name; modal.classList.add('active'); modal.setAttribute('aria-hidden','false'); }
-  function hideModal(){ modal.classList.remove('active'); modal.setAttribute('aria-hidden','true'); }
-  function showToast(msg, isError){ toastMessage.textContent = msg; toast.style.display = 'block'; if(isError) toast.classList.add('error'); setTimeout(()=>{ toast.style.display='none'; toast.classList.remove('error'); }, 3000); }
-
-  /* Status banner + debug panel (mobile) */
-  function ensureStatusBanner(){
-    let banner = document.getElementById('selectionStatusBanner');
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'selectionStatusBanner';
-      banner.style.cssText = 'padding:12px;margin:12px 0;border-radius:8px;font-weight:600;display:block;background:#fff7e6;color:#333';
-      templatesContainer.parentNode.insertBefore(banner, templatesContainer);
-    }
-    return banner;
-  }
-  function ensureDebugPanel(){
-    let dbg = document.getElementById('svxDebugPanel');
-    if (!dbg) {
-      dbg = document.createElement('div');
-      dbg.id = 'svxDebugPanel';
-      dbg.style.cssText = 'font-family:monospace;font-size:12px;padding:8px;margin:10px 0;border-radius:6px;background:#111;color:#ddd;max-width:calc(100% - 24px);word-break:break-word;';
-      templatesContainer.parentNode.insertBefore(dbg, templatesContainer.nextSibling);
-    }
-    return dbg;
-  }
-  function updateDebug(message, level='log'){
-    const dbg = ensureDebugPanel();
-    const time = new Date().toLocaleTimeString();
-    const color = (level === 'error') ? '#ff6b6b' : (level === 'warn' ? '#ffd66b' : '#9be7ff');
-    dbg.innerHTML = `<div style="color:${color}">[${time}] ${message}</div>` + dbg.innerHTML;
-  }
-  function renderSelectionStatus(){
-    const banner = ensureStatusBanner();
-    const dbg = ensureDebugPanel();
-    if (!firebaseReady) {
-      banner.textContent = 'Firebase not ready. Check debug panel for details.';
-      banner.style.background = '#ffe6e6';
-      banner.style.color = '#6b0000';
-      dbg.innerHTML = `<strong>Firebase:</strong> not initialized<br>` + dbg.innerHTML;
-      return;
-    }
-    if (!currentUser) {
-      banner.textContent = 'Not signed in. Sign in to choose a template.';
-      banner.style.background = '#ffe6e6';
-      banner.style.color = '#6b0000';
-      dbg.innerHTML = `<strong>Path:</strong> (not signed in)` + dbg.innerHTML;
-      return;
-    }
-    const path = `users/${currentUser.uid}/profile_template/selection`;
-    dbg.innerHTML = `<strong>Firestore path</strong>: ${path}<br><small>UID: ${currentUser.uid}</small><hr>` + dbg.innerHTML;
-    if (!userTemplateSelection) {
-      banner.textContent = 'No template selected yet. Click "Use This Template" to choose one.';
-      banner.style.background = '#fff7e6';
-      banner.style.color = '#333';
-    } else {
-      const friendlyName = (templates[userTemplateSelection] && templates[userTemplateSelection].name) || userTemplateSelection;
-      banner.innerHTML = `✅ Selected template: <strong>${friendlyName}</strong> <span style="margin-left:10px;color:#666">(${userTemplateSelection})</span>`;
-      banner.style.background = '#e6ffed';
-      banner.style.color = '#0a6b3a';
-    }
-  }
-
-  /* Safe firebase init: verify window.firebase exists and required methods present */
-  function safeInitFirebase() {
-    try {
-      if (!window.firebase) {
-        updateDebug('window.firebase is not present. Make sure compat SDKs are included in <head>.', 'error');
-        showLoading('Firebase SDKs not loaded; check head includes.');
-        return false;
-      }
-      if (!firebase.apps || firebase.apps.length === 0) {
-        firebase.initializeApp(firebaseConfig);
-        updateDebug('firebase.initializeApp() called.');
-      } else {
-        updateDebug('firebase already initialized.');
-      }
-
-      if (!firebase.firestore || !firebase.auth) {
-        updateDebug('firebase.firestore() or firebase.auth() missing (incompatible SDKs).', 'error');
-        showLoading('Firebase SDK mismatch.');
-        return false;
-      }
-
-      db = firebase.firestore();
-      auth = firebase.auth();
-      firebaseReady = true;
-      updateDebug('Firebase ready (firestore + auth detected).');
-      return true;
-    } catch (e) {
-      console.error('safeInitFirebase error', e);
-      updateDebug('safeInitFirebase error: ' + (e.message || e), 'error');
-      showLoading('Firebase init failed — see debug panel');
-      return false;
-    }
-  }
-
-  // initialize firebase
-  const ok = safeInitFirebase();
-  if (!ok) {
-    ensureDebugPanel().innerHTML = '<b>Fix:</b> include compat SDKs in the page head: firebase-app-compat.js, firebase-auth-compat.js, firebase-firestore-compat.js and reload.';
-  }
-
-  /* auth + UI wiring */
-  document.addEventListener('DOMContentLoaded', () => {
-    // modal handlers
-    cancelBtn.addEventListener('click', ()=> { hideModal(); selectedTemplate = null; });
-    confirmBtn.addEventListener('click', confirmTemplateSelection);
-    window.addEventListener('click', e => {
-      if (modal.classList.contains('active') && !document.querySelector('.modal-content').contains(e.target)) hideModal();
-    });
-    window.addEventListener('keydown', e => { if (e.key === 'Escape') hideModal(); });
-
-    if (!firebaseReady) {
-      renderSelectionStatus();
-      return;
-    }
-
-    showLoading('Checking sign-in status...');
-
-    // auth listener
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        currentUser = user;
-        usernameElement.textContent = user.displayName || user.email || `User-${user.uid.slice(0,6)}`;
-        updateDebug('Signed in as: ' + (usernameElement.textContent || user.uid));
-        loadTemplateSelection();
-      } else {
-        currentUser = null;
-        updateDebug('No user signed in.');
-        showAuthCTAs();
-        renderSelectionStatus();
-      }
-    });
-
-    // google sign button: try popup, fallback to redirect
-    googleSignInBtn.addEventListener('click', async () => {
-      try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        await auth.signInWithPopup(provider);
-        updateDebug('Google sign-in via popup succeeded.');
-      } catch (popupErr) {
-        updateDebug('Popup sign-in failed: ' + (popupErr.message || popupErr), 'warn');
-        try {
-          const provider = new firebase.auth.GoogleAuthProvider();
-          await auth.signInWithRedirect(provider);
-          updateDebug('Redirect sign-in started. Complete sign-in after redirect.');
-        } catch (redirErr) {
-          updateDebug('Redirect sign-in also failed: ' + (redirErr.message || redirErr), 'error');
-          showToast('Sign-in failed. Check debug panel.', true);
-        }
-      }
-    });
-
-    // DELEGATED handlers (so we never miss adding listeners)
-    templatesContainer.addEventListener('click', (e) => {
-      const previewBtn = e.target.closest('.btn-preview');
-      const copyBtn = e.target.closest('.btn-copy');
-      const useBtn = e.target.closest('.btn-use');
-
-      if (previewBtn) {
-        const card = previewBtn.closest('.template-card');
-        const tplId = card && card.dataset && card.dataset.templateId;
-        if (tplId && templates[tplId]) window.open(templates[tplId].liveUrl, '_blank');
-        return;
-      }
-
-      if (copyBtn) {
-        const card = copyBtn.closest('.template-card');
-        const tplId = card && card.dataset && card.dataset.templateId;
-        if (tplId && templates[tplId]) { copyToClipboard(templates[tplId].previewUrl); showToast('Preview link copied'); updateDebug('Copied ' + templates[tplId].previewUrl); }
-        return;
-      }
-
-      if (useBtn) {
-        const card = useBtn.closest('.template-card');
-        const tplId = card && card.dataset && card.dataset.templateId;
-        if (!tplId) { showToast('Template ID missing', true); updateDebug('Use button missing data-template-id', 'error'); return; }
-        if (!currentUser) { showToast('Sign in first', true); showAuthCTAs(); return; }
-        if (userTemplateSelection === tplId) { showToast('Already selected', true); return; }
-        selectedTemplate = tplId;
-        showModal(templates[tplId] ? templates[tplId].name : tplId);
-        return;
-      }
-    });
-
-  });
-
-  /* load selection from Firestore */
-  function loadTemplateSelection(){
-    if (!firebaseReady) { updateDebug('Tried loadTemplateSelection but firebase not ready', 'error'); renderSelectionStatus(); return; }
-    if (!currentUser) { updateDebug('loadTemplateSelection: no currentUser', 'warn'); renderSelectionStatus(); showAuthCTAs(); return; }
-
-    showLoading('Loading your template selection...');
-    const ref = db.collection('users').doc(currentUser.uid).collection('profile_template').doc('selection');
-
-    ref.get()
-      .then(docSnap => {
-        if (docSnap.exists) {
-          userTemplateSelection = docSnap.data().template_id;
-          updateDebug(`selection exists: ${JSON.stringify(docSnap.data())}`);
-        } else {
-          userTemplateSelection = null;
-          updateDebug('selection doc does not exist for this user (first-time).', 'warn');
-        }
-        renderTemplates();
-        renderSelectionStatus();
-        hideLoading();
-      })
-      .catch(err => {
-        console.error('Error reading selection', err);
-        updateDebug('Error reading selection: '+(err.message||err), 'error');
-        showToast('Failed to load selection. Check rules.', true);
-        userTemplateSelection = null;
-        renderTemplates();
-        renderSelectionStatus();
-        hideLoading();
-      });
-  }
-
-  /* render template cards & attach dataset for delegated handler */
-  function renderTemplates(){
-    templatesContainer.innerHTML = '';
-    Object.values(templates).forEach(t => {
-      const isSelected = (userTemplateSelection === t.id);
-      const card = document.createElement('div');
-      card.className = 'template-card';
-      card.dataset.templateId = t.id; // critical for delegation
-      card.style.cssText = 'border:2px solid '+(t.color||'#ddd')+'; padding:12px; border-radius:8px; margin:8px 0;';
-      card.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-weight:700">${t.name}</div>
-            <div style="font-size:13px;color:#666">${t.vibe}</div>
-          </div>
-          ${isSelected ? '<div style="background:#0a6b3a;color:#fff;padding:6px;border-radius:6px;font-size:13px">Selected</div>' : ''}
+  <div class="main">
+    <div class="shorts-section">
+      <h2 class="section-title">Fan Shorts</h2>
+      <div class="section-pattern"></div>
+      <div class="shorts-grid" id="shortsContainer">
+        <div class="shorts-item skeleton">
+          <div class="video-placeholder">Loading Short...</div>
         </div>
-        <div style="margin-top:10px"><img src="${t.imageUrl}" alt="${t.name}" style="width:100%;height:140px;object-fit:cover;border-radius:6px"></div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn btn-preview">Preview</button>
-          <button class="btn btn-copy">Copy Link</button>
-          <button class="btn btn-use" ${isSelected ? 'disabled' : ''}>${isSelected ? 'Current Template' : 'Use This Template'}</button>
+        <div class="shorts-item skeleton">
+          <div class="video-placeholder">Loading Short...</div>
         </div>
-      `;
-      templatesContainer.appendChild(card);
-    });
+        <div class="shorts-item skeleton">
+          <div class="video-placeholder">Loading Short...</div>
+        </div>
+      </div>
+    </div>
 
-    templatesContainer.style.display = 'grid';
-    renderSelectionStatus();
-  }
+    <div class="replays-section">
+      <h2 class="section-title">Fan Replays</h2>
+      <div class="section-pattern"></div>
+      <div class="replays-grid" id="replaysContainer">
+        <div class="replays-item skeleton">
+          <div class="video-placeholder">Loading Replay...</div>
+        </div>
+        <div class="replays-item skeleton">
+          <div class="video-placeholder">Loading Replay...</div>
+        </div>
+        <div class="replays-item skeleton">
+          <div class="video-placeholder">Loading Replay...</div>
+        </div>
+      </div>
+    </div>
 
-  /* confirm + save selection (optimistic) */
-  function confirmTemplateSelection(){
-    if (!selectedTemplate || !currentUser || saving) return;
-    lastSaveAttemptWas = userTemplateSelection;
-    userTemplateSelection = selectedTemplate; // optimistic UI
-    renderTemplates();
-    renderSelectionStatus();
+    <div class="top-contributors">
+      <h2 class="section-title">Top Contributors</h2>
+      <div class="section-pattern"></div>
+      <div class="construction-container">
+        <div class="crane">
+          <div class="crane-tower"></div>
+          <div class="crane-arm"></div>
+          <div class="crane-hook"></div>
+          <div class="crane-weight"></div>
+        </div>
+        <div class="building">
+          <div class="windows">
+            <div class="window"></div>
+            <div class="window"></div>
+            <div class="window"></div>
+          </div>
+        </div>
+      </div>
+      <div class="coming-soon">Coming Soon!</div>
+      <p class="note">We're building an amazing new contributors section. Stay tuned!</p>
+    </div>
+  </div>
 
-    saving = true;
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Saving...';
+  <footer>
+    <div class="footer-content">
+      <div class="footer-section">
+        <h3>About SquadVertex</h3>
+        <p>SquadVertex is a next-gen platform empowering creators with futuristic tools and seamless experiences designed to elevate content creation.</p>
+      </div>
+      <div class="footer-section">
+        <h3>CustomPortal</h3>
+        <p>CustomPortal allows creators to personalize their space with powerful and dynamic features while maintaining a professional online presence.</p>
+      </div>
+      <div class="footer-section">
+        <h3>Community</h3>
+        <p>Join our growing community of content creators and gamers. Share strategies, collaborate, and grow together in a supportive environment.</p>
+      </div>
+    </div>
+    <div class="copyright">
+      © 2024-2025 SquadVertex Powered Portal. All rights reserved.
+    </div>
+  </footer>
 
-    const ref = db.collection('users').doc(currentUser.uid).collection('profile_template').doc('selection');
-    const payload = {
-      template_id: selectedTemplate,
-      selected_at: firebase.firestore.FieldValue.serverTimestamp(),
-      preview_url: templates[selectedTemplate].previewUrl || ''
+  <script type="module">
+    /* TemplateC portal — default view OR user-specific view when ?id=UID is present.
+       Uses Firebase v10 (firestore client). Defensive and minimal. */
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    // FIREBASE CONFIG (your public config)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
     };
 
-    ref.set(payload, { merge: true })
-      .then(()=> {
-        updateDebug('Saved selection: ' + JSON.stringify(payload));
-        showToast('Template selected');
-        hideModal();
-        selectedTemplate = null;
-      })
-      .catch(err => {
-        console.error('Save failed', err);
-        updateDebug('Save failed: '+(err.message||err), 'error');
-        userTemplateSelection = lastSaveAttemptWas || null; // revert
-        renderTemplates();
-        renderSelectionStatus();
-        showToast('Failed to save. Check Firestore rules.', true);
-      })
-      .finally(()=> {
-        saving = false;
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirm Selection';
-      });
-  }
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-  /* simple clipboard util */
-  function copyToClipboard(text){
-    if (!navigator.clipboard) { showToast('Copy not supported', true); return; }
-    navigator.clipboard.writeText(text).catch(err => { updateDebug('Clipboard fail: '+(err.message||err), 'warn'); showToast('Copy failed', true); });
-  }
+    // Small helper to read query param (id or uid)
+    function getQueryUID() {
+      const qp = new URLSearchParams(window.location.search);
+      return qp.get('id') || qp.get('uid') || null;
+    }
 
-  // initial render
-  renderSelectionStatus();
+    // Defaults (SquadVertex dummy)
+    const defaults = {
+      channelName: "SquadVertex",
+      tagline: "Gaming • Strategy • Community",
+      description: "Welcome to SquadVertex — creators-first platform. This is a default demo portal. Add a user id with ?id=<UID> to view a user portal.",
+      youtubeLink: "https://www.youtube.com/",
+      instagramLink: "https://www.instagram.com/",
+      youtubeSubsText: "1,200,000 Subscribers",
+      instaFollowersText: "120k Followers",
+      bannerUrl: "https://images.unsplash.com/photo-1508766206392-8bd5cf550d1b?auto=format&fit=crop&w=1400&q=60",
+      logoUrl: "https://www.squadvertex.great-site.net/assets/default-logo.png",
+      shorts: [], // empty = use placeholders
+      videos: []
+    };
+
+    // YT API KEY (optional): if you want live subs count. Leave blank to skip YT call.
+    const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA"; // <-- put key if you want, else leave blank
+
+    // DOM refs
+    const bannerEl = document.getElementById("channel-banner");
+    const logoEl = document.getElementById("channel-logo");
+    const nameEl = document.getElementById("channel-name");
+    const taglineEl = document.getElementById("channel-tagline");
+    const descEl = document.getElementById("channel-description");
+    const ytLinkEl = document.getElementById("youtube-link");
+    const instaLinkEl = document.getElementById("instagram-link");
+    const ytSubsEl = document.getElementById("youtube-subs");
+    const instaEl = document.getElementById("instagram-followers");
+    const shortsContainer = document.getElementById("shortsContainer");
+    const replaysContainer = document.getElementById("replaysContainer");
+
+    // Sample placeholders
+    const sampleShorts = [
+      "https://www.youtube.com/shorts/ABC123",
+      "https://www.youtube.com/shorts/DEF456",
+      "https://www.youtube.com/shorts/GHI789"
+    ];
+    const sampleReplays = [
+      "https://www.youtube.com/watch?v=JKL012",
+      "https://www.youtube.com/watch?v=MNO345",
+      "https://www.youtube.com/watch?v=PQR678"
+    ];
+
+    // Extract YouTube ID helper (works for short and full links)
+    function extractVideoId(url) {
+      if (!url) return null;
+      const ytShort = url.match(/(?:youtu\.be\/)([^?&/]+)/);
+      if (ytShort) return ytShort[1];
+      const match = url.match(/[?&]v=([^?&]+)/);
+      if (match) return match[1];
+      const embed = url.match(/\/embed\/([^?&/]+)/);
+      if (embed) return embed[1];
+      const shorts = url.match(/youtube\.com\/shorts\/([^?&/]+)/);
+      if (shorts) return shorts[1];
+      return null;
+    }
+
+    function clearGrid(container) {
+      container.innerHTML = "";
+    }
+
+    function appendVideo(container, url, className = "") {
+      const id = extractVideoId(url) || "dQw4w9WgXcQ";
+      const div = document.createElement("div");
+      div.className = className || "video-item";
+      div.innerHTML = `<iframe src="https://www.youtube.com/embed/${id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;height:180px;border-radius:8px"></iframe>`;
+      container.appendChild(div);
+    }
+
+    // Apply a portal payload (object) onto page
+    function applyPortalData(payload) {
+      const channelName = payload.channelName || payload.name || defaults.channelName;
+      const tagline = payload.tagline || payload.channelTagline || defaults.tagline;
+      const desc = payload.desc || payload.description || defaults.description;
+      const youtubeLink = payload.channelLink || payload.youtubeLink || defaults.youtubeLink;
+      const instaLink = payload.instaLink || payload.instagramLink || defaults.instagramLink;
+      const youtubeSubsText = payload.youtubeSubsText || (payload.youtubeCount ? `${payload.youtubeCount.toLocaleString()} Subscribers` : defaults.youtubeSubsText);
+      const instaFollowersText = payload.instaCount ? `${payload.instaCount} Followers` : (payload.instaFollowersText || defaults.instaFollowersText);
+      const bannerUrl = payload.bannerUrl || payload.headerImage || defaults.bannerUrl;
+      const logoUrl = payload.logoUrl || payload.avatar || defaults.logoUrl;
+
+      // Set DOM
+      bannerEl.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('${bannerUrl}')`;
+      logoEl.src = logoUrl;
+      nameEl.textContent = channelName;
+      taglineEl.textContent = tagline;
+      descEl.textContent = desc;
+      ytLinkEl.href = youtubeLink;
+      instaLinkEl.href = instaLink;
+      ytSubsEl.textContent = youtubeSubsText;
+      instaEl.textContent = instaFollowersText;
+
+      // Videos
+      clearGrid(shortsContainer);
+      clearGrid(replaysContainer);
+
+      const shorts = (payload.shorts && payload.shorts.length) ? payload.shorts : sampleShorts;
+      const vids = (payload.videos && payload.videos.length) ? payload.videos : sampleReplays;
+
+      // keep small count to avoid heavy load
+      shorts.slice(0,3).forEach(link => appendVideo(shortsContainer, link, "shorts-item"));
+      vids.slice(0,3).forEach(link => appendVideo(replaysContainer, link, "replays-item"));
+    }
+
+    // Main render logic
+    async function renderPortal() {
+      // Start with defaults
+      applyPortalData(defaults);
+
+      // If ?id=UID or ?uid=UID present -> try to load user doc
+      const uid = getQueryParam('id') || getQueryParam('uid');
+      if (!uid) {
+        // no uid -> show default page
+        console.log("No UID param — showing default portal");
+        return;
+      }
+
+      // attempt to fetch users/{uid}
+      try {
+        const uRef = doc(db, 'users', uid);
+        const uSnap = await getDoc(uRef);
+        if (!uSnap.exists()) {
+          console.warn('User doc not found for uid', uid, '— showing defaults');
+          return;
+        }
+
+        // Heuristics: user doc may contain a `portal` object or direct fields — handle both
+        const udata = uSnap.data();
+        const portalPayload = udata.portal || udata.portalData || udata.profile_portal || udata; // try common names first
+
+        // If user has profile_template selection and that doc contains preview_url etc, we can merge
+        try {
+          const selRef = doc(db, 'users', uid, 'profile_template', 'selection');
+          const selSnap = await getDoc(selRef);
+          if (selSnap.exists()) {
+            const sdata = selSnap.data();
+            // sdata may contain preview_url or template-specific fields
+            if (sdata.preview_url && !portalPayload.bannerUrl) portalPayload.bannerUrl = sdata.preview_url;
+            if (sdata.template_id && !portalPayload.templateId) portalPayload.templateId = sdata.template_id;
+            if (sdata.custom && typeof sdata.custom === 'object') {
+              Object.assign(portalPayload, sdata.custom);
+            }
+          }
+        } catch (e) {
+          // ignore selection read errors
+          console.warn('Cannot read profile_template selection for user', uid, e.message || e);
+        }
+
+        // If portalPayload has channelId and YT_API_KEY available, try fetch subs (non-blocking)
+        if (portalPayload && (portalPayload.channelId || portalPayload.youtubeChannelId) && YT_API_KEY) {
+          const cid = portalPayload.channelId || portalPayload.youtubeChannelId;
+          try {
+            const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${cid}&key=${YT_API_KEY}`);
+            const ytJson = await ytRes.json();
+            if (ytJson.items && ytJson.items.length) {
+              const ch = ytJson.items[0];
+              portalPayload.youtubeCount = parseInt(ch.statistics.subscriberCount || 0, 10);
+              if (!portalPayload.channelLink) portalPayload.channelLink = `https://www.youtube.com/channel/${cid}`;
+              if (!portalPayload.logoUrl && ch.snippet && ch.snippet.thumbnails && ch.snippet.thumbnails.default)
+                portalPayload.logoUrl = ch.snippet.thumbnails.default.url;
+            }
+          } catch (e) {
+            console.warn('YT API failed', e);
+            // continue with whatever we have
+          }
+        }
+
+        // Finally, apply portal payload to page (merging into defaults)
+        applyPortalData(Object.assign({}, defaults, portalPayload || {}));
+        console.log('Rendered portal for UID', uid);
+      } catch (err) {
+        console.error('Error fetching user portal for uid', uid, err);
+        // leave defaults in place (no throw)
+      }
+    }
+
+    // small helper to read query params
+    function getQueryParam(name) {
+      const sp = new URLSearchParams(window.location.search);
+      return sp.get(name);
+    }
+
+    // run on DOM ready
+    window.addEventListener('DOMContentLoaded', () => {
+      renderPortal();
+    });
   </script>
 </body>
 </html>
