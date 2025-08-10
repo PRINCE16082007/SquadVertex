@@ -666,7 +666,7 @@
   </div>
 
   <!-- Toast Notification -->
-  <div class="toast" id="toast" role="status" aria-live="polite">
+  <div class="toast" id="toast" role="status" aria-live="polite" style="display:none;">
       <i class="fas fa-check-circle"></i>
       <div id="toastMessage">Template selected successfully!</div>
   </div>
@@ -677,11 +677,11 @@
 
   <script>
   /**********************************************************
-   * Robust Template Selector v2
-   * - safe Firebase checks
-   * - Google sign-in popup -> redirect fallback (mobile)
-   * - visible mobile debug panel
-   * - optimistic save + revert on failure
+   * Final Template Selector — robust + delegated events
+   * - No anonymous auth
+   * - Delegated click handlers (btn-preview, btn-copy, btn-use)
+   * - Visible mobile debug panel
+   * - Optimistic save + revert on failure
    **********************************************************/
 
   // CONFIG
@@ -718,7 +718,7 @@
   let saving = false;
   let lastSaveAttemptWas = null;
 
-  // templates (same as before)
+  // templates
   const templates = {
     templateA: { id: "templateA", name: "Soft Pink", previewUrl: "https://squadvertex2007.web.app/templates/a", liveUrl: "https://squadvertex2007.web.app/preview/a", imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#fcd4ec", vibe:"Girlish, soft" },
     templateB: { id: "templateB", name: "Dark Minimal", previewUrl: "https://squadvertex2007.web.app/templates/b", liveUrl: "https://squadvertex2007.web.app/preview/b", imageUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#101010", vibe:"Bold, minimal" },
@@ -731,9 +731,9 @@
   function showAuthCTAs(){ authCTAs.style.display = 'block'; templatesContainer.style.display='none'; loadingEl.style.display='none'; }
   function showModal(name){ templateNameElement.textContent = name; modal.classList.add('active'); modal.setAttribute('aria-hidden','false'); }
   function hideModal(){ modal.classList.remove('active'); modal.setAttribute('aria-hidden','true'); }
-  function showToast(msg, isError){ toastMessage.textContent = msg; toast.classList.add('active'); if(isError) toast.classList.add('error'); setTimeout(()=>{ toast.classList.remove('active'); toast.classList.remove('error'); }, 3000); }
+  function showToast(msg, isError){ toastMessage.textContent = msg; toast.style.display = 'block'; if(isError) toast.classList.add('error'); setTimeout(()=>{ toast.style.display='none'; toast.classList.remove('error'); }, 3000); }
 
-  /* status banner + debug panel (mobile) */
+  /* Status banner + debug panel (mobile) */
   function ensureStatusBanner(){
     let banner = document.getElementById('selectionStatusBanner');
     if (!banner) {
@@ -799,7 +799,6 @@
         showLoading('Firebase SDKs not loaded; check head includes.');
         return false;
       }
-      // initialize only if not initialized already
       if (!firebase.apps || firebase.apps.length === 0) {
         firebase.initializeApp(firebaseConfig);
         updateDebug('firebase.initializeApp() called.');
@@ -807,7 +806,6 @@
         updateDebug('firebase already initialized.');
       }
 
-      // check firestore/auth exist
       if (!firebase.firestore || !firebase.auth) {
         updateDebug('firebase.firestore() or firebase.auth() missing (incompatible SDKs).', 'error');
         showLoading('Firebase SDK mismatch.');
@@ -827,16 +825,15 @@
     }
   }
 
-  // call safe init immediately
+  // initialize firebase
   const ok = safeInitFirebase();
   if (!ok) {
-    // nothing else will work — provide clear instruction
-    ensureDebugPanel().innerHTML = '<b>Fix:</b> include compat SDKs in the page head: firebase-app-compat.js, firebase-auth-compat.js, firebase-firestore-compat.js (v9.22.x compat) and reload.';
+    ensureDebugPanel().innerHTML = '<b>Fix:</b> include compat SDKs in the page head: firebase-app-compat.js, firebase-auth-compat.js, firebase-firestore-compat.js and reload.';
   }
 
   /* auth + UI wiring */
   document.addEventListener('DOMContentLoaded', () => {
-    // modal/cancel/confirm
+    // modal handlers
     cancelBtn.addEventListener('click', ()=> { hideModal(); selectedTemplate = null; });
     confirmBtn.addEventListener('click', confirmTemplateSelection);
     window.addEventListener('click', e => {
@@ -861,22 +858,19 @@
       } else {
         currentUser = null;
         updateDebug('No user signed in.');
-        // show sign-in CTAs
         showAuthCTAs();
         renderSelectionStatus();
       }
     });
 
-    // google sign button: try popup first; fallback to redirect (mobile)
+    // google sign button: try popup, fallback to redirect
     googleSignInBtn.addEventListener('click', async () => {
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        // try popup
         await auth.signInWithPopup(provider);
         updateDebug('Google sign-in via popup succeeded.');
       } catch (popupErr) {
         updateDebug('Popup sign-in failed: ' + (popupErr.message || popupErr), 'warn');
-        // fallback to redirect (works on mobile)
         try {
           const provider = new firebase.auth.GoogleAuthProvider();
           await auth.signInWithRedirect(provider);
@@ -887,6 +881,39 @@
         }
       }
     });
+
+    // DELEGATED handlers (so we never miss adding listeners)
+    templatesContainer.addEventListener('click', (e) => {
+      const previewBtn = e.target.closest('.btn-preview');
+      const copyBtn = e.target.closest('.btn-copy');
+      const useBtn = e.target.closest('.btn-use');
+
+      if (previewBtn) {
+        const card = previewBtn.closest('.template-card');
+        const tplId = card && card.dataset && card.dataset.templateId;
+        if (tplId && templates[tplId]) window.open(templates[tplId].liveUrl, '_blank');
+        return;
+      }
+
+      if (copyBtn) {
+        const card = copyBtn.closest('.template-card');
+        const tplId = card && card.dataset && card.dataset.templateId;
+        if (tplId && templates[tplId]) { copyToClipboard(templates[tplId].previewUrl); showToast('Preview link copied'); updateDebug('Copied ' + templates[tplId].previewUrl); }
+        return;
+      }
+
+      if (useBtn) {
+        const card = useBtn.closest('.template-card');
+        const tplId = card && card.dataset && card.dataset.templateId;
+        if (!tplId) { showToast('Template ID missing', true); updateDebug('Use button missing data-template-id', 'error'); return; }
+        if (!currentUser) { showToast('Sign in first', true); showAuthCTAs(); return; }
+        if (userTemplateSelection === tplId) { showToast('Already selected', true); return; }
+        selectedTemplate = tplId;
+        showModal(templates[tplId] ? templates[tplId].name : tplId);
+        return;
+      }
+    });
+
   });
 
   /* load selection from Firestore */
@@ -921,17 +948,15 @@
       });
   }
 
-  /* render template cards & attach handlers */
+  /* render template cards & attach dataset for delegated handler */
   function renderTemplates(){
     templatesContainer.innerHTML = '';
     Object.values(templates).forEach(t => {
       const isSelected = (userTemplateSelection === t.id);
       const card = document.createElement('div');
       card.className = 'template-card';
-      card.style.border = `2px solid ${t.color || '#ddd'}`;
-      card.style.padding = '12px';
-      card.style.borderRadius = '8px';
-      card.style.margin = '8px 0';
+      card.dataset.templateId = t.id; // critical for delegation
+      card.style.cssText = 'border:2px solid '+(t.color||'#ddd')+'; padding:12px; border-radius:8px; margin:8px 0;';
       card.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
@@ -944,29 +969,10 @@
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn btn-preview">Preview</button>
           <button class="btn btn-copy">Copy Link</button>
-          <button class="btn btn-use" ${isSelected ? 'disabled' : ''} data-template="${t.id}">${isSelected ? 'Current Template' : 'Use This Template'}</button>
+          <button class="btn btn-use" ${isSelected ? 'disabled' : ''}>${isSelected ? 'Current Template' : 'Use This Template'}</button>
         </div>
       `;
       templatesContainer.appendChild(card);
-
-      // handlers
-      const previewBtn = card.querySelector('.btn-preview');
-      const copyBtn = card.querySelector('.btn-copy');
-      const useBtn = card.querySelector('.btn-use');
-
-      previewBtn.addEventListener('click', ()=> window.open(t.liveUrl, '_blank'));
-      copyBtn.addEventListener('click', ()=> { 
-        copyToClipboard(t.previewUrl); 
-        showToast('Preview link copied'); 
-        updateDebug('Copied ' + t.previewUrl);
-      });
-      if (useBtn && !isSelected) {
-        useBtn.addEventListener('click', ()=> {
-          if (!currentUser) { showToast('Sign in first', true); showAuthCTAs(); return; }
-          selectedTemplate = t.id;
-          showModal(t.name);
-        });
-      }
     });
 
     templatesContainer.style.display = 'grid';
@@ -1020,7 +1026,7 @@
     navigator.clipboard.writeText(text).catch(err => { updateDebug('Clipboard fail: '+(err.message||err), 'warn'); showToast('Copy failed', true); });
   }
 
-  // initial render state
+  // initial render
   renderSelectionStatus();
   </script>
 </body>
