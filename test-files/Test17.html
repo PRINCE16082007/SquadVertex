@@ -750,7 +750,7 @@
           <i class="fas fa-exclamation-triangle"></i>
           <div class="alert-content">
               <h3>Important Notice</h3>
-              <div>You can only use one template at a time. Please preview before making your choice. This action is not reversible.</div>
+              <div>You can only use one template at a time. Preview before choosing. This action is not reversible.</div>
           </div>
       </div>
 
@@ -766,7 +766,7 @@
       </div>
 
       <div id="templatesContainer" class="templates-grid" style="display:none;">
-          <!-- Templates will be loaded dynamically -->
+          <!-- Templates injected here -->
       </div>
   </div>
 
@@ -800,301 +800,352 @@
   </div>
 
   <script>
-/**********************
- * CONFIG + INIT
- **********************/
-const firebaseConfig = {
-  apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-  authDomain: "squadvertex2007.firebaseapp.com",
-  projectId: "squadvertex2007",
-  storageBucket: "squadvertex2007.appspot.com",
-  messagingSenderId: "168905083514",
-  appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-};
+  /**********************************************************
+   * Robust Template Selector v2
+   * - safe Firebase checks
+   * - Google sign-in popup -> redirect fallback (mobile)
+   * - visible mobile debug panel
+   * - optimistic save + revert on failure
+   **********************************************************/
 
-// init compat libs (head must include compat scripts as you already had)
-try { firebase.initializeApp(firebaseConfig); } catch(e) { console.warn('Firebase already initialized'); }
-const db = firebase.firestore();
-const auth = firebase.auth();
-
-/**********************
- * DOM refs
- **********************/
-const loadingEl = document.getElementById('loading');
-const loadingText = document.getElementById('loadingText');
-const authCTAs = document.getElementById('authCTAs');
-const googleSignInBtn = document.getElementById('btnGoogleSignIn');
-const templatesContainer = document.getElementById('templatesContainer');
-const modal = document.getElementById('confirmationModal');
-const cancelBtn = document.getElementById('cancelBtn');
-const confirmBtn = document.getElementById('confirmBtn');
-const toast = document.getElementById('toast');
-const toastMessage = document.getElementById('toastMessage');
-const templateNameElement = document.getElementById('templateName');
-const usernameElement = document.getElementById('username');
-
-/**********************
- * STATE + TEMPLATES
- **********************/
-let currentUser = null;
-let userTemplateSelection = null;
-let selectedTemplate = null;
-let saving = false;
-let lastSaveAttemptWas = null; // keep previous selection to revert if save fails
-
-const templates = {
-  templateA: { id: "templateA", name: "Soft Pink", previewUrl: "https://squadvertex2007.web.app/templates/a", liveUrl: "https://squadvertex2007.web.app/preview/a", imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#fcd4ec", vibe:"Girlish, soft" },
-  templateB: { id: "templateB", name: "Dark Minimal", previewUrl: "https://squadvertex2007.web.app/templates/b", liveUrl: "https://squadvertex2007.web.app/preview/b", imageUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#101010", vibe:"Bold, minimal" },
-  templateC: { id: "templateC", name: "Nature Green", previewUrl: "https://squadvertex2007.web.app/templates/c", liveUrl: "https://squadvertex2007.web.app/preview/c", imageUrl:"https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#c8f5c2", vibe:"Calming, peaceful" }
-};
-
-/**********************
- * HELPERS - UI
- **********************/
-function showLoading(msg){ loadingEl.style.display='flex'; templatesContainer.style.display='none'; authCTAs.style.display='none'; loadingText.textContent = msg || "Loading..."; }
-function hideLoading(){ loadingEl.style.display='none'; templatesContainer.style.display='grid'; }
-function showAuthCTAs(){ authCTAs.style.display = 'block'; templatesContainer.style.display='none'; loadingEl.style.display='none'; }
-function showModal(name){ templateNameElement.textContent = name; modal.classList.add('active'); modal.setAttribute('aria-hidden','false'); }
-function hideModal(){ modal.classList.remove('active'); modal.setAttribute('aria-hidden','true'); }
-function showToast(msg, isError){ toastMessage.textContent = msg; toast.classList.add('active'); if(isError) toast.classList.add('error'); setTimeout(()=>{ toast.classList.remove('active'); toast.classList.remove('error'); }, 3500); }
-
-/* Status banner (above templates) */
-function ensureStatusBanner(){
-  let banner = document.getElementById('selectionStatusBanner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'selectionStatusBanner';
-    banner.style.cssText = 'padding:12px;margin:12px 0;border-radius:8px;font-weight:600;display:block;';
-    templatesContainer.parentNode.insertBefore(banner, templatesContainer);
-  }
-  return banner;
-}
-function renderSelectionStatus(){
-  const banner = ensureStatusBanner();
-  const debug = ensureDebugPanel();
-  if (!currentUser) {
-    banner.textContent = 'Not signed in. Sign in to choose a template.';
-    banner.style.background = '#ffe6e6';
-    banner.style.color = '#6b0000';
-    debug.innerHTML = `Path: (not signed in)`;
-    return;
-  }
-  const path = `users/${currentUser.uid}/profile_template/selection`;
-  debug.innerHTML = `<strong>Firestore path</strong>: ${path}<br><small>UID: ${currentUser.uid}</small>`;
-  if (!userTemplateSelection) {
-    banner.textContent = 'No template selected yet. Click "Use This Template" to choose one.';
-    banner.style.background = '#fff7e6';
-    banner.style.color = '#333';
-  } else {
-    const friendlyName = (templates[userTemplateSelection] && templates[userTemplateSelection].name) || userTemplateSelection;
-    banner.innerHTML = `✅ Selected template: <strong>${friendlyName}</strong> <span style="margin-left:10px;color:#666">(${userTemplateSelection})</span>`;
-    banner.style.background = '#e6ffed';
-    banner.style.color = '#0a6b3a';
-  }
-}
-
-/* Debug panel (mobile visible) */
-function ensureDebugPanel(){
-  let dbg = document.getElementById('svxDebugPanel');
-  if (!dbg) {
-    dbg = document.createElement('div');
-    dbg.id = 'svxDebugPanel';
-    dbg.style.cssText = 'font-family:monospace;font-size:12px;padding:8px;margin:10px 0;border-radius:6px;background:#111;color:#ddd;max-width:calc(100% - 24px);word-break:break-word;';
-    templatesContainer.parentNode.insertBefore(dbg, templatesContainer.nextSibling);
-  }
-  return dbg;
-}
-function updateDebug(message, level='log'){
-  const dbg = ensureDebugPanel();
-  const time = new Date().toLocaleTimeString();
-  const color = (level === 'error') ? '#ff6b6b' : (level === 'warn' ? '#ffd66b' : '#9be7ff');
-  dbg.innerHTML = `<div style="color:${color}">[${time}] ${message}</div>` + dbg.innerHTML;
-}
-
-/**********************
- * AUTH FLOW (No Anonymous)
- **********************/
-document.addEventListener('DOMContentLoaded', () => {
-  showLoading("Checking sign-in status...");
-  // Listen for auth state
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      currentUser = user;
-      usernameElement.textContent = user.displayName || user.email || `User-${user.uid.slice(0,6)}`;
-      loadingText.textContent = "Loading your template selection...";
-      updateDebug(`Signed in as ${usernameElement.textContent}`);
-      loadTemplateSelection();
-    } else {
-      // not signed in — show CTAs
-      loadingText.textContent = "You must sign in with a real account to manage templates.";
-      showAuthCTAs();
-      updateDebug('No signed-in user', 'warn');
-      renderSelectionStatus();
-    }
-  });
-
-  // UI listeners
-  googleSignInBtn.addEventListener('click', () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider)
-      .then(result => {
-        currentUser = result.user;
-        showToast("Signed in as " + (currentUser.displayName || currentUser.email));
-        updateDebug('Google sign-in succeeded for ' + (currentUser.email || currentUser.uid));
-      })
-      .catch(err => {
-        console.error("Google sign-in failed", err);
-        updateDebug('Google sign-in failed: ' + err.message, 'error');
-        showToast("Sign-in failed", true);
-      });
-  });
-
-  cancelBtn.addEventListener('click', hideModal);
-  confirmBtn.addEventListener('click', () => confirmTemplateSelection());
-  // close modal when clicking outside content
-  window.addEventListener('click', e => {
-    if (modal.classList.contains('active') && !document.querySelector('.modal-content').contains(e.target)) hideModal();
-  });
-  window.addEventListener('keydown', e => { if (e.key === 'Escape') hideModal(); });
-});
-
-/**********************
- * LOAD / RENDER
- **********************/
-function loadTemplateSelection(){
-  if (!currentUser) { showAuthCTAs(); return; }
-  showLoading("Loading your selection...");
-
-  const selectionRef = db.collection('users').doc(currentUser.uid).collection('profile_template').doc('selection');
-
-  selectionRef.get()
-    .then(docSnap => {
-      if (docSnap.exists) {
-        userTemplateSelection = docSnap.data().template_id;
-        updateDebug(`selection doc exists: ${JSON.stringify(docSnap.data())}`);
-      } else {
-        userTemplateSelection = null;
-        updateDebug('selection doc does NOT exist (user hasn\'t chosen a template yet)', 'warn');
-      }
-      renderTemplates();
-      renderSelectionStatus();
-      hideLoading();
-    })
-    .catch(err => {
-      console.error("Failed to read selection:", err);
-      updateDebug('Error reading selection: ' + (err.message || err), 'error');
-      if (err && err.code === 'permission-denied') {
-        showToast("Permission denied reading selection. Check Firestore rules.", true);
-      } else {
-        showToast("Failed to load selection", true);
-      }
-      // still render templates (read-only)
-      userTemplateSelection = null;
-      renderTemplates();
-      renderSelectionStatus();
-      hideLoading();
-    });
-}
-
-function renderTemplates(){
-  templatesContainer.innerHTML = '';
-  Object.values(templates).forEach(t => {
-    const isSelected = (userTemplateSelection === t.id);
-    const card = document.createElement('div');
-    card.className = 'template-card';
-    card.style.border = `2px solid ${t.color || '#ddd'}`;
-    card.innerHTML = `
-      <div class="template-header">
-        <div class="template-name">${t.name}</div>
-        <div class="template-desc">${t.vibe}</div>
-      </div>
-      <div class="template-preview"><img src="${t.imageUrl}" alt="${t.name} Template" style="width:100%;height:140px;object-fit:cover;border-radius:6px"></div>
-      <div class="template-actions">
-        <button class="btn btn-preview"> <i class="fas fa-eye"></i> Preview</button>
-        <button class="btn btn-copy"> <i class="fas fa-link"></i> Copy Link</button>
-        <button class="btn btn-use" ${isSelected ? 'disabled' : ''} data-template="${t.id}">
-          <i class="fas fa-check-circle"></i> ${isSelected ? 'Current Template' : 'Use This Template'}
-        </button>
-      </div>
-    `;
-    // actions
-    card.querySelector('.btn-preview').addEventListener('click', ()=> window.open(t.liveUrl, '_blank'));
-    card.querySelector('.btn-copy').addEventListener('click', ()=> { copyToClipboard(t.previewUrl); showToast('Template link copied'); updateDebug('Copied previewUrl to clipboard'); });
-    const useBtn = card.querySelector('.btn-use');
-    if (!isSelected) useBtn.addEventListener('click', ()=> { 
-      if (!currentUser) { showToast("Sign in first to use a template", true); showAuthCTAs(); return; }
-      selectedTemplate = t.id; 
-      showModal(t.name); 
-    });
-
-    if (isSelected) {
-      const badge = document.createElement('div'); badge.className='selected-badge'; badge.innerHTML = '<i class="fas fa-check"></i> Selected';
-      card.appendChild(badge);
-    }
-    templatesContainer.appendChild(card);
-  });
-  templatesContainer.style.display = 'grid';
-  renderSelectionStatus();
-}
-
-/**********************
- * SAVE SELECTION (optimistic UI)
- **********************/
-function confirmTemplateSelection(){
-  if (!selectedTemplate || !currentUser || saving) return;
-  // optimistic update: remember previous selection, update UI immediately
-  lastSaveAttemptWas = userTemplateSelection;
-  userTemplateSelection = selectedTemplate;
-  renderTemplates();
-  renderSelectionStatus();
-
-  saving = true;
-  confirmBtn.disabled = true;
-  confirmBtn.textContent = "Saving...";
-
-  const selectionRef = db.collection('users').doc(currentUser.uid).collection('profile_template').doc('selection');
-
-  const payload = {
-    template_id: selectedTemplate,
-    selected_at: firebase.firestore.FieldValue.serverTimestamp(),
-    preview_url: templates[selectedTemplate].previewUrl
+  // CONFIG
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
   };
 
-  selectionRef.set(payload, { merge: true })
-    .then(()=> {
-      updateDebug(`Saved selection: ${JSON.stringify(payload)}`);
-      showToast("Template selected successfully!");
-      hideModal();
-      // clear selectedTemplate variable
-      selectedTemplate = null;
-    })
-    .catch(err => {
-      console.error("Save failed:", err);
-      updateDebug('Save failed: ' + (err.message || err), 'error');
-      // revert optimistic change
-      userTemplateSelection = lastSaveAttemptWas || null;
-      renderTemplates();
-      renderSelectionStatus();
-      if (err && err.code === 'permission-denied') {
-        showToast("Permission denied — check Firestore rules (must allow writes for your UID).", true);
-      } else {
-        showToast("Failed to save template – try again.", true);
-      }
-    })
-    .finally(()=> {
-      saving = false;
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = "Confirm Selection";
-    });
-}
+  // DOM refs
+  const loadingEl = document.getElementById('loading');
+  const loadingText = document.getElementById('loadingText');
+  const authCTAs = document.getElementById('authCTAs');
+  const googleSignInBtn = document.getElementById('btnGoogleSignIn');
+  const templatesContainer = document.getElementById('templatesContainer');
+  const modal = document.getElementById('confirmationModal');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const confirmBtn = document.getElementById('confirmBtn');
+  const toast = document.getElementById('toast');
+  const toastMessage = document.getElementById('toastMessage');
+  const templateNameElement = document.getElementById('templateName');
+  const usernameElement = document.getElementById('username');
 
-/**********************
- * UTIL
- **********************/
-function copyToClipboard(text){
-  if (!navigator.clipboard) { showToast("Copy not supported", true); return; }
-  navigator.clipboard.writeText(text).catch(err=>{ console.error('copy fail',err); showToast("Copy failed", true); });
-}
-</script>
+  // state
+  let firebaseReady = false;
+  let db = null;
+  let auth = null;
+  let currentUser = null;
+  let userTemplateSelection = null;
+  let selectedTemplate = null;
+  let saving = false;
+  let lastSaveAttemptWas = null;
+
+  // templates (same as before)
+  const templates = {
+    templateA: { id: "templateA", name: "Soft Pink", previewUrl: "https://squadvertex2007.web.app/templates/a", liveUrl: "https://squadvertex2007.web.app/preview/a", imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#fcd4ec", vibe:"Girlish, soft" },
+    templateB: { id: "templateB", name: "Dark Minimal", previewUrl: "https://squadvertex2007.web.app/templates/b", liveUrl: "https://squadvertex2007.web.app/preview/b", imageUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#101010", vibe:"Bold, minimal" },
+    templateC: { id: "templateC", name: "Nature Green", previewUrl: "https://squadvertex2007.web.app/templates/c", liveUrl: "https://squadvertex2007.web.app/preview/c", imageUrl:"https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", color:"#c8f5c2", vibe:"Calming, peaceful" }
+  };
+
+  /* UI helpers */
+  function showLoading(msg){ loadingEl.style.display='flex'; templatesContainer.style.display='none'; authCTAs.style.display='none'; loadingText.textContent = msg || "Loading..."; }
+  function hideLoading(){ loadingEl.style.display='none'; templatesContainer.style.display='grid'; }
+  function showAuthCTAs(){ authCTAs.style.display = 'block'; templatesContainer.style.display='none'; loadingEl.style.display='none'; }
+  function showModal(name){ templateNameElement.textContent = name; modal.classList.add('active'); modal.setAttribute('aria-hidden','false'); }
+  function hideModal(){ modal.classList.remove('active'); modal.setAttribute('aria-hidden','true'); }
+  function showToast(msg, isError){ toastMessage.textContent = msg; toast.classList.add('active'); if(isError) toast.classList.add('error'); setTimeout(()=>{ toast.classList.remove('active'); toast.classList.remove('error'); }, 3000); }
+
+  /* status banner + debug panel (mobile) */
+  function ensureStatusBanner(){
+    let banner = document.getElementById('selectionStatusBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'selectionStatusBanner';
+      banner.style.cssText = 'padding:12px;margin:12px 0;border-radius:8px;font-weight:600;display:block;background:#fff7e6;color:#333';
+      templatesContainer.parentNode.insertBefore(banner, templatesContainer);
+    }
+    return banner;
+  }
+  function ensureDebugPanel(){
+    let dbg = document.getElementById('svxDebugPanel');
+    if (!dbg) {
+      dbg = document.createElement('div');
+      dbg.id = 'svxDebugPanel';
+      dbg.style.cssText = 'font-family:monospace;font-size:12px;padding:8px;margin:10px 0;border-radius:6px;background:#111;color:#ddd;max-width:calc(100% - 24px);word-break:break-word;';
+      templatesContainer.parentNode.insertBefore(dbg, templatesContainer.nextSibling);
+    }
+    return dbg;
+  }
+  function updateDebug(message, level='log'){
+    const dbg = ensureDebugPanel();
+    const time = new Date().toLocaleTimeString();
+    const color = (level === 'error') ? '#ff6b6b' : (level === 'warn' ? '#ffd66b' : '#9be7ff');
+    dbg.innerHTML = `<div style="color:${color}">[${time}] ${message}</div>` + dbg.innerHTML;
+  }
+  function renderSelectionStatus(){
+    const banner = ensureStatusBanner();
+    const dbg = ensureDebugPanel();
+    if (!firebaseReady) {
+      banner.textContent = 'Firebase not ready. Check debug panel for details.';
+      banner.style.background = '#ffe6e6';
+      banner.style.color = '#6b0000';
+      dbg.innerHTML = `<strong>Firebase:</strong> not initialized<br>` + dbg.innerHTML;
+      return;
+    }
+    if (!currentUser) {
+      banner.textContent = 'Not signed in. Sign in to choose a template.';
+      banner.style.background = '#ffe6e6';
+      banner.style.color = '#6b0000';
+      dbg.innerHTML = `<strong>Path:</strong> (not signed in)` + dbg.innerHTML;
+      return;
+    }
+    const path = `users/${currentUser.uid}/profile_template/selection`;
+    dbg.innerHTML = `<strong>Firestore path</strong>: ${path}<br><small>UID: ${currentUser.uid}</small><hr>` + dbg.innerHTML;
+    if (!userTemplateSelection) {
+      banner.textContent = 'No template selected yet. Click "Use This Template" to choose one.';
+      banner.style.background = '#fff7e6';
+      banner.style.color = '#333';
+    } else {
+      const friendlyName = (templates[userTemplateSelection] && templates[userTemplateSelection].name) || userTemplateSelection;
+      banner.innerHTML = `✅ Selected template: <strong>${friendlyName}</strong> <span style="margin-left:10px;color:#666">(${userTemplateSelection})</span>`;
+      banner.style.background = '#e6ffed';
+      banner.style.color = '#0a6b3a';
+    }
+  }
+
+  /* Safe firebase init: verify window.firebase exists and required methods present */
+  function safeInitFirebase() {
+    try {
+      if (!window.firebase) {
+        updateDebug('window.firebase is not present. Make sure compat SDKs are included in <head>.', 'error');
+        showLoading('Firebase SDKs not loaded; check head includes.');
+        return false;
+      }
+      // initialize only if not initialized already
+      if (!firebase.apps || firebase.apps.length === 0) {
+        firebase.initializeApp(firebaseConfig);
+        updateDebug('firebase.initializeApp() called.');
+      } else {
+        updateDebug('firebase already initialized.');
+      }
+
+      // check firestore/auth exist
+      if (!firebase.firestore || !firebase.auth) {
+        updateDebug('firebase.firestore() or firebase.auth() missing (incompatible SDKs).', 'error');
+        showLoading('Firebase SDK mismatch.');
+        return false;
+      }
+
+      db = firebase.firestore();
+      auth = firebase.auth();
+      firebaseReady = true;
+      updateDebug('Firebase ready (firestore + auth detected).');
+      return true;
+    } catch (e) {
+      console.error('safeInitFirebase error', e);
+      updateDebug('safeInitFirebase error: ' + (e.message || e), 'error');
+      showLoading('Firebase init failed — see debug panel');
+      return false;
+    }
+  }
+
+  // call safe init immediately
+  const ok = safeInitFirebase();
+  if (!ok) {
+    // nothing else will work — provide clear instruction
+    ensureDebugPanel().innerHTML = '<b>Fix:</b> include compat SDKs in the page head: firebase-app-compat.js, firebase-auth-compat.js, firebase-firestore-compat.js (v9.22.x compat) and reload.';
+  }
+
+  /* auth + UI wiring */
+  document.addEventListener('DOMContentLoaded', () => {
+    // modal/cancel/confirm
+    cancelBtn.addEventListener('click', ()=> { hideModal(); selectedTemplate = null; });
+    confirmBtn.addEventListener('click', confirmTemplateSelection);
+    window.addEventListener('click', e => {
+      if (modal.classList.contains('active') && !document.querySelector('.modal-content').contains(e.target)) hideModal();
+    });
+    window.addEventListener('keydown', e => { if (e.key === 'Escape') hideModal(); });
+
+    if (!firebaseReady) {
+      renderSelectionStatus();
+      return;
+    }
+
+    showLoading('Checking sign-in status...');
+
+    // auth listener
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        usernameElement.textContent = user.displayName || user.email || `User-${user.uid.slice(0,6)}`;
+        updateDebug('Signed in as: ' + (usernameElement.textContent || user.uid));
+        loadTemplateSelection();
+      } else {
+        currentUser = null;
+        updateDebug('No user signed in.');
+        // show sign-in CTAs
+        showAuthCTAs();
+        renderSelectionStatus();
+      }
+    });
+
+    // google sign button: try popup first; fallback to redirect (mobile)
+    googleSignInBtn.addEventListener('click', async () => {
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        // try popup
+        await auth.signInWithPopup(provider);
+        updateDebug('Google sign-in via popup succeeded.');
+      } catch (popupErr) {
+        updateDebug('Popup sign-in failed: ' + (popupErr.message || popupErr), 'warn');
+        // fallback to redirect (works on mobile)
+        try {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          await auth.signInWithRedirect(provider);
+          updateDebug('Redirect sign-in started. Complete sign-in after redirect.');
+        } catch (redirErr) {
+          updateDebug('Redirect sign-in also failed: ' + (redirErr.message || redirErr), 'error');
+          showToast('Sign-in failed. Check debug panel.', true);
+        }
+      }
+    });
+  });
+
+  /* load selection from Firestore */
+  function loadTemplateSelection(){
+    if (!firebaseReady) { updateDebug('Tried loadTemplateSelection but firebase not ready', 'error'); renderSelectionStatus(); return; }
+    if (!currentUser) { updateDebug('loadTemplateSelection: no currentUser', 'warn'); renderSelectionStatus(); showAuthCTAs(); return; }
+
+    showLoading('Loading your template selection...');
+    const ref = db.collection('users').doc(currentUser.uid).collection('profile_template').doc('selection');
+
+    ref.get()
+      .then(docSnap => {
+        if (docSnap.exists) {
+          userTemplateSelection = docSnap.data().template_id;
+          updateDebug(`selection exists: ${JSON.stringify(docSnap.data())}`);
+        } else {
+          userTemplateSelection = null;
+          updateDebug('selection doc does not exist for this user (first-time).', 'warn');
+        }
+        renderTemplates();
+        renderSelectionStatus();
+        hideLoading();
+      })
+      .catch(err => {
+        console.error('Error reading selection', err);
+        updateDebug('Error reading selection: '+(err.message||err), 'error');
+        showToast('Failed to load selection. Check rules.', true);
+        userTemplateSelection = null;
+        renderTemplates();
+        renderSelectionStatus();
+        hideLoading();
+      });
+  }
+
+  /* render template cards & attach handlers */
+  function renderTemplates(){
+    templatesContainer.innerHTML = '';
+    Object.values(templates).forEach(t => {
+      const isSelected = (userTemplateSelection === t.id);
+      const card = document.createElement('div');
+      card.className = 'template-card';
+      card.style.border = `2px solid ${t.color || '#ddd'}`;
+      card.style.padding = '12px';
+      card.style.borderRadius = '8px';
+      card.style.margin = '8px 0';
+      card.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700">${t.name}</div>
+            <div style="font-size:13px;color:#666">${t.vibe}</div>
+          </div>
+          ${isSelected ? '<div style="background:#0a6b3a;color:#fff;padding:6px;border-radius:6px;font-size:13px">Selected</div>' : ''}
+        </div>
+        <div style="margin-top:10px"><img src="${t.imageUrl}" alt="${t.name}" style="width:100%;height:140px;object-fit:cover;border-radius:6px"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-preview">Preview</button>
+          <button class="btn btn-copy">Copy Link</button>
+          <button class="btn btn-use" ${isSelected ? 'disabled' : ''} data-template="${t.id}">${isSelected ? 'Current Template' : 'Use This Template'}</button>
+        </div>
+      `;
+      templatesContainer.appendChild(card);
+
+      // handlers
+      const previewBtn = card.querySelector('.btn-preview');
+      const copyBtn = card.querySelector('.btn-copy');
+      const useBtn = card.querySelector('.btn-use');
+
+      previewBtn.addEventListener('click', ()=> window.open(t.liveUrl, '_blank'));
+      copyBtn.addEventListener('click', ()=> { 
+        copyToClipboard(t.previewUrl); 
+        showToast('Preview link copied'); 
+        updateDebug('Copied ' + t.previewUrl);
+      });
+      if (useBtn && !isSelected) {
+        useBtn.addEventListener('click', ()=> {
+          if (!currentUser) { showToast('Sign in first', true); showAuthCTAs(); return; }
+          selectedTemplate = t.id;
+          showModal(t.name);
+        });
+      }
+    });
+
+    templatesContainer.style.display = 'grid';
+    renderSelectionStatus();
+  }
+
+  /* confirm + save selection (optimistic) */
+  function confirmTemplateSelection(){
+    if (!selectedTemplate || !currentUser || saving) return;
+    lastSaveAttemptWas = userTemplateSelection;
+    userTemplateSelection = selectedTemplate; // optimistic UI
+    renderTemplates();
+    renderSelectionStatus();
+
+    saving = true;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Saving...';
+
+    const ref = db.collection('users').doc(currentUser.uid).collection('profile_template').doc('selection');
+    const payload = {
+      template_id: selectedTemplate,
+      selected_at: firebase.firestore.FieldValue.serverTimestamp(),
+      preview_url: templates[selectedTemplate].previewUrl || ''
+    };
+
+    ref.set(payload, { merge: true })
+      .then(()=> {
+        updateDebug('Saved selection: ' + JSON.stringify(payload));
+        showToast('Template selected');
+        hideModal();
+        selectedTemplate = null;
+      })
+      .catch(err => {
+        console.error('Save failed', err);
+        updateDebug('Save failed: '+(err.message||err), 'error');
+        userTemplateSelection = lastSaveAttemptWas || null; // revert
+        renderTemplates();
+        renderSelectionStatus();
+        showToast('Failed to save. Check Firestore rules.', true);
+      })
+      .finally(()=> {
+        saving = false;
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm Selection';
+      });
+  }
+
+  /* simple clipboard util */
+  function copyToClipboard(text){
+    if (!navigator.clipboard) { showToast('Copy not supported', true); return; }
+    navigator.clipboard.writeText(text).catch(err => { updateDebug('Clipboard fail: '+(err.message||err), 'warn'); showToast('Copy failed', true); });
+  }
+
+  // initial render state
+  renderSelectionStatus();
+  </script>
 </body>
 </html>
