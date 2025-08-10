@@ -614,217 +614,220 @@
   </footer>
 
   <script type="module">
-    /* TemplateC portal — default view OR user-specific view when ?id=UID is present.
-       Uses Firebase v10 (firestore client). Defensive and minimal. */
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+  // ---------- CONFIG ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+  };
 
-    // FIREBASE CONFIG (your public config)
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
+  // OPTIONAL: Put your YouTube Data API key here if you want live channel data.
+  // Leave empty string to skip YouTube API calls.
+  const youtubeApiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA"; // <-- ADD KEY HERE if you want live YT data
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
-    // Small helper to read query param (id or uid)
-    function getQueryUID() {
-      const qp = new URLSearchParams(window.location.search);
-      return qp.get('id') || qp.get('uid') || null;
+  // ---------- DOM REFS ----------
+  const bannerEl = document.getElementById("channel-banner");
+  const logoEl = document.getElementById("channel-logo");
+  const nameEl = document.getElementById("channel-name");
+  const taglineEl = document.getElementById("channel-tagline");
+  const descEl = document.getElementById("channel-description");
+  const ytLinkEl = document.getElementById("youtube-link");
+  const instaLinkEl = document.getElementById("instagram-link");
+  const ytSubsEl = document.getElementById("youtube-subs");
+  const instaEl = document.getElementById("instagram-followers");
+  const shortsContainer = document.getElementById("shortsContainer");
+  const replaysContainer = document.getElementById("replaysContainer");
+
+  // ---------- DEFAULTS ----------
+  const defaults = {
+    channelName: "SquadVertex",
+    tagline: "Gaming • Strategy • Community",
+    description: "Default portal view — no user ID provided.",
+    youtubeLink: "https://www.youtube.com/",
+    instagramLink: "https://www.instagram.com/",
+    youtubeSubsText: "— Subscribers",
+    instaFollowersText: "— Followers",
+    bannerUrl: "https://images.unsplash.com/photo-1508766206392-8bd5cf550d1b?auto=format&fit=crop&w=1400&q=60",
+    logoUrl: "https://www.squadvertex.great-site.net/assets/default-logo.png",
+    shorts: [],
+    videos: []
+  };
+
+  // ---------- HELPERS ----------
+  function getQueryUID() {
+    const p = new URLSearchParams(window.location.search);
+    return p.get('id') || p.get('uid') || null;
+  }
+
+  function extractVideoId(url) {
+    if (!url) return null;
+    const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*embed\/|shorts\/))([^?&/]+)/);
+    return m ? m[1] : null;
+  }
+
+  function clearGrid(container) { container.innerHTML = ''; }
+
+  function appendVideo(container, url, cls = '') {
+    const id = extractVideoId(url) || "dQw4w9WgXcQ";
+    const div = document.createElement('div');
+    div.className = cls || 'video-item';
+    div.innerHTML = `<iframe src="https://www.youtube.com/embed/${id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;height:180px;border-radius:8px"></iframe>`;
+    container.appendChild(div);
+  }
+
+  // Merge payload on top of defaults (only override properties provided)
+  function applyPortalData(payload = {}) {
+    const data = { ...defaults, ...(payload || {}) };
+
+    bannerEl.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('${data.bannerUrl}')`;
+    logoEl.src = data.logoUrl;
+    nameEl.textContent = data.channelName;
+    taglineEl.textContent = data.tagline;
+    descEl.textContent = data.description;
+    ytLinkEl.href = data.youtubeLink;
+    instaLinkEl.href = data.instagramLink;
+    ytSubsEl.textContent = data.youtubeSubsText || defaults.youtubeSubsText;
+    instaEl.textContent = data.instaFollowersText || defaults.instaFollowersText;
+
+    // videos
+    const shorts = Array.isArray(data.shorts) ? data.shorts : [];
+    const vids = Array.isArray(data.videos) ? data.videos : [];
+
+    clearGrid(shortsContainer);
+    clearGrid(replaysContainer);
+
+    if (shorts.length) shorts.slice(0,3).forEach(u => appendVideo(shortsContainer, u, 'shorts-item'));
+    else {
+      // keep skeleton placeholders when none
+      for (let i=0;i<3;i++){
+        const ph = document.createElement('div');
+        ph.className = 'shorts-item skeleton';
+        ph.innerHTML = `<div class="video-placeholder">No Shorts</div>`;
+        shortsContainer.appendChild(ph);
+      }
     }
 
-    // Defaults (SquadVertex dummy)
-    const defaults = {
-      channelName: "SquadVertex",
-      tagline: "Gaming • Strategy • Community",
-      description: "Welcome to SquadVertex — creators-first platform. This is a default demo portal. Add a user id with ?id=<UID> to view a user portal.",
-      youtubeLink: "https://www.youtube.com/",
-      instagramLink: "https://www.instagram.com/",
-      youtubeSubsText: "1,200,000 Subscribers",
-      instaFollowersText: "120k Followers",
-      bannerUrl: "https://images.unsplash.com/photo-1508766206392-8bd5cf550d1b?auto=format&fit=crop&w=1400&q=60",
-      logoUrl: "https://www.squadvertex.great-site.net/assets/default-logo.png",
-      shorts: [], // empty = use placeholders
-      videos: []
-    };
+    if (vids.length) vids.slice(0,3).forEach(u => appendVideo(replaysContainer, u, 'replays-item'));
+    else {
+      for (let i=0;i<3;i++){
+        const ph = document.createElement('div');
+        ph.className = 'replays-item skeleton';
+        ph.innerHTML = `<div class="video-placeholder">No Replays</div>`;
+        replaysContainer.appendChild(ph);
+      }
+    }
+  }
 
-    // YT API KEY (optional): if you want live subs count. Leave blank to skip YT call.
-    const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA"; // <-- put key if you want, else leave blank
+  // Fetch documents exactly at:
+  // users/{uid}/profile_data/settings
+  // users/{uid}/profile_data/shorts (expects { content: [] })
+  // users/{uid}/profile_data/videos (expects { content: [] })
+  async function fetchUserPortal(uid) {
+    try {
+      const settingsRef = doc(db, 'users', uid, 'profile_data', 'settings');
+      const shortsRef   = doc(db, 'users', uid, 'profile_data', 'shorts');
+      const videosRef   = doc(db, 'users', uid, 'profile_data', 'videos');
 
-    // DOM refs
-    const bannerEl = document.getElementById("channel-banner");
-    const logoEl = document.getElementById("channel-logo");
-    const nameEl = document.getElementById("channel-name");
-    const taglineEl = document.getElementById("channel-tagline");
-    const descEl = document.getElementById("channel-description");
-    const ytLinkEl = document.getElementById("youtube-link");
-    const instaLinkEl = document.getElementById("instagram-link");
-    const ytSubsEl = document.getElementById("youtube-subs");
-    const instaEl = document.getElementById("instagram-followers");
-    const shortsContainer = document.getElementById("shortsContainer");
-    const replaysContainer = document.getElementById("replaysContainer");
+      const [sSnap, shSnap, vSnap] = await Promise.all([getDoc(settingsRef), getDoc(shortsRef), getDoc(videosRef)]);
+      const payload = {};
 
-    // Sample placeholders
-    const sampleShorts = [
-      "https://www.youtube.com/shorts/ABC123",
-      "https://www.youtube.com/shorts/DEF456",
-      "https://www.youtube.com/shorts/GHI789"
-    ];
-    const sampleReplays = [
-      "https://www.youtube.com/watch?v=JKL012",
-      "https://www.youtube.com/watch?v=MNO345",
-      "https://www.youtube.com/watch?v=PQR678"
-    ];
+      if (sSnap.exists()) {
+        const s = sSnap.data();
+        // copy only the fields we care about (defensive)
+        if (s.channelName) payload.channelName = s.channelName;
+        if (s.tagline) payload.tagline = s.tagline;
+        if (s.description) payload.description = s.description;
+        if (s.bannerUrl) payload.bannerUrl = s.bannerUrl;
+        if (s.logoUrl) payload.logoUrl = s.logoUrl;
+        if (s.youtubeLink) payload.youtubeLink = s.youtubeLink;
+        if (s.youtubeChannelId) payload.youtubeChannelId = s.youtubeChannelId; // optional
+        if (s.youtubeSubsText) payload.youtubeSubsText = s.youtubeSubsText;
+        if (s.instagramLink) payload.instagramLink = s.instagramLink;
+        if (s.instaFollowersText) payload.instaFollowersText = s.instaFollowersText;
+        if (s.instaCount !== undefined) payload.instaFollowersText = `${s.instaCount} Followers`;
+      }
 
-    // Extract YouTube ID helper (works for short and full links)
-    function extractVideoId(url) {
-      if (!url) return null;
-      const ytShort = url.match(/(?:youtu\.be\/)([^?&/]+)/);
-      if (ytShort) return ytShort[1];
-      const match = url.match(/[?&]v=([^?&]+)/);
-      if (match) return match[1];
-      const embed = url.match(/\/embed\/([^?&/]+)/);
-      if (embed) return embed[1];
-      const shorts = url.match(/youtube\.com\/shorts\/([^?&/]+)/);
-      if (shorts) return shorts[1];
+      if (shSnap.exists()) {
+        const sh = shSnap.data();
+        if (Array.isArray(sh.content)) payload.shorts = sh.content;
+      }
+
+      if (vSnap.exists()) {
+        const v = vSnap.data();
+        if (Array.isArray(v.content)) payload.videos = v.content;
+      }
+
+      return payload;
+    } catch (err) {
+      // bubble up so caller can handle permission-denied or network errors
+      throw err;
+    }
+  }
+
+  // Optionally fetch YouTube live info if key provided + channel id present.
+  async function maybeFetchYouTubeInfo(channelId) {
+    if (!youtubeApiKey || !channelId) return null;
+    try {
+      const url = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${encodeURIComponent(channelId)}&key=${youtubeApiKey}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`YT API ${res.status}`);
+      const json = await res.json();
+      if (json.items && json.items.length > 0) {
+        const ch = json.items[0];
+        return {
+          channelName: ch.snippet.title,
+          logoUrl: ch.snippet.thumbnails?.default?.url || null,
+          youtubeSubsText: `${parseInt(ch.statistics.subscriberCount || 0).toLocaleString()} Subscribers`,
+          youtubeLink: `https://www.youtube.com/channel/${channelId}`
+        };
+      }
+      return null;
+    } catch (err) {
+      console.warn("YouTube fetch failed:", err);
       return null;
     }
+  }
 
-    function clearGrid(container) {
-      container.innerHTML = "";
-    }
+  // ---------- MAIN ----------
+  window.addEventListener('DOMContentLoaded', async () => {
+    // render defaults first
+    applyPortalData();
 
-    function appendVideo(container, url, className = "") {
-      const id = extractVideoId(url) || "dQw4w9WgXcQ";
-      const div = document.createElement("div");
-      div.className = className || "video-item";
-      div.innerHTML = `<iframe src="https://www.youtube.com/embed/${id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;height:180px;border-radius:8px"></iframe>`;
-      container.appendChild(div);
-    }
+    const uid = getQueryUID();
+    if (!uid) return; // nothing to fetch
 
-    // Apply a portal payload (object) onto page
-    function applyPortalData(payload) {
-      const channelName = payload.channelName || payload.name || defaults.channelName;
-      const tagline = payload.tagline || payload.channelTagline || defaults.tagline;
-      const desc = payload.desc || payload.description || defaults.description;
-      const youtubeLink = payload.channelLink || payload.youtubeLink || defaults.youtubeLink;
-      const instaLink = payload.instaLink || payload.instagramLink || defaults.instagramLink;
-      const youtubeSubsText = payload.youtubeSubsText || (payload.youtubeCount ? `${payload.youtubeCount.toLocaleString()} Subscribers` : defaults.youtubeSubsText);
-      const instaFollowersText = payload.instaCount ? `${payload.instaCount} Followers` : (payload.instaFollowersText || defaults.instaFollowersText);
-      const bannerUrl = payload.bannerUrl || payload.headerImage || defaults.bannerUrl;
-      const logoUrl = payload.logoUrl || payload.avatar || defaults.logoUrl;
+    // try to load user portal docs
+    try {
+      const payload = await fetchUserPortal(uid);
 
-      // Set DOM
-      bannerEl.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('${bannerUrl}')`;
-      logoEl.src = logoUrl;
-      nameEl.textContent = channelName;
-      taglineEl.textContent = tagline;
-      descEl.textContent = desc;
-      ytLinkEl.href = youtubeLink;
-      instaLinkEl.href = instaLink;
-      ytSubsEl.textContent = youtubeSubsText;
-      instaEl.textContent = instaFollowersText;
-
-      // Videos
-      clearGrid(shortsContainer);
-      clearGrid(replaysContainer);
-
-      const shorts = (payload.shorts && payload.shorts.length) ? payload.shorts : sampleShorts;
-      const vids = (payload.videos && payload.videos.length) ? payload.videos : sampleReplays;
-
-      // keep small count to avoid heavy load
-      shorts.slice(0,3).forEach(link => appendVideo(shortsContainer, link, "shorts-item"));
-      vids.slice(0,3).forEach(link => appendVideo(replaysContainer, link, "replays-item"));
-    }
-
-    // Main render logic
-    async function renderPortal() {
-      // Start with defaults
-      applyPortalData(defaults);
-
-      // If ?id=UID or ?uid=UID present -> try to load user doc
-      const uid = getQueryParam('id') || getQueryParam('uid');
-      if (!uid) {
-        // no uid -> show default page
-        console.log("No UID param — showing default portal");
-        return;
+      // if settings included youtubeChannelId and there's a youtubeApiKey, attempt live fetch and merge
+      if (payload.youtubeChannelId && youtubeApiKey) {
+        const ytInfo = await maybeFetchYouTubeInfo(payload.youtubeChannelId);
+        if (ytInfo) Object.assign(payload, ytInfo);
       }
 
-      // attempt to fetch users/{uid}
-      try {
-        const uRef = doc(db, 'users', uid);
-        const uSnap = await getDoc(uRef);
-        if (!uSnap.exists()) {
-          console.warn('User doc not found for uid', uid, '— showing defaults');
-          return;
-        }
-
-        // Heuristics: user doc may contain a `portal` object or direct fields — handle both
-        const udata = uSnap.data();
-        const portalPayload = udata.portal || udata.portalData || udata.profile_portal || udata; // try common names first
-
-        // If user has profile_template selection and that doc contains preview_url etc, we can merge
-        try {
-          const selRef = doc(db, 'users', uid, 'profile_template', 'selection');
-          const selSnap = await getDoc(selRef);
-          if (selSnap.exists()) {
-            const sdata = selSnap.data();
-            // sdata may contain preview_url or template-specific fields
-            if (sdata.preview_url && !portalPayload.bannerUrl) portalPayload.bannerUrl = sdata.preview_url;
-            if (sdata.template_id && !portalPayload.templateId) portalPayload.templateId = sdata.template_id;
-            if (sdata.custom && typeof sdata.custom === 'object') {
-              Object.assign(portalPayload, sdata.custom);
-            }
-          }
-        } catch (e) {
-          // ignore selection read errors
-          console.warn('Cannot read profile_template selection for user', uid, e.message || e);
-        }
-
-        // If portalPayload has channelId and YT_API_KEY available, try fetch subs (non-blocking)
-        if (portalPayload && (portalPayload.channelId || portalPayload.youtubeChannelId) && YT_API_KEY) {
-          const cid = portalPayload.channelId || portalPayload.youtubeChannelId;
-          try {
-            const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics,snippet&id=${cid}&key=${YT_API_KEY}`);
-            const ytJson = await ytRes.json();
-            if (ytJson.items && ytJson.items.length) {
-              const ch = ytJson.items[0];
-              portalPayload.youtubeCount = parseInt(ch.statistics.subscriberCount || 0, 10);
-              if (!portalPayload.channelLink) portalPayload.channelLink = `https://www.youtube.com/channel/${cid}`;
-              if (!portalPayload.logoUrl && ch.snippet && ch.snippet.thumbnails && ch.snippet.thumbnails.default)
-                portalPayload.logoUrl = ch.snippet.thumbnails.default.url;
-            }
-          } catch (e) {
-            console.warn('YT API failed', e);
-            // continue with whatever we have
-          }
-        }
-
-        // Finally, apply portal payload to page (merging into defaults)
-        applyPortalData(Object.assign({}, defaults, portalPayload || {}));
-        console.log('Rendered portal for UID', uid);
-      } catch (err) {
-        console.error('Error fetching user portal for uid', uid, err);
-        // leave defaults in place (no throw)
+      applyPortalData(payload);
+      console.log("Rendered portal for UID:", uid);
+    } catch (err) {
+      console.error("Error loading user portal:", err);
+      // if permission denied, optionally show message in description (non-technical)
+      if (err && err.code === 'permission-denied') {
+        descEl.textContent = "This portal's data is private. (permission-denied)";
+      } else {
+        descEl.textContent = "Could not load user portal — showing defaults.";
       }
+      // defaults already applied
     }
-
-    // small helper to read query params
-    function getQueryParam(name) {
-      const sp = new URLSearchParams(window.location.search);
-      return sp.get(name);
-    }
-
-    // run on DOM ready
-    window.addEventListener('DOMContentLoaded', () => {
-      renderPortal();
-    });
-  </script>
+  });
+</script>
 </body>
 </html>
