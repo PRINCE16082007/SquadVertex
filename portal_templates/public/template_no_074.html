@@ -612,8 +612,8 @@
   <div class="channel-banner">
     <div class="banner-overlay">
       <div class="banner-text">
-        <h1>SquadVertex</h1>
-    <!--    <p> Description if needed! </p> -->
+        <h1 id="banner-title">SquadVertex</h1>
+      <!--    <p> Description if needed! </p> -->
       </div>
     </div>
   </div>
@@ -629,7 +629,7 @@
     <p id="channel-description" class="channel-description">Loading... Please wait...</p>
 
     <div class="social-media">
-      <a id="youtube-card" href="#" target="_blank" class="social-card">
+      <a id="youtube-card" href="#" target="_blank" class="social-card" rel="noopener">
         <div class="social-icon">
           <i class="fab fa-youtube"></i>
         </div>
@@ -639,7 +639,7 @@
         </div>
       </a>
 
-      <a id="instagram-card" href="#" target="_blank" class="social-card">
+      <a id="instagram-card" href="#" target="_blank" class="social-card" rel="noopener">
         <div class="social-icon">
           <i class="fab fa-instagram"></i>
         </div>
@@ -754,9 +754,15 @@
   </footer>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    // ---------- FIREBASE (modular v11.9.0) ----------
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
+    // Replace with your firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -765,75 +771,235 @@
       messagingSenderId: "168905083514",
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
     };
+
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    async function renderPortal() {
-      const settingsRef = doc(db, "003-channel", "settings");
-      const settingsSnap = await getDoc(settingsRef);
-      if (settingsSnap.exists()) {
-        const { channelId, channelLink, desc, instaCount, instaLink } = settingsSnap.data();
+    // Replace with your YouTube Data API key
+    const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
 
-        // Set links for social cards
-        document.getElementById("youtube-card").href = channelLink;
-        document.getElementById("instagram-card").href = instaLink;
+    // Default fake data for when no id is provided or doc missing
+    const DEFAULT_CHANNEL = {
+      channelId: null,
+      channelLink: "https://www.youtube.com/@squadvertex",
+      channelLogo: "https://via.placeholder.com/88?text=SVX",
+      channelName: "SquadVertex",
+      desc: "SquadVertex — A futuristic creator platform. Welcome to the hub of creators and community.",
+      instaCount: "—",
+      instaLink: "#",
+      lastResolvedAt: null,
+      lastUpdated: null
+    };
 
-        // Set channel description
-        document.getElementById("channel-description").textContent = desc;
-
-       // Set Instagram followers and remove skeleton
-        const instaFollowersEl = document.getElementById("instagram-followers");
-        instaFollowersEl.textContent = `${instaCount} Followers`;
-        instaFollowersEl.classList.remove("skeleton");
-        instaFollowersEl.style.width = "auto";
-        instaFollowersEl.style.height = "auto";
-
-        // Fetch YouTube data
-        const apiKey = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
-        const ytData = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${apiKey}`)
-          .then(res => res.json());
-        const channel = ytData.items[0];
-
-        // Set YouTube data and remove skeleton
-        document.getElementById("channel-logo").src = channel.snippet.thumbnails.default.url;
-        document.getElementById("channel-logo").classList.remove("skeleton");
-
-        document.getElementById("channel-name").textContent = channel.snippet.title;
-
-        const youtubeSubsEl = document.getElementById("youtube-subs");
-        youtubeSubsEl.textContent = `${channel.statistics.subscriberCount} Subscribers`;
-        youtubeSubsEl.classList.remove("skeleton");
-        youtubeSubsEl.style.width = "auto";
-        youtubeSubsEl.style.height = "auto";
+    // Helper: read URL param 'id'
+    function getUIDFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("id");
+        return id ? id.trim() : null;
+      } catch (e) {
+        console.warn("Failed to parse URL params", e);
+        return null;
       }
-
-      // Fetch and display videos
-      const shortsRef = doc(db, "003-channel", "shorts");
-      const videosRef = doc(db, "003-channel", "videos");
-      const [shortsSnap, videosSnap] = await Promise.all([getDoc(shortsRef), getDoc(videosRef)]);
-
-      const shortsContainer = document.getElementById("shortsContainer");
-      const replaysContainer = document.getElementById("replaysContainer");
-      shortsContainer.innerHTML = "";
-      replaysContainer.innerHTML = "";
-
-      if (shortsSnap.exists()) shortsSnap.data().content.forEach(link => appendVideo(shortsContainer, link, "shorts-item"));
-      if (videosSnap.exists()) videosSnap.data().content.forEach(link => appendVideo(replaysContainer, link, "replays-item"));
     }
 
+    // DOM setters
+    function setChannelUI(data) {
+      const channelLogoEl = document.getElementById("channel-logo");
+      const channelNameEl = document.getElementById("channel-name");
+      const channelDescEl = document.getElementById("channel-description");
+      const bannerTitle = document.getElementById("banner-title");
+      const youtubeCard = document.getElementById("youtube-card");
+      const instagramCard = document.getElementById("instagram-card");
+      const youtubeSubsEl = document.getElementById("youtube-subs");
+      const instaFollowersEl = document.getElementById("instagram-followers");
+
+      channelLogoEl.src = data.channelLogo || DEFAULT_CHANNEL.channelLogo;
+      channelLogoEl.classList.remove("skeleton");
+
+      channelNameEl.textContent = data.channelName || DEFAULT_CHANNEL.channelName;
+      bannerTitle.textContent = data.channelName || DEFAULT_CHANNEL.channelName;
+
+      channelDescEl.textContent = data.desc || DEFAULT_CHANNEL.desc;
+
+      youtubeCard.href = data.channelLink || DEFAULT_CHANNEL.channelLink;
+      instagramCard.href = data.instaLink || DEFAULT_CHANNEL.instaLink;
+
+      // subscribers - may be number or string
+      if (data.subscriberCount != null) {
+        youtubeSubsEl.textContent = `${numberWithCommas(data.subscriberCount)} Subscribers`;
+      } else {
+        youtubeSubsEl.textContent = DEFAULT_CHANNEL.channelId ? "Subscribers" : "— Subscribers";
+      }
+      youtubeSubsEl.classList.remove("skeleton");
+      youtubeSubsEl.style.width = "auto";
+      youtubeSubsEl.style.height = "auto";
+
+      instaFollowersEl.textContent = data.instaCount ? `${data.instaCount} Followers` : `${DEFAULT_CHANNEL.instaCount} Followers`;
+      instaFollowersEl.classList.remove("skeleton");
+      instaFollowersEl.style.width = "auto";
+      instaFollowersEl.style.height = "auto";
+    }
+
+    function numberWithCommas(x) {
+      if (x == null) return x;
+      const s = typeof x === "string" ? x : String(x);
+      // sometimes YouTube API returns numbers as strings — keep it safe
+      return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    // Video helpers
     function extractVideoId(url) {
-      const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*embed\/))([^?&]+)/);
+      const match = url && url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*embed\/))([^?&]+)/);
       return match ? match[1] : null;
     }
 
     function appendVideo(container, url, className) {
       const videoId = extractVideoId(url);
-      if (videoId) {
-        const div = document.createElement("div");
-        div.className = `content-item ${className}`;
-        div.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
-        container.appendChild(div);
+      if (!videoId) return;
+      const div = document.createElement("div");
+      div.className = `content-item ${className}`;
+      // small responsive iframe
+      div.innerHTML = `
+        <div class="video-wrapper">
+          <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>`;
+      container.appendChild(div);
+    }
+
+    // main entry
+    async function renderPortal() {
+      const uid = getUIDFromUrl();
+      if (!uid) {
+        // No UID in URL — show default company/style data and keep skeletons for media
+        console.info("No UID provided in URL — showing default SquadVertex data.");
+        setChannelUI(DEFAULT_CHANNEL);
+        // keep skeletons for shorts/replays — optionally show a friendly message
+        showEmptyState();
+        return;
       }
+
+      try {
+        // Paths: users/{UID}/profile_data/settings etc.
+        const settingsRef = doc(db, "users", uid, "profile_data", "settings");
+        const shortsRef = doc(db, "users", uid, "profile_data", "shorts");
+        const videosRef = doc(db, "users", uid, "profile_data", "videos");
+
+        // fetch docs in parallel
+        const [settingsSnap, shortsSnap, videosSnap] = await Promise.all([
+          getDoc(settingsRef).catch(e => { console.warn("settings read failed", e); return null; }),
+          getDoc(shortsRef).catch(e => { console.warn("shorts read failed", e); return null; }),
+          getDoc(videosRef).catch(e => { console.warn("videos read failed", e); return null; })
+        ]);
+
+        let settingsData = settingsSnap && settingsSnap.exists() ? settingsSnap.data() : null;
+
+        // If no settings, show fallback but continue to fetch media if present
+        if (!settingsData) {
+          console.warn("No settings doc found for UID:", uid);
+          setChannelUI(DEFAULT_CHANNEL);
+        } else {
+          // prefer to resolve channel details via YouTube API if channelId present
+          const channelId = settingsData.channelId || settingsData.channelID || settingsData.channelid || null;
+
+          // initial UI from stored settings (so UI isn't empty while YT fetch occurs)
+          setChannelUI({
+            channelLogo: settingsData.channelLogo,
+            channelName: settingsData.channelName,
+            channelLink: settingsData.channelLink,
+            desc: settingsData.desc,
+            instaCount: settingsData.instaCount,
+            instaLink: settingsData.instaLink,
+            subscriberCount: null
+          });
+
+          if (channelId && YT_API_KEY && YT_API_KEY !== "YOUR_YT_API_KEY") {
+            try {
+              const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${YT_API_KEY}`)
+                .then(r => r.json());
+              if (ytRes && ytRes.items && ytRes.items.length) {
+                const ch = ytRes.items[0];
+                const snippet = ch.snippet || {};
+                const stats = ch.statistics || {};
+
+                // build updated data
+                const resolved = {
+                  channelLogo: (snippet.thumbnails && (snippet.thumbnails.high || snippet.thumbnails.medium || snippet.thumbnails.default) && (snippet.thumbnails.high || snippet.thumbnails.medium || snippet.thumbnails.default).url) || settingsData.channelLogo,
+                  channelName: snippet.title || settingsData.channelName,
+                  channelLink: settingsData.channelLink || `https://www.youtube.com/channel/${channelId}`,
+                  desc: settingsData.desc || snippet.description || DEFAULT_CHANNEL.desc,
+                  instaCount: settingsData.instaCount || DEFAULT_CHANNEL.instaCount,
+                  instaLink: settingsData.instaLink || DEFAULT_CHANNEL.instaLink,
+                  subscriberCount: stats.subscriberCount || null
+                };
+                setChannelUI(resolved);
+              } else {
+                console.warn("YT API returned no channel for id:", channelId, ytRes);
+                // fallback to stored data already set
+              }
+            } catch (ytErr) {
+              console.warn("YT fetch failed:", ytErr);
+            }
+          } else {
+            // no YT key or no channelId — keep stored settings
+            console.info("No YT API key provided or channelId missing; using stored settings.");
+          }
+        }
+
+        // populate shorts & videos
+        const shortsContainer = document.getElementById("shortsContainer");
+        const replaysContainer = document.getElementById("replaysContainer");
+        // reset content
+        shortsContainer.innerHTML = "";
+        replaysContainer.innerHTML = "";
+
+        // shorts
+        if (shortsSnap && shortsSnap.exists()) {
+          const shortsData = shortsSnap.data();
+          const arr = Array.isArray(shortsData.content) ? shortsData.content : [];
+          if (arr.length === 0) {
+            // empty -> show empty skeletons or friendly message
+            showEmptyIn(shortsContainer, "No shorts yet.");
+          } else {
+            arr.forEach(link => appendVideo(shortsContainer, link, "shorts-item"));
+          }
+        } else {
+          showEmptyIn(shortsContainer, "No shorts yet.");
+        }
+
+        // videos (replays)
+        if (videosSnap && videosSnap.exists()) {
+          const videosData = videosSnap.data();
+          const arr = Array.isArray(videosData.content) ? videosData.content : [];
+          if (arr.length === 0) {
+            showEmptyIn(replaysContainer, "No replays yet.");
+          } else {
+            arr.forEach(link => appendVideo(replaysContainer, link, "replays-item"));
+          }
+        } else {
+          showEmptyIn(replaysContainer, "No replays yet.");
+        }
+
+      } catch (err) {
+        console.error("renderPortal failed:", err);
+        // fallback UI
+        setChannelUI(DEFAULT_CHANNEL);
+        showEmptyState();
+      }
+    }
+
+    function showEmptyIn(container, message) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-message">${message}</div>
+        </div>`;
+    }
+
+    function showEmptyState() {
+      const shortsContainer = document.getElementById("shortsContainer");
+      const replaysContainer = document.getElementById("replaysContainer");
+      showEmptyIn(shortsContainer, "Shorts will appear here.");
+      showEmptyIn(replaysContainer, "Replays will appear here.");
     }
 
     window.addEventListener("DOMContentLoaded", renderPortal);
