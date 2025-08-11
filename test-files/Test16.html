@@ -6,10 +6,9 @@
   <title>Portal Template C — SquadVertex</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--accent:#48bb78;--muted:#6b7280;--bg:#0f172a}
+    :root{--accent:#48bb78;--muted:#6b7280}
     body{font-family:Inter,system-ui,Arial,sans-serif;margin:0;background:#fafafa;color:#111}
-    .channel-banner{height:220px;background-size:cover;background-position:center;display:flex;align-items:end;padding:18px;border-bottom:6px solid rgba(0,0,0,0.06)}
-    .banner-overlay{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none}
+    .channel-banner{height:220px;background-size:cover;background-position:center;display:flex;align-items:end;padding:18px;position:relative;border-bottom:6px solid rgba(0,0,0,0.06)}
     .container{max-width:1100px;margin:-70px auto 60px;padding:0 20px}
     .channel-details{display:flex;gap:20px;align-items:center;background:#fff;padding:18px;border-radius:12px;box-shadow:0 8px 30px rgba(16,24,40,0.06)}
     .channel-logo{width:96px;height:96px;border-radius:12px;object-fit:cover;background:#eee;display:block}
@@ -27,16 +26,13 @@
     .video-placeholder{color:var(--muted)}
     .top-contributors{background:#fff;padding:16px;border-radius:12px;min-height:220px}
     footer{padding:26px 20px;text-align:center;color:var(--muted);margin-top:40px}
-    /* skeleton */
     .skeleton{background:linear-gradient(90deg,#eee,#f5f5f5,#eee);background-size:200% 100%;animation:shimmer 1.2s linear infinite}
     @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    /* responsive */
     @media(max-width:900px){ .main{grid-template-columns:1fr} .shorts-grid,.replays-grid{grid-template-columns:repeat(2,1fr)} }
   </style>
 </head>
 <body>
   <div id="channel-banner" class="channel-banner" style="background-image: linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url('https://images.unsplash.com/photo-1508766206392-8bd5cf550d1b?auto=format&fit=crop&w=1400&q=60');">
-    <!-- banner area (decorative) -->
   </div>
 
   <div class="container">
@@ -107,12 +103,11 @@
     </footer>
   </div>
 
-  <!-- Firebase + script -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    // -------- CONFIG - keep same as your project --------
+    // ---------- CONFIG ----------
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -121,6 +116,9 @@
       messagingSenderId: "168905083514",
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
+
+    // Put your YouTube API key here (client-side, visible)
+    const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -140,7 +138,7 @@
     const portalModeEl = document.getElementById('portal-mode');
     const debugNoteEl = document.getElementById('debug-note');
 
-    // Defaults (used when no uid or docs)
+    // Defaults
     const defaults = {
       bannerUrl: 'https://images.unsplash.com/photo-1508766206392-8bd5cf550d1b?auto=format&fit=crop&w=1400&q=60',
       logoUrl: 'https://www.squadvertex.great-site.net/assets/default-logo.png',
@@ -161,31 +159,30 @@
     }
 
     function clearGrid(container){ container.innerHTML = ''; }
-
     function extractVideoId(url){
       if(!url) return null;
       const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*embed\/|shorts\/))([^?&/]+)/);
       return m ? m[1] : null;
     }
-
     function appendVideo(container, url, cls){
       const id = extractVideoId(url) || 'dQw4w9WgXcQ';
-      const div = document.createElement('div');
-      div.className = cls || '';
-      div.innerHTML = `<iframe src="https://www.youtube.com/embed/${id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;height:100%;"></iframe>`;
-      // keep fixed height containers
+      const frame = document.createElement('iframe');
+      frame.src = `https://www.youtube.com/embed/${id}`;
+      frame.setAttribute('frameborder','0');
+      frame.setAttribute('allow','accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+      frame.setAttribute('allowfullscreen','');
+      frame.style.width = '100%';
+      frame.style.height = '100%';
       const wrapper = document.createElement('div');
       wrapper.style.height = '120px';
       wrapper.style.overflow = 'hidden';
       wrapper.style.borderRadius = '8px';
-      wrapper.appendChild(div);
+      wrapper.appendChild(frame);
       container.appendChild(wrapper);
     }
 
     function applyPortalData(payload = {}){
       const data = Object.assign({}, defaults, payload || {});
-
-      // banner
       bannerEl.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url('${data.bannerUrl}')`;
       logoEl.src = data.logoUrl;
       nameEl.textContent = data.channelName;
@@ -196,7 +193,6 @@
       ytSubsEl.classList.remove('skeleton'); ytSubsEl.textContent = data.youtubeSubsText || defaults.youtubeSubsText;
       instaEl.classList.remove('skeleton'); instaEl.textContent = data.instaFollowersText || defaults.instaFollowersText;
 
-      // videos
       clearGrid(shortsContainer);
       clearGrid(replaysContainer);
 
@@ -220,7 +216,7 @@
       }
     }
 
-    // fetch docs from: users/{uid}/profile_data/{settings, shorts, videos}
+    // fetch docs: users/{uid}/profile_data/{settings,shorts,videos}
     async function fetchUserPortal(uid){
       const settingsRef = doc(db, 'users', uid, 'profile_data', 'settings');
       const shortsRef   = doc(db, 'users', uid, 'profile_data', 'shorts');
@@ -231,7 +227,6 @@
 
       if(sSnap.exists()){
         const s = sSnap.data();
-        // pick the expected fields only
         if(s.bannerUrl) payload.bannerUrl = s.bannerUrl;
         if(s.logoUrl) payload.logoUrl = s.logoUrl;
         if(s.channelName) payload.channelName = s.channelName;
@@ -246,7 +241,6 @@
 
       if(shSnap.exists()){
         const sh = shSnap.data();
-        // common shape: { content: [url,...] } or {items: [...]}
         if(Array.isArray(sh.content)) payload.shorts = sh.content;
         else if(Array.isArray(sh.items)) payload.shorts = sh.items;
       }
@@ -260,9 +254,27 @@
       return payload;
     }
 
-    // Main
-    (async function(){
-      // show defaults immediately
+    // Fetch youtube channel data via API (if we have channelId)
+    async function fetchYoutubeChannel(channelId){
+      if(!YT_API_KEY || !channelId) return null;
+      const url = `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${encodeURIComponent(channelId)}&key=${YT_API_KEY}`;
+      try {
+        const res = await fetch(url);
+        if(!res.ok){
+          console.warn('YT API not ok', res.status);
+          return null;
+        }
+        const data = await res.json();
+        if(data.items && data.items.length > 0) return data.items[0];
+        return null;
+      } catch(e){
+        console.error('YT fetch error', e);
+        return null;
+      }
+    }
+
+    (async function main(){
+      // show defaults first
       applyPortalData();
 
       const uid = getQueryUID();
@@ -282,6 +294,30 @@
           portalModeEl.textContent = 'User-specific (no data)';
           return;
         }
+
+        // if payload contains youtubeChannelId or youtubeLink -> try YT API
+        let channelId = payload.youtubeChannelId || null;
+        if(!channelId && payload.youtubeLink){
+          // attempt to parse /channel/ID
+          const m = payload.youtubeLink.match(/youtube\.com\/channel\/([A-Za-z0-9_-]+)/);
+          if(m) channelId = m[1];
+        }
+
+        if(channelId && YT_API_KEY){
+          const channel = await fetchYoutubeChannel(channelId);
+          if(channel){
+            payload.channelName = channel.snippet?.title || payload.channelName;
+            payload.logoUrl = channel.snippet?.thumbnails?.default?.url || payload.logoUrl;
+            const subs = channel.statistics?.subscriberCount;
+            if(subs !== undefined) payload.youtubeSubsText = `${parseInt(subs).toLocaleString()} Subscribers`;
+          } else {
+            // fallback: if settings provided youtubeSubsText keep it; else leave default
+            console.warn('YT channel not found or API failed for', channelId);
+          }
+        } else {
+          // If no channelId but settings provided a channelName/logo/subs, keep them.
+        }
+
         applyPortalData(payload);
         portalModeEl.textContent = `User-specific (${uid})`;
         debugNoteEl.textContent = `Loaded data from user ${uid}.`;
