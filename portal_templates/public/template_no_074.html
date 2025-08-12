@@ -37,6 +37,32 @@
     isTokenAutoRefreshEnabled: true
   });
 
+// after initializeAppCheck(...)
+window.__SV_firebaseApp = app;
+window.__SV_appCheck = appCheck;
+
+import { getToken as getAppCheckToken } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
+
+async function showAppCheckTokenPreview() {
+  try {
+    // window.__SV_appCheck was set above
+    if (!window.__SV_appCheck) {
+      console.warn("AppCheck instance not found on window.");
+      return;
+    }
+    const resp = await getAppCheckToken(window.__SV_appCheck, false);
+    console.log("APP CHECK token preview:", resp.token?.slice(0,36) + "...");
+    // optionally show in UI:
+    const el = document.createElement('div');
+    el.style = "position:fixed;left:8px;bottom:8px;padding:8px;background:rgba(0,0,0,0.7);color:#fff;border-radius:8px;z-index:99999;font-size:12px";
+    el.textContent = "AppCheck token: " + (resp.token ? resp.token.slice(0,24)+"..." : "no token");
+    document.body.appendChild(el);
+  } catch (e) {
+    console.error("getToken error", e);
+  }
+}
+showAppCheckTokenPreview();
+
   // small visibility hook; your main scripts can check window.__SV_appcheckReady
   window.__SV_appcheckReady = true;
   console.log("App Check initialized (ReCaptchaV3).");
@@ -789,26 +815,30 @@
   </footer>
 
   <script type="module">
-    // ---------- FIREBASE (modular v11.9.0) ----------
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import {
-      getFirestore,
-      doc,
-      getDoc
-    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+  // ---------- Firebase modular (v11.9.0) ----------
+  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+  import {
+    getFirestore,
+    doc,
+    getDoc
+  } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
-    // Replace with your firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-    };
+  // YOUR firebase config (kept as you provided)
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  // Use existing initialized app if present (so App Check stays attached).
+  // If no app exists, initialize a new one.
+  const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // ... rest of your bottom script unchanged ...
 
     // Replace with your YouTube Data API key
     const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
