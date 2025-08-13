@@ -685,7 +685,7 @@
       </div>
 
       <!-- PORTAL SECTION -->
-      <div class="portal-section" id="portal-section">
+      <div class="portal-section" id="portal-section" style="display:none;">
         <h2>
           <i class="fas fa-globe"></i> Your Public Portal
         </h2>
@@ -752,15 +752,24 @@
     </div>
   </footer>
 
+  <!-- Toast + token preview elements -->
+  <div id="svxToast"></div>
+  <div id="svxTokenPreview" style="display:none;">
+    <div id="svxTokenStatus">App Check: initializing...</div>
+    <small id="svxTokenPreviewSmall"></small>
+  </div>
+
 <script type="module">
+  /* =========================
+     Modular Firebase v9 imports
+     ========================= */
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-  import {
-    getAuth, onAuthStateChanged, signOut
-  } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
   import {
     getFirestore, doc, getDoc,
     collection, getDocs, Timestamp
   } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+  import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check.js";
 
   // ---------- CONFIG ----------
   const cfg = {
@@ -772,6 +781,9 @@
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
   };
 
+  // reCAPTCHA site key (your key)
+  const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
+
   // PUBLIC TEMPLATE MAP (use these exact URLs)
   const TEMPLATE_URLS = {
     templateA: "https://www.squadvertex.great-site.net/portal_templates/public/template_no_074.html",
@@ -779,16 +791,46 @@
     templateC: "https://www.squadvertex.great-site.net/portal_templates/public/template_no_067.html"
   };
 
-  // ---------- ADD IMAGE URLS FOR TEMPLATES HERE ----------
-  // You said you'll hard-code these — replace the empty strings with your image URLs.
+  // Template preview images — replace if you have them
   const TEMPLATE_IMAGE_URLS = {
-    templateA: "", // e.g. "https://.../templateA-preview.jpg"
-    templateB: "", // e.g. "https://.../templateB-preview.jpg"
-    templateC: ""  // e.g. "https://.../templateC-preview.jpg"
+    templateA: "",
+    templateB: "",
+    templateC: ""
   };
 
   // ---------- INIT ----------
   const app = initializeApp(cfg);
+
+  // App Check (modular) init — attach ReCaptchaV3 provider
+  let appCheck = null;
+  try {
+    appCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+      isTokenAutoRefreshEnabled: true
+    });
+    window.__SV_appCheck = appCheck;
+    console.log('[SVX] App Check (modular) initialized — ReCaptchaV3 provider attached.');
+    // try to fetch an initial token in background (non-blocking)
+    getAppCheckToken(appCheck, false).then(tok => {
+      try { 
+        const preview = tok?.token ? tok.token.slice(0,28) + '...' : '(no-token)';
+        document.getElementById('svxTokenPreviewSmall').textContent = preview;
+        document.getElementById('svxTokenStatus').textContent = 'App Check: token ready';
+        document.getElementById('svxTokenPreview').style.display = 'block';
+      } catch(e){}
+    }).catch(e=>{
+      console.warn('[SVX] initial getToken failed:', e);
+      document.getElementById('svxTokenStatus').textContent = 'App Check: token error';
+      document.getElementById('svxTokenPreviewSmall').textContent = e && e.message ? e.message : String(e);
+      document.getElementById('svxTokenPreview').style.display = 'block';
+    });
+  } catch (e) {
+    console.warn('[SVX] App Check init error (modular):', e);
+    document.getElementById('svxTokenStatus').textContent = 'App Check: init failed';
+    document.getElementById('svxTokenPreviewSmall').textContent = e && e.message ? e.message : String(e);
+    document.getElementById('svxTokenPreview').style.display = 'block';
+  }
+
   const auth = getAuth(app);
   const db   = getFirestore(app);
 
@@ -810,6 +852,7 @@
   const templateChosenDate = document.getElementById('template-chosen-date');
   const templatePreview = document.getElementById('template-preview');
   const profileCard = document.getElementById('profile-card');
+  const toast = document.getElementById('svxToast');
 
   // create copy button + toast (injected)
   const copyBtn = document.createElement('button');
@@ -818,12 +861,8 @@
   copyBtn.style.marginLeft = '8px';
   copyBtn.innerHTML = '<i class="fas fa-link"></i> Copy Portal URL';
 
-  const toast = document.createElement('div');
-  toast.id = 'svxToast';
-  toast.style.cssText = 'position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:8px;display:none;z-index:9999;font-weight:600;';
-  document.body.appendChild(toast);
-
   function showToast(text, ms = 2200) {
+    if (!toast) return;
     toast.textContent = text;
     toast.style.display = 'block';
     clearTimeout(toast._t);
@@ -859,24 +898,17 @@
     }
   }
 
-  // Build the public portal URL (template + id param)
   function buildPublicPortalUrl(templateId, uid) {
     const base = TEMPLATE_URLS[templateId] || TEMPLATE_URLS['templateA'];
-    // use param name `id` as you showed earlier
     return `${base}?id=${encodeURIComponent(uid)}`;
   }
 
-  // Show portal area and inject copy button once
   function setupPortalButtons(publicUrl, uid, templateId) {
-    // set view link to public template URL with user id param
     viewPortalBtn.href = publicUrl;
     viewPortalBtn.target = '_blank';
-
-    // set edit link to the manager page you specified (NO UID)
     editPortalBtn.href = 'https://www.squadvertex.great-site.net/portal_templates/portal_manager.html';
     editPortalBtn.target = '_blank';
 
-    // ensure copy button is present
     if (!document.getElementById('copyPortalBtn')) {
       const wrapper = document.createElement('div');
       wrapper.style.display = 'inline-block';
@@ -885,7 +917,7 @@
       const portalBtns = document.querySelector('.portal-buttons') || portalSection.querySelector('.portal-buttons');
       if (portalBtns) portalBtns.appendChild(wrapper);
     }
-    // click handler
+
     copyBtn.onclick = async () => {
       try {
         await navigator.clipboard.writeText(publicUrl);
@@ -897,7 +929,6 @@
     };
   }
 
-  // Format timestamp
   function fmtTimestamp(ts) {
     try {
       let date;
@@ -919,22 +950,17 @@
       if (templateSnap.exists()) {
         const templateData = templateSnap.data();
 
-        // Show portal section
         portalSection.style.display = 'block';
         templateSection.style.display = 'none';
 
-        // Determine template id
         const templateId = templateData.template_id || templateData.templateId || 'templateA';
         const publicUrl = buildPublicPortalUrl(templateId, uid);
 
-        // Set View/Edit/Copy
         setupPortalButtons(publicUrl, uid, templateId);
 
-        // Date
         const dateText = templateData.selected_at ? fmtTimestamp(templateData.selected_at) : '—';
         templateChosenDate.textContent = `Template chosen on ${dateText}`;
 
-        // For preview: prefer stored preview_url else use the image mapping else fallback to template file
         templatePreview.src = templateData.preview_url || TEMPLATE_IMAGE_URLS[templateId] || TEMPLATE_URLS[templateId] || 'https://via.placeholder.com/300x200?text=Template+Preview';
       } else {
         // No selection → redirect the user to your selector page
@@ -943,36 +969,60 @@
       }
     } catch (error) {
       console.error('Error checking template:', error);
-      // Hide sections to avoid showing wrong info
       templateSection.style.display = 'none';
       portalSection.style.display = 'none';
     }
   }
 
+  // ---------- App Check helper: ensure token ready (small timeout) ----------
+  async function ensureAppCheckToken(timeoutMs = 4000) {
+    if (!appCheck) {
+      console.warn('[SVX] ensureAppCheckToken: no appCheck instance');
+      return;
+    }
+    try {
+      const p = getAppCheckToken(appCheck, false);
+      const result = await Promise.race([p, new Promise((_, rej) => setTimeout(()=> rej(new Error('appcheck-timeout')), timeoutMs))]);
+      const preview = result?.token ? result.token.slice(0,28) + '...' : '(no-token)';
+      document.getElementById('svxTokenPreviewSmall').textContent = preview;
+      document.getElementById('svxTokenStatus').textContent = 'App Check: token ready';
+      document.getElementById('svxTokenPreview').style.display = 'block';
+      return result;
+    } catch (err) {
+      console.warn('[SVX] ensureAppCheckToken failed:', err);
+      document.getElementById('svxTokenStatus').textContent = 'App Check: token error';
+      document.getElementById('svxTokenPreviewSmall').textContent = err && err.message ? err.message : String(err);
+      document.getElementById('svxTokenPreview').style.display = 'block';
+    }
+  }
+
   // ---------- AUTH & LOAD PROFILE ----------
-  onAuthStateChanged(auth, async user => {
+  onAuthStateChanged(auth, async (user) => {
     if (!user) {
-      // not signed in → redirect to legal sign up page (as requested)
       console.warn('No user - redirecting to legal/sign_up.html');
       window.location.href = 'legal/sign_up.html';
       return;
     }
 
+    // Wait a bit for an App Check token before performing Firestore reads (reduces first-request token race)
+    await ensureAppCheckToken();
+
     // Remove skeleton loaders & initialize basic UI
-    skeletonPic.style.display = 'none';
-    picEl.style.display = 'block';
-    nameEl.innerHTML = '';
-    emailEl.innerHTML = '';
-    svxEl.innerHTML = '';
-    eventsEl.innerHTML = '';
-    statusEl.innerHTML = '';
+    try {
+      skeletonPic.style.display = 'none';
+      picEl.style.display = 'block';
+      nameEl.innerHTML = '';
+      emailEl.innerHTML = '';
+      svxEl.innerHTML = '';
+      eventsEl.innerHTML = '';
+      statusEl.innerHTML = '';
+    } catch(e){/* ignore DOM errors */}
 
     try {
       const uRef  = doc(db, 'users', user.uid);
       const uSnap = await getDoc(uRef);
 
       if (!uSnap.exists()) {
-        // If no user doc, show basic info from auth profile and allow progression
         console.warn('No user doc for', user.uid);
         nameEl.textContent  = user.displayName || '(No Name)';
         emailEl.textContent = user.email || '';
@@ -1021,7 +1071,6 @@
 
   // ---------- TEMPLATE CHOICE CTA ----------
   chooseTemplateBtn.addEventListener('click', () => {
-    // send them to the lightweight selector page you specified
     window.location.href = 'https://www.squadvertex.great-site.net/portal_templates/template_selector.html';
   });
 
