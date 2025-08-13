@@ -782,366 +782,316 @@
     </div>
   </footer>
 
-  <!-- REPLACE YOUR EXISTING module SCRIPT WITH THIS ENTIRE BLOCK -->
-<script type="module">
-/* =========================
-   SVX Analytics - Full Module
-   - Modular Firebase v9 (9.22.2)
-   - App Check (ReCaptcha v3)
-   - Chart integration (Chart.js expected on page)
-   ========================= */
+   <!-- FULL SCRIPT: modular firebase v9 + AppCheck + analytics logic -->
+  <script type="module">
+    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    import {
+      getFirestore, doc, getDoc, collection, getDocs, query, orderBy
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+    import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check.js";
 
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
-import {
-  getFirestore, doc, getDoc, collection, getDocs, query, orderBy
-} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
-import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check.js";
+    // ---------- CONFIG ----------
+    const cfg = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+    const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
 
-/* ---------- CONFIG - keep your values ---------- */
-const cfg = {
-  apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-  authDomain: "squadvertex2007.firebaseapp.com",
-  projectId: "squadvertex2007",
-  storageBucket: "squadvertex2007.appspot.com",
-  messagingSenderId: "168905083514",
-  appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-};
-// reCaptcha site key (your key)
-const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
-/* ----------------------------------------------- */
+    // ---------- INIT ----------
+    const app = getApps().length ? getApps()[0] : initializeApp(cfg);
 
-/* ---------- SAFE APP INIT (reuse if already initialized) ---------- */
-const app = getApps().length ? getApps()[0] : initializeApp(cfg);
-
-/* ---------- APP CHECK (modular) ---------- */
-/* We'll try to initialize App Check here, but if another script already created it (window.__SV_appCheck) we'll reuse. */
-let appCheck = window.__SV_appCheck || null;
-(async () => {
-  if (!appCheck) {
-    try {
-      appCheck = initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
-        isTokenAutoRefreshEnabled: true
-      });
-      window.__SV_appCheck = appCheck;
-      console.log('[SVX] App Check initialized (modular).');
-      // Try a background token fetch to populate preview quickly
-      try { const t = await getAppCheckToken(appCheck, false); console.log('[SVX] initial appCheck token acquired'); }
-      catch(e){ console.warn('[SVX] initial getToken failed (non-fatal):', e); }
-    } catch (e) {
-      console.warn('[SVX] App Check init failed:', e);
-    }
-  } else {
-    console.log('[SVX] Using existing App Check instance on window.__SV_appCheck');
-  }
-})();
-
-/* ---------- FIREBASE SDK HANDLES ---------- */
-const auth = getAuth(app);
-const db   = getFirestore(app);
-
-/* ---------- DOM ELEMENTS ---------- */
-const loadingOverlay = document.getElementById('loading-overlay');
-const totalSvxEl = document.getElementById('total-svx');
-const totalEarnedEl = document.getElementById('total-earned');
-const totalSpentEl = document.getElementById('total-spent');
-const txBody = document.getElementById('tx-body');
-const searchInput = document.getElementById('search-input');
-const pagination = document.getElementById('pagination');
-const logoutLink = document.getElementById('logout-link');
-const ctxCanvas = document.getElementById('activityChart');
-const ctx = ctxCanvas ? ctxCanvas.getContext('2d') : null;
-
-/* ---------- Chart reference ---------- */
-let activityChart;
-
-/* ---------- Pagination & data ---------- */
-let currentPage = 1;
-const transactionsPerPage = 5;
-let allTransactions = [];
-let filteredTransactions = [];
-
-/* ---------- UTILITIES ---------- */
-function safeToDate(ts) {
-  if (!ts) return new Date();
-  try {
-    return (typeof ts.toDate === 'function') ? ts.toDate() : new Date(ts);
-  } catch (e) {
-    return new Date(ts);
-  }
-}
-
-function formatDate(timestamp) {
-  const date = safeToDate(timestamp);
-  return date.toLocaleString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  });
-}
-
-function formatChartDate(timestamp) {
-  const date = safeToDate(timestamp);
-  return date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-}
-
-/* pick icon class for reason */
-function getTransactionIcon(reason = '') {
-  const r = (reason || '').toLowerCase();
-  if (r.includes('event') || r.includes('registration')) return 'fas fa-ticket-alt';
-  if (r.includes('bonus') || r.includes('reward')) return 'fas fa-gift';
-  if (r.includes('purchase') || r.includes('store')) return 'fas fa-store';
-  if (r.includes('referral')) return 'fas fa-users';
-  if (r.includes('contest') || r.includes('winner')) return 'fas fa-trophy';
-  if (r.includes('penalty') || r.includes('fee')) return 'fas fa-exclamation-circle';
-  return 'fas fa-exchange-alt';
-}
-
-/* ---------- RENDER FUNCTIONS ---------- */
-function renderTransactions(transactions) {
-  txBody.innerHTML = '';
-
-  if (!transactions || transactions.length === 0) {
-    txBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:2rem;color:#9aa3b2;">No transactions found</td></tr>`;
-    return;
-  }
-
-  for (const tx of transactions) {
-    const tr = document.createElement('tr');
-    const dateParts = formatDate(tx.timestamp).split(',');
-
-    tr.innerHTML = `
-      <td class="tx-date">
-        ${dateParts[0]}<br>
-        <span style="font-size:0.85rem;color:#a0aec0">${dateParts.slice(1).join(',')}</span>
-      </td>
-      <td class="tx-amount ${tx.amount >= 0 ? 'tx-positive' : 'tx-negative'}">
-        ${tx.amount >= 0 ? '+' : ''}${tx.amount} SVX
-      </td>
-      <td>
-        <div class="tx-reason">
-          <div class="tx-icon ${tx.amount >= 0 ? 'positive' : 'negative'}">
-            <i class="${getTransactionIcon(tx.reason)}"></i>
-          </div>
-          <div class="tx-details">
-            <div class="tx-title">${tx.reason || 'Transaction'}</div>
-            <div class="tx-description">${tx.description || 'No description available'}</div>
-          </div>
-        </div>
-      </td>
-    `;
-    txBody.appendChild(tr);
-  }
-}
-
-function renderPagination() {
-  const totalPages = Math.ceil(filteredTransactions.length / transactionsPerPage);
-  if (totalPages <= 1) { pagination.style.display = 'none'; return; }
-  pagination.style.display = 'flex';
-  pagination.innerHTML = '';
-
-  const prevButton = document.createElement('button');
-  prevButton.textContent = 'Previous';
-  prevButton.disabled = currentPage === 1;
-  prevButton.addEventListener('click', () => { if (currentPage>1) { currentPage--; renderTransactionPage(); }});
-  pagination.appendChild(prevButton);
-
-  const startPage = Math.max(1, currentPage - 2);
-  const endPage = Math.min(totalPages, startPage + 4);
-  for (let i = startPage; i <= endPage; i++) {
-    const btn = document.createElement('button');
-    btn.textContent = i;
-    if (i === currentPage) btn.classList.add('active');
-    btn.addEventListener('click', ()=> { currentPage = i; renderTransactionPage(); });
-    pagination.appendChild(btn);
-  }
-
-  const nextButton = document.createElement('button');
-  nextButton.textContent = 'Next';
-  nextButton.disabled = currentPage === totalPages;
-  nextButton.addEventListener('click', ()=> { if (currentPage < totalPages) { currentPage++; renderTransactionPage(); }});
-  pagination.appendChild(nextButton);
-}
-
-function renderTransactionPage() {
-  const startIndex = (currentPage - 1) * transactionsPerPage;
-  const endIndex = startIndex + transactionsPerPage;
-  const pageTx = filteredTransactions.slice(startIndex, endIndex);
-  renderTransactions(pageTx);
-  renderPagination();
-}
-
-/* filter logic bound to search input */
-function filterTransactions() {
-  const q = (searchInput.value || '').trim().toLowerCase();
-  if (!q) { filteredTransactions = [...allTransactions]; }
-  else {
-    filteredTransactions = allTransactions.filter(tx => {
-      const reason = tx.reason || '';
-      const desc = tx.description || '';
-      const dateText = formatDate(tx.timestamp);
-      return reason.toLowerCase().includes(q) ||
-             desc.toLowerCase().includes(q) ||
-             String(tx.amount).includes(q) ||
-             dateText.toLowerCase().includes(q);
-    });
-  }
-  currentPage = 1;
-  renderTransactionPage();
-}
-
-/* ---------- CHART ---------- */
-function initChart(transactions) {
-  if (!ctx) {
-    console.warn('[SVX] Chart context not found. Make sure <canvas id="activityChart"> exists and Chart.js is loaded.');
-    return;
-  }
-  // Aggregate per month-year
-  const monthly = {};
-  for (const tx of transactions) {
-    const date = safeToDate(tx.timestamp);
-    const key = `${date.getFullYear()}-${String(date.getMonth()).padStart(2,'0')}`;
-    if (!monthly[key]) monthly[key] = { earnings:0, spending:0, label: formatChartDate(tx.timestamp) };
-    if ((tx.amount || 0) >= 0) monthly[key].earnings += tx.amount || 0;
-    else monthly[key].spending += Math.abs(tx.amount || 0);
-  }
-
-  const keys = Object.keys(monthly).sort(); // chronological
-  const labels = keys.map(k => monthly[k].label);
-  const earningsData = keys.map(k => monthly[k].earnings);
-  const spendingData = keys.map(k => monthly[k].spending);
-
-  if (activityChart) activityChart.destroy();
-
-  // Chart colors are set for clarity; change if you want
-  activityChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'SVX Earnings', data: earningsData, borderColor: '#1db954', backgroundColor: 'rgba(29,185,84,0.08)', borderWidth: 2, tension: 0.25, fill: true },
-        { label: 'SVX Spending', data: spendingData, borderColor: '#e53e3e', backgroundColor: 'rgba(229,62,62,0.08)', borderWidth: 2, tension: 0.25, fill: true }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: {
-          callbacks: { label: ctxItem => `${ctxItem.dataset.label}: ${ctxItem.parsed.y} SVX` }
+    // App Check init (modular)
+    let appCheck = window.__SV_appCheck || null;
+    (async () => {
+      if (!appCheck) {
+        try {
+          appCheck = initializeAppCheck(app, {
+            provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+            isTokenAutoRefreshEnabled: true
+          });
+          window.__SV_appCheck = appCheck;
+          console.log('[SVX] App Check init OK (modular)');
+          // background token fetch (non-blocking)
+          try { const t = await getAppCheckToken(appCheck, false); console.log('[SVX] got appcheck token'); } catch(e){ console.warn('[SVX] appcheck getToken fail (ok for monitor):', e); }
+        } catch (e) {
+          console.warn('[SVX] App Check init error:', e);
         }
-      },
-      scales: {
-        x: { grid: { display: false } },
-        y: { beginAtZero: true, ticks: { callback: v => `${v} SVX` } }
+      } else {
+        console.log('[SVX] Using existing appCheck instance');
+      }
+    })();
+
+    const auth = getAuth(app);
+    const db   = getFirestore(app);
+
+    // ---------- ELEMENT REFS ----------
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const totalSvxEl = document.getElementById('total-svx');
+    const totalEarnedEl = document.getElementById('total-earned');
+    const totalSpentEl = document.getElementById('total-spent');
+    const txBody = document.getElementById('tx-body');
+    const searchInput = document.getElementById('search-input');
+    const pagination = document.getElementById('pagination');
+    const logoutLink = document.getElementById('logout-link');
+    const tokenPreviewBox = document.getElementById('svxTokenPreview');
+    const tokenStatus = document.getElementById('svxTokenStatus');
+    const tokenSmall = document.getElementById('svxTokenPreviewSmall');
+
+    // chart canvas
+    const ctxCanvas = document.getElementById('activityChart');
+    const ctx = ctxCanvas ? ctxCanvas.getContext('2d') : null;
+    let activityChart = null;
+
+    // data + filters
+    let allTransactions = [];
+    let filteredTransactions = [];
+    let currentPage = 1;
+    const transactionsPerPage = 5;
+    let currentTimeRangeMonths = 6; // default 6 months
+
+    // helpers
+    function safeToDate(ts){
+      if (!ts) return new Date();
+      try { return (typeof ts.toDate === 'function') ? ts.toDate() : new Date(ts); } catch(e){ return new Date(ts); }
+    }
+    function formatDate(timestamp) {
+      const date = safeToDate(timestamp);
+      return date.toLocaleString('en-US', { month: 'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    }
+    function formatChartDate(timestamp){
+      const date = safeToDate(timestamp);
+      return date.toLocaleDateString('en-US',{month:'short', year:'numeric'});
+    }
+    function getTransactionIcon(reason=''){
+      const r = (reason||'').toLowerCase();
+      if (r.includes('event') || r.includes('registration')) return 'fas fa-ticket-alt';
+      if (r.includes('bonus') || r.includes('reward')) return 'fas fa-gift';
+      if (r.includes('purchase') || r.includes('store')) return 'fas fa-store';
+      if (r.includes('referral')) return 'fas fa-users';
+      if (r.includes('contest')||r.includes('winner')) return 'fas fa-trophy';
+      if (r.includes('penalty')||r.includes('fee')) return 'fas fa-exclamation-circle';
+      return 'fas fa-exchange-alt';
+    }
+
+    // App Check token preview helper
+    async function showAppCheckPreview() {
+      if (!appCheck) return;
+      try {
+        const tok = await getAppCheckToken(appCheck, false);
+        const preview = tok?.token ? tok.token.slice(0,28)+'...' : '(no-token)';
+        tokenSmall.textContent = preview;
+        tokenStatus.textContent = 'App Check: token ready';
+        tokenPreviewBox.style.display = 'block';
+      } catch (e) {
+        tokenStatus.textContent = 'App Check: token error';
+        tokenSmall.textContent = (e && e.message) ? e.message : String(e);
+        tokenPreviewBox.style.display = 'block';
       }
     }
-  });
-}
 
-/* ---------- App Check helper (wait for token) ---------- */
-async function ensureAppCheckToken(timeoutMs = 4000) {
-  if (!appCheck) {
-    console.warn('[SVX] ensureAppCheckToken: appCheck instance not available');
-    return;
-  }
-  try {
-    const p = getAppCheckToken(appCheck, false);
-    const res = await Promise.race([p, new Promise((_, rej) => setTimeout(()=> rej(new Error('appcheck-timeout')), timeoutMs))]);
-    console.log('[SVX] AppCheck token preview:', res?.token ? res.token.slice(0,28) + '...' : '(no-token)');
-    return res;
-  } catch (err) {
-    console.warn('[SVX] ensureAppCheckToken failed:', err && err.message ? err.message : err);
-  }
-}
-
-/* ---------- DATA LOAD ---------- */
-async function loadUserData(uid) {
-  if (!uid) return;
-  if (loadingOverlay) loadingOverlay.style.display = 'block';
-  try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (!userDoc.exists()) throw new Error('User document not found');
-
-    const userData = userDoc.data();
-    (totalSvxEl).textContent = (userData.svx || 0).toLocaleString();
-
-    // Transactions query (descending by timestamp)
-    const txQ = query(collection(db, 'users', uid, 'transactions'), orderBy('timestamp', 'desc'));
-    const txSnap = await getDocs(txQ);
-
-    allTransactions = [];
-    let totalEarned = 0, totalSpent = 0;
-    for (const d of txSnap.docs) {
-      const t = d.data();
-      allTransactions.push({ id: d.id, ...t });
-      if ((t.amount || 0) >= 0) totalEarned += (t.amount || 0);
-      else totalSpent += Math.abs(t.amount || 0);
+    // ensure token available briefly before first DB calls
+    async function ensureAppCheckToken(timeoutMs=3500){
+      if (!appCheck) { console.warn('[SVX] no appCheck instance'); return; }
+      try {
+        const p = getAppCheckToken(appCheck, false);
+        const res = await Promise.race([p, new Promise((_, rej)=>setTimeout(()=>rej(new Error('appcheck-timeout')), timeoutMs))]);
+        console.log('[SVX] appCheck token preview:', res?.token ? res.token.slice(0,28)+'...' : '(no-token)');
+        tokenSmall.textContent = res?.token ? res.token.slice(0,28)+'...' : '(no-token)';
+        tokenStatus.textContent = 'App Check: token ready';
+        tokenPreviewBox.style.display = 'block';
+      } catch (e){
+        console.warn('[SVX] token wait failed (non-fatal):', e);
+        tokenStatus.textContent = 'App Check: token error';
+        tokenSmall.textContent = e && e.message ? e.message : String(e);
+        tokenPreviewBox.style.display = 'block';
+      }
     }
-    totalEarnedEl.textContent = '+' + totalEarned.toLocaleString();
-    totalSpentEl.textContent = '-' + totalSpent.toLocaleString();
 
-    // initialize chart + transactions
-    initChart(allTransactions);
-    filteredTransactions = [...allTransactions];
-    renderTransactionPage();
-
-    // wire search input
-    if (searchInput) {
-      searchInput.addEventListener('input', filterTransactions);
-    }
-    // wire time filter buttons (non-blocking: demo fetch placeholder)
-    document.querySelectorAll('.time-filter button').forEach(button => {
-      button.addEventListener('click', function() {
-        const prev = document.querySelector('.time-filter .active');
-        if (prev) prev.classList.remove('active');
-        this.classList.add('active');
-        const months = parseInt(this.dataset.range || '6', 10);
-        // Demo placeholder: real app should query with time range
-        console.info(`[SVX] time filter changed: ${months} months — you should query filtered data here`);
+    // filtering pipeline: apply time-range + search
+    function applyFiltersAndRender(){
+      // 1) time range cutoff
+      const now = new Date();
+      const cutoff = new Date(now.getFullYear(), now.getMonth() - (currentTimeRangeMonths||0), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds());
+      let timeFiltered = allTransactions.filter(tx => {
+        const date = safeToDate(tx.timestamp);
+        return date >= cutoff;
       });
+
+      // 2) search filter
+      const q = (searchInput?.value || '').trim().toLowerCase();
+      if (q) {
+        filteredTransactions = timeFiltered.filter(tx => {
+          const reason = (tx.reason||'').toLowerCase();
+          const desc = (tx.description||'').toLowerCase();
+          const dateText = formatDate(tx.timestamp).toLowerCase();
+          return reason.includes(q) || desc.includes(q) || String(tx.amount).includes(q) || dateText.includes(q);
+        });
+      } else {
+        filteredTransactions = timeFiltered;
+      }
+
+      // 3) reset pagination & render
+      currentPage = 1;
+      renderTransactionPage();
+      initChart(filteredTransactions); // chart reflects time+search filtered view
+    }
+
+    // render transactions + paging
+    function renderTransactions(transactions){
+      txBody.innerHTML = '';
+      if (!transactions || transactions.length === 0){
+        txBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:2rem;color:#9aa3b2">No transactions found</td></tr>`;
+        return;
+      }
+      for (const tx of transactions){
+        const tr = document.createElement('tr');
+        const dateParts = formatDate(tx.timestamp).split(',');
+        tr.innerHTML = `
+          <td class="tx-date">${dateParts[0]}<br><span style="font-size:0.85rem;color:#a0aec0">${dateParts.slice(1).join(',')}</span></td>
+          <td class="tx-amount ${tx.amount >= 0 ? 'tx-positive' : 'tx-negative'}">${tx.amount >= 0 ? '+' : ''}${tx.amount} SVX</td>
+          <td><div class="tx-reason"><div class="tx-icon ${tx.amount>=0?'positive':'negative'}"><i class="${getTransactionIcon(tx.reason)}"></i></div><div class="tx-details"><div class="tx-title">${tx.reason||'Transaction'}</div><div class="tx-description">${tx.description||'No description available'}</div></div></div></td>
+        `;
+        txBody.appendChild(tr);
+      }
+    }
+
+    function renderPagination(){
+      const totalPages = Math.ceil(filteredTransactions.length / transactionsPerPage);
+      if (!pagination) return;
+      pagination.innerHTML = '';
+      if (totalPages <= 1) { pagination.style.display = 'none'; return; }
+      pagination.style.display = 'flex';
+      const prev = document.createElement('button');
+      prev.textContent = 'Previous'; prev.disabled = currentPage===1;
+      prev.addEventListener('click', ()=>{ if (currentPage>1){currentPage--; renderTransactionPage();}});
+      pagination.appendChild(prev);
+      const startPage = Math.max(1, currentPage-2);
+      const endPage = Math.min(totalPages, startPage+4);
+      for (let i = startPage; i <= endPage; i++){
+        const btn = document.createElement('button'); btn.textContent = i; if (i===currentPage) btn.classList.add('active');
+        btn.addEventListener('click', ()=>{ currentPage = i; renderTransactionPage(); });
+        pagination.appendChild(btn);
+      }
+      const next = document.createElement('button'); next.textContent='Next'; next.disabled = currentPage===totalPages;
+      next.addEventListener('click', ()=>{ if (currentPage<totalPages){currentPage++; renderTransactionPage();}});
+      pagination.appendChild(next);
+    }
+
+    function renderTransactionPage(){
+      const start = (currentPage-1)*transactionsPerPage;
+      const end = start + transactionsPerPage;
+      const pageTx = filteredTransactions.slice(start, end);
+      renderTransactions(pageTx);
+      renderPagination();
+    }
+
+    // chart initializer (works with passed transactions)
+    function initChart(transactions){
+      if (!ctx) return;
+      // aggregate by month-year
+      const monthly = {};
+      for (const tx of transactions){
+        const date = safeToDate(tx.timestamp);
+        const key = `${date.getFullYear()}-${String(date.getMonth()).padStart(2,'0')}`;
+        if (!monthly[key]) monthly[key] = {earnings:0,spending:0,label: formatChartDate(tx.timestamp)};
+        if ((tx.amount||0) >= 0) monthly[key].earnings += (tx.amount||0);
+        else monthly[key].spending += Math.abs(tx.amount||0);
+      }
+      const keys = Object.keys(monthly).sort();
+      const labels = keys.map(k=>monthly[k].label);
+      const earnings = keys.map(k=>monthly[k].earnings);
+      const spending = keys.map(k=>monthly[k].spending);
+
+      if (activityChart) activityChart.destroy();
+      activityChart = new Chart(ctx, {
+        type:'line',
+        data:{ labels, datasets:[
+          {label:'SVX Earnings', data:earnings, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.08)', tension:0.25, fill:true},
+          {label:'SVX Spending', data:spending, borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.08)', tension:0.25, fill:true}
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top'}}, scales:{ y:{beginAtZero:true,ticks:{callback:v=>`${v} SVX`}}, x:{grid:{display:false}} } }
+      });
+    }
+
+    // LOAD user + transactions
+    async function loadUserData(uid){
+      if (!uid) return;
+      if (loadingOverlay) loadingOverlay.style.display = 'flex';
+      try {
+        const uDoc = await getDoc(doc(db, 'users', uid));
+        if (!uDoc.exists()) throw new Error('User document not found');
+        const u = uDoc.data();
+        document.getElementById('total-svx').textContent = (u.svx||0).toLocaleString();
+
+        // fetch transactions
+        const txQ = query(collection(db, 'users', uid, 'transactions'), orderBy('timestamp','desc'));
+        const snapshot = await getDocs(txQ);
+        allTransactions = [];
+        let totalEarned=0, totalSpent=0;
+        for (const d of snapshot.docs){
+          const tx = d.data();
+          // Normalize timestamp presence
+          if (!tx.timestamp) tx.timestamp = new Date();
+          allTransactions.push({ id:d.id, ...tx });
+          if ((tx.amount||0) >= 0) totalEarned += tx.amount || 0;
+          else totalSpent += Math.abs(tx.amount || 0);
+        }
+        document.getElementById('total-earned').textContent = '+'+totalEarned.toLocaleString();
+        document.getElementById('total-spent').textContent = '-'+totalSpent.toLocaleString();
+
+        // Apply filters and render (time range + search)
+        applyFiltersAndRender();
+
+        // Wire search input
+        if (searchInput) searchInput.addEventListener('input', ()=>{ applyFiltersAndRender(); });
+
+        // Wire time-filter buttons
+        document.querySelectorAll('.time-filter button').forEach(btn=>{
+          btn.addEventListener('click', function(){
+            document.querySelectorAll('.time-filter button').forEach(b=>b.classList.remove('active'));
+            this.classList.add('active');
+            const months = parseInt(this.dataset.range,10) || 6;
+            currentTimeRangeMonths = months;
+            applyFiltersAndRender();
+          });
+        });
+
+        // show token preview once token available
+        showAppCheckPreview();
+
+      } catch (err) {
+        console.error('[SVX] loadUserData error', err);
+        txBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:2rem;color:#e53e3e">Error loading transactions: ${err && err.message ? err.message : String(err)}</td></tr>`;
+      } finally {
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
+      }
+    }
+
+    // WAIT for auth and App Check token slight delay to avoid first-call rejection
+    onAuthStateChanged(auth, async user=>{
+      if (!user) { window.location.href = 'account.html'; return; }
+      // ensure token (non-blocking but short wait)
+      try { await ensureAppCheckToken(3000); } catch(e){ /* ignore */ }
+      await loadUserData(user.uid);
     });
 
-  } catch (err) {
-    console.error('[SVX] loadUserData error:', err);
-    txBody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:2rem;color:#e53e3e;">Error loading transactions: ${err && err.message ? err.message : String(err)}</td></tr>`;
-  } finally {
-    if (loadingOverlay) loadingOverlay.style.display = 'none';
-  }
-}
-
-/* ---------- AUTH HANDLER ---------- */
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    // user not authenticated -> send them out
-    window.location.href = 'account.html';
-    return;
-  }
-
-  // Wait briefly for App Check token to be ready to reduce first-request failures
-  await ensureAppCheckToken();
-
-  // Now load data safely
-  await loadUserData(user.uid);
-});
-
-/* ---------- LOGOUT ---------- */
-if (logoutLink) {
-  logoutLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    try {
-      await signOut(auth);
-      window.location.href = 'account.html';
-    } catch (err) {
-      console.error('[SVX] Logout failed:', err);
-      alert('Logout failed: ' + (err && err.message ? err.message : String(err)));
+    // LOGOUT
+    if (logoutLink){
+      logoutLink.addEventListener('click', async (e)=>{
+        e.preventDefault();
+        try { await signOut(auth); window.location.href = 'account.html'; }
+        catch(err){ console.error('[SVX] logout error', err); alert('Logout failed: '+ (err && err.message ? err.message : String(err))); }
+      });
     }
-  });
-}
 
-/* ---------- Quick safety notes printed to console ---------- */
-console.log('[SVX] Analytics module loaded. AppCheck present?', !!appCheck, 'Chart.js present?', typeof Chart !== 'undefined');
+    // final console status
+    console.log('[SVX] analytics script loaded. AppCheck:', !!appCheck, 'Chart.js:', typeof Chart !== 'undefined');
 
-</script>
+  </script>
 </body>
 </html>
