@@ -6,7 +6,11 @@
   <title>Portal Template No.098</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
-  <style>
+
+<!-- reCAPTCHA v3 (HEAD) -->
+<script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
+
+ <style>
     /* Base Styles - Dark Theme */
     :root {
       --primary: #0a0a12;
@@ -511,6 +515,27 @@
     .shorts-section { animation-delay: 0.1s; }
     .replays-section { animation-delay: 0.2s; }
     .top-contributors { animation-delay: 0.3s; }
+
+    /* Empty state styling */
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 40px 20px;
+      color: #aaa;
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 20px;
+      color: var(--neon);
+      opacity: 0.5;
+    }
+
+    .empty-state h3 {
+      font-family: 'Orbitron', sans-serif;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
   </style>
 </head>
 <body>
@@ -615,12 +640,20 @@
     </div>
   </footer>
 
+  <!-- App Check debug badge (mobile-friendly) -->
+  <div id="svxAppCheckDebug" style="position:fixed;right:12px;bottom:12px;background:rgba(0,0,0,0.7);color:#fff;padding:8px 10px;border-radius:8px;font-size:12px;z-index:9999;display:none;max-width:320px;">
+    <div id="svxAppCheckStatus">App Check: initializing...</div>
+    <div id="svxAppCheckToken" style="margin-top:6px;font-size:11px;opacity:0.95"></div>
+  </div>
+
+  <!-- ---------- MAIN SCRIPT (modular v11.9.0) ---------- -->
   <script type="module">
-    // --------- Firebase modular (v11.9.0) imports (your preferred version) ----------
+    // imports (modular)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
-    // YOUR firebase config (you provided this)
+    // ---------- CONFIG (use your values) ----------
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -630,44 +663,84 @@
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    // reCAPTCHA v3 site key (same key you have)
+    const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
 
-    // You gave this YT key earlier — used to fetch live channel info
+    // YouTube API key (optional)
     const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
 
-    // Default SquadVertex fallback (shown when id missing or doc absent)
+    // ---------- INIT APP ----------
+    const app = initializeApp(firebaseConfig);
+
+    // ---------- ACTIVATE APP CHECK (IMPORTANT: before Firestore usage) ----------
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+        isTokenAutoRefreshEnabled: true
+      });
+      // show debug box
+      document.getElementById('svxAppCheckDebug').style.display = 'block';
+      document.getElementById('svxAppCheckStatus').textContent = 'App Check: activated — requesting token...';
+    } catch (e) {
+      console.warn("App Check activation failed:", e);
+      document.getElementById('svxAppCheckDebug').style.display = 'block';
+      document.getElementById('svxAppCheckStatus').textContent = 'App Check: activation failed';
+    }
+
+    // try request token for debug (non-blocking)
+    (async function showToken() {
+      try {
+        // getAppCheckToken is optional — some builds don't export; use initializeAppCheck + this helper if available
+        // If getAppCheckToken not available, this will throw and we silently ignore.
+        const t = await getAppCheckToken();
+        const token = t && t.token ? t.token.slice(0, 64) + '…' : '(no-token)';
+        document.getElementById('svxAppCheckToken').textContent = token;
+        document.getElementById('svxAppCheckStatus').textContent = 'App Check: token obtained';
+      } catch (err) {
+        // fallback: wait a sec and try to read appCheck via global if possible
+        try {
+          setTimeout(async () => {
+            // best-effort: no error if not available
+            const t2 = await getAppCheckToken();
+            const token2 = t2 && t2.token ? t2.token.slice(0, 64) + '…' : '(no-token)';
+            document.getElementById('svxAppCheckToken').textContent = token2;
+            document.getElementById('svxAppCheckStatus').textContent = 'App Check: token obtained';
+          }, 800);
+        } catch (e) {
+          document.getElementById('svxAppCheckStatus').textContent = 'App Check: token unavailable';
+          document.getElementById('svxAppCheckToken').textContent = String(err?.message || err);
+          console.debug('AppCheck getToken error (non-fatal):', err);
+        }
+      }
+    })();
+
+    // ---------- Now Firestore (safe to use; tokens auto-attached) ----------
+    const db = getFirestore(app);
+
+    // ---------- DEFAULT CHANNEL ----------
     const DEFAULT_CHANNEL = {
       channelId: null,
       channelLink: "https://www.youtube.com/@squadvertex",
-      channelLogo: "https://via.placeholder.com/200?text=SVX",
+      channelLogo: "https://dl.dropboxusercontent.com/scl/fi/p1leuqnfduue8lctk7rz8/Screenshot_20240911-164901.jpg?rlkey=zn1tgy80cwcmwc3kadk0116ar&st=bfqe738a&dl=0",
       channelName: "SquadVertex",
+      tagline: "ELITE GAMING • STRATEGY • ESPORTS",
       desc: "SquadVertex — elite competitive gaming. Welcome to the hub of champions.",
       instaCount: "—",
       instaLink: "#",
-      bannerUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=3000"
+      bannerUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=3000",
+      subscriberCount: "1.5M"
     };
 
-    // Read 'id' param => UID
+    // ---------- UI Helpers (same as your code) ----------
     function getUIDFromUrl() {
-      try {
-        return new URLSearchParams(window.location.search).get("id")?.trim() || null;
-      } catch (e) {
-        console.warn("URL parse failed", e);
-        return null;
-      }
+      try { return new URLSearchParams(window.location.search).get("id")?.trim() || null; }
+      catch (e) { console.warn("URL parse failed", e); return null; }
     }
-
-    // Small utility: format subscriber numbers
-    function formatNumber(n) {
-      if (n == null) return "—";
-      return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    }
-
-    // Set UI elements
+    function formatNumber(n) { if (n == null) return "—"; return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
     function setChannelUI(data = {}) {
       const logo = document.getElementById("channel-logo");
       const name = document.getElementById("channel-name");
+      const tagline = document.getElementById("channel-tagline");
       const desc = document.getElementById("channel-description");
       const banner = document.getElementById("channelBanner");
       const ytLink = document.getElementById("youtube-link");
@@ -679,31 +752,27 @@
       logo.classList.remove("skeleton");
 
       name.textContent = data.channelName || DEFAULT_CHANNEL.channelName;
+      tagline.textContent = data.tagline || DEFAULT_CHANNEL.tagline;
       desc.textContent = data.desc || DEFAULT_CHANNEL.desc;
 
       const bannerUrl = data.bannerUrl || DEFAULT_CHANNEL.bannerUrl;
-      if (bannerUrl) banner.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url('${bannerUrl}')`;
-      else banner.style.backgroundImage = "";
-
+      if (bannerUrl) {
+        banner.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url('${bannerUrl}')`;
+      }
       ytLink.href = data.channelLink || DEFAULT_CHANNEL.channelLink;
       igLink.href = data.instaLink || DEFAULT_CHANNEL.instaLink;
 
-      if (data.subscriberCount != null) ytSubs.textContent = `${formatNumber(data.subscriberCount)} Subscribers`;
-      else ytSubs.textContent = "—";
-
+      ytSubs.textContent = data.subscriberCount != null ? `${formatNumber(data.subscriberCount)} Subscribers` : "—";
       ytSubs.classList.remove("skeleton");
 
-      igFollowers.textContent = data.instaCount ? `${data.instaCount} Followers` : DEFAULT_CHANNEL.instaCount;
+      igFollowers.textContent = data.instaCount ? `${formatNumber(data.instaCount)} Followers` : DEFAULT_CHANNEL.instaCount;
       igFollowers.classList.remove("skeleton");
     }
-
-    // Extract YT video id from many URL forms
     function extractVideoId(url) {
       if (!url) return null;
       const m = url.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:.*v=|embed\/|shorts\/|v\/)|\/v\/)([A-Za-z0-9_-]{6,})/);
       return m ? m[1] : null;
     }
-
     function appendVideo(container, url, className) {
       const id = extractVideoId(url);
       if (!id) return;
@@ -712,19 +781,18 @@
       div.innerHTML = `<iframe src="https://www.youtube.com/embed/${id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
       container.appendChild(div);
     }
-
     function showEmptyIn(container, message) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-message">${message}</div></div>`;
+      container.innerHTML = `<div class="empty-state"><i class="fas fa-video-slash"></i><h3>${message}</h3><p>Submit your content to be featured here</p></div>`;
     }
 
-    // Main rendering logic: reads from users/{UID}/profile_data/{settings,shorts,videos}
+    // ---------- Main render (Firestore reads happen here) ----------
     async function renderPortal() {
       const uid = getUIDFromUrl();
       if (!uid) {
         console.info("No UID in URL — showing default SquadVertex.");
         setChannelUI(DEFAULT_CHANNEL);
-        showEmptyIn(document.getElementById("shortsContainer"), "Shorts will appear here.");
-        showEmptyIn(document.getElementById("replaysContainer"), "Replays will appear here.");
+        showEmptyIn(document.getElementById("shortsContainer"), "No shorts available");
+        showEmptyIn(document.getElementById("replaysContainer"), "No replays available");
         return;
       }
 
@@ -734,22 +802,24 @@
         const videosRef = doc(db, "users", uid, "profile_data", "videos");
 
         const [settingsSnap, shortsSnap, videosSnap] = await Promise.all([
-          getDoc(settingsRef).catch(e => { console.warn("settings read failed", e); return null; }),
-          getDoc(shortsRef).catch(e => { console.warn("shorts read failed", e); return null; }),
-          getDoc(videosRef).catch(e => { console.warn("videos read failed", e); return null; })
+          getDoc(settingsRef).catch(e => { console.warn("Settings read failed", e); return null; }),
+          getDoc(shortsRef).catch(e => { console.warn("Shorts read failed", e); return null; }),
+          getDoc(videosRef).catch(e => { console.warn("Videos read failed", e); return null; })
         ]);
 
-        const settings = settingsSnap && settingsSnap.exists() ? settingsSnap.data() : null;
+        const settings = settingsSnap?.exists() ? settingsSnap.data() : null;
+        const shorts = shortsSnap?.exists() ? shortsSnap.data().content : null;
+        const videos = videosSnap?.exists() ? videosSnap.data().content : null;
 
         if (!settings) {
           console.warn("No settings doc for UID:", uid);
           setChannelUI(DEFAULT_CHANNEL);
         } else {
-          // populate immediately from stored settings so UI isn't empty
           setChannelUI({
             channelLogo: settings.channelLogo,
             channelName: settings.channelName,
             channelLink: settings.channelLink,
+            tagline: settings.tagline,
             desc: settings.desc,
             instaCount: settings.instaCount,
             instaLink: settings.instaLink,
@@ -757,84 +827,59 @@
             subscriberCount: null
           });
 
-          // Try resolving via YouTube API if channelId present
           const channelId = settings.channelId || settings.channelID || settings.channelid || null;
-          if (channelId && YT_API_KEY && YT_API_KEY !== "YOUR_YT_API_KEY") {
+          if (channelId && YT_API_KEY) {
             try {
               const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${YT_API_KEY}`);
               const ytData = await res.json();
-              if (ytData && Array.isArray(ytData.items) && ytData.items.length) {
+              if (ytData?.items?.length) {
                 const ch = ytData.items[0];
                 const snip = ch.snippet || {};
                 const stats = ch.statistics || {};
                 setChannelUI({
-                  channelLogo: (snip.thumbnails && (snip.thumbnails.high || snip.thumbnails.medium || snip.thumbnails.default) && (snip.thumbnails.high || snip.thumbnails.medium || snip.thumbnails.default).url) || settings.channelLogo,
+                  channelLogo: (snip.thumbnails?.high?.url || snip.thumbnails?.medium?.url || snip.thumbnails?.default?.url) || settings.channelLogo,
                   channelName: snip.title || settings.channelName,
                   channelLink: settings.channelLink || `https://www.youtube.com/channel/${channelId}`,
+                  tagline: settings.tagline,
                   desc: settings.desc || snip.description,
                   instaCount: settings.instaCount,
                   instaLink: settings.instaLink,
                   bannerUrl: settings.bannerUrl,
                   subscriberCount: stats.subscriberCount || null
                 });
-              } else {
-                console.warn("YT API returned no channel for id:", channelId, ytData);
               }
             } catch (ytErr) {
               console.warn("YouTube API fetch failed:", ytErr);
             }
-          } else {
-            console.info("No channelId or YT key missing — using stored settings only.");
           }
         }
 
-        // Fill shorts & replays
         const shortsContainer = document.getElementById("shortsContainer");
-        const replaysContainer = document.getElementById("replaysContainer");
         shortsContainer.innerHTML = "";
-        replaysContainer.innerHTML = "";
-
-        if (shortsSnap && shortsSnap.exists()) {
-          const arr = Array.isArray(shortsSnap.data().content) ? shortsSnap.data().content : [];
-          if (arr.length) arr.forEach(link => appendVideo(shortsContainer, link, "shorts-item"));
-          else showEmptyIn(shortsContainer, "No shorts yet.");
+        if (shorts?.length) {
+          shorts.forEach(link => appendVideo(shortsContainer, link, "shorts-item"));
         } else {
-          showEmptyIn(shortsContainer, "No shorts yet.");
+          showEmptyIn(shortsContainer, "No shorts available");
         }
 
-        if (videosSnap && videosSnap.exists()) {
-          const arr = Array.isArray(videosSnap.data().content) ? videosSnap.data().content : [];
-          if (arr.length) arr.forEach(link => appendVideo(replaysContainer, link, "replays-item"));
-          else showEmptyIn(replaysContainer, "No replays yet.");
+        const replaysContainer = document.getElementById("replaysContainer");
+        replaysContainer.innerHTML = "";
+        if (videos?.length) {
+          videos.forEach(link => appendVideo(replaysContainer, link, "replays-item"));
         } else {
-          showEmptyIn(replaysContainer, "No replays yet.");
+          showEmptyIn(replaysContainer, "No replays available");
         }
 
       } catch (err) {
         console.error("renderPortal failed:", err);
         setChannelUI(DEFAULT_CHANNEL);
-        showEmptyIn(document.getElementById("shortsContainer"), "Error loading shorts.");
-        showEmptyIn(document.getElementById("replaysContainer"), "Error loading replays.");
+        showEmptyIn(document.getElementById("shortsContainer"), "Error loading shorts");
+        showEmptyIn(document.getElementById("replaysContainer"), "Error loading replays");
       }
     }
 
+    // run on load
     window.addEventListener("DOMContentLoaded", renderPortal);
-
-    // Add subtle tech grid background effect (non-blocking)
-    document.addEventListener('DOMContentLoaded', function() {
-      const body = document.body;
-      for (let i = 0; i < 100; i++) {
-        const dot = document.createElement('div');
-        dot.style.position = 'fixed';
-        dot.style.width = '1px';
-        dot.style.height = '1px';
-        dot.style.backgroundColor = 'rgba(0,247,255,0.06)';
-        dot.style.zIndex = '-1';
-        dot.style.left = `${Math.random() * 100}%`;
-        dot.style.top = `${Math.random() * 100}%`;
-        body.appendChild(dot);
-      }
-    });
   </script>
 </body>
 </html>
