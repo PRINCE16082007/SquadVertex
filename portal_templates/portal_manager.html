@@ -161,391 +161,420 @@
 
   <div id="notification" class="notification"></div>
 
-  <!-- Firebase (compat) SDKs v11.9.0 -->
-  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
+<!-- 0) reCAPTCHA script (HEAD or just before this block) -->
+<script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
+
+<!-- 1) App Check compat SDK (load after firebase-app-compat) -->
+<script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check-compat.js"></script>
 
   <script>
-    // ----- CONFIG -----
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
+  /***** COMPLETE SCRIPT (compat) - paste this block and replace nothing (values already filled) *****/
 
-    // YouTube API Key (be mindful of quotas)
-    const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+  // ----- CONFIG -----
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+  };
 
-    // ----- INIT -----
+  // reCAPTCHA site key (used by App Check)
+  const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
+
+  // YouTube API Key
+  const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
+
+  // ----- Initialize Firebase App (compat) -----
+  if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+  } else {
+    firebase.app(); // if already initialized
+  }
 
-    // DOM elements
-    const resolveBtn = document.getElementById('resolveChannelBtn');
-    const saveBtn = document.getElementById('saveSettingsBtn');
-    const addShortBtn = document.getElementById('addShortBtn');
-    const addVideoBtn = document.getElementById('addVideoBtn');
-    const notification = document.getElementById('notification');
+  // ----- App Check (compat) - must run BEFORE firestore() usage -----
+  try {
+    // ensure reCAPTCHA script is loaded on the page (head)
+    const provider = new firebase.appCheck.ReCaptchaV3Provider(RECAPTCHA_SITE_KEY);
+    // enable auto refresh tokens
+    firebase.appCheck().activate(provider, /* isTokenAutoRefreshEnabled */ true);
+    // expose for debug
+    window.__SV_firebaseApp = firebase.app();
+    window.__SV_appCheck = firebase.appCheck();
+    console.log("[SVX] App Check (compat) activated with reCAPTCHA v3.");
+  } catch (e) {
+    console.warn("[SVX] App Check activation failed:", e);
+  }
 
-    // Firestore refs (initialized after auth)
-    let currentUID = null;
-    let profileDataRef = null;
-    let settingsRef = null;
-    let shortsRef = null;
-    let videosRef = null;
+  // ----- Now create firestore & auth handles (they will carry App Check tokens automatically) -----
+  const db = firebase.firestore();
+  const auth = firebase.auth();
 
-    function setUID(uid) {
-      currentUID = uid;
-      profileDataRef = db.collection('users').doc(uid).collection('profile_data');
-      settingsRef = profileDataRef.doc('settings');
-      shortsRef = profileDataRef.doc('shorts');
-      videosRef = profileDataRef.doc('videos');
+  // ----- DOM elements -----
+  const resolveBtn = document.getElementById('resolveChannelBtn');
+  const saveBtn = document.getElementById('saveSettingsBtn');
+  const addShortBtn = document.getElementById('addShortBtn');
+  const addVideoBtn = document.getElementById('addVideoBtn');
+  const notification = document.getElementById('notification');
+
+  // Firestore refs (initialized after auth)
+  let currentUID = null;
+  let profileDataRef = null;
+  let settingsRef = null;
+  let shortsRef = null;
+  let videosRef = null;
+
+  function setUID(uid) {
+    currentUID = uid;
+    profileDataRef = db.collection('users').doc(uid).collection('profile_data');
+    settingsRef = profileDataRef.doc('settings');
+    shortsRef = profileDataRef.doc('shorts');
+    videosRef = profileDataRef.doc('videos');
+  }
+
+  // Optional admin/test helper
+  function initForUID(uid) {
+    setUID(uid);
+    loadData();
+    setupListeners();
+  }
+
+  // ---- Notifications ----
+  function showNotification(message, type = 'success') {
+    notification.className = `notification ${type} show`;
+    notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+    if (notification.hideTimeout) clearTimeout(notification.hideTimeout);
+    notification.hideTimeout = setTimeout(() => notification.classList.remove('show'), 3000);
+  }
+
+  // ---- YouTube URL parsing & lookups ----
+  function parseYouTubeURL(url) {
+    try {
+      const u = new URL(url);
+      const path = u.pathname.replace(/\/+$/, '');
+      // channel id
+      const ch = path.match(/^\/channel\/([A-Za-z0-9_-]+)/);
+      if (ch) return { channelId: ch[1] };
+      // handle like /@handle
+      const handle = path.match(/^\/@([A-Za-z0-9_-]+)/);
+      if (handle) return { handle: handle[1] };
+      // /c/custom or /user/username
+      const custom = path.match(/^\/(?:c|user)\/([A-Za-z0-9_-]+)/);
+      if (custom) return { custom: custom[1] };
+      // watch?v=VIDEO_ID
+      const vidParam = u.searchParams.get('v');
+      if (vidParam) return { videoId: vidParam };
+      // youtu.be/VIDEO_ID
+      if (u.hostname.includes('youtu.be')) {
+        const short = path.match(/^\/([A-Za-z0-9_-]+)/);
+        if (short) return { videoId: short[1] };
+      }
+      // fallback: maybe they pasted a username or channel name directly
+      return { unknown: true };
+    } catch (e) {
+      return { unknown: true };
     }
+  }
 
-    // Optional admin/test helper
-    function initForUID(uid) {
-      setUID(uid);
+  async function getChannelIDFromUsername(username) {
+    try {
+      const resp = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(username)}&type=channel&key=${YT_API_KEY}`
+      );
+      const data = await resp.json();
+      return data.items?.[0]?.id?.channelId || null;
+    } catch (e) {
+      console.error('Error fetching channel ID from username:', e);
+      return null;
+    }
+  }
+
+  async function getChannelIdFromVideo(videoId) {
+    try {
+      const resp = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YT_API_KEY}`
+      );
+      const data = await resp.json();
+      return data.items?.[0]?.snippet?.channelId || null;
+    } catch (e) {
+      console.error('Error fetching channel ID from video:', e);
+      return null;
+    }
+  }
+
+  async function fetchChannelDetails(channelId) {
+    try {
+      const response = await fetch(
+        `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${channelId}&key=${YT_API_KEY}`
+      );
+      const data = await response.json();
+      return data.items?.[0]?.snippet || null;
+    } catch (error) {
+      console.error('Error fetching channel details:', error);
+      return null;
+    }
+  }
+
+  // ---- Saving settings ----
+  async function saveSettings() {
+    try {
+      if (!settingsRef) { showNotification('No user signed in. Cannot save settings.', 'error'); return; }
+
+      const link = document.getElementById('channelURL').value.trim();
+      const desc = document.getElementById('desc').value.trim();
+      const instaCount = document.getElementById('instaCount').value;
+      const instaLink = document.getElementById('instaLink').value.trim();
+
+      const settings = {
+        channelLink: link,
+        desc,
+        instaCount: instaCount ? parseInt(instaCount, 10) : null,
+        instaLink,
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      await settingsRef.set(settings, { merge: true });
+      showNotification('Settings saved successfully!', 'success');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      showNotification('Failed to save settings', 'error');
+    }
+  }
+
+  // ---- Resolve channel and save channelId ----
+  async function resolveChannel() {
+    try {
+      if (!settingsRef) { showNotification('No signed-in user (UID). Cannot save for user.', 'error'); return; }
+
+      const urlInput = document.getElementById('channelURL').value.trim();
+      if (!urlInput) { showNotification('Please enter a YouTube URL', 'error'); return; }
+
+      const parsed = parseYouTubeURL(urlInput);
+      let channelId = parsed.channelId || null;
+
+      if (!channelId && parsed.videoId) {
+        channelId = await getChannelIdFromVideo(parsed.videoId);
+      }
+
+      if (!channelId && (parsed.handle || parsed.custom)) {
+        channelId = await getChannelIDFromUsername(parsed.handle || parsed.custom);
+      }
+
+      if (!channelId && parsed.unknown) {
+        // try searching the raw input as fallback
+        channelId = await getChannelIDFromUsername(urlInput);
+      }
+
+      if (!channelId) { showNotification('Could not resolve channel ID', 'error'); return; }
+
+      const details = await fetchChannelDetails(channelId);
+
+      const channelName = details?.title || 'Unknown channel';
+      const channelLogo = details?.thumbnails?.high?.url || document.getElementById('channelLogo').src || '';
+
+      // update UI
+      document.getElementById('channelName').textContent = channelName;
+      if (channelLogo) document.getElementById('channelLogo').src = channelLogo;
+      document.getElementById('displayLink').href = urlInput;
+      document.getElementById('displayLink').textContent = urlInput;
+      document.getElementById('displayID').textContent = channelId;
+
+      // persist under users/[UID]/profile_data/settings
+      await settingsRef.set({
+        channelId,
+        channelName,
+        channelLogo,
+        channelLink: urlInput,
+        lastResolvedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      showNotification(`Channel ID resolved and saved: ${channelId}`, 'success');
+    } catch (error) {
+      console.error('Error resolving channel:', error);
+      showNotification('Failed to resolve channel', 'error');
+    }
+  }
+
+  // ---- Add / Remove helpers for array docs ----
+  async function addToArray(docRef, value) {
+    try {
+      if (!docRef) { showNotification('No signed-in user. Cannot add item.', 'error'); return false; }
+      if (!value) { showNotification('Please enter a URL', 'error'); return false; }
+
+      const docSnap = await docRef.get();
+      let content = [];
+      if (docSnap.exists) content = docSnap.data().content || [];
+      if (content.includes(value)) { showNotification('URL already exists', 'error'); return false; }
+      content.push(value);
+      await docRef.set({ content }, { merge: true });
+      showNotification('Item added successfully', 'success');
+      return true;
+    } catch (error) {
+      console.error('Error adding item:', error);
+      showNotification('Failed to add item', 'error');
+      return false;
+    }
+  }
+
+  async function removeFromArray(docRef, value) {
+    try {
+      if (!docRef) { showNotification('No signed-in user. Cannot remove item.', 'error'); return; }
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) return;
+      let content = docSnap.data().content || [];
+      content = content.filter(item => item !== value);
+      await docRef.set({ content }, { merge: true });
+      showNotification('Item removed', 'success');
+    } catch (error) {
+      console.error('Error removing item:', error);
+      showNotification('Failed to remove item', 'error');
+    }
+  }
+
+  // ---- Render lists ----
+  function renderList(containerId, items, collectionRef) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    if (!items || items.length === 0) {
+      container.innerHTML = '<div class="list-item">No items found</div>';
+      return;
+    }
+    items.forEach(item => {
+      const listItem = document.createElement('div');
+      listItem.className = 'list-item';
+      listItem.innerHTML = `
+        <div class="list-item-content">${item}</div>
+        <button title="Remove"><i class="fas fa-trash"></i> Remove</button>
+      `;
+      listItem.querySelector('button').addEventListener('click', async () => {
+        await removeFromArray(collectionRef, item);
+        renderList(containerId, items.filter(i => i !== item), collectionRef);
+      });
+      container.appendChild(listItem);
+    });
+  }
+
+  // ---- Load data ----
+  async function loadData() {
+    try {
+      if (!settingsRef) return; // nothing to load
+
+      const settingsDoc = await settingsRef.get();
+      if (settingsDoc.exists) {
+        const settings = settingsDoc.data();
+        document.getElementById('channelURL').value = settings.channelLink || '';
+        document.getElementById('desc').value = settings.desc || '';
+        document.getElementById('instaCount').value = settings.instaCount || '';
+        document.getElementById('instaLink').value = settings.instaLink || '';
+
+        if (settings.channelName) document.getElementById('channelName').textContent = settings.channelName;
+        if (settings.channelLogo) document.getElementById('channelLogo').src = settings.channelLogo;
+        if (settings.channelId) document.getElementById('displayID').textContent = settings.channelId;
+        if (settings.channelLink) {
+          document.getElementById('displayLink').href = settings.channelLink;
+          document.getElementById('displayLink').textContent = settings.channelLink;
+        }
+        if (settings.instaCount) document.getElementById('instaCountDisplay').textContent = settings.instaCount.toLocaleString();
+      }
+
+      const shortsDoc = await shortsRef.get();
+      if (shortsDoc.exists) {
+        const shorts = shortsDoc.data().content || [];
+        document.getElementById('shortsCount').textContent = shorts.length;
+        renderList('shortsList', shorts, shortsRef);
+      } else {
+        document.getElementById('shortsCount').textContent = '0';
+        renderList('shortsList', [], shortsRef);
+      }
+
+      const videosDoc = await videosRef.get();
+      if (videosDoc.exists) {
+        const videos = videosDoc.data().content || [];
+        document.getElementById('videosCount').textContent = videos.length;
+        renderList('videoList', videos, videosRef);
+      } else {
+        document.getElementById('videosCount').textContent = '0';
+        renderList('videoList', [], videosRef);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      showNotification('Failed to load data', 'error');
+    }
+  }
+
+  // ---- Real-time listeners ----
+  function setupListeners() {
+    if (!settingsRef || !shortsRef || !videosRef) return;
+
+    settingsRef.onSnapshot((docSnap) => {
+      if (docSnap.exists) {
+        const settings = docSnap.data();
+        if (settings.channelName) document.getElementById('channelName').textContent = settings.channelName;
+        if (settings.channelLogo) document.getElementById('channelLogo').src = settings.channelLogo;
+        if (settings.channelId) document.getElementById('displayID').textContent = settings.channelId;
+        if (settings.channelLink) {
+          document.getElementById('displayLink').href = settings.channelLink;
+          document.getElementById('displayLink').textContent = settings.channelLink;
+        }
+        if (settings.instaCount) document.getElementById('instaCountDisplay').textContent = settings.instaCount.toLocaleString();
+      }
+    });
+
+    shortsRef.onSnapshot((docSnap) => {
+      if (docSnap.exists) {
+        const shorts = docSnap.data().content || [];
+        document.getElementById('shortsCount').textContent = shorts.length;
+        renderList('shortsList', shorts, shortsRef);
+      }
+    });
+
+    videosRef.onSnapshot((docSnap) => {
+      if (docSnap.exists) {
+        const videos = docSnap.data().content || [];
+        document.getElementById('videosCount').textContent = videos.length;
+        renderList('videoList', videos, videosRef);
+      }
+    });
+  }
+
+  // ---- Event bindings ----
+  resolveBtn.addEventListener('click', resolveChannel);
+  saveBtn.addEventListener('click', saveSettings);
+
+  addShortBtn.addEventListener('click', async () => {
+    const url = document.getElementById('newShortURL').value.trim();
+    if (!shortsRef) { showNotification('No signed-in user. Cannot add short.', 'error'); return; }
+    if (url) {
+      const success = await addToArray(shortsRef, url);
+      if (success) document.getElementById('newShortURL').value = '';
+    }
+  });
+
+  addVideoBtn.addEventListener('click', async () => {
+    const url = document.getElementById('newVideoURL').value.trim();
+    if (!videosRef) { showNotification('No signed-in user. Cannot add video.', 'error'); return; }
+    if (url) {
+      const success = await addToArray(videosRef, url);
+      if (success) document.getElementById('newVideoURL').value = '';
+    }
+  });
+
+  // ---- Auth init: wait for signed-in user before initializing refs ----
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      setUID(user.uid);
       loadData();
       setupListeners();
+    } else {
+      console.warn('No user signed in. Call initForUID(uid) to test with a specific user.');
     }
+  });
 
-    // ---- Notifications ----
-    function showNotification(message, type = 'success') {
-      notification.className = `notification ${type} show`;
-      notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
-      if (notification.hideTimeout) clearTimeout(notification.hideTimeout);
-      notification.hideTimeout = setTimeout(() => notification.classList.remove('show'), 3000);
-    }
+  // Uncomment to test with a specific test UID (development)
+  // initForUID('TEST_UID_HERE');
 
-    // ---- YouTube URL parsing & lookups ----
-    function parseYouTubeURL(url) {
-      try {
-        const u = new URL(url);
-        const path = u.pathname.replace(/\/+$/, '');
-        // channel id
-        const ch = path.match(/^\/channel\/([A-Za-z0-9_-]+)/);
-        if (ch) return { channelId: ch[1] };
-        // handle like /@handle
-        const handle = path.match(/^\/@([A-Za-z0-9_-]+)/);
-        if (handle) return { handle: handle[1] };
-        // /c/custom or /user/username
-        const custom = path.match(/^\/(?:c|user)\/([A-Za-z0-9_-]+)/);
-        if (custom) return { custom: custom[1] };
-        // watch?v=VIDEO_ID
-        const vidParam = u.searchParams.get('v');
-        if (vidParam) return { videoId: vidParam };
-        // youtu.be/VIDEO_ID
-        if (u.hostname.includes('youtu.be')) {
-          const short = path.match(/^\/([A-Za-z0-9_-]+)/);
-          if (short) return { videoId: short[1] };
-        }
-        // fallback: maybe they pasted a username or channel name directly
-        return { unknown: true };
-      } catch (e) {
-        return { unknown: true };
-      }
-    }
-
-    async function getChannelIDFromUsername(username) {
-      try {
-        const resp = await fetch(
-          `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(username)}&type=channel&key=${YT_API_KEY}`
-        );
-        const data = await resp.json();
-        return data.items?.[0]?.id?.channelId || null;
-      } catch (e) {
-        console.error('Error fetching channel ID from username:', e);
-        return null;
-      }
-    }
-
-    async function getChannelIdFromVideo(videoId) {
-      try {
-        const resp = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YT_API_KEY}`
-        );
-        const data = await resp.json();
-        return data.items?.[0]?.snippet?.channelId || null;
-      } catch (e) {
-        console.error('Error fetching channel ID from video:', e);
-        return null;
-      }
-    }
-
-    async function fetchChannelDetails(channelId) {
-      try {
-        const response = await fetch(
-          `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${channelId}&key=${YT_API_KEY}`
-        );
-        const data = await response.json();
-        return data.items?.[0]?.snippet || null;
-      } catch (error) {
-        console.error('Error fetching channel details:', error);
-        return null;
-      }
-    }
-
-    // ---- Saving settings ----
-    async function saveSettings() {
-      try {
-        if (!settingsRef) { showNotification('No user signed in. Cannot save settings.', 'error'); return; }
-
-        const link = document.getElementById('channelURL').value.trim();
-        const desc = document.getElementById('desc').value.trim();
-        const instaCount = document.getElementById('instaCount').value;
-        const instaLink = document.getElementById('instaLink').value.trim();
-
-        const settings = {
-          channelLink: link,
-          desc,
-          instaCount: instaCount ? parseInt(instaCount, 10) : null,
-          instaLink,
-          lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        await settingsRef.set(settings, { merge: true });
-        showNotification('Settings saved successfully!', 'success');
-      } catch (error) {
-        console.error('Error saving settings:', error);
-        showNotification('Failed to save settings', 'error');
-      }
-    }
-
-    // ---- Resolve channel and save channelId ----
-    async function resolveChannel() {
-      try {
-        if (!settingsRef) { showNotification('No signed-in user (UID). Cannot save for user.', 'error'); return; }
-
-        const urlInput = document.getElementById('channelURL').value.trim();
-        if (!urlInput) { showNotification('Please enter a YouTube URL', 'error'); return; }
-
-        const parsed = parseYouTubeURL(urlInput);
-        let channelId = parsed.channelId || null;
-
-        if (!channelId && parsed.videoId) {
-          channelId = await getChannelIdFromVideo(parsed.videoId);
-        }
-
-        if (!channelId && (parsed.handle || parsed.custom)) {
-          channelId = await getChannelIDFromUsername(parsed.handle || parsed.custom);
-        }
-
-        if (!channelId && parsed.unknown) {
-          // try searching the raw input as fallback
-          channelId = await getChannelIDFromUsername(urlInput);
-        }
-
-        if (!channelId) { showNotification('Could not resolve channel ID', 'error'); return; }
-
-        const details = await fetchChannelDetails(channelId);
-
-        const channelName = details?.title || 'Unknown channel';
-        const channelLogo = details?.thumbnails?.high?.url || document.getElementById('channelLogo').src || '';
-
-        // update UI
-        document.getElementById('channelName').textContent = channelName;
-        if (channelLogo) document.getElementById('channelLogo').src = channelLogo;
-        document.getElementById('displayLink').href = urlInput;
-        document.getElementById('displayLink').textContent = urlInput;
-        document.getElementById('displayID').textContent = channelId;
-
-        // persist under users/[UID]/profile_data/settings
-        await settingsRef.set({
-          channelId,
-          channelName,
-          channelLogo,
-          channelLink: urlInput,
-          lastResolvedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        showNotification(`Channel ID resolved and saved: ${channelId}`, 'success');
-      } catch (error) {
-        console.error('Error resolving channel:', error);
-        showNotification('Failed to resolve channel', 'error');
-      }
-    }
-
-    // ---- Add / Remove helpers for array docs ----
-    async function addToArray(docRef, value) {
-      try {
-        if (!docRef) { showNotification('No signed-in user. Cannot add item.', 'error'); return false; }
-        if (!value) { showNotification('Please enter a URL', 'error'); return false; }
-
-        const doc = await docRef.get();
-        let content = [];
-        if (doc.exists) content = doc.data().content || [];
-        if (content.includes(value)) { showNotification('URL already exists', 'error'); return false; }
-        content.push(value);
-        await docRef.set({ content }, { merge: true });
-        showNotification('Item added successfully', 'success');
-        return true;
-      } catch (error) {
-        console.error('Error adding item:', error);
-        showNotification('Failed to add item', 'error');
-        return false;
-      }
-    }
-
-    async function removeFromArray(docRef, value) {
-      try {
-        if (!docRef) { showNotification('No signed-in user. Cannot remove item.', 'error'); return; }
-        const doc = await docRef.get();
-        if (!doc.exists) return;
-        let content = doc.data().content || [];
-        content = content.filter(item => item !== value);
-        await docRef.set({ content }, { merge: true });
-        showNotification('Item removed', 'success');
-      } catch (error) {
-        console.error('Error removing item:', error);
-        showNotification('Failed to remove item', 'error');
-      }
-    }
-
-    // ---- Render lists ----
-    function renderList(containerId, items, collectionRef) {
-      const container = document.getElementById(containerId);
-      container.innerHTML = '';
-      if (!items || items.length === 0) {
-        container.innerHTML = '<div class="list-item">No items found</div>';
-        return;
-      }
-      items.forEach(item => {
-        const listItem = document.createElement('div');
-        listItem.className = 'list-item';
-        listItem.innerHTML = `
-          <div class="list-item-content">${item}</div>
-          <button title="Remove"><i class="fas fa-trash"></i> Remove</button>
-        `;
-        listItem.querySelector('button').addEventListener('click', async () => {
-          await removeFromArray(collectionRef, item);
-          renderList(containerId, items.filter(i => i !== item), collectionRef);
-        });
-        container.appendChild(listItem);
-      });
-    }
-
-    // ---- Load data ----
-    async function loadData() {
-      try {
-        if (!settingsRef) return; // nothing to load
-
-        const settingsDoc = await settingsRef.get();
-        if (settingsDoc.exists) {
-          const settings = settingsDoc.data();
-          document.getElementById('channelURL').value = settings.channelLink || '';
-          document.getElementById('desc').value = settings.desc || '';
-          document.getElementById('instaCount').value = settings.instaCount || '';
-          document.getElementById('instaLink').value = settings.instaLink || '';
-
-          if (settings.channelName) document.getElementById('channelName').textContent = settings.channelName;
-          if (settings.channelLogo) document.getElementById('channelLogo').src = settings.channelLogo;
-          if (settings.channelId) document.getElementById('displayID').textContent = settings.channelId;
-          if (settings.channelLink) {
-            document.getElementById('displayLink').href = settings.channelLink;
-            document.getElementById('displayLink').textContent = settings.channelLink;
-          }
-          if (settings.instaCount) document.getElementById('instaCountDisplay').textContent = settings.instaCount.toLocaleString();
-        }
-
-        const shortsDoc = await shortsRef.get();
-        if (shortsDoc.exists) {
-          const shorts = shortsDoc.data().content || [];
-          document.getElementById('shortsCount').textContent = shorts.length;
-          renderList('shortsList', shorts, shortsRef);
-        } else {
-          document.getElementById('shortsCount').textContent = '0';
-          renderList('shortsList', [], shortsRef);
-        }
-
-        const videosDoc = await videosRef.get();
-        if (videosDoc.exists) {
-          const videos = videosDoc.data().content || [];
-          document.getElementById('videosCount').textContent = videos.length;
-          renderList('videoList', videos, videosRef);
-        } else {
-          document.getElementById('videosCount').textContent = '0';
-          renderList('videoList', [], videosRef);
-        }
-      } catch (error) {
-        console.error('Error loading data:', error);
-        showNotification('Failed to load data', 'error');
-      }
-    }
-
-    // ---- Real-time listeners ----
-    function setupListeners() {
-      if (!settingsRef || !shortsRef || !videosRef) return;
-
-      settingsRef.onSnapshot((doc) => {
-        if (doc.exists) {
-          const settings = doc.data();
-          if (settings.channelName) document.getElementById('channelName').textContent = settings.channelName;
-          if (settings.channelLogo) document.getElementById('channelLogo').src = settings.channelLogo;
-          if (settings.channelId) document.getElementById('displayID').textContent = settings.channelId;
-          if (settings.channelLink) {
-            document.getElementById('displayLink').href = settings.channelLink;
-            document.getElementById('displayLink').textContent = settings.channelLink;
-          }
-          if (settings.instaCount) document.getElementById('instaCountDisplay').textContent = settings.instaCount.toLocaleString();
-        }
-      });
-
-      shortsRef.onSnapshot((doc) => {
-        if (doc.exists) {
-          const shorts = doc.data().content || [];
-          document.getElementById('shortsCount').textContent = shorts.length;
-          renderList('shortsList', shorts, shortsRef);
-        }
-      });
-
-      videosRef.onSnapshot((doc) => {
-        if (doc.exists) {
-          const videos = doc.data().content || [];
-          document.getElementById('videosCount').textContent = videos.length;
-          renderList('videoList', videos, videosRef);
-        }
-      });
-    }
-
-    // ---- Event bindings ----
-    resolveBtn.addEventListener('click', resolveChannel);
-    saveBtn.addEventListener('click', saveSettings);
-
-    addShortBtn.addEventListener('click', async () => {
-      const url = document.getElementById('newShortURL').value.trim();
-      if (!shortsRef) { showNotification('No signed-in user. Cannot add short.', 'error'); return; }
-      if (url) {
-        const success = await addToArray(shortsRef, url);
-        if (success) document.getElementById('newShortURL').value = '';
-      }
-    });
-
-    addVideoBtn.addEventListener('click', async () => {
-      const url = document.getElementById('newVideoURL').value.trim();
-      if (!videosRef) { showNotification('No signed-in user. Cannot add video.', 'error'); return; }
-      if (url) {
-        const success = await addToArray(videosRef, url);
-        if (success) document.getElementById('newVideoURL').value = '';
-      }
-    });
-
-    // ---- Auth init: wait for signed-in user before initializing refs ----
-    firebase.auth().onAuthStateChanged(user => {
-      if (user) {
-        setUID(user.uid);
-        loadData();
-        setupListeners();
-      } else {
-        console.warn('No user signed in. Call initForUID(uid) to test with a specific user.');
-      }
-    });
-
-    // If you want to optionally start without auth in development uncomment and call:
-    // initForUID('SOME_TEST_UID');
-  </script>
+  // ----- End of script -----
+</script>
 </body>
 </html>
