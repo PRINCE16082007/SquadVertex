@@ -949,37 +949,52 @@
   }
 
   // ---------- CORE: check user's template doc ----------
-  async function checkTemplateExists(uid) {
-    try {
-      const templateRef = doc(db, 'users', uid, 'profile_template', 'selection');
-      const templateSnap = await getDoc(templateRef);
+async function checkTemplateExists(uid) {
+  try {
+    const templateRef = doc(db, 'users', uid, 'profile_template', 'selection');
+    const templateSnap = await getDoc(templateRef);
 
-      if (templateSnap.exists()) {
-        const templateData = templateSnap.data();
+    if (templateSnap.exists()) {
+      const templateData = templateSnap.data();
 
-        portalSection.style.display = 'block';
-        templateSection.style.display = 'none';
-
-        const templateId = templateData.template_id || templateData.templateId || 'templateA';
-        const publicUrl = buildPublicPortalUrl(templateId, uid);
-
-        setupPortalButtons(publicUrl, uid, templateId);
-
-        const dateText = templateData.selected_at ? fmtTimestamp(templateData.selected_at) : '—';
-        templateChosenDate.textContent = `Template chosen on ${dateText}`;
-
-        templatePreview.src = templateData.preview_url || TEMPLATE_IMAGE_URLS[templateId] || TEMPLATE_URLS[templateId] || 'https://via.placeholder.com/300x200?text=Template+Preview';
-      } else {
-        // No selection → redirect the user to your selector page
-        window.location.href = 'https://www.squadvertex.great-site.net/portal_templates/template_selector.html';
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking template:', error);
+      // user has chosen a template -> show portal view
+      portalSection.style.display = 'block';
       templateSection.style.display = 'none';
+
+      const templateId = templateData.template_id || templateData.templateId || 'templateA';
+      const publicUrl = buildPublicPortalUrl(templateId, uid);
+      setupPortalButtons(publicUrl, uid, templateId);
+
+      const dateText = templateData.selected_at ? fmtTimestamp(templateData.selected_at) : '—';
+      templateChosenDate.textContent = `Template chosen on ${dateText}`;
+
+      templatePreview.src = templateData.preview_url || TEMPLATE_IMAGE_URLS[templateId] || TEMPLATE_URLS[templateId] || 'https://via.placeholder.com/300x200?text=Template+Preview';
+    } else {
+      // No template selected -> show the chooser prompt on this page
       portalSection.style.display = 'none';
+      templateSection.style.display = 'block';
+
+      // ensure CTA is visible and working
+      chooseTemplateBtn.style.display = 'inline-block';
+      // optional: set a friendly prompt text so user knows what's happening
+      const warn = templateSection.querySelector('.warning');
+      if (warn) {
+        warn.innerHTML = `<i class="fas fa-exclamation-circle"></i>
+          You haven't chosen a portal template yet. Click <strong>Choose Your Portal Template</strong> to pick one. This action is permanent.`;
+      }
+    }
+  } catch (error) {
+    console.error('Error checking template:', error);
+    // show the prompt so user can still choose
+    portalSection.style.display = 'none';
+    templateSection.style.display = 'block';
+    const warn = templateSection.querySelector('.warning');
+    if (warn) {
+      warn.innerHTML = `<i class="fas fa-exclamation-circle"></i>
+        Unable to verify template status right now. Click the button to choose your template or try reloading.`;
     }
   }
+}
 
   // ---------- App Check helper: ensure token ready (small timeout) ----------
   async function ensureAppCheckToken(timeoutMs = 4000) {
