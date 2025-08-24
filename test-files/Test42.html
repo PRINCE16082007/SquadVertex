@@ -65,11 +65,12 @@
   <div class="controls" style="margin-top:12px">
     <div class="flex">
       <select id="add-type" class="small">
-        <option value="mcq">MCQ (Multiple choice)</option>
-        <option value="short">Short answer</option>
-        <option value="long">Long answer</option>
-        <option value="match">Match / Fill</option>
-      </select>
+  <option value="mcq">MCQ (Multiple choice)</option>
+  <option value="short">Short answer</option>
+  <option value="long">Long answer</option>
+  <option value="match">Match Columns</option>
+  <option value="fill">Fill in the blanks</option>
+</select>
       <button id="btn-add">Add Section</button>
     </div>
 
@@ -165,31 +166,31 @@
         const itemDiv = document.createElement('div');
         itemDiv.className = 'item';
         if (sec.type === 'mcq') {
-          itemDiv.innerHTML = `
-            <input type="text" class="qtext" placeholder="Question text" value="${escapeHtml(it.q || '')}">
-            <input type="text" class="opt0" placeholder="Option A" value="${escapeHtml((it.options && it.options[0])||'')}">
-            <input type="text" class="opt1" placeholder="Option B" value="${escapeHtml((it.options && it.options[1])||'')}">
-            <input type="text" class="opt2" placeholder="Option C" value="${escapeHtml((it.options && it.options[2])||'')}">
-            <input type="text" class="opt3" placeholder="Option D" value="${escapeHtml((it.options && it.options[3])||'')}">
-            <select class="ans small">
-              <option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option>
-            </select>
-            <button class="small" data-action="remove-item">✖</button>
-          `;
-          itemDiv.querySelector('.ans').value = it.answer || 0;
-        } else if (sec.type === 'short' || sec.type === 'long') {
-          itemDiv.innerHTML = `
-            <input type="text" class="qtext" placeholder="Question text" value="${escapeHtml(it.q || '')}">
-            <input type="text" class="marks" placeholder="Marks" style="width:70px" value="${escapeHtml(it.marks||'')}">
-            <button class="small" data-action="remove-item">✖</button>
-          `;
-        } else if (sec.type === 'match') {
-          itemDiv.innerHTML = `
-            <input type="text" class="qtext" placeholder="LHS" value="${escapeHtml(it.left||'')}">
-            <input type="text" class="anstext" placeholder="RHS" value="${escapeHtml(it.right||'')}">
-            <button class="small" data-action="remove-item">✖</button>
-          `;
-        }
+  itemDiv.innerHTML = `
+    <input type="text" class="qtext" placeholder="Question text" value="${escapeHtml(it.q || '')}">
+    <input type="text" class="opt0" placeholder="Option A" value="${escapeHtml((it.options && it.options[0])||'')}">
+    <input type="text" class="opt1" placeholder="Option B" value="${escapeHtml((it.options && it.options[1])||'')}">
+    <input type="text" class="opt2" placeholder="Option C" value="${escapeHtml((it.options && it.options[2])||'')}">
+    <input type="text" class="opt3" placeholder="Option D" value="${escapeHtml((it.options && it.options[3])||'')}">
+    <button class="small" data-action="remove-item">✖</button>
+  `;
+} else if (sec.type === 'short' || sec.type === 'long') {
+  itemDiv.innerHTML = `
+    <input type="text" class="qtext" placeholder="Question text" value="${escapeHtml(it.q || '')}">
+    <button class="small" data-action="remove-item">✖</button>
+  `;
+} else if (sec.type === 'match') {
+  itemDiv.innerHTML = `
+    <input type="text" class="qtext" placeholder="LHS" value="${escapeHtml(it.left||'')}">
+    <input type="text" class="anstext" placeholder="RHS" value="${escapeHtml(it.right||'')}">
+    <button class="small" data-action="remove-item">✖</button>
+  `;
+} else if (sec.type === 'fill') {
+  itemDiv.innerHTML = `
+    <input type="text" class="qtext" placeholder="Fill in the blank question" value="${escapeHtml(it.q||'')}">
+    <button class="small" data-action="remove-item">✖</button>
+  `;
+}
         itemsC.appendChild(itemDiv);
       });
 
@@ -256,10 +257,11 @@
       items: []
     };
     // seed with one sample item
-    if (type === 'mcq') newSec.items.push({q:'', options:['','','',''], answer:0});
-    else if (type === 'short') newSec.items.push({q:'', marks:''});
-    else if (type === 'long') newSec.items.push({q:'', marks:''});
-    else if (type === 'match') newSec.items.push({left:'', right:''});
+    if (type === 'mcq') newSec.items.push({q:'', options:['','','','']});
+else if (type === 'short') newSec.items.push({q:''});
+else if (type === 'long') newSec.items.push({q:''});
+else if (type === 'match') newSec.items.push({left:'', right:''});
+else if (type === 'fill') newSec.items.push({q:''});
     model.sections.push(newSec);
     saveModelToLocal();
     renderSections();
@@ -272,6 +274,7 @@
     else if (s.type === 'short') s.items.push({q:'', marks:''});
     else if (s.type === 'long') s.items.push({q:'', marks:''});
     else if (s.type === 'match') s.items.push({left:'', right:''});
+    else if (s.type === 'fill') s.items.push({q:''});
     saveModelToLocal();
     renderSections();
   }
@@ -329,17 +332,19 @@
           `</ul>`);
         });
       } else if (s.type === 'short') {
-        s.items.forEach((it, i) => {
-          parts.push(`<div style="margin:6px 0">${si+1}.${i+1} ${escapeHtml(it.q || '')} <span style="font-size:12px;color:#666">(${escapeHtml(it.marks||'') } marks)</span></div>`);
-          parts.push(`<div style="height:36px;border-bottom:1px dashed #ccc;margin:6px 0"></div>`);
-        });
-      } else if (s.type === 'long') {
-        s.items.forEach((it, i) => {
-          parts.push(`<div style="margin:6px 0">${si+1}.${i+1} ${escapeHtml(it.q || '')} <span style="font-size:12px;color:#666">(${escapeHtml(it.marks||'') } marks)</span></div>`);
-          parts.push(`<div style="height:110px;border:1px dashed #eee;margin:6px 0;padding:6px;background:#fafafa"></div>`);
-        });
-      } else if (s.type === 'match') {
-        parts.push('<table style="width:100%;border-collapse:collapse;margin:6px 0">');
+  s.items.forEach((it, i) => {
+    parts.push(`<div>${si+1}.${i+1}) ${escapeHtml(it.q || '')}</div>`);
+  });
+} else if (s.type === 'long') {
+  s.items.forEach((it, i) => {
+    parts.push(`<div>${si+1}.${i+1}) ${escapeHtml(it.q || '')}</div>
+                <div style="height:80px;border-bottom:1px dashed #ccc;margin-bottom:6px"></div>`);
+  });
+} else if (s.type === 'fill') {
+  s.items.forEach((it, i) => {
+    parts.push(`<div>${si+1}.${i+1}) ${escapeHtml(it.q || '')} ________</div>`);
+  });
+}
         const maxRows = s.items.length;
         for (let r=0;r<maxRows;r++){
           const it = s.items[r] || {};
@@ -368,27 +373,29 @@
   }
 
   function exportPdf(){
-    const html = buildExamHtml({forPrint:true});
-    const w = window.open('', '_blank', 'noopener');
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    // wait a tick then print
-    setTimeout(()=>{ w.print(); }, 500);
-  }
+  const html = buildExamHtml({forPrint:true});
+  const w = window.open('', '_blank');
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
 
   function exportDoc(){
-    const html = buildExamHtml({forPrint:false});
-    const blob = new Blob([html], {type: 'application/msword'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = (model.meta.exam || 'exam') + '.doc';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
+  const html = buildExamHtml({forPrint:false});
+  const blob = new Blob(['\ufeff', html], {type: 'application/msword;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (model.meta.exam || 'exam') + '.doc';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 
   // helper UI feedback
   function flash(msg){
