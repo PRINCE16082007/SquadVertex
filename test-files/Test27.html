@@ -2,33 +2,81 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Contact Us | SquadVertex</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#00ffff" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-      background-color: #000;
-      font-family: 'Inter', sans-serif;
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fingerprint Demo</title>
+  
+  <!-- Firebase SDK -->
+  <script type="module">
+    // Import Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    // 🔧 Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Function: Request Fingerprint/biometric authentication via WebAuthn
+    async function requestFingerprint() {
+      try {
+        // Generate a fake challenge (normally should come from server for real auth)
+        const challenge = new Uint8Array(32);
+        window.crypto.getRandomValues(challenge);
+
+        // Ask user to use fingerprint/biometric
+        const publicKey = {
+          challenge: challenge,
+          rp: { name: "My Test Website" },
+          user: {
+            id: new Uint8Array(16), // Dummy user ID for demo
+            name: "testuser@example.com",
+            displayName: "Test User"
+          },
+          pubKeyCredParams: [{ type: "public-key", alg: -7 }], // ES256
+          timeout: 60000,
+          authenticatorSelection: {
+            authenticatorAttachment: "platform", // Use built-in fingerprint
+            userVerification: "required" // Force biometric
+          },
+          attestation: "none"
+        };
+
+        // Creates a new credential (biometric secured)
+        const credential = await navigator.credentials.create({ publicKey });
+
+        if (credential) {
+          console.log("Biometric Authentication Successful ✅");
+          
+          // Save result to Firestore
+          const docRef = await addDoc(collection(db, "test"), {
+            success: true,
+            type: credential.type,
+            created: new Date().toISOString()
+          });
+
+          alert("Fingerprint Verified! 🔐 Data stored in Firestore. Doc ID: " + docRef.id);
+        }
+
+      } catch (err) {
+        console.error("Authentication failed ❌", err);
+        alert("Failed: " + err.message);
+      }
     }
-  </style>
+
+    window.requestFingerprint = requestFingerprint;
+  </script>
 </head>
 <body>
-
-  <!-- Fullscreen Fillout Embed -->
-  <div style="position:fixed;top:0;left:0;right:0;bottom:0;">
-    <div data-fillout-id="94DVQpBdB4us"
-         data-fillout-embed-type="fullscreen"
-         style="width:100%;height:100%;"
-         data-fillout-inherit-parameters>
-    </div>
-  </div>
-
-  <!-- Fillout Embed Script -->
-  <script src="https://server.fillout.com/embed/v1/"></script>
-
+  <h1>🔐 Fingerprint Biometric Demo</h1>
+  <button onclick="requestFingerprint()">Authenticate with Fingerprint</button>
 </body>
 </html>
