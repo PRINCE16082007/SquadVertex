@@ -1,576 +1,126 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SquadVertex | Portal to the Future</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Exo+2:wght@300;400;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
-    <style>
-        :root {
-            --primary: #00e6ff;
-            --primary-glow: rgba(0, 230, 255, 0.7);
-            --secondary: #a100f2;
-            --bg-dark: #080a16;
-            --bg-darker: #050611;
-            --grid-color: rgba(0, 195, 255, 0.05);
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fingerprint Guard Demo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #4cafef, #2a2a72);
+      color: white;
+      text-align: center;
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .card {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 2rem;
+      border-radius: 15px;
+      box-shadow: 0px 4px 20px rgba(0,0,0,0.5);
+      max-width: 450px;
+    }
+    button {
+      background: #00c853;
+      border: none;
+      padding: 0.8rem 1.5rem;
+      font-size: 1.1rem;
+      color: white;
+      cursor: pointer;
+      border-radius: 8px;
+      margin-top: 1.2rem;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: #009624;
+    }
+    #protectedContent {
+      display: none;
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+    }
+  </style>
+  
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    // 🔧 Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Function: Fingerprint biometric unlock
+    async function requestFingerprint() {
+      try {
+        const challenge = new Uint8Array(32);
+        window.crypto.getRandomValues(challenge);
+
+        const publicKey = {
+          challenge: challenge,
+          rp: { name: "My Secure Site" },
+          user: {
+            id: new Uint8Array(16),
+            name: "test-user",
+            displayName: "Demo User"
+          },
+          pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+          timeout: 60000,
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required"
+          },
+          attestation: "none"
+        };
+
+        const credential = await navigator.credentials.create({ publicKey });
+
+        if (credential) {
+          const docRef = await addDoc(collection(db, "test"), {
+            success: true,
+            type: credential.type,
+            created: new Date().toISOString()
+          });
+
+          // Unlock protected content
+          document.getElementById("authSection").style.display = "none";
+          document.getElementById("protectedContent").style.display = "block";
         }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Orbitron', sans-serif;
-            background: radial-gradient(ellipse at center, var(--bg-darker) 0%, var(--bg-dark) 70%);
-            color: #fff;
-            min-height: 100vh;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            line-height: 1.6;
-        }
-        
-        /* Main container */
-        .portal-container {
-            position: relative;
-            width: 100%;
-            max-width: 1200px;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            padding: 20px;
-            overflow: hidden;
-        }
-        
-        /* Animation area - fixed height for all screens */
-        .animation-stage {
-            position: relative;
-            height: 60vh;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 5vh;
-        }
-        
-        /* Text container - properly stacked */
-        .text-container {
-            position: relative;
-            text-align: center;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 20;
-        }
-        
-        .text-line {
-            position: absolute;
-            width: 100%;
-            opacity: 0;
-            transform: translateY(5vmin);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
-        }
-        
-        h1 {
-            font-weight: 700;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            text-shadow: 0 0 1vmin rgba(0, 230, 255, 0.3);
-            margin-bottom: 2vmin;
-        }
-        
-        .welcome-text {
-            font-size: clamp(1.8rem, 4vw, 3.5rem);
-            font-weight: 400;
-            color: rgba(255, 255, 255, 0.9);
-        }
-        
-        .main-title {
-            font-size: clamp(3.5rem, 12vw, 8rem);
-            font-weight: 900;
-            color: var(--primary);
-            margin: 3vmin 0;
-            position: relative;
-            display: inline-block;
-            text-shadow: 
-                0 0 2vmin var(--primary-glow),
-                0 0 4vmin rgba(0, 230, 255, 0.4),
-                0 0 6vmin rgba(0, 230, 255, 0.2);
-            line-height: 1.1;
-        }
-        
-        .main-title::after {
-            content: '';
-            position: absolute;
-            bottom: -1.5vmin;
-            left: 10%;
-            width: 80%;
-            height: 0.3vmin;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent);
-            border-radius: 50%;
-            filter: blur(0.5vmin);
-            opacity: 0.8;
-        }
-        
-        .tagline {
-            font-size: clamp(1.2rem, 2.5vw, 2rem);
-            font-weight: 300;
-            letter-spacing: 0.2em;
-            color: rgba(255, 255, 255, 0.8);
-            text-transform: uppercase;
-            margin-top: 5vmin;
-            font-family: 'Exo 2', sans-serif;
-        }
-        
-        /* Button container - fixed position below animation */
-        .enter-btn-container {
-            position: relative;
-            margin-top: 5vh;
-            z-index: 30;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-        }
-        
-        .enter-btn {
-            background: transparent;
-            border: 0.2vmin solid var(--primary);
-            color: #fff;
-            font-family: 'Orbitron', sans-serif;
-            font-size: clamp(1.2rem, 2.5vw, 1.8rem);
-            font-weight: 500;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            padding: 2.5vmin 8vmin;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            transform: translateY(10vmin);
-            opacity: 0;
-            transition: all 0.4s ease;
-            backdrop-filter: blur(1vmin);
-            box-shadow: 
-                0 0 1.5vmin rgba(0, 230, 255, 0.2),
-                inset 0 0 1vmin rgba(0, 230, 255, 0.2);
-        }
-        
-        .enter-btn:hover {
-            background: rgba(0, 230, 255, 0.1);
-            box-shadow: 
-                0 0 3vmin var(--primary-glow),
-                inset 0 0 2vmin rgba(0, 230, 255, 0.3);
-            transform: translateY(-0.5vmin);
-        }
-        
-        .enter-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 230, 255, 0.3), transparent);
-            transition: 0.6s;
-        }
-        
-        .enter-btn:hover::before {
-            left: 100%;
-        }
-        
-        /* Background elements */
-        .particles {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-        }
-        
-        .particle {
-            position: absolute;
-            border-radius: 50%;
-            background: var(--primary);
-            opacity: 0;
-            animation: vortex 15s infinite linear;
-        }
-        
-        @keyframes vortex {
-            0% {
-                transform: translate(-50%, -50%) rotate(0deg) translateX(0) scale(0.5);
-                opacity: 0;
-            }
-            10% {
-                opacity: 0.8;
-            }
-            90% {
-                opacity: 0.8;
-            }
-            100% {
-                transform: translate(-50%, -50%) rotate(360deg) translateX(40vmin) scale(1.5);
-                opacity: 0;
-            }
-        }
-        
-        .grid-pattern {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                linear-gradient(var(--grid-color) 1px, transparent 1px),
-                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
-            background-size: 5vmin 5vmin;
-            background-position: center center;
-            z-index: -1;
-            opacity: 0.3;
-            transform: perspective(500px) rotateX(70deg);
-        }
-        
-        .glow-circle {
-            position: absolute;
-            border-radius: 50%;
-            background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
-            filter: blur(5vmax);
-            z-index: -1;
-            opacity: 0.4;
-        }
-        
-        .circle-1 {
-            width: 50vmax;
-            height: 50vmax;
-            top: -10vmax;
-            right: -10vmax;
-            animation: float 12s infinite ease-in-out;
-        }
-        
-        .circle-2 {
-            width: 40vmax;
-            height: 40vmax;
-            bottom: -5vmax;
-            left: -10vmax;
-            animation: float 15s infinite ease-in-out reverse;
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(5vmin, 5vmin); }
-        }
-        
-        .holographic-line {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 0.3vmin;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent);
-            box-shadow: 0 0 1vmin rgba(0, 230, 255, 0.5);
-            animation: scan 8s infinite linear;
-            z-index: 5;
-        }
-        
-        @keyframes scan {
-            0% { top: 0; }
-            100% { top: 100%; }
-        }
-        
-        .floating-cubes {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            z-index: -1;
-            overflow: hidden;
-        }
-        
-        .cube {
-            position: absolute;
-            width: 3vmin;
-            height: 3vmin;
-            background: transparent;
-            border: 0.1vmin solid rgba(0, 230, 255, 0.2);
-            opacity: 0.3;
-            animation: floatCube 20s infinite linear;
-        }
-        
-        @keyframes floatCube {
-            0% {
-                transform: translateY(0) rotate(0deg);
-                opacity: 0;
-            }
-            10% {
-                opacity: 0.3;
-            }
-            90% {
-                opacity: 0.3;
-            }
-            100% {
-                transform: translateY(-100vmin) rotate(360deg);
-                opacity: 0;
-            }
-        }
-        
-        /* Responsive Adjustments */
-        @media (max-width: 768px) {
-            .animation-stage {
-                height: 50vh;
-                margin-bottom: 3vh;
-            }
-            
-            .enter-btn {
-                padding: 3vmin 10vmin;
-                font-size: clamp(1.1rem, 4vw, 1.5rem);
-            }
-            
-            .main-title {
-                margin: 5vmin 0;
-            }
-            
-            .tagline {
-                margin-top: 8vmin;
-            }
-        }
-        
-        @media (max-height: 600px) {
-            .animation-stage {
-                height: 45vh;
-            }
-            
-            .text-line {
-                transform: scale(0.9);
-            }
-        }
-    </style>
+
+      } catch (err) {
+        alert("Fingerprint Auth Failed ❌: " + err.message);
+      }
+    }
+
+    window.requestFingerprint = requestFingerprint;
+  </script>
 </head>
 <body>
-    <!-- Background elements -->
-    <div class="particles" id="particles"></div>
-    <div class="grid-pattern"></div>
-    <div class="glow-circle circle-1"></div>
-    <div class="glow-circle circle-2"></div>
-    <div class="floating-cubes" id="floatingCubes"></div>
-    <div class="holographic-line"></div>
-    
-    <!-- Main content container -->
-    <div class="portal-container">
-        <!-- Animation area with fixed height -->
-        <div class="animation-stage">
-            <div class="text-container">
-                <div class="text-line" id="line1">
-                    <h1 class="welcome-text">Welcome to the Future of Creation</h1>
-                </div>
-                <div class="text-line" id="line2">
-                    <h1 class="welcome-text">Welcome to...</h1>
-                </div>
-                <div class="text-line" id="line3">
-                    <h1 class="main-title">SQUADVERTEX</h1>
-                </div>
-                <div class="text-line" id="line4">
-                    <h1 class="tagline">Your World. Your Squad. Your Voice.</h1>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Button container below animation area -->
-        <div class="enter-btn-container">
-            <button class="enter-btn" id="enterBtn">Enter Now</button>
-        </div>
-    </div>
-    
-    <script>
-        // Create particles
-        function createParticles() {
-            const container = document.getElementById('particles');
-            const particleCount = 150;
-            
-            for (let i = 0; i < particleCount; i++) {
-                const particle = document.createElement('div');
-                particle.classList.add('particle');
-                
-                // Random size
-                const size = Math.random() * 3 + 1;
-                
-                // Random position
-                const x = Math.random() * 100;
-                const y = Math.random() * 100;
-                
-                // Random animation delay
-                const delay = Math.random() * 15;
-                
-                particle.style.width = `${size}px`;
-                particle.style.height = `${size}px`;
-                particle.style.left = `${x}%`;
-                particle.style.top = `${y}%`;
-                particle.style.animationDelay = `${delay}s`;
-                
-                container.appendChild(particle);
-            }
-        }
-        
-        // Create floating cubes
-        function createFloatingCubes() {
-            const container = document.getElementById('floatingCubes');
-            const cubeCount = 20;
-            
-            for (let i = 0; i < cubeCount; i++) {
-                const cube = document.createElement('div');
-                cube.classList.add('cube');
-                
-                // Random position
-                const left = Math.random() * 100;
-                cube.style.left = `${left}%`;
-                
-                // Random delay and duration
-                const delay = Math.random() * 20;
-                const duration = 15 + Math.random() * 15;
-                
-                cube.style.animationDelay = `${delay}s`;
-                cube.style.animationDuration = `${duration}s`;
-                
-                container.appendChild(cube);
-            }
-        }
-        
-        // Set up cinematic text animations
-        function initCinematicAnimations() {
-            const tl = gsap.timeline({
-                defaults: { ease: "power3.out", duration: 1.5 }
-            });
-            
-            // Initial delay
-            tl.to({}, { duration: 0.5 });
-            
-            // Welcome to the Future of Creation
-            tl.fromTo('#line1', 
-                { opacity: 0, clipPath: 'polygon(0 0, 100% 0, 100% 0, 0 0)' },
-                { opacity: 1, clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' },
-                "+=0.5"
-            );
-            
-            // Hold then transform to "Welcome to..."
-            tl.to('#line1', 
-                { opacity: 0, clipPath: 'polygon(0 100%, 100% 100%, 100% 100%, 0 100%)', duration: 1 },
-                "+=2"
-            );
-            
-            // Show "Welcome to..."
-            tl.fromTo('#line2', 
-                { opacity: 0, clipPath: 'polygon(0 0, 100% 0, 100% 0, 0 0)' },
-                { opacity: 1, clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' },
-                "-=0.5"
-            );
-            
-            // Show SQUADVERTEX with dramatic effect
-            tl.to('#line2', 
-                { opacity: 0, duration: 0.5 },
-                "+=1"
-            );
-            
-            tl.fromTo('#line3', 
-                { 
-                    opacity: 0, 
-                    scale: 0.2,
-                    y: '10vmin',
-                    clipPath: 'polygon(0 0, 100% 0, 100% 0, 0 0)'
-                },
-                { 
-                    opacity: 1, 
-                    scale: 1, 
-                    y: 0,
-                    clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)',
-                    duration: 1.8,
-                    ease: "elastic.out(1, 0.4)",
-                    onStart: () => {
-                        // Add glow effect
-                        gsap.to('.main-title', {
-                            duration: 0.5,
-                            repeat: 3,
-                            yoyo: true,
-                            textShadow: "0 0 3vmin var(--primary-glow), 0 0 5vmin rgba(0, 230, 255, 0.6), 0 0 8vmin rgba(0, 230, 255, 0.3)"
-                        });
-                    }
-                }
-            );
-            
-            // Show tagline
-            tl.fromTo('#line4', 
-                { 
-                    opacity: 0, 
-                    scale: 0.8, 
-                    y: '5vmin',
-                    clipPath: 'polygon(0 100%, 100% 100%, 100% 100%, 0 100%)' 
-                },
-                { 
-                    opacity: 1, 
-                    scale: 1, 
-                    y: 0,
-                    clipPath: 'polygon(0 100%, 100% 100%, 100% 0, 0 0)',
-                    ease: "back.out(1.7)" 
-                },
-                "+=0.3"
-            );
-            
-            // Show enter button with floating effect
-            tl.to('#enterBtn', 
-                { 
-                    opacity: 1, 
-                    y: 0, 
-                    duration: 1.5,
-                    ease: "power4.out",
-                    onComplete: () => {
-                        // Add floating effect to button
-                        gsap.to('#enterBtn', {
-                            y: -10,
-                            duration: 2,
-                            repeat: -1,
-                            yoyo: true,
-                            ease: "sine.inOut"
-                        });
-                    }
-                },
-                "+=0.5"
-            );
-            
-            return tl;
-        }
-        
-        // Initialize everything
-        document.addEventListener('DOMContentLoaded', () => {
-            createParticles();
-            createFloatingCubes();
-            const animation = initCinematicAnimations();
-            
-            // Button click event
-            document.getElementById('enterBtn').addEventListener('click', () => {
-                // Fade out animation
-                gsap.to('.portal-container', {
-                    opacity: 0,
-                    scale: 1.2,
-                    duration: 1.5,
-                    ease: "power4.in",
-                    onComplete: () => {
-                        // Redirect to main site
-                        window.location.href = 'index.html';
-                    }
-                });
-            });
-        });
-    </script>
+  <div class="card" id="authSection">
+    <h1>🔒 Secure Entry</h1>
+    <p>Please authenticate with your fingerprint to continue.</p>
+    <button onclick="requestFingerprint()">Unlock with Fingerprint</button>
+  </div>
+
+  <div class="card" id="protectedContent">
+    <h2>✅ Access Granted</h2>
+    <p>Welcome inside the protected area! 🎉</p>
+    <p>Now you can view secure resources of the site.</p>
+  </div>
 </body>
 </html>
