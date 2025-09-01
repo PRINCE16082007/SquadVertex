@@ -41,9 +41,20 @@
   #protectedContent {
     display: none;
     margin-top: 1.5rem;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255,255,255,0.1);
     padding: 1rem 1.5rem;
     border-radius: 10px;
+  }
+  #consoleLog {
+    margin-top: 1rem;
+    background: rgba(0,0,0,0.7);
+    color: #00ff00;
+    font-family: monospace;
+    height: 150px;
+    overflow-y: auto;
+    white-space: pre-line;
+    padding: 0.5rem;
+    border-radius: 8px;
   }
 </style>
 </head>
@@ -53,6 +64,7 @@
   <p>Please authenticate using your fingerprint or biometric device to proceed.</p>
   <button id="authBtn">Authenticate with Fingerprint</button>
   <p id="status" style="margin-top: 1rem;"></p>
+  <div id="consoleLog"></div>
 </div>
 
 <div class="container" id="protectedContent">
@@ -63,10 +75,10 @@
 <script type="module">
   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-  // ======= Replace these with your Supabase project details =======
-  const SUPABASE_URL = 'https://dvjihjkyenzkacviywgk.supabase.co'  // <-- your project URL
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg'           // <-- your anon/public key
-  // ==================================================================
+  // ============== Replace with your Supabase project details ===================
+  const SUPABASE_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg'; 
+  // ===========================================================================
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -74,26 +86,51 @@
   const statusText = document.getElementById('status');
   const authSection = document.getElementById('authSection');
   const protectedContent = document.getElementById('protectedContent');
+  const consoleLog = document.getElementById('consoleLog');
 
-  // WebAuthn registration/fingerprint guard function
+  // Helper: Add logs to consoleLog div
+  function logToConsole(message) {
+    const timestamp = new Date().toLocaleTimeString();
+    consoleLog.textContent += `[${timestamp}] ${message}\n`;
+    consoleLog.scrollTop = consoleLog.scrollHeight;
+  }
+
+  // Helper: Convert UUID string to Uint8Array for WebAuthn user.id
+  function uuidToUint8Array(uuid) {
+    return new Uint8Array(uuid.replace(/-/g, '')
+      .match(/.{1,2}/g)
+      .map(byte => parseInt(byte, 16)));
+  }
+
   async function requestFingerprint() {
     statusText.textContent = "Requesting fingerprint...";
+    logToConsole("Request started...");
 
     try {
-      // Create a random challenge buffer
+      // Get current logged in user from Supabase
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        alert("User not signed in. Please sign in first.");
+        logToConsole("User fetch error or no user: " + (userError?.message || "No user"));
+        return;
+      }
+
+      logToConsole("User fetched: " + user.email);
+
+      // Create random challenge buffer
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
 
-      // PublicKeyCredentialCreationOptions
       const publicKey = {
-        challenge: challenge,
+        challenge,
         rp: { name: "Supabase Fingerprint Guard" },
         user: {
-          id: new Uint8Array(16), // dummy fixed user id (can be from Supabase user id)
-          name: supabase.auth.user()?.email || "unknown-user",
-          displayName: supabase.auth.user()?.email || "Unknown User"
+          id: uuidToUint8Array(user.id),
+          name: user.email,
+          displayName: user.email
         },
-        pubKeyCredParams: [{ type: "public-key", alg: -7 }], // ES256 signing algorithm
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
         timeout: 60000,
         authenticatorSelection: {
           authenticatorAttachment: "platform",
@@ -102,43 +139,42 @@
         attestation: "none"
       };
 
+      logToConsole("Sending WebAuthn create credential request...");
       const credential = await navigator.credentials.create({ publicKey });
 
       if (credential) {
+        logToConsole("Fingerprint authenticated successfully.");
+
         statusText.textContent = "Fingerprint authenticated successfully!";
 
-        // Save a log entry in Supabase table 'test'
-        const { data, error } = await supabase
+        // Insert a record into 'test' table
+        const { error: insertError } = await supabase
           .from('test')
           .insert([{
-            user_email: supabase.auth.user()?.email || "unknown",
+            user_email: user.email,
             success: true,
             type: credential.type,
             created_at: new Date().toISOString()
           }]);
 
-        if (error) {
-          console.error("Supabase insert error:", error);
+        if (insertError) {
+          logToConsole("Supabase insert error: " + insertError.message);
           statusText.textContent = "Error saving to Supabase. Check console.";
           return;
         }
 
-        // Show protected content & hide auth button
+        // Show protected content & hide auth section
         authSection.style.display = "none";
         protectedContent.style.display = "block";
+        logToConsole("Access granted UI shown.");
       }
     } catch (error) {
-      console.error("Fingerprint Authentication failed:", error);
+      logToConsole("Fingerprint Authentication failed: " + error.message);
       statusText.textContent = "Authentication failed: " + error.message;
     }
   }
 
   authBtn.onclick = () => {
-    // Make sure user is authenticated with Supabase before requesting fingerprint
-    if (!supabase.auth.user()) {
-      alert("Please sign in first to continue.");
-      return;
-    }
     requestFingerprint();
   }
 </script>
