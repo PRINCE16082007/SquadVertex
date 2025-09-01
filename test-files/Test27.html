@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Firebase Fingerprint Guard</title>
+<title>Firebase + Google + Biometric Guard</title>
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -20,7 +20,7 @@
     padding: 2.5rem;
     border-radius: 12px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.7);
-    max-width: 420px;
+    max-width: 440px;
     width: 90%;
     text-align: center;
   }
@@ -32,8 +32,8 @@
     border-radius: 8px;
     color: white;
     cursor: pointer;
-    transition: background 0.3s ease;
     margin-top: 1.3rem;
+    transition: background 0.25s ease;
   }
   button:hover {
     background: #005fa3;
@@ -41,50 +41,55 @@
   #protectedContent {
     display: none;
     margin-top: 1.5rem;
-    background: rgba(255,255,255,0.1);
-    padding: 1rem 1.5rem;
-    border-radius: 10px;
+    background: rgba(255,255,255,0.14);
+    padding: 1.2rem 1.5rem;
+    border-radius: 12px;
   }
   #consoleLog {
     margin-top: 1rem;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.75);
     color: #00ff00;
     font-family: monospace;
-    height: 150px;
+    height: 140px;
     overflow-y: auto;
-    white-space: pre-line;
+    white-space: pre-wrap;
     padding: 0.5rem;
     border-radius: 8px;
+    max-width: 440px;
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
   }
   #signOutBtn {
     background: #d9534f;
     margin-top: 1rem;
+    display: none;
   }
 </style>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
 </head>
 <body>
+
 <div class="container" id="authSection">
-  <h2>🔐 Firebase Fingerprint Guard</h2>
+  <h2>🔐 Sign In with Google & Biometric</h2>
   <p id="userInfo">Please sign in first.</p>
   <button id="signInBtn">Sign In with Google</button>
-  <button id="authBtn" style="display:none;">Authenticate with Fingerprint</button>
-  <button id="signOutBtn" style="display:none;">Sign Out</button>
-  <p id="status" style="margin-top: 1rem;"></p>
-  <div id="consoleLog"></div>
+  <button id="signOutBtn">Sign Out</button>
+  <p id="statusText"></p>
 </div>
 
 <div class="container" id="protectedContent">
   <h3>✅ Access Granted!</h3>
-  <p>Welcome to the protected section of the site. Enjoy your stay! 🎉</p>
+  <p>Welcome to the protected section.</p>
 </div>
 
-<!-- Firebase SDK -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+<div id="consoleLog"></div>
 
-  // 🔧 Your Firebase config
+<script>
+  // Your Firebase config (same as yours)
   const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
     authDomain: "squadvertex2007.firebaseapp.com",
@@ -95,124 +100,145 @@
   };
 
   // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
 
-  const signInBtn = document.getElementById("signInBtn");
-  const authBtn = document.getElementById("authBtn");
-  const signOutBtn = document.getElementById("signOutBtn");
-  const userInfo = document.getElementById("userInfo");
-  const statusText = document.getElementById("status");
-  const authSection = document.getElementById("authSection");
-  const protectedContent = document.getElementById("protectedContent");
-  const consoleLog = document.getElementById("consoleLog");
+  // Elements
+  const signInBtn = document.getElementById('signInBtn');
+  const signOutBtn = document.getElementById('signOutBtn');
+  const userInfo = document.getElementById('userInfo');
+  const statusText = document.getElementById('statusText');
+  const authSection = document.getElementById('authSection');
+  const protectedContent = document.getElementById('protectedContent');
+  const consoleLog = document.getElementById('consoleLog');
 
-  function logToConsole(message) {
+  function logToConsole(msg) {
     const timestamp = new Date().toLocaleTimeString();
-    consoleLog.textContent += `[${timestamp}] ${message}\n`;
+    consoleLog.textContent += `[${timestamp}] ${msg}\n`;
     consoleLog.scrollTop = consoleLog.scrollHeight;
   }
 
-  // Update UI based on auth state
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      userInfo.textContent = `Signed in as: ${user.email}`;
-      signInBtn.style.display = "none";
-      authBtn.style.display = "inline-block";
-      signOutBtn.style.display = "inline-block";
-      protectedContent.style.display = "none";
-      statusText.textContent = "";
-      logToConsole(`User signed in: ${user.email}`);
-    } else {
-      userInfo.textContent = "Please sign in first.";
-      signInBtn.style.display = "inline-block";
-      authBtn.style.display = "none";
-      signOutBtn.style.display = "none";
-      protectedContent.style.display = "none";
-      statusText.textContent = "";
-      logToConsole("User signed out");
+  // Helpers: base64url encode/decode
+  function bufferToBase64Url(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let str = '';
+    for (let b of bytes) str += String.fromCharCode(b);
+    return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function base64UrlToBuffer(base64url) {
+    base64url = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64url.length % 4) base64url += '=';
+    const str = atob(base64url);
+    const buffer = new Uint8Array(str.length);
+    for (let i = 0; i < str.length; i++) {
+      buffer[i] = str.charCodeAt(i);
     }
-  });
+    return buffer;
+  }
 
+  // Google sign-in
   signInBtn.onclick = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      logToConsole(`Sign-in successful: ${result.user.email}`);
-    } catch (error) {
-      logToConsole("Sign-in error: " + error.message);
-      alert("Sign-in failed: " + error.message);
+      const provider = new firebase.auth.GoogleAuthProvider();
+      logToConsole('Starting Google sign-in...');
+      const result = await auth.signInWithPopup(provider);
+      logToConsole(`Google sign-in successful: ${result.user.email}`);
+
+      userInfo.textContent = `Signed in as: ${result.user.email}`;
+      signInBtn.style.display = 'none';
+      signOutBtn.style.display = 'inline-block';
+      statusText.textContent = 'Requesting biometric authentication...';
+
+      // After sign-in, start WebAuthn authentication flow
+      await startWebAuthnAuthentication(result.user.uid);
+
+    } catch (err) {
+      logToConsole('Google sign-in error: ' + err.message);
+      alert("Google sign-in failed: " + err.message);
     }
   };
 
   signOutBtn.onclick = async () => {
-    await signOut(auth);
-    logToConsole("User signed out");
+    await auth.signOut();
+    logToConsole('User signed out');
+    userInfo.textContent = 'Please sign in first.';
+    signInBtn.style.display = 'inline-block';
+    signOutBtn.style.display = 'none';
+    statusText.textContent = '';
+    protectedContent.style.display = 'none';
+    authSection.style.display = 'block';
   };
 
-  // Convert Firebase user uid to Uint8Array for WebAuthn user.id
-  function uidToUint8Array(uid) {
-    return new Uint8Array(uid.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-  }
-
-  async function requestFingerprint() {
-    const user = auth.currentUser;
-    if (!user) {
-      alert("Please sign in first.");
-      return;
-    }
-
-    statusText.textContent = "Requesting fingerprint...";
-    logToConsole("Starting WebAuthn fingerprint request...");
-
+  // WebAuthn authentication flow (using Netlify backend endpoints)
+  async function startWebAuthnAuthentication(uid) {
     try {
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
+      logToConsole('Fetching authentication options from server...');
+      let resp = await fetch('/.netlify/functions/webauthn-auth-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid })
+      });
+      if (!resp.ok) throw new Error(`Server error: ${resp.statusText}`);
+      let options = await resp.json();
 
-      const publicKey = {
-        challenge,
-        rp: { name: "Firebase Fingerprint Guard" },
-        user: {
-          id: uidToUint8Array(user.uid),
-          name: user.email,
-          displayName: user.email,
+      // Decode challenge and allowCredentials id buffers
+      options.challenge = base64UrlToBuffer(options.challenge);
+      if (options.allowCredentials) {
+        options.allowCredentials = options.allowCredentials.map(cred => ({
+          ...cred,
+          id: base64UrlToBuffer(cred.id)
+        }));
+      }
+
+      // Prompt biometric authentication
+      logToConsole('Calling navigator.credentials.get()...');
+      const assertion = await navigator.credentials.get({ publicKey: options });
+      logToConsole('Biometric authentication success.');
+
+      // Prepare assertion response to send to server for verification
+      const authResponse = {
+        id: assertion.id,
+        rawId: bufferToBase64Url(assertion.rawId),
+        type: assertion.type,
+        response: {
+          authenticatorData: bufferToBase64Url(assertion.response.authenticatorData),
+          clientDataJSON: bufferToBase64Url(assertion.response.clientDataJSON),
+          signature: bufferToBase64Url(assertion.response.signature),
+          userHandle: assertion.response.userHandle ? bufferToBase64Url(assertion.response.userHandle) : null
         },
-        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
-        timeout: 60000,
-        authenticatorSelection: {
-          authenticatorAttachment: "platform",
-          userVerification: "required",
-        },
-        attestation: "none",
+        uid
       };
 
-      const credential = await navigator.credentials.create({ publicKey });
+      logToConsole('Sending assertion to server for verification...');
+      const verifyResp = await fetch('/.netlify/functions/webauthn-verify-authentication', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(authResponse)
+      });
+      if (!verifyResp.ok) throw new Error(`Verification failed: ${verifyResp.statusText}`);
 
-      if (credential) {
-        logToConsole("Fingerprint authenticated successfully.");
-
-        statusText.textContent = "Fingerprint authenticated successfully!";
-
-        await addDoc(collection(db, "test"), {
-          user_email: user.email,
-          success: true,
-          type: credential.type,
-          created_at: new Date().toISOString(),
-        });
-
-        authSection.style.display = "none";
-        protectedContent.style.display = "block";
-
-        logToConsole("Access granted");
+      const verifyResult = await verifyResp.json();
+      if (verifyResult.success) {
+        logToConsole('Authentication verified by server! Access granted.');
+        authSection.style.display = 'none';
+        protectedContent.style.display = 'block';
+      } else {
+        throw new Error('Authentication rejected by server');
       }
+
     } catch (error) {
-      logToConsole("Fingerprint auth failed: " + error.message);
-      statusText.textContent = "Authentication failed: " + error.message;
+      logToConsole('WebAuthn authentication failed: ' + error.message);
+      alert('Authentication failed: ' + error.message);
+      await auth.signOut();
+      userInfo.textContent = 'Please sign in first.';
+      signInBtn.style.display = 'inline-block';
+      signOutBtn.style.display = 'none';
+      statusText.textContent = '';
+      protectedContent.style.display = 'none';
     }
   }
-
-  authBtn.onclick = requestFingerprint;
 </script>
+
 </body>
 </html>
