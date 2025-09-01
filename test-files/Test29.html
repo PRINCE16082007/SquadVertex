@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Firebase Password Protection</title>
+<title>Google + Biometric + Password Protection</title>
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -12,39 +12,31 @@
     height: 100vh;
     margin: 0;
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
   }
   .container {
     background: rgba(0,0,0,0.45);
     padding: 2.5rem;
     border-radius: 12px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.7);
-    max-width: 420px;
+    max-width: 440px;
     width: 90%;
     text-align: center;
   }
-  input[type="email"], input[type="password"] {
-    width: 90%;
-    padding: 0.8rem;
-    margin: 0.5rem 0;
-    font-size: 1rem;
-    border-radius: 6px;
-    border: none;
-  }
   button {
     padding: 0.9rem 1.8rem;
-    font-size: 1.1rem;
-    background: #0078d7;
+    background: #1db954;
     border: none;
     border-radius: 8px;
     color: white;
+    font-size: 1.1rem;
     cursor: pointer;
-    transition: background 0.3s ease;
-    margin-top: 1rem;
+    transition: background 0.25s ease;
+    margin-top: 1.3rem;
   }
   button:hover {
-    background: #005fa3;
+    background: #17a447;
   }
   #protectedContent {
     display: none;
@@ -60,43 +52,79 @@
     font-family: monospace;
     height: 150px;
     overflow-y: auto;
-    white-space: pre-line;
+    white-space: pre-wrap;
     padding: 0.5rem;
     border-radius: 8px;
   }
-  #signOutBtn {
-    background: #d9534f;
-    margin-top: 1rem;
+  #passwordModal {
+    position: fixed;
+    top: 0; left:0; right:0; bottom:0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    justify-content: center;
+    align-items: center;
+  }
+  #passwordModalContent {
+    background: #222;
+    padding: 2rem;
+    border-radius: 10px;
+    width: 320px;
+  }
+  #passwordModalContent input {
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: 6px;
+    border: none;
+    margin-bottom: 1rem;
+    font-size: 1rem;
   }
 </style>
 </head>
 <body>
+
 <div class="container" id="authSection">
-  <h2>🔐 Login / Sign Up</h2>
-  <input type="email" id="email" placeholder="Email" required />
-  <input type="password" id="password" placeholder="Password" required />
-  <br/>
-  <button id="signUpBtn">Sign Up</button>
-  <button id="signInBtn">Sign In</button>
-  <button id="signOutBtn" style="display:none;">Sign Out</button>
+  <h2>🔐 Google Sign-in + Biometric + Password</h2>
+  <button id="googleSignInBtn">Sign In with Google</button>
+  <button id="signOutBtn" style="display:none; background:#d9534f;">Sign Out</button>
   <p id="status" style="margin-top: 1rem;"></p>
   <div id="consoleLog"></div>
 </div>
 
+<div id="passwordModal">
+  <div id="passwordModalContent">
+    <h3>Enter Password</h3>
+    <input type="password" id="passwordInput" placeholder="Enter password" />
+    <button id="submitPasswordBtn">Submit</button>
+    <p id="passwordError" style="color: #ff6666; margin-top: 0.5rem;"></p>
+  </div>
+</div>
+
 <div class="container" id="protectedContent">
   <h3>✅ Access Granted!</h3>
-  <p>Welcome to the protected section of the site. Enjoy your stay! 🎉</p>
+  <p>Welcome to the protected content! Enjoy. 🎉</p>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-  import { getAuth,
-           createUserWithEmailAndPassword,
-           signInWithEmailAndPassword,
-           onAuthStateChanged,
-           signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  import {
+    getAuth,
+    signInWithPopup,
+    GoogleAuthProvider,
+    onAuthStateChanged,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  import {
+    getFirestore,
+    collection,
+    getDocs,
+    query,
+    where,
+    addDoc,
+    doc,
+    getDoc
+  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-  // 🔧 Your Firebase config
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
     authDomain: "squadvertex2007.firebaseapp.com",
@@ -106,79 +134,166 @@
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
   };
 
-  // Initialize Firebase
+  // Initialize
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  const db = getFirestore(app);
 
-  const emailInput = document.getElementById("email");
-  const passwordInput = document.getElementById("password");
-  const signUpBtn = document.getElementById("signUpBtn");
-  const signInBtn = document.getElementById("signInBtn");
+  // Elements
+  const googleSignInBtn = document.getElementById("googleSignInBtn");
   const signOutBtn = document.getElementById("signOutBtn");
   const statusText = document.getElementById("status");
+  const consoleLog = document.getElementById("consoleLog");
   const authSection = document.getElementById("authSection");
   const protectedContent = document.getElementById("protectedContent");
-  const consoleLog = document.getElementById("consoleLog");
 
+  // Password modal elements
+  const passwordModal = document.getElementById("passwordModal");
+  const passwordInput = document.getElementById("passwordInput");
+  const submitPasswordBtn = document.getElementById("submitPasswordBtn");
+  const passwordError = document.getElementById("passwordError");
+
+  // Console log helper
   function logToConsole(message) {
     const timestamp = new Date().toLocaleTimeString();
     consoleLog.textContent += `[${timestamp}] ${message}\n`;
     consoleLog.scrollTop = consoleLog.scrollHeight;
   }
 
-  // Monitor auth state changes
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      logToConsole("User signed in: " + user.email);
-      statusText.textContent = "Signed in as: " + user.email;
+  // Show or hide password modal
+  function showPasswordModal(show) {
+    if (show) {
+      passwordModal.style.display = "flex";
+      passwordInput.value = "";
+      passwordError.textContent = "";
+      passwordInput.focus();
+    } else {
+      passwordModal.style.display = "none";
+    }
+  }
+
+  // Biometric (WebAuthn) function
+  async function requestFingerprint() {
+    try {
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+
+      const publicKey = {
+        challenge,
+        rp: { name: "My Website" },
+        user: {
+          id: new Uint8Array(16),
+          name: auth.currentUser.email,
+          displayName: auth.currentUser.email
+        },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+        timeout: 60000,
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required"
+        },
+        attestation: "none"
+      };
+
+      logToConsole("Requesting biometric authentication...");
+      const credential = await navigator.credentials.create({ publicKey });
+
+      if (credential) {
+        logToConsole("Biometric authentication success.");
+        return true;
+      }
+    } catch (err) {
+      logToConsole("Biometric auth failed: " + err.message);
+      alert("Biometric authentication failed: " + err.message);
+      return false;
+    }
+  }
+
+  // Check password against Firestore stored value
+  async function checkPassword(inputPassword) {
+    const docRef = doc(db, "config", "masterPassword");
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      logToConsole("Master password not set in Firestore.");
+      return false;
+    }
+    const storedPassword = docSnap.data().password;
+    return inputPassword === storedPassword;
+  }
+
+  // On password submit
+  submitPasswordBtn.onclick = async () => {
+    const pw = passwordInput.value.trim();
+    if (!pw) {
+      passwordError.textContent = "Password cannot be empty.";
+      return;
+    }
+    const valid = await checkPassword(pw);
+    if (valid) {
+      passwordError.textContent = "";
+      showPasswordModal(false);
       authSection.style.display = "none";
       protectedContent.style.display = "block";
-      signOutBtn.style.display = "inline-block";
+      logToConsole("Password match! Access granted.");
     } else {
-      logToConsole("No user signed in");
-      statusText.textContent = "";
-      authSection.style.display = "block";
-      protectedContent.style.display = "none";
-      signOutBtn.style.display = "none";
-    }
-  });
-
-  signUpBtn.onclick = async () => {
-    const email = emailInput.value.trim();
-    const password = passwordInput.value.trim();
-    if (!email || !password) {
-      alert("Email and password are required");
-      return;
-    }
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      logToConsole("Sign-up successful for: " + email);
-    } catch (error) {
-      logToConsole("Sign-up error: " + error.message);
-      alert("Sign-up failed: " + error.message);
+      passwordError.textContent = "Password incorrect.";
+      logToConsole("Password mismatch attempt.");
     }
   };
 
-  signInBtn.onclick = async () => {
-    const email = emailInput.value.trim();
-    const password = passwordInput.value.trim();
-    if (!email || !password) {
-      alert("Email and password are required");
-      return;
-    }
+  // Google Sign-In
+  googleSignInBtn.onclick = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      logToConsole("Sign-in successful for: " + email);
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      logToConsole("Signed in as: " + result.user.email);
+      statusText.textContent = "Signed in as: " + result.user.email;
+
+      // On successful sign-in, request biometric auth
+      const biometricSuccess = await requestFingerprint();
+      if (biometricSuccess) {
+        // Then show password modal
+        showPasswordModal(true);
+      } else {
+        // Sign out if biometric fails
+        await signOut(auth);
+        statusText.textContent = "Signed out due to biometric failure.";
+      }
     } catch (error) {
-      logToConsole("Sign-in error: " + error.message);
-      alert("Sign-in failed: " + error.message);
+      logToConsole("Google sign-in error: " + error.message);
+      alert("Google sign-in failed: " + error.message);
     }
   };
 
+  // Sign out button
   signOutBtn.onclick = async () => {
     await signOut(auth);
     logToConsole("User signed out");
+    statusText.textContent = "Signed out.";
+    authSection.style.display = "block";
+    protectedContent.style.display = "none";
+    signOutBtn.style.display = "none";
+    googleSignInBtn.style.display = "inline-block";
   };
+
+  // Monitor auth state changes
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      logToConsole("User authenticated: " + user.email);
+      statusText.textContent = "Signed in as: " + user.email;
+      googleSignInBtn.style.display = "none";
+      signOutBtn.style.display = "inline-block";
+    } else {
+      logToConsole("No user signed in.");
+      statusText.textContent = "";
+      googleSignInBtn.style.display = "inline-block";
+      signOutBtn.style.display = "none";
+      authSection.style.display = "block";
+      protectedContent.style.display = "none";
+      showPasswordModal(false);
+    }
+  });
 </script>
+
 </body>
 </html>
