@@ -1,82 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Fingerprint Demo</title>
-  
-  <!-- Firebase SDK -->
-  <script type="module">
-    // Import Firebase
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
-    // 🔧 Your Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // Function: Request Fingerprint/biometric authentication via WebAuthn
-    async function requestFingerprint() {
-      try {
-        // Generate a fake challenge (normally should come from server for real auth)
-        const challenge = new Uint8Array(32);
-        window.crypto.getRandomValues(challenge);
-
-        // Ask user to use fingerprint/biometric
-        const publicKey = {
-          challenge: challenge,
-          rp: { name: "My Test Website" },
-          user: {
-            id: new Uint8Array(16), // Dummy user ID for demo
-            name: "testuser@example.com",
-            displayName: "Test User"
-          },
-          pubKeyCredParams: [{ type: "public-key", alg: -7 }], // ES256
-          timeout: 60000,
-          authenticatorSelection: {
-            authenticatorAttachment: "platform", // Use built-in fingerprint
-            userVerification: "required" // Force biometric
-          },
-          attestation: "none"
-        };
-
-        // Creates a new credential (biometric secured)
-        const credential = await navigator.credentials.create({ publicKey });
-
-        if (credential) {
-          console.log("Biometric Authentication Successful ✅");
-          
-          // Save result to Firestore
-          const docRef = await addDoc(collection(db, "test"), {
-            success: true,
-            type: credential.type,
-            created: new Date().toISOString()
-          });
-
-          alert("Fingerprint Verified! 🔐 Data stored in Firestore. Doc ID: " + docRef.id);
-        }
-
-      } catch (err) {
-        console.error("Authentication failed ❌", err);
-        alert("Failed: " + err.message);
-      }
-    }
-
-    window.requestFingerprint = requestFingerprint;
-  </script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Supabase Fingerprint Guard</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
+    color: white;
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .container {
+    background: rgba(0,0,0,0.45);
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+  }
+  button {
+    padding: 0.9rem 1.8rem;
+    font-size: 1.1rem;
+    background: #1db954;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: background 0.25s ease;
+    margin-top: 1.3rem;
+  }
+  button:hover {
+    background: #17a447;
+  }
+  #protectedContent {
+    display: none;
+    margin-top: 1.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+  }
+</style>
 </head>
 <body>
-  <h1>🔐 Fingerprint Biometric Demo</h1>
-  <button onclick="requestFingerprint()">Authenticate with Fingerprint</button>
+<div class="container" id="authSection">
+  <h2>🔐 Secure Fingerprint Guard</h2>
+  <p>Please authenticate using your fingerprint or biometric device to proceed.</p>
+  <button id="authBtn">Authenticate with Fingerprint</button>
+  <p id="status" style="margin-top: 1rem;"></p>
+</div>
+
+<div class="container" id="protectedContent">
+  <h3>✅ Access Granted!</h3>
+  <p>Welcome to the protected section of the site. Enjoy your stay! 🎉</p>
+</div>
+
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+  // ======= Replace these with your Supabase project details =======
+  const SUPABASE_URL = 'https://your-project-ref.supabase.co'  // <-- your project URL
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'           // <-- your anon/public key
+  // ==================================================================
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const authBtn = document.getElementById('authBtn');
+  const statusText = document.getElementById('status');
+  const authSection = document.getElementById('authSection');
+  const protectedContent = document.getElementById('protectedContent');
+
+  // WebAuthn registration/fingerprint guard function
+  async function requestFingerprint() {
+    statusText.textContent = "Requesting fingerprint...";
+
+    try {
+      // Create a random challenge buffer
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+
+      // PublicKeyCredentialCreationOptions
+      const publicKey = {
+        challenge: challenge,
+        rp: { name: "Supabase Fingerprint Guard" },
+        user: {
+          id: new Uint8Array(16), // dummy fixed user id (can be from Supabase user id)
+          name: supabase.auth.user()?.email || "unknown-user",
+          displayName: supabase.auth.user()?.email || "Unknown User"
+        },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }], // ES256 signing algorithm
+        timeout: 60000,
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required"
+        },
+        attestation: "none"
+      };
+
+      const credential = await navigator.credentials.create({ publicKey });
+
+      if (credential) {
+        statusText.textContent = "Fingerprint authenticated successfully!";
+
+        // Save a log entry in Supabase table 'test'
+        const { data, error } = await supabase
+          .from('test')
+          .insert([{
+            user_email: supabase.auth.user()?.email || "unknown",
+            success: true,
+            type: credential.type,
+            created_at: new Date().toISOString()
+          }]);
+
+        if (error) {
+          console.error("Supabase insert error:", error);
+          statusText.textContent = "Error saving to Supabase. Check console.";
+          return;
+        }
+
+        // Show protected content & hide auth button
+        authSection.style.display = "none";
+        protectedContent.style.display = "block";
+      }
+    } catch (error) {
+      console.error("Fingerprint Authentication failed:", error);
+      statusText.textContent = "Authentication failed: " + error.message;
+    }
+  }
+
+  authBtn.onclick = () => {
+    // Make sure user is authenticated with Supabase before requesting fingerprint
+    if (!supabase.auth.user()) {
+      alert("Please sign in first to continue.");
+      return;
+    }
+    requestFingerprint();
+  }
+</script>
 </body>
 </html>
