@@ -1,126 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Fingerprint Guard Demo</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #4cafef, #2a2a72);
-      color: white;
-      text-align: center;
-      height: 100vh;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-    }
-    .card {
-      background: rgba(0, 0, 0, 0.4);
-      padding: 2rem;
-      border-radius: 15px;
-      box-shadow: 0px 4px 20px rgba(0,0,0,0.5);
-      max-width: 450px;
-    }
-    button {
-      background: #00c853;
-      border: none;
-      padding: 0.8rem 1.5rem;
-      font-size: 1.1rem;
-      color: white;
-      cursor: pointer;
-      border-radius: 8px;
-      margin-top: 1.2rem;
-      transition: background 0.3s ease;
-    }
-    button:hover {
-      background: #009624;
-    }
-    #protectedContent {
-      display: none;
-      margin-top: 1.5rem;
-      padding: 1rem;
-      background: rgba(255,255,255,0.1);
-      border-radius: 10px;
-    }
-  </style>
-  
-  <!-- Firebase -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Firebase Fingerprint Guard with App Check</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
+    color: white;
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .container {
+    background: rgba(0,0,0,0.45);
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+  }
+  button {
+    padding: 0.9rem 1.8rem;
+    font-size: 1.1rem;
+    background: #0078d7;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    margin-top: 1.3rem;
+  }
+  button:hover {
+    background: #005fa3;
+  }
+  #protectedContent {
+    display: none;
+    margin-top: 1.5rem;
+    background: rgba(255,255,255,0.1);
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+  }
+  #consoleLog {
+    margin-top: 1rem;
+    background: rgba(0,0,0,0.7);
+    color: #00ff00;
+    font-family: monospace;
+    height: 150px;
+    overflow-y: auto;
+    white-space: pre-line;
+    padding: 0.5rem;
+    border-radius: 8px;
+  }
+  #signOutBtn {
+    background: #d9534f;
+    margin-top: 1rem;
+    display:none;
+  }
+</style>
 
-    // 🔧 Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
+<!-- Firebase SDK and AppCheck -->
+<script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // Function: Fingerprint biometric unlock
-    async function requestFingerprint() {
-      try {
-        const challenge = new Uint8Array(32);
-        window.crypto.getRandomValues(challenge);
-
-        const publicKey = {
-          challenge: challenge,
-          rp: { name: "My Secure Site" },
-          user: {
-            id: new Uint8Array(16),
-            name: "test-user",
-            displayName: "Demo User"
-          },
-          pubKeyCredParams: [{ type: "public-key", alg: -7 }],
-          timeout: 60000,
-          authenticatorSelection: {
-            authenticatorAttachment: "platform",
-            userVerification: "required"
-          },
-          attestation: "none"
-        };
-
-        const credential = await navigator.credentials.create({ publicKey });
-
-        if (credential) {
-          const docRef = await addDoc(collection(db, "test"), {
-            success: true,
-            type: credential.type,
-            created: new Date().toISOString()
-          });
-
-          // Unlock protected content
-          document.getElementById("authSection").style.display = "none";
-          document.getElementById("protectedContent").style.display = "block";
-        }
-
-      } catch (err) {
-        alert("Fingerprint Auth Failed ❌: " + err.message);
-      }
-    }
-
-    window.requestFingerprint = requestFingerprint;
-  </script>
 </head>
 <body>
-  <div class="card" id="authSection">
-    <h1>🔒 Secure Entry</h1>
-    <p>Please authenticate with your fingerprint to continue.</p>
-    <button onclick="requestFingerprint()">Unlock with Fingerprint</button>
-  </div>
 
-  <div class="card" id="protectedContent">
-    <h2>✅ Access Granted</h2>
-    <p>Welcome inside the protected area! 🎉</p>
-    <p>Now you can view secure resources of the site.</p>
-  </div>
+<div class="container" id="authSection">
+  <h2>🔐 Firebase Fingerprint Guard</h2>
+  <p id="userInfo">Please sign in first.</p>
+  <button id="signInBtn">Sign In with Google</button>
+  <button id="authBtn" style="display:none;">Authenticate with Fingerprint</button>
+  <button id="signOutBtn">Sign Out</button>
+  <p id="status" style="margin-top: 1rem;"></p>
+  <div id="consoleLog"></div>
+</div>
+
+<div class="container" id="protectedContent">
+  <h3>✅ Access Granted!</h3>
+  <p>Welcome to the protected section of the site. Enjoy your stay! 🎉</p>
+</div>
+
+<script>
+  // Your Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+  };
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+
+  // Initialize Firebase App Check with reCAPTCHA v3 provider
+  firebase.appCheck().activate(
+    '6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx', // Your reCAPTCHA v3 site key here
+    true // Enable auto refresh
+  );
+
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const provider = new firebase.auth.GoogleAuthProvider();
+
+  const signInBtn = document.getElementById("signInBtn");
+  const authBtn = document.getElementById("authBtn");
+  const signOutBtn = document.getElementById("signOutBtn");
+  const userInfo = document.getElementById("userInfo");
+  const statusText = document.getElementById("status");
+  const authSection = document.getElementById("authSection");
+  const protectedContent = document.getElementById("protectedContent");
+  const consoleLog = document.getElementById("consoleLog");
+
+  function logToConsole(message) {
+    const timestamp = new Date().toLocaleTimeString();
+    consoleLog.textContent += `[${timestamp}] ${message}\n`;
+    consoleLog.scrollTop = consoleLog.scrollHeight;
+  }
+
+  // Update UI based on auth state
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      userInfo.textContent = `Signed in as: ${user.email}`;
+      signInBtn.style.display = "none";
+      authBtn.style.display = "inline-block";
+      signOutBtn.style.display = "inline-block";
+      protectedContent.style.display = "none";
+      statusText.textContent = "";
+      logToConsole(`User signed in: ${user.email}`);
+    } else {
+      userInfo.textContent = "Please sign in first.";
+      signInBtn.style.display = "inline-block";
+      authBtn.style.display = "none";
+      signOutBtn.style.display = "none";
+      protectedContent.style.display = "none";
+      statusText.textContent = "";
+      logToConsole("User signed out");
+    }
+  });
+
+  signInBtn.onclick = async () => {
+    try {
+      const result = await auth.signInWithPopup(provider);
+      logToConsole(`Sign-in successful: ${result.user.email}`);
+    } catch (error) {
+      logToConsole("Sign-in error: " + error.message);
+      alert("Sign-in failed: " + error.message);
+    }
+  };
+
+  signOutBtn.onclick = async () => {
+    await auth.signOut();
+    logToConsole("User signed out");
+  };
+
+  function uidToUint8Array(uid) {
+    return new Uint8Array(uid.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+  }
+
+  async function requestFingerprint() {
+    const user = auth.currentUser;
+    if (!user) {
+      alert("Please sign in first.");
+      return;
+    }
+
+    statusText.textContent = "Requesting fingerprint...";
+    logToConsole("Starting WebAuthn fingerprint request...");
+
+    try {
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+
+      const publicKey = {
+        challenge,
+        rp: { name: "Firebase Fingerprint Guard" },
+        user: {
+          id: uidToUint8Array(user.uid),
+          name: user.email,
+          displayName: user.email,
+        },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+        timeout: 60000,
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required",
+        },
+        attestation: "none",
+      };
+
+      const credential = await navigator.credentials.create({ publicKey });
+
+      if (credential) {
+        logToConsole("Fingerprint authenticated successfully.");
+
+        statusText.textContent = "Fingerprint authenticated successfully!";
+
+        await db.collection("test").add({
+          user_email: user.email,
+          success: true,
+          type: credential.type,
+          created_at: new Date().toISOString(),
+        });
+
+        authSection.style.display = "none";
+        protectedContent.style.display = "block";
+
+        logToConsole("Access granted");
+      }
+    } catch (error) {
+      logToConsole("Fingerprint auth failed: " + error.message);
+      statusText.textContent = "Authentication failed: " + error.message;
+    }
+  }
+
+  authBtn.onclick = requestFingerprint;
+</script>
 </body>
 </html>
