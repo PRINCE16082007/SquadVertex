@@ -3,25 +3,22 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Google + Biometric + User Password Guard</title>
+<title>Google + Biometric + Password Guard - Final Fix</title>
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     color: white;
-    height: 100vh;
-    margin: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    margin: 0; padding: 0;
   }
   .container {
-    background: rgba(0,0,0,0.45);
-    padding: 2.5rem;
-    border-radius: 14px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.7);
     max-width: 460px;
     width: 90%;
+    margin: 20px auto;
+    background: rgba(0,0,0,0.45);
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+    padding: 2rem 2.5rem;
     text-align: center;
   }
   button {
@@ -32,33 +29,40 @@
     color: white;
     font-size: 1.1rem;
     cursor: pointer;
-    transition: background 0.3s ease;
     margin-top: 1.3rem;
+    transition: background 0.3s ease;
   }
   button:hover {
     background: #179e45;
   }
+  #signOutBtn {
+    background: #d9534f;
+    margin-top: 1rem;
+    display: none;
+  }
   #protectedContent {
     display: none;
-    margin-top: 1.5rem;
     background: rgba(255,255,255,0.14);
     padding: 1.2rem 1.5rem;
     border-radius: 12px;
+    margin-top: 1.5rem;
   }
   #consoleLog {
-    margin-top: 1rem;
     background: rgba(0,0,0,0.75);
     color: #00ff00;
     font-family: monospace;
     height: 140px;
     overflow-y: auto;
     white-space: pre-wrap;
+    margin: 1rem auto 0 auto;
     padding: 0.5rem;
     border-radius: 8px;
+    max-width: 460px;
+    width: 90%;
   }
   #passwordModal {
     position: fixed;
-    top:0; left:0; right:0; bottom:0;
+    inset: 0;
     background: rgba(0,0,0,0.75);
     display: none;
     justify-content: center;
@@ -81,12 +85,7 @@
   }
   #passwordModalContent p {
     color: #ff6666;
-    margin-bottom: 0;
     height: 1.2rem;
-  }
-  #signOutBtn {
-    background: #d9534f;
-    margin-top: 1rem;
   }
 </style>
 </head>
@@ -94,15 +93,14 @@
 <div class="container" id="authSection">
   <h2>🔐 Login with Google + Biometric + Password</h2>
   <button id="googleSignInBtn">Sign In with Google</button>
-  <button id="signOutBtn" style="display:none; background:#d9534f;">Sign Out</button>
+  <button id="signOutBtn">Sign Out</button>
   <p id="statusText" style="margin-top:1rem;"></p>
-  <div id="consoleLog"></div>
 </div>
 
 <div id="passwordModal">
   <div id="passwordModalContent">
     <h3 id="passwordModalTitle">Enter Password</h3>
-    <input type="password" id="passwordInput" placeholder="Enter your password" />
+    <input type="password" id="passwordInput" placeholder="Enter your password" autocomplete="new-password" />
     <button id="passwordSubmitBtn">Submit</button>
     <p id="passwordMsg"></p>
   </div>
@@ -113,213 +111,223 @@
   <p>Welcome to the protected content area.</p>
 </div>
 
+<div id="consoleLog"></div>
+
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-  import {
-    getAuth,
-    signInWithPopup,
-    GoogleAuthProvider,
-    onAuthStateChanged,
-    signOut
-  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-  import {
-    getFirestore,
-    doc,
-    getDoc,
-    setDoc
-  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-  // Firebase config
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-  };
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+  authDomain: "squadvertex2007.firebaseapp.com",
+  projectId: "squadvertex2007",
+  storageBucket: "squadvertex2007.appspot.com",
+  messagingSenderId: "168905083514",
+  appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+};
 
-  // Initialize
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+// Init Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-  // Elements
-  const googleSignInBtn = document.getElementById("googleSignInBtn");
-  const signOutBtn = document.getElementById("signOutBtn");
-  const statusText = document.getElementById("statusText");
-  const consoleLog = document.getElementById("consoleLog");
-  const authSection = document.getElementById("authSection");
-  const protectedContent = document.getElementById("protectedContent");
+// Elements
+const googleSignInBtn = document.getElementById("googleSignInBtn");
+const signOutBtn = document.getElementById("signOutBtn");
+const statusText = document.getElementById("statusText");
+const consoleLog = document.getElementById("consoleLog");
+const authSection = document.getElementById("authSection");
+const protectedContent = document.getElementById("protectedContent");
 
-  // Password Modal
-  const passwordModal = document.getElementById("passwordModal");
-  const passwordModalTitle = document.getElementById("passwordModalTitle");
-  const passwordInput = document.getElementById("passwordInput");
-  const passwordSubmitBtn = document.getElementById("passwordSubmitBtn");
-  const passwordMsg = document.getElementById("passwordMsg");
+// Password Modal
+const passwordModal = document.getElementById("passwordModal");
+const passwordModalTitle = document.getElementById("passwordModalTitle");
+const passwordInput = document.getElementById("passwordInput");
+const passwordSubmitBtn = document.getElementById("passwordSubmitBtn");
+const passwordMsg = document.getElementById("passwordMsg");
 
-  // Utility functions
-  function logToConsole(msg) {
-    const time = new Date().toLocaleTimeString();
-    consoleLog.textContent += `[${time}] ${msg}\n`;
-    consoleLog.scrollTop = consoleLog.scrollHeight;
-  }
+function logToConsole(msg) {
+  const time = new Date().toLocaleTimeString();
+  consoleLog.textContent += `[${time}] ${msg}\n`;
+  consoleLog.scrollTop = consoleLog.scrollHeight;
+}
 
-  // WebAuthn biometric auth
-  async function requestFingerprint() {
-    try {
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
+// WebAuthn biometric auth
+async function requestFingerprint() {
+  try {
+    const challenge = new Uint8Array(32);
+    window.crypto.getRandomValues(challenge);
 
-      const publicKey = {
-        challenge,
-        rp: { name: "Secure App" },
-        user: {
-          id: new Uint8Array(16),
-          name: auth.currentUser.email,
-          displayName: auth.currentUser.email
-        },
-        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
-        timeout: 60000,
-        authenticatorSelection: {
-          authenticatorAttachment: "platform",
-          userVerification: "required",
-        },
-        attestation: "none",
-      };
+    const publicKey = {
+      challenge,
+      rp: { name: "Secure App" },
+      user: {
+        id: new Uint8Array(16),
+        name: auth.currentUser.email,
+        displayName: auth.currentUser.email
+      },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+      timeout: 60000,
+      authenticatorSelection: {
+        authenticatorAttachment: "platform",
+        userVerification: "required"
+      },
+      attestation: "none"
+    };
 
-      logToConsole("Requesting biometric auth...");
-      const credential = await navigator.credentials.create({ publicKey });
+    logToConsole("Requesting biometric auth...");
+    const credential = await navigator.credentials.create({ publicKey });
 
-      if (credential) {
-        logToConsole("Biometric Auth Success.");
-        return true;
-      }
-    } catch (err) {
-      logToConsole("Biometric Auth Failed: " + err.message);
-      alert("Biometric authentication failed: " + err.message);
-      return false;
+    if (credential) {
+      logToConsole("Biometric Auth Success.");
+      return true;
     }
+  } catch (err) {
+    logToConsole("Biometric Auth Failed: " + err.message);
+    alert("Biometric auth failed: " + err.message);
+    return false;
+  }
+}
+
+// Firestore password check & set
+async function getUserPassword(uid) {
+  const docRef = doc(db, "passwords", uid);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data().password;
+  }
+  return null;
+}
+
+async function setUserPassword(uid, password) {
+  await setDoc(doc(db, "passwords", uid), { password });
+}
+
+// Show password modal
+function showPasswordModal(isNewUser) {
+  passwordModal.style.display = "flex";
+  passwordInput.value = "";
+  passwordMsg.textContent = "";
+  passwordModalTitle.textContent = isNewUser ? "Create a Password" : "Enter Password";
+  passwordInput.focus();
+}
+
+// Handle password submission
+async function handlePasswordSubmit() {
+  const pw = passwordInput.value.trim();
+  if (!pw) {
+    passwordMsg.textContent = "Password cannot be empty.";
+    return;
   }
 
-  // Firestore password check & set
-  async function getUserPassword(uid) {
-    const docRef = doc(db, "passwords", uid);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return docSnap.data().password;
-    }
-    return null;
-  }
+  const uid = auth.currentUser.uid;
+  let storedPassword = await getUserPassword(uid);
 
-  async function setUserPassword(uid, password) {
-    await setDoc(doc(db, "passwords", uid), { password });
-  }
-
-  // Show password modal: create (new user) or enter (existing)
-  function showPasswordModal(isNewUser) {
-    passwordModal.style.display = "flex";
-    passwordInput.value = "";
-    passwordMsg.textContent = "";
-    passwordModalTitle.textContent = isNewUser ? "Create a Password" : "Enter Password";
-    passwordInput.focus();
-  }
-
-  // Handle password submission
-  async function handlePasswordSubmit() {
-    const pw = passwordInput.value.trim();
-    if (!pw) {
-      passwordMsg.textContent = "Password cannot be empty.";
-      return;
-    }
-
-    const uid = auth.currentUser.uid;
-    let storedPassword = await getUserPassword(uid);
-
-    if (storedPassword === null) {
-      // First time user: set password
-      await setUserPassword(uid, pw);
-      passwordMsg.textContent = "Password created successfully!";
-      logToConsole("Password created for user " + auth.currentUser.email);
+  if (storedPassword === null) {
+    // First time user: set password
+    await setUserPassword(uid, pw);
+    passwordMsg.textContent = "Password created successfully!";
+    logToConsole("Password created for user " + auth.currentUser.email);
+    closePasswordModal();
+    unlockProtectedContent();
+  } else {
+    // Returning user: check password
+    if (pw === storedPassword) {
+      logToConsole("Password match, access granted.");
       closePasswordModal();
       unlockProtectedContent();
     } else {
-      // Returning user: check password
-      if (pw === storedPassword) {
-        logToConsole("Password match, access granted.");
-        closePasswordModal();
-        unlockProtectedContent();
-      } else {
-        passwordMsg.textContent = "Incorrect password.";
-        logToConsole("Password mismatch attempt.");
-      }
+      passwordMsg.textContent = "Incorrect password.";
+      logToConsole("Password mismatch attempt.");
     }
   }
+}
 
-  function closePasswordModal() {
-    passwordModal.style.display = "none";
-    passwordInput.value = "";
-    passwordMsg.textContent = "";
-  }
+function closePasswordModal() {
+  passwordModal.style.display = "none";
+  passwordInput.value = "";
+  passwordMsg.textContent = "";
+}
 
-  function unlockProtectedContent() {
-    authSection.style.display = "none";
-    protectedContent.style.display = "block";
-  }
+function unlockProtectedContent() {
+  authSection.style.display = "none";
+  protectedContent.style.display = "block";
+}
 
-  // Google sign-in workflow
-  googleSignInBtn.onclick = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      logToConsole("Signed in as: " + result.user.email);
-      statusText.textContent = "Signed in as: " + result.user.email;
+googleSignInBtn.onclick = async () => {
+  try {
+    const provider = new GoogleAuthProvider();
 
-      // On sign-in, do biometric auth
-      const biometricSuccess = await requestFingerprint();
-      if (!biometricSuccess) {
-        await signOut(auth);
-        statusText.textContent = "Signed out due to biometric failure.";
-        return;
-      }
+    // Sign in with Google
+    const result = await signInWithPopup(auth, provider);
+    logToConsole("Signed in as: " + result.user.email);
+    statusText.textContent = "Signed in as: " + result.user.email;
 
-      // Check password existence
-      const storedPassword = await getUserPassword(result.user.uid);
-      showPasswordModal(storedPassword === null);
-    } catch (error) {
-      logToConsole("Sign-in error: " + error.message);
-      alert("Sign-in failed: " + error.message);
+    // Biometric auth next
+    const biometricSuccess = await requestFingerprint();
+    if (!biometricSuccess) {
+      logToConsole("Biometric auth failed, signing out user.");
+      await signOut(auth);
+      statusText.textContent = "Signed out due to biometric failure.";
+      return;
     }
-  };
 
-  passwordSubmitBtn.onclick = handlePasswordSubmit;
-  signOutBtn.onclick = async () => {
-    await signOut(auth);
-    logToConsole("User signed out.");
+    // Password modal logic
+    const storedPassword = await getUserPassword(result.user.uid);
+    showPasswordModal(storedPassword === null);
+
+    // Show sign out button and hide sign in button
+    googleSignInBtn.style.display = "none";
+    signOutBtn.style.display = "inline-block";
+  } catch (error) {
+    logToConsole("Sign in error: " + error.message);
+    alert("Google sign-in failed: " + error.message);
+  }
+};
+
+passwordSubmitBtn.onclick = handlePasswordSubmit;
+
+signOutBtn.onclick = async () => {
+  await signOut(auth);
+  logToConsole("User signed out.");
+  statusText.textContent = "";
+  authSection.style.display = "block";
+  protectedContent.style.display = "none";
+  showPasswordModal(false);
+  googleSignInBtn.style.display = "inline-block";
+  signOutBtn.style.display = "none";
+};
+
+// Auth state watcher: reset UI as necessary
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    logToConsole("User authenticated: " + user.email);
+    statusText.textContent = "Signed in as: " + user.email;
+    googleSignInBtn.style.display = "none";
+    signOutBtn.style.display = "inline-block";
+  } else {
+    logToConsole("No user signed in.");
     statusText.textContent = "";
+    googleSignInBtn.style.display = "inline-block";
+    signOutBtn.style.display = "none";
     authSection.style.display = "block";
     protectedContent.style.display = "none";
     showPasswordModal(false);
-  };
-
-  // Monitor auth state changes
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      logToConsole("Auth state changed: " + user.email);
-      statusText.textContent = "Signed in as: " + user.email;
-      googleSignInBtn.style.display = "none";
-      signOutBtn.style.display = "inline-block";
-    } else {
-      logToConsole("User signed out.");
-      statusText.textContent = "";
-      googleSignInBtn.style.display = "inline-block";
-      signOutBtn.style.display = "none";
-      authSection.style.display = "block";
-      protectedContent.style.display = "none";
-      showPasswordModal(false);
-    }
-  });
+  }
+});
 </script>
 </body>
 </html>
