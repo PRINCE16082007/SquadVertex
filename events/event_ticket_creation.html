@@ -405,10 +405,14 @@
   </style>
 </head>
 <body>
+  <!-- reCAPTCHA v3 (required for App Check ReCaptchaV3Provider) -->
+  <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
+
   <div id="loading">
     <div class="spinner"></div>
     <div class="loading-text">Loading, please sign in...</div>
   </div>
+
   <div class="container">
     <header>
       <div class="logo">Squad<span>Vertex</span></div>
@@ -477,25 +481,66 @@
     &copy; 2025 SquadVertex. All rights reserved.
   </footer>
 
+  <!-- Firebase modular SDK (v11.9.0) + App Check (modular) -->
   <script type="module">
+    /* ---------- Imports ---------- */
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import { getFirestore, doc, setDoc, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+    import {
+      initializeAppCheck,
+      ReCaptchaV3Provider,
+      getToken as getAppCheckToken
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      collection,
+      addDoc,
+      onSnapshot,
+      serverTimestamp,
+      query,
+      orderBy
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
 
+    /* ---------- Config ---------- */
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
       projectId: "squadvertex2007",
       storageBucket: "squadvertex2007.appspot.com",
       messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
+
+    /* ---------- Init Firebase ---------- */
     const app = initializeApp(firebaseConfig);
+
+    /* ---------- Initialize App Check (ReCAPTCHA v3) ---------- */
+    // NOTE: make sure the site key is registered in the Firebase Console App Check settings.
+    let appCheckInstance = null;
+    try {
+      appCheckInstance = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx'),
+        isTokenAutoRefreshEnabled: true
+      });
+      console.log('App Check initialized (ReCaptchaV3Provider).');
+    } catch (err) {
+      console.warn('App Check initialization error:', err);
+      // Continue in monitor mode; don't block the UI
+    }
+
+    /* ---------- Services ---------- */
     const db = getFirestore(app);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
 
-    // DOM elements
+    /* ---------- DOM ---------- */
     const loadingScreen = document.getElementById("loading");
     const profileSection = document.getElementById("profileSection");
     const googleSignInBtn = document.getElementById("googleSignIn");
@@ -505,39 +550,83 @@
     const chatInput = document.getElementById("chatInput");
     const sendBtn = document.getElementById("sendBtn");
 
-    let userUid;
-    let userName;
-    let userPhotoUrl;
+    let userUid = null;
+    let userName = null;
+    let userPhotoUrl = null;
 
-    // Show/hide loader
-    function hideLoading() { loadingScreen.style.display = 'none'; }
-    function showLoading(text) { loadingScreen.querySelector('.loading-text').textContent = text; loadingScreen.style.display = 'flex'; }
+    function hideLoading() {
+      loadingScreen.style.display = 'none';
+    }
+    function showLoading(text = 'Loading, please sign in...') {
+      loadingScreen.querySelector('.loading-text').textContent = text;
+      loadingScreen.style.display = 'flex';
+    }
 
-    // Sign in with Google
-    googleSignInBtn.addEventListener('click', () => {
+    /* ---------- Helper: Ensure App Check token available before critical actions ---------- */
+    async function ensureAppCheckToken() {
+      // If App Check not initialized, return false (we still allow flow but warn)
+      if (!appCheckInstance) {
+        console.warn('App Check not initialized.');
+        return false;
+      }
+      try {
+        // getAppCheckToken returns a { token, expireTimeMillis } object on success
+        const tokenResponse = await getAppCheckToken(appCheckInstance, /* forceRefresh */ false);
+        if (tokenResponse && tokenResponse.token) {
+          console.log('App Check token obtained.');
+          return true;
+        } else {
+          console.warn('No App Check token received.');
+          return false;
+        }
+      } catch (e) {
+        console.warn('Failed to get App Check token:', e);
+        return false;
+      }
+    }
+
+    /* ---------- Sign in flow (checks App Check first) ---------- */
+    googleSignInBtn.addEventListener('click', async () => {
+      showLoading('Verifying client (App Check)...');
+
+      // Try to obtain an App Check token first.
+      const ok = await ensureAppCheckToken();
+      if (!ok) {
+        // If token fetch fails, show a helpful message and don't attempt sign-in immediately.
+        hideLoading();
+        alert('Client verification failed (App Check). Make sure reCAPTCHA v3 is allowed for this domain and App Check is configured in Firebase Console.');
+        return;
+      }
+
       showLoading('Redirecting to Google...');
-      signInWithPopup(auth, provider).catch(err => { 
-        console.error(err); 
+      try {
+        await signInWithPopup(auth, provider);
+        // onAuthStateChanged handles the rest
+      } catch (err) {
+        console.error('Sign-in error:', err);
         hideLoading();
         alert('Sign in failed. Please try again.');
-      });
+      }
     });
 
-    // Auth state
-    onAuthStateChanged(auth, async user => {
+    /* ---------- Auth state ---------- */
+    onAuthStateChanged(auth, user => {
       if (!user) {
         hideLoading();
+        profileSection.style.display = 'block';
+        profileForm.style.display = 'none';
+        chatDiv.style.display = 'none';
         return;
       }
 
       userUid = user.uid;
-      userName = user.displayName;
+      userName = user.displayName || 'User';
       userPhotoUrl = user.photoURL || "https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg";
 
-      document.getElementById('name').value = user.displayName;
-      document.getElementById('email').value = user.email;
+      document.getElementById('name').value = user.displayName || '';
+      document.getElementById('email').value = user.email || '';
 
-      // Check existing profile
+      // Listen for profile document
       const profileRef = doc(db, 'tickets', userUid);
       onSnapshot(profileRef, snap => {
         hideLoading();
@@ -549,18 +638,37 @@
           profileSection.style.display = 'none';
           profileForm.style.display = 'block';
         }
+      }, err => {
+        console.error('Profile snapshot error:', err);
+        hideLoading();
+        alert('Network error. Please refresh.');
       });
     });
 
-    // Profile form submit
-    profileForm.addEventListener('submit', async e => {
+    /* ---------- Profile form submit ---------- */
+    profileForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       showLoading('Saving profile...');
+
+      const ageVal = parseInt(document.getElementById('age').value, 10);
+      if (isNaN(ageVal) || ageVal < 13) {
+        hideLoading();
+        alert('Please enter a valid age (13+).');
+        return;
+      }
+
+      // Optional: verify App Check token before saving profile
+      const ok = await ensureAppCheckToken();
+      if (!ok) {
+        hideLoading();
+        alert('Client verification failed. Cannot save profile.');
+        return;
+      }
 
       const profileData = {
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
-        age: parseInt(document.getElementById('age').value),
+        age: ageVal,
         ytName: document.getElementById('ytName').value,
         ytLink: document.getElementById('ytLink').value,
         feesReady: document.getElementById('feesReady').value,
@@ -569,24 +677,22 @@
 
       try {
         await setDoc(doc(db, 'tickets', userUid), profileData);
+        // UI updates via snapshot
       } catch (error) {
-        console.error("Error saving profile: ", error);
+        console.error('Error saving profile:', error);
         hideLoading();
         alert('Failed to save profile. Please try again.');
       }
     });
 
-    // Show chat
+    /* ---------- Chat logic ---------- */
     function showChat() {
       profileForm.style.display = 'none';
       chatDiv.style.display = 'block';
       listenMessages();
-
-      // Add welcome message immediately
       addMessageToUI('admin', 'SquadVertex Support', `Hi ${userName}! 👋 How can we help you plan your event today?`, null);
     }
 
-    // Send message
     sendBtn.addEventListener('click', async () => {
       const text = chatInput.value.trim();
       if (!text) return;
@@ -595,52 +701,47 @@
       chatInput.value = '';
 
       try {
-        await addDoc(collection(db, 'tickets', userUid, 'messages'), { 
-          author: userName, 
-          text, 
-          sender: 'user', 
-          timestamp: serverTimestamp() 
+        await addDoc(collection(db, 'tickets', userUid, 'messages'), {
+          author: userName,
+          text,
+          sender: 'user',
+          timestamp: serverTimestamp()
         });
       } catch (error) {
-        console.error("Error sending message: ", error);
+        console.error('Error sending message:', error);
       }
     });
 
-    // Listen messages
     function listenMessages() {
       const msgsRef = collection(db, 'tickets', userUid, 'messages');
-      onSnapshot(msgsRef, snap => {
+      const q = query(msgsRef, orderBy('timestamp', 'asc'));
+      onSnapshot(q, snap => {
         messagesDiv.innerHTML = '';
-        snap.docs.sort((a,b) => a.data().timestamp?.toMillis() - b.data().timestamp?.toMillis()).forEach(doc => {
-          const { author, text, sender } = doc.data();
+        snap.docs.forEach(docSnap => {
+          const { author, text, sender } = docSnap.data();
           addMessageToUI(sender, author, text, sender === 'user' ? userPhotoUrl : null);
         });
+      }, err => {
+        console.error('Messages snapshot error:', err);
       });
     }
 
-    // Add message to UI
     function addMessageToUI(sender, author, text, avatarUrl) {
       const el = document.createElement('div');
       el.className = `msg ${sender}`;
 
-      // Avatar HTML
       let avatarHtml = '<div class="avatar">';
       if (avatarUrl) {
         avatarHtml += `<img src="${avatarUrl}" alt="${author}" />`;
       } else {
-        // For admin, use default initials
         avatarHtml += 'SV';
       }
       avatarHtml += '</div>';
 
-      // Message content
       let msgContent = `<div class="msg-content">`;
-      if (sender === 'admin') {
-        msgContent += `<div class="author">${author}</div>`;
-      }
+      if (sender === 'admin') msgContent += `<div class="author">${author}</div>`;
       msgContent += `<div class="text">${text}</div></div>`;
 
-      // Combine based on sender
       if (sender === 'admin') {
         el.innerHTML = avatarHtml + msgContent;
       } else {
@@ -651,7 +752,20 @@
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    // Initialize
+    /* ---------- Optional helper: run reCAPTCHA explicitly (for server-side verification) ---------- */
+    async function getRecaptchaToken(action = 'submit') {
+      if (!window.grecaptcha || !window.grecaptcha.execute) return null;
+      try {
+        await window.grecaptcha.ready();
+        const token = await window.grecaptcha.execute('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx', { action });
+        return token;
+      } catch (e) {
+        console.warn('reCAPTCHA execute failed:', e);
+        return null;
+      }
+    }
+
+    /* ---------- Start UI ---------- */
     showLoading();
   </script>
 </body>
