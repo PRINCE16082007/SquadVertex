@@ -12,8 +12,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-
-  <!-- App Check compat -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>
 
   <style>
@@ -25,19 +23,18 @@
       border: 1px solid #ddd;
       border-radius: 8px;
       box-shadow: 0 0 8px #ccc;
+      background: #fafcff;
     }
-    h2 {
-      text-align: center;
-    }
+    h2 { text-align: center; }
     input[type="password"] {
       width: 100%;
       padding: 12px;
       margin-top: 15px;
-      box-sizing: border-box;
       font-size: 1rem;
+      box-sizing: border-box;
     }
     button {
-      margin-top: 12px;
+      margin-top: 14px;
       width: 100%;
       padding: 12px;
       font-size: 1rem;
@@ -58,6 +55,19 @@
       min-height: 24px;
       text-align: center;
     }
+    #debug-console {
+      font-family: monospace;
+      font-size: 0.97em;
+      color: #1a1a1a;
+      background: #f7f7f7;
+      border: 1px solid #ccc;
+      padding: 12px 16px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin: 28px 0 0 0;
+      word-break: break-all;
+      line-height: 1.5em;
+    }
   </style>
 </head>
 <body>
@@ -65,9 +75,20 @@
   <input type="password" id="beta-password" placeholder="Enter Beta Password" autocomplete="off" />
   <button id="submit-btn">Submit</button>
   <div class="message" id="message"></div>
+  <div id="debug-console">Debug Console:<br /></div>
 
   <script>
-    // Firebase config & initialization
+    // Debug log function
+    function debugLog(msg) {
+      let el = document.getElementById('debug-console');
+      el.innerHTML += (typeof msg === 'object' ? JSON.stringify(msg) : msg) + '<br />';
+      if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
+      console.log('[DEBUG]', msg);
+    }
+
+    debugLog('Page loaded. Initializing Firebase.');
+
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -77,74 +98,94 @@
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
 
+    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
 
-    // Activate Firebase App Check with reCAPTCHA v3
+    // Activate App Check with reCAPTCHA v3
     try {
       const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');
       firebase.appCheck().activate(appCheckProvider, true);
       window.__SV_firebaseApp = firebase.app();
       window.__SV_appCheck = firebase.appCheck();
-      console.log("App Check activated with reCAPTCHA v3.");
+      debugLog('App Check activated with reCAPTCHA v3.');
     } catch (e) {
-      console.warn("App Check activation failed:", e);
+      debugLog('App Check activate error:');
+      debugLog(e);
     }
 
     const db = firebase.firestore();
-
     const submitBtn = document.getElementById('submit-btn');
     const passwordInput = document.getElementById('beta-password');
     const messageDiv = document.getElementById('message');
 
+    // User submits password
     submitBtn.addEventListener('click', async () => {
       messageDiv.textContent = '';
       submitBtn.disabled = true;
+      debugLog('Submit button clicked.');
+
       const enteredPassword = passwordInput.value.trim();
+      debugLog('Password entered: ' + (enteredPassword ? '[hidden]' : '[empty]'));
 
       if (!enteredPassword) {
         messageDiv.textContent = "Please enter the password.";
+        debugLog('Input empty.');
         submitBtn.disabled = false;
         return;
       }
 
       try {
-        // Execute reCAPTCHA v3 token for verification
+        debugLog('Requesting reCAPTCHA token...');
         const recaptchaToken = await grecaptcha.execute('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx', { action: 'submit' });
+        debugLog('reCAPTCHA token: ' + (recaptchaToken ? '[obtained]' : '[failed]'));
 
-        // Fetch password from Firestore
+        debugLog('Fetching beta_pass doc from Firestore...');
         const passDoc = await db.collection('auth').doc('beta_pass').get();
+        debugLog('passDoc.exists: ' + passDoc.exists);
+        debugLog('passDoc.data: ' + JSON.stringify(passDoc.data()));
+
         if (!passDoc.exists) {
           messageDiv.textContent = "Password document not found. Contact admin.";
+          debugLog('beta_pass doc not found.');
           submitBtn.disabled = false;
           return;
         }
         const storedPassword = passDoc.data().password;
+        debugLog('Stored password: ' + (storedPassword ? '[hidden]' : '[empty]'));
 
         if (enteredPassword !== storedPassword) {
           messageDiv.textContent = "Incorrect password. Please try again.";
+          debugLog('Password does not match.');
           submitBtn.disabled = false;
           return;
         }
 
-        // Password correct, fetch redirect URL
+        debugLog('Password match. Fetching page1 doc...');
         const pageDoc = await db.collection('pages').doc('page1').get();
+        debugLog('pageDoc.exists: ' + pageDoc.exists);
+        debugLog('pageDoc.data: ' + JSON.stringify(pageDoc.data()));
+
         if (!pageDoc.exists) {
           messageDiv.textContent = "Redirect URL not found. Contact admin.";
+          debugLog('page1 doc not found.');
           submitBtn.disabled = false;
           return;
         }
         const redirectUrl = pageDoc.data().url;
+        debugLog('Fetched redirectUrl: ' + redirectUrl);
+
         if (!redirectUrl) {
           messageDiv.textContent = "Redirect URL is empty. Contact admin.";
+          debugLog('Empty URL field.');
           submitBtn.disabled = false;
           return;
         }
 
-        // Redirect user
+        debugLog('Redirecting to: ' + redirectUrl);
         window.location.href = redirectUrl;
 
       } catch (error) {
-        console.error("Error during validation:", error);
+        debugLog('Error occurred: ' + (error.message || error));
         messageDiv.textContent = "Error verifying access, try again later.";
         submitBtn.disabled = false;
       }
@@ -156,6 +197,8 @@
         submitBtn.click();
       }
     });
+
+    debugLog('Firebase password gate ready. Waiting for user input...');
   </script>
 </body>
 </html>
