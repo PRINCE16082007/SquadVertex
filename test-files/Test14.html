@@ -1,223 +1,555 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>reCaptcha v3 + App Check + Firestore demo</title>
-
-  <!-- Replace RECAPTCHA_SITE_KEY below when instructed -->
-  <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SquadVertex — Create Post (Beta)</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding:24px; background:#0b1220; color:#e6eef8; }
-    .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:20px; border-radius:12px; box-shadow: 0 6px 18px rgba(0,0,0,0.6); max-width:920px; margin:auto; }
-    h1 { margin:0 0 8px 0; font-size:20px; }
-    .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-    button { padding:10px 14px; border-radius:10px; border:0; background:#1f6feb; color:white; cursor:pointer; font-weight:600; }
-    button.ghost { background:transparent; border:1px solid rgba(255,255,255,0.06); }
-    .status { margin-top:12px; padding:10px; border-radius:8px; background:rgba(0,0,0,0.35); font-size:14px; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace; font-size:13px; color:#dff; }
-    /* debug window */
-    #debug {
-      position: fixed;
-      right: 12px;
-      bottom: 12px;
-      width: 320px;
-      max-height: 46vh;
-      overflow:auto;
-      background: rgba(4,6,12,0.9);
-      border: 1px solid rgba(255,255,255,0.04);
-      padding: 12px;
-      border-radius: 12px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-      font-size:13px;
-      z-index: 9999;
+    /* Base styling */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-    #debug h3 { margin:0 0 6px 0; font-size:13px; color:#a8d1ff; }
-    .log { margin-bottom:6px; color:#cfefff; }
-    .warn { color:#ffd9a8; }
-    .err { color:#ffb4b4; }
-    .small { font-size:12px; color:#9fb6d9; }
-    .kv { display:flex; gap:8px; }
-    .kv span:first-child { color:#9fb6d9; min-width:80px; }
+    
+    body {
+      font-family: 'Inter', system-ui, -apple-system, Roboto, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+      color: #2d3748;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    
+    .card {
+      width: 100%;
+      max-width: 800px;
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    
+    /* Header styling */
+    .app-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      color: #4f46e5;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .beta-badge {
+      background: #4f46e5;
+      color: white;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    
+    /* Form styling */
+    .form-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    
+    .main-content {
+      grid-column: 1 / -1;
+    }
+    
+    .tag-section {
+      grid-column: 1 / -1;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #4a5568;
+      font-size: 14px;
+    }
+    
+    input[type="text"], textarea, select {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #2d3748;
+      font-family: inherit;
+      font-size: 15px;
+      transition: all 0.2s ease;
+    }
+    
+    input[type="text"]:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #4f46e5;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+    
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+    }
+    
+    /* Tag input styling */
+    .tags-input-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    
+    .tag-item {
+      background: #4f46e5;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .tag-item span {
+      margin-right: 6px;
+    }
+    
+    .tag-item i {
+      cursor: pointer;
+      font-size: 12px;
+    }
+    
+    .tags-input {
+      flex-grow: 1;
+      border: none;
+      outline: none;
+      padding: 8px 0;
+      background: transparent;
+      min-width: 80px;
+    }
+    
+    /* Buttons */
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    
+    button {
+      padding: 14px 20px;
+      border-radius: 10px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      font-size: 15px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(90deg, #4f46e5, #7c3aed);
+      color: white;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
+    }
+    
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+    
+    .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+    
+    /* User bar */
+    .user-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      background: #f8fafc;
+      padding: 16px;
+      border-radius: 12px;
+    }
+    
+    .user-info h2 {
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+    
+    .user-info p {
+      color: #64748b;
+      font-size: 14px;
+    }
+    
+    .auth-btn {
+      background: #4f46e5;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    
+    .auth-btn:hover {
+      background: #4338ca;
+    }
+    
+    /* Status messages */
+    .status-message {
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-top: 20px;
+      font-size: 14px;
+      display: none;
+    }
+    
+    .status-success {
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+    
+    .status-error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+    
+    /* Footer */
+    .app-footer {
+      margin-top: 24px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .form-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .user-bar {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+      }
+      
+      .button-group {
+        flex-direction: column;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>reCaptcha v3 + App Check + Firestore demo</h1>
-    <p class="small">This page initializes App Check (ReCaptcha V3 provider), signs in anonymously, shows UID, and fetches <code>test/test1 -> name</code>. Logs appear in the debug window.</p>
-
-    <div class="row">
-      <button id="btn-recaptcha">Get reCaptcha token</button>
-      <button id="btn-init">Init Firebase + AppCheck</button>
-      <button id="btn-signin">Sign in anonymously</button>
-      <button id="btn-fetch" class="ghost">Fetch "name" from Firestore</button>
-      <button id="btn-clear" class="ghost">Clear logs</button>
+    <div class="app-header">
+      <div class="logo">
+        <i class="fas fa-rocket"></i>
+        <span>SquadVertex</span>
+        <span class="beta-badge">BETA</span>
+      </div>
     </div>
 
-    <div class="status" id="status">
-      <div class="kv"><span>App:</span><span id="app-state" class="mono">not initialized</span></div>
-      <div class="kv"><span>Auth UID:</span><span id="uid" class="mono">—</span></div>
-      <div class="kv"><span>Firestore name:</span><span id="f-name" class="mono">—</span></div>
-      <div style="margin-top:8px;" class="small">Open console for more details, but this debug window shows the important bits.</div>
+    <div class="user-bar">
+      <div class="user-info">
+        <h2>Create Post</h2>
+        <p id="userHint">Sign in to post — we'll use your profile information</p>
+      </div>
+      <div id="authControls">
+        <button class="auth-btn" id="signInBtn">
+          <i class="fab fa-google"></i>
+          Sign in with Google
+        </button>
+      </div>
     </div>
-  </div>
 
-  <div id="debug" aria-live="polite">
-    <h3>DEBUG</h3>
-    <div id="log-area"></div>
+    <form id="postForm">
+      <div class="form-container">
+        <div class="form-group main-content">
+          <label for="title">Post Title</label>
+          <input type="text" id="title" placeholder="Enter a catchy title for your post" required>
+        </div>
+        
+        <div class="form-group main-content">
+          <label for="body">Post Content</label>
+          <textarea id="body" placeholder="Write your post content here..." required></textarea>
+        </div>
+        
+        <div class="form-group tag-section">
+          <label for="tags">Tags (Comma separated)</label>
+          <div class="tags-input-container">
+            <input type="text" id="tags" class="tags-input" placeholder="Add tags (e.g., javascript, web, firebase)">
+          </div>
+          <div class="small">Add relevant tags to help others find your post</div>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button type="submit" id="submitBtn" class="btn-primary">
+          <i class="fas fa-paper-plane"></i>
+          Publish Post
+        </button>
+        <button type="button" id="clearBtn" class="btn-secondary">
+          <i class="fas fa-eraser"></i>
+          Clear Form
+        </button>
+      </div>
+
+      <div id="status" class="status-message"></div>
+    </form>
+
+    <div class="app-footer">
+      <p>© 2023 SquadVertex — Share your knowledge with the community</p>
+    </div>
   </div>
 
   <script type="module">
-    // --------- REPLACE THESE VALUES ---------
-    // Replace the firebaseConfig object with your project values.
+    // ---------- 🔧 Your Firebase config & recaptcha ----------
     const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-  };
-
-    // Replace with your reCaptcha v3 site key (used both by grecaptcha and App Check provider)
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
     const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
-    // ----------------------------------------
 
-    // Import only what we need from Firebase v11.9.0 (CDN modular)
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
-    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+    // ---------- imports (Firebase v11.9.0) ----------
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js';
+    import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js';
+    import { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js';
 
-    // UI refs
-    const logArea = document.getElementById('log-area');
-    const appStateEl = document.getElementById('app-state');
-    const uidEl = document.getElementById('uid');
-    const fnameEl = document.getElementById('f-name');
+    // ---------- init ----------
+    const app = initializeApp(firebaseConfig);
 
-    function log(msg, level = 'info'){
-      const d = new Date().toLocaleTimeString();
-      const el = document.createElement('div');
-      el.className = 'log ' + (level === 'warn' ? 'warn' : level === 'err' ? 'err' : '');
-      el.textContent = `[${d}] ${msg}`;
-      logArea.prepend(el);
-      console.log(msg);
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+        isTokenAutoRefreshEnabled: true
+      });
+      console.log('App Check initialized.');
+    } catch (err) {
+      console.warn('App Check init problem:', err);
     }
 
-    function setStatusApp(s){
-      appStateEl.textContent = s;
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const postsCol = collection(db, 'posts');
+
+    // ---------- UI elements ----------
+    const signInBtn = document.getElementById('signInBtn');
+    const authControls = document.getElementById('authControls');
+    const userHint = document.getElementById('userHint');
+    const statusEl = document.getElementById('status');
+    const form = document.getElementById('postForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    // ---------- auth flow ----------
+    const provider = new GoogleAuthProvider();
+
+    signInBtn.addEventListener('click', async () => {
+      try {
+        await signInWithPopup(auth, provider);
+        // onAuthStateChanged handles UI update
+      } catch (err) {
+        console.error('Sign-in failed', err);
+        showStatus('Sign-in failed — check console.', 'error');
+      }
+    });
+
+    // handle sign out click (we'll render it dynamically)
+    function renderSignedIn(user, profile) {
+      authControls.innerHTML = `
+        <div style="text-align: right">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <div style="text-align: right">
+              <div style="font-weight: 700; color: #4f46e5">${profile?.name || user.email || 'User'}</div>
+              <div style="font-size: 13px; color: #64748b">${profile?.email || user.email}</div>
+            </div>
+            <button class="auth-btn" id="signOutBtn" style="padding: 8px 12px">
+              <i class="fas fa-sign-out-alt"></i>
+              Sign out
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('signOutBtn').addEventListener('click', () => signOut(auth));
+      userHint.textContent = 'Signed in. Posts will use your profile information.';
     }
 
-    // state holders
-    let app, appCheck, auth, db;
+    function renderSignedOut() {
+      authControls.innerHTML = `
+        <button class="auth-btn" id="signInBtn">
+          <i class="fab fa-google"></i>
+          Sign in with Google
+        </button>
+      `;
+      document.getElementById('signInBtn').addEventListener('click', async () => {
+        try { await signInWithPopup(auth, provider); } catch (err) { console.error(err); showStatus('Sign-in failed', 'error'); }
+      });
+      userHint.textContent = 'Sign in to post — we will use your profile information.';
+    }
 
-    // Initialize Firebase + App Check
-    document.getElementById('btn-init').addEventListener('click', () => initFirebase());
-    async function initFirebase(){
-      try{
-        log('Initializing Firebase app...');
-        app = initializeApp(firebaseConfig);
-        setStatusApp('firebase initialized');
-
-        // App Check with reCaptcha v3 provider
-        log('Initializing App Check with ReCaptchaV3Provider...');
-        appCheck = initializeAppCheck(app, {
-          provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
-          isTokenAutoRefreshEnabled: true
-        });
-        setStatusApp('App Check init done');
-
-        // auth + firestore
-        auth = getAuth(app);
-        db = getFirestore(app);
-
-        // Observe auth state
-        onAuthStateChanged(auth, user => {
-          if (user) {
-            log(`Auth: signed in (uid: ${user.uid})`);
-            uidEl.textContent = user.uid;
+    // onAuth state: fetch your users/{uid} doc and use it
+    onAuthStateChanged(auth, async (user) => {
+      statusEl.style.display = 'none';
+      if (user) {
+        // fetch your users collection doc
+        const userDocRef = doc(db, 'users', user.uid);
+        let profile = null;
+        try {
+          const snap = await getDoc(userDocRef);
+          if (snap.exists()) {
+            profile = snap.data();
           } else {
-            log('Auth: not signed in');
-            uidEl.textContent = '—';
+            // fallback: use auth profile if users doc doesn't exist.
+            profile = { name: user.displayName || null, email: user.email || null };
+            // NOTE: we are NOT auto-creating the users doc here (per your existing setup).
           }
-        });
+        } catch (err) {
+          console.warn('Failed reading users/{uid} doc', err);
+          profile = { name: user.displayName || null, email: user.email || null };
+        }
+        renderSignedIn(user, profile);
+        // attach profile to form element for use during submit
+        form.dataset.currentUid = user.uid;
+        form.dataset.currentName = profile?.name || (user.displayName || '');
+        form.dataset.currentEmail = profile?.email || (user.email || '');
+      } else {
+        renderSignedOut();
+        delete form.dataset.currentUid;
+        delete form.dataset.currentName;
+        delete form.dataset.currentEmail;
+      }
+    });
 
-        log('Firebase + AppCheck ready.');
-      }catch(err){
-        log('Init error: ' + (err.message || err), 'err');
+    // ---------- helpers ----------
+    function slugify(text) {
+      return text.toString().toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^\w\-]+/g, '')
+        .replace(/\-\-+/g, '-')
+        .replace(/^-+/, '')
+        .replace(/-+$/, '');
+    }
+    
+    function showStatus(message, type = 'success') {
+      statusEl.textContent = message;
+      statusEl.className = type === 'success' ? 'status-message status-success' : 'status-message status-error';
+      statusEl.style.display = 'block';
+      
+      // Auto-hide success messages after 5 seconds
+      if (type === 'success') {
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 5000);
       }
     }
 
-    // Sign in anonymously
-    document.getElementById('btn-signin').addEventListener('click', async () => {
-      if (!auth){
-        log('Auth not initialized. Click "Init Firebase + AppCheck" first.', 'warn');
-        return;
-      }
-      try{
-        log('Signing in anonymously...');
-        const res = await signInAnonymously(auth);
-        log('Anonymous sign-in successful. UID: ' + res.user.uid);
-      }catch(err){
-        log('Sign-in error: ' + (err.message || err), 'err');
-      }
-    });
+    // ---------- form submit ----------
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      statusEl.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publishing...';
 
-    // Fetch name from test/test1
-    document.getElementById('btn-fetch').addEventListener('click', async () => {
-      if (!db){
-        log('Firestore not initialized. Click "Init Firebase + AppCheck" first.', 'warn');
-        return;
-      }
-      try{
-        log('Reading doc test/test1 ...');
-        const dRef = doc(db, 'test', 'test1');
-        const snap = await getDoc(dRef);
-        if (!snap.exists()){
-          log('Document does not exist at test/test1', 'warn');
-          fnameEl.textContent = 'not found';
-          return;
-        }
-        const data = snap.data();
-        log('Fetched document fields: ' + JSON.stringify(data));
-        const name = data.name ?? '(no name field)';
-        fnameEl.textContent = name;
-      }catch(err){
-        log('Firestore read error: ' + (err.message || err), 'err');
-      }
-    });
+      const title = (document.getElementById('title').value || '').trim();
+      const body = (document.getElementById('body').value || '').trim();
+      const tagsRaw = (document.getElementById('tags').value || '').trim();
 
-    // Get a direct reCaptcha token (grecaptcha.execute) for debugging / verification
-    document.getElementById('btn-recaptcha').addEventListener('click', async () => {
-      if (typeof grecaptcha === 'undefined') {
-        log('grecaptcha not loaded. Check reCaptcha script include and site key.', 'err');
+      if (!title || !body) {
+        showStatus('Title and body are required.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Publish Post';
         return;
       }
-      try{
-        log('Requesting reCaptcha v3 token (action: demo) ...');
-        grecaptcha.ready(() => {
-          grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: 'demo'}).then(token => {
-            log('Got reCaptcha token (short preview): ' + token.slice(0,24) + '... (length ' + token.length + ')');
-            // In production: send token to your server for verification if needed.
-          }).catch(e => {
-            log('grecaptcha.execute error: ' + e, 'err');
-          });
+      if (!form.dataset.currentUid) {
+        showStatus('You must sign in before publishing.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Publish Post';
+        return;
+      }
+
+      const uid = form.dataset.currentUid;
+      const authorName = form.dataset.currentName || null;
+      const authorEmail = form.dataset.currentEmail || null;
+
+      const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+      const slug = slugify(title) + '-' + Date.now().toString().slice(-6);
+
+      try {
+        const docRef = await addDoc(postsCol, {
+          title,
+          body,
+          tags,
+          slug,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          authorId: uid,
+          authorName: authorName,
+          authorEmail: authorEmail,
+          upvotesCount: 0,
+          downvotesCount: 0,
+          commentsCount: 0,
+          status: 'published',
         });
-      }catch(e){
-        log('reCaptcha error: ' + e, 'err');
+        showStatus('Your post has been published successfully!', 'success');
+        form.reset();
+      } catch (err) {
+        console.error('Write failed', err);
+        showStatus('Publish failed — check console. App Check or rules might be blocking.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Publish Post';
       }
     });
 
-    // clear logs
-    document.getElementById('btn-clear').addEventListener('click', ()=> logArea.innerHTML = '');
-
-    // Auto-init? no — user requested explicit flow; comment out to auto-init on load.
-    // initFirebase();
-
-    // Helpful tips logged to window
-    log('Demo loaded. Click "Init Firebase + AppCheck" to start the combo flow.');
-    log('Note: If App Check enforcement is ON, make sure this origin is registered in Firebase App Check or use monitor mode for testing.');
+    clearBtn.addEventListener('click', () => { 
+      form.reset(); 
+      statusEl.style.display = 'none';
+    });
   </script>
 </body>
 </html>
