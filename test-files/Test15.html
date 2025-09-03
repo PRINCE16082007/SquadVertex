@@ -1,889 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portal Template No.067</title>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
-<!-- 1) include reCaptcha (replace RECAPTCHA_SITE_KEY) -->
-<script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
-
-<!-- 2) App Check snippet (modular SDK) -->
-<script type="module">
-  // --- Replace these ---
-   // 🔧 Your Firebase config
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-  };
-  const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
-  // ----------------------
-
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-  import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
-
-  // init firebase app (safe to run multiple times across pages)
-  const app = initializeApp(firebaseConfig);
-
-  // init app check with reCaptcha v3 provider
-  // auto-refresh enabled so tokens will renew
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
-    isTokenAutoRefreshEnabled: true
-  });
-
-// after initializeAppCheck(...)
-window.__SV_firebaseApp = app;
-window.__SV_appCheck = appCheck;
- 
-import { getToken as getAppCheckToken } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
-
-async function showAppCheckTokenPreview() {
-  try {
-    // window.__SV_appCheck was set above
-    if (!window.__SV_appCheck) {
-      console.warn("AppCheck instance not found on window.");
-      return;
-    }
-    const resp = await getAppCheckToken(window.__SV_appCheck, false);
-    console.log("APP CHECK token preview:", resp.token?.slice(0,36) + "...");
-    // optionally show in UI:
-    const el = document.createElement('div');
-    el.style = "position:fixed;left:8px;bottom:8px;padding:8px;background:rgba(0,0,0,0.7);color:#fff;border-radius:8px;z-index:99999;font-size:12px";
-    el.textContent = "AppCheck token: " + (resp.token ? resp.token.slice(0,24)+"..." : "no token");
-    document.body.appendChild(el);
-  } catch (e) {
-    console.error("getToken error", e);
-  }
-}
-showAppCheckTokenPreview();
-
-  // small visibility hook; your main scripts can check window.__SV_appcheckReady
-  window.__SV_appcheckReady = true;
-  console.log("App Check initialized (ReCaptchaV3).");
-</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Activity Tracker</title>
   <style>
-    :root {
-      --primary-green: #4CAF50;
-      --secondary-green: #388E3C;
-      --accent-green: #8BC34A;
-      --dark-green: #1B5E20;
-      --light-beige: #F5F5DC;
-      --earth-brown: #795548;
-      --stone-gray: #9E9E9E;
-      --light-gray: #f5f5f5;
-      --white: #ffffff;
-      --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
-      font-family: 'Roboto', sans-serif;
-      background-color: var(--light-beige);
-      color: #333;
-      line-height: 1.6;
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f5f5dc"/><path d="M0 100 Q 50 80, 100 100 T 200 100" stroke="%23e8f5e9" stroke-width="40" fill="none"/></svg>');
-      background-size: 200px 200px;
+      font-family: Arial, sans-serif;
+      margin: 20px;
     }
-
-    /* Channel Banner */
-    .channel-banner {
+    table {
       width: 100%;
-      height: 300px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-size: cover;
-      background-position: center;
-      background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), 
-                         url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23388E3C"/><circle cx="20" cy="20" r="15" fill="%234CAF50" opacity="0.6"/><circle cx="70" cy="30" r="12" fill="%234CAF50" opacity="0.6"/><circle cx="40" cy="70" r="18" fill="%234CAF50" opacity="0.6"/></svg>');
-      position: relative;
-      overflow: hidden;
-    }
-
-    .banner-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(25, 118, 210, 0.1) 100%);
-    }
-
-    /* Channel Details */
-    .channel-details {
-      text-align: center;
-      padding: 30px 20px;
-      background: var(--white);
-      border-radius: 0 0 12px 12px;
-      position: relative;
-      box-shadow: var(--shadow);
-      max-width: 1200px;
-      margin: -50px auto 0;
-      z-index: 10;
-    }
-
-    .channel-logo {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      border: 5px solid var(--white);
-      object-fit: cover;
-      margin: -80px auto 15px;
-      box-shadow: var(--shadow);
-      background-color: var(--light-gray);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--primary-green);
-    }
-
-    .channel-name {
-      font-family: 'Montserrat', sans-serif;
-      font-size: 2.5rem;
-      margin: 10px 0;
-      color: var(--dark-green);
-      font-weight: 700;
-    }
-
-    .channel-tagline {
-      font-size: 1.2rem;
-      color: var(--earth-brown);
-      max-width: 600px;
-      margin: 0 auto 20px;
-      font-weight: 500;
-    }
-
-    .channel-description {
-      font-size: 1rem;
-      color: #555;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-
-    /* Social Media Icons */
-    .social-media {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
+      border-collapse: collapse;
       margin-top: 20px;
-      flex-wrap: wrap;
     }
-
-    .social-media a {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      text-decoration: none;
-      color: var(--earth-brown);
-      font-weight: 500;
-      padding: 8px 16px;
-      border-radius: 50px;
-      background: var(--light-gray);
-      transition: all 0.3s ease;
-      min-width: 200px;
-      justify-content: center;
-    }
-
-    .social-media a:hover {
-      background: var(--primary-green);
-      color: var(--white);
-      transform: translateY(-3px);
-    }
-
-    .social-media img {
-      width: 24px;
-      height: 24px;
-    }
-
-    .social-media .skeleton {
-      display: inline-block;
-      width: 100px;
-      height: 1.2em;
-      background: var(--light-gray);
-      border-radius: 4px;
-      animation: skeleton-loading 1.5s infinite;
-    }
-
-    @keyframes skeleton-loading {
-      0%, 100% { opacity: 0.5; }
-      50% { opacity: 1; }
-    }
-
-    .social-data-loaded {
-      animation: none;
-      opacity: 1 !important;
-      background: transparent !important;
-      width: auto !important;
-    }
-
-    /* Navigation Buttons */
-    .nav-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 15px;
-      margin: 40px 20px;
-      max-width: 1200px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .nav-button {
-      background-color: var(--primary-green);
-      color: var(--white);
-      padding: 14px 30px;
-      border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      text-transform: uppercase;
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
-      letter-spacing: 1px;
-      font-family: 'Montserrat', sans-serif;
-      box-shadow: var(--shadow);
-      min-width: 220px;
-    }
-
-    .nav-button:hover {
-      background-color: var(--secondary-green);
-      transform: translateY(-3px);
-      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
-    }
-
-    /* Main Content */
-    .main {
-      display: flex;
-      flex-direction: column;
-      gap: 50px;
-      padding: 20px;
-      max-width: 1200px;
-      margin: 20px auto 40px;
-    }
-
-    /* Sections */
-    .section-title {
-      font-family: 'Montserrat', sans-serif;
-      font-size: 1.8rem;
-      color: var(--dark-green);
-      margin-bottom: 25px;
-      padding-bottom: 10px;
-      border-bottom: 3px solid var(--accent-green);
-      display: inline-block;
-    }
-
-    .shorts-section, .replays-section, .top-contributors {
-      background: var(--white);
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: var(--shadow);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .section-pattern {
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 100px;
-      height: 100px;
-      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><path d="M0 20 Q 10 15, 20 20 T 40 20" stroke="%238BC34A" stroke-width="2" fill="none"/></svg>');
-      opacity: 0.1;
-    }
-
-    .shorts-grid, .replays-grid {
-      display: grid;
-      gap: 25px;
-    }
-
-    .shorts-item, .replays-item {
-      background: var(--light-gray);
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      transition: all 0.3s ease;
-      position: relative;
-    }
-
-    .shorts-item:hover, .replays-item:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    }
-
-    .shorts-item { 
-      aspect-ratio: 9/16;
-    }
-
-    .replays-item { 
-      aspect-ratio: 16/9;
-    }
-
-    .shorts-item iframe, .replays-item iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
-
-    .video-placeholder {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--light-gray);
-      color: var(--stone-gray);
-      font-size: 14px;
-    }
-
-    /* Top Contributors Section - Coming Soon Animation */
-    .top-contributors {
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 300px;
-    }
-
-    .construction-container {
-      position: relative;
-      width: 250px;
-      height: 200px;
-      margin: 20px auto;
-    }
-
-    .building {
-      position: absolute;
-      bottom: 0;
-      width: 80px;
-      height: 120px;
-      background: #795548;
-      border-radius: 5px 5px 0 0;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-
-    .windows {
-      position: absolute;
-      top: 20px;
-      left: 10px;
-      width: 60px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-    }
-
-    .window {
-      width: 15px;
-      height: 20px;
-      background: #FFD54F;
-      border-radius: 2px;
-    }
-
-    .crane {
-      position: absolute;
-      width: 150px;
-      height: 150px;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-
-    .crane-tower {
-      position: absolute;
-      width: 8px;
-      height: 120px;
-      background: #607D8B;
-      left: 50%;
-      transform: translateX(-50%);
-      top: 0;
-    }
-
-    .crane-arm {
-      position: absolute;
-      width: 120px;
-      height: 6px;
-      background: #607D8B;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-
-    .crane-hook {
-      position: absolute;
-      width: 10px;
-      height: 40px;
-      background: #607D8B;
-      top: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      animation: hook-swing 3s infinite ease-in-out;
-    }
-
-    .crane-weight {
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      background: #F44336;
-      border-radius: 50%;
-      top: 120px;
-      left: 50%;
-      transform: translateX(-50%);
-      animation: weight-lift 4s infinite;
-    }
-
-    @keyframes hook-swing {
-      0%, 100% { transform: translateX(-50%) rotate(-5deg); }
-      50% { transform: translateX(-50%) rotate(5deg); }
-    }
-
-    @keyframes weight-lift {
-      0% { top: 120px; }
-      50% { top: 40px; }
-      100% { top: 120px; }
-    }
-
-    .coming-soon {
-      font-family: 'Montserrat', sans-serif;
-      font-size: 1.8rem;
-      color: var(--dark-green);
-      margin-top: 30px;
-      font-weight: 600;
-    }
-
-    .note {
-      font-size: 0.9rem;
-      color: var(--stone-gray);
-      margin-top: 20px;
-      font-style: italic;
-    }
-
-    /* Footer */
-    footer {
-      background-color: var(--dark-green);
-      color: var(--white);
-      padding: 40px 20px;
-      text-align: center;
-      border-top: 3px solid var(--accent-green);
-    }
-
-    .footer-content {
-      max-width: 1000px;
-      margin: auto;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 30px;
+    th, td {
+      border: 1px solid #ccc;
       text-align: left;
+      padding: 8px;
     }
-
-    .footer-section {
-      padding: 15px;
+    th {
+      background: #f2f2f2;
     }
-
-    .footer-section h3 {
-      color: var(--accent-green);
-      font-family: 'Montserrat', sans-serif;
-      margin-bottom: 15px;
-      font-size: 1.3rem;
+    button {
+      padding: 6px 12px;
+      cursor: pointer;
+      background-color: #007bff;
+      border: none;
+      color: white;
+      border-radius: 4px;
     }
-
-    .footer-section p {
-      opacity: 0.8;
-      font-size: 0.95rem;
-      line-height: 1.7;
-    }
-
-    .copyright {
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      font-size: 0.9rem;
-      opacity: 0.7;
-    }
-
-    /* Responsive Adjustments */
-    @media (max-width: 768px) {
-      .channel-banner {
-        height: 200px;
-      }
-
-      .channel-logo {
-        width: 100px;
-        height: 100px;
-        margin-top: -60px;
-      }
-
-      .channel-name {
-        font-size: 2rem;
-      }
-
-      .shorts-grid, .replays-grid { 
-        grid-template-columns: 1fr; 
-      }
-
-      .nav-buttons {
-        flex-direction: column;
-        align-items: center;
-      }
-
-      .nav-button {
-        width: 100%;
-        max-width: 300px;
-      }
-
-      .shorts-section, .replays-section, .top-contributors {
-        padding: 20px;
-      }
-
-      .social-media a {
-        min-width: 160px;
-      }
-    }
-
-    @media (min-width: 769px) {
-      .replays-grid { 
-        grid-template-columns: repeat(3, 1fr); 
-      }
-
-      .shorts-grid { 
-        grid-template-columns: repeat(4, 1fr); 
-      }
-    }
-
-    @media (min-width: 992px) {
-      .shorts-grid { 
-        grid-template-columns: repeat(5, 1fr); 
-      }
+    button:hover {
+      background-color: #0056b3;
     }
   </style>
+
+  <!-- reCAPTCHA -->
+  <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
+
+  <!-- Firebase compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>
 </head>
 <body>
-  <div class="channel-banner" id="channel-banner">
-    <div class="banner-overlay"></div>
-  </div>
+  <h1>User Activity Tracker</h1>
+  <table id="usersTable">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Expire Date</th>
+        <th>Join Date</th>
+        <th>Last Login</th>
+        <th>Name</th>
+        <th>Plan</th>
+        <th>Status</th>
+        <th>SVX</th>
+        <th>Terms Accepted</th>
+        <th>Terms Timestamp</th>
+        <th>Transactions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- User rows go here -->
+    </tbody>
+  </table>
 
-  <div class="channel-details">
-    <img id="channel-logo" src="" alt="Channel Logo" class="channel-logo skeleton">
-    <h1 id="channel-name" class="channel-name">SquadVertex</h1>
-    <p id="channel-tagline" class="channel-tagline">Gaming • Strategy • Community</p>
-    <p id="channel-description" class="channel-description">Loading... please wait...</p>
-
-    <div class="social-media">
-      <a id="youtube-link" href="#" target="_blank" rel="noopener">
-        <img src="https://img.icons8.com/color/48/youtube-play.png" alt="YouTube">
-        <span id="youtube-subs" class="skeleton">—</span>
-      </a>
-      <a id="instagram-link" href="#" target="_blank" rel="noopener">
-        <img src="https://img.icons8.com/color/48/instagram-new.png" alt="Instagram">
-        <span id="instagram-followers" class="skeleton">—</span>
-      </a>
-    </div>
-  </div>
-
-  <div class="nav-buttons">
-    <button class="nav-button" onclick="location.href='#'">Explore Content</button>
-    <button class="nav-button" onclick="location.href='#'">Submit Replay</button>
-    <button class="nav-button">Leaderboard</button>
-    <button class="nav-button">Submit via Email</button>
-  </div>
-
-  <div class="main">
-    <div class="shorts-section">
-      <h2 class="section-title">Fan Shorts</h2>
-      <div class="section-pattern"></div>
-      <div class="shorts-grid" id="shortsContainer">
-        <div class="shorts-item skeleton">
-          <div class="video-placeholder">Loading Short...</div>
-        </div>
-        <div class="shorts-item skeleton">
-          <div class="video-placeholder">Loading Short...</div>
-        </div>
-        <div class="shorts-item skeleton">
-          <div class="video-placeholder">Loading Short...</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="replays-section">
-      <h2 class="section-title">Fan Replays</h2>
-      <div class="section-pattern"></div>
-      <div class="replays-grid" id="replaysContainer">
-        <div class="replays-item skeleton">
-          <div class="video-placeholder">Loading Replay...</div>
-        </div>
-        <div class="replays-item skeleton">
-          <div class="video-placeholder">Loading Replay...</div>
-        </div>
-        <div class="replays-item skeleton">
-          <div class="video-placeholder">Loading Replay...</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="top-contributors">
-      <h2 class="section-title">Top Contributors</h2>
-      <div class="section-pattern"></div>
-      <div class="construction-container">
-        <div class="crane">
-          <div class="crane-tower"></div>
-          <div class="crane-arm"></div>
-          <div class="crane-hook"></div>
-          <div class="crane-weight"></div>
-        </div>
-        <div class="building">
-          <div class="windows">
-            <div class="window"></div>
-            <div class="window"></div>
-            <div class="window"></div>
-          </div>
-        </div>
-      </div>
-      <div class="coming-soon">Coming Soon!</div>
-      <p class="note">We're building an amazing new contributors section. Stay tuned!</p>
-    </div>
-  </div>
-
-  <footer>
-    <div class="footer-content">
-      <div class="footer-section">
-        <h3>About SquadVertex</h3>
-        <p>SquadVertex is a next-gen platform empowering creators with futuristic tools and seamless experiences designed to elevate content creation.</p>
-      </div>
-      <div class="footer-section">
-        <h3>CustomPortal</h3>
-        <p>CustomPortal allows creators to personalize their space with powerful and dynamic features while maintaining a professional online presence.</p>
-      </div>
-      <div class="footer-section">
-        <h3>Community</h3>
-        <p>Join our growing community of content creators and gamers. Share strategies, collaborate, and grow together in a supportive environment.</p>
-      </div>
-    </div>
-    <div class="copyright">
-      © 2024-2025 SquadVertex Powered Portal. All rights reserved.
-    </div>
-  </footer>
-
-  <script type="module">
-  // ---------- Firebase modular (v11.9.0) ----------
-  import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-  import {
-    getFirestore,
-    doc,
-    getDoc
-  } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-
-  // YOUR firebase config (kept as you provided)
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
-  };
-
-  // Use existing initialized app if present (so App Check stays attached).
-  // If no app exists, initialize a new one.
-  const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  // ... rest of your bottom script unchanged ...
-
-    // You provided this key — used to fetch live YT info if channelId present
-    const YT_API_KEY = "AIzaSyALYK2h1PDv9yDVR3PlFkB4ZAhbu9E1-rA";
-
-    // Default SquadVertex fallback
-    const DEFAULT_CHANNEL = {
-      channelId: null,
-      channelLink: "https://www.youtube.com/@squadvertex",
-      channelLogo: "https://via.placeholder.com/120?text=SVX",
-      channelName: "SquadVertex",
-      desc: "SquadVertex — A futuristic creator platform. Welcome to the hub of creators and community.",
-      instaCount: "—",
-      instaLink: "#",
-      bannerUrl: ""
+  <script>
+    // Firebase config and initialization
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
 
-    function getUIDFromUrl() {
-      try {
-        return new URLSearchParams(window.location.search).get("id")?.trim() || null;
-      } catch (e) {
-        console.warn("URL parse failed", e);
-        return null;
+    // Initialize Firebase app
+    firebase.initializeApp(firebaseConfig);
+
+    // Activate App Check with reCaptchaV3Provider
+    try {
+      const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');
+      firebase.appCheck().activate(appCheckProvider, true);
+      console.log("App Check activated with reCaptcha v3.");
+    } catch (e) {
+      console.warn("App Check activation failed:", e);
+    }
+
+    const db = firebase.firestore();
+
+    // Format Firestore timestamp to readable date string
+    function formatTimestamp(ts) {
+      if (!ts) return '';
+      // Firestore timestamp can be a Timestamp object or string
+      if (ts.seconds) {
+        return new Date(ts.seconds * 1000).toLocaleString();
+      } else if (typeof ts === 'string') {
+        return new Date(ts).toLocaleString();
       }
+      return '';
     }
 
-    function setChannelUI(data) {
-      const logo = document.getElementById("channel-logo");
-      const name = document.getElementById("channel-name");
-      const desc = document.getElementById("channel-description");
-      const banner = document.getElementById("channel-banner");
-      const ytLink = document.getElementById("youtube-link");
-      const igLink = document.getElementById("instagram-link");
-      const ytSubs = document.getElementById("youtube-subs");
-      const igFollowers = document.getElementById("instagram-followers");
-
-      logo.src = data.channelLogo || DEFAULT_CHANNEL.channelLogo;
-      logo.classList.remove("skeleton");
-
-      name.textContent = data.channelName || DEFAULT_CHANNEL.channelName;
-      desc.textContent = data.desc || DEFAULT_CHANNEL.desc;
-
-      if (data.bannerUrl) {
-        banner.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url('${data.bannerUrl}')`;
-      } else if (DEFAULT_CHANNEL.bannerUrl) {
-        banner.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url('${DEFAULT_CHANNEL.bannerUrl}')`;
-      } else {
-        banner.style.backgroundImage = "";
-      }
-
-      ytLink.href = data.channelLink || DEFAULT_CHANNEL.channelLink;
-      igLink.href = data.instaLink || DEFAULT_CHANNEL.instaLink;
-
-      if (data.subscriberCount != null) {
-        ytSubs.textContent = `${formatNumber(data.subscriberCount)} Subscribers`;
-      } else {
-        ytSubs.textContent = DEFAULT_CHANNEL.channelId ? "Subscribers" : "—";
-      }
-      ytSubs.classList.remove("skeleton");
-
-      igFollowers.textContent = data.instaCount ? `${data.instaCount} Followers` : DEFAULT_CHANNEL.instaCount;
-      igFollowers.classList.remove("skeleton");
-    }
-
-    function formatNumber(val) {
-      if (val == null) return val;
-      const s = String(val);
-      return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    }
-
-    function extractVideoId(url) {
-      if (!url) return null;
-      const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*embed\/))([^?&]+)/);
-      return m ? m[1] : null;
-    }
-
-    function appendVideo(container, url, className) {
-      const id = extractVideoId(url);
-      if (!id) return;
-      const div = document.createElement("div");
-      div.className = className;
-      div.innerHTML = `<div class="video-wrapper"><iframe src="https://www.youtube.com/embed/${id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
-      container.appendChild(div);
-    }
-
-    function showEmptyIn(container, message) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-message">${message}</div></div>`;
-    }
-
-    async function renderPortal() {
-      const uid = getUIDFromUrl();
-      if (!uid) {
-        console.info("No UID found — showing default SquadVertex.");
-        setChannelUI(DEFAULT_CHANNEL);
-        showEmptyIn(document.getElementById("shortsContainer"), "Shorts will appear here.");
-        showEmptyIn(document.getElementById("replaysContainer"), "Replays will appear here.");
-        return;
-      }
+    // Load user data from Firestore and fill table
+    async function loadUsers() {
+      const tbody = document.querySelector("#usersTable tbody");
+      tbody.innerHTML = '';
 
       try {
-        const settingsRef = doc(db, "users", uid, "profile_data", "settings");
-        const shortsRef = doc(db, "users", uid, "profile_data", "shorts");
-        const videosRef = doc(db, "users", uid, "profile_data", "videos");
+        const snapshot = await db.collection('users').get();
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const uid = doc.id;
 
-        const [settingsSnap, shortsSnap, videosSnap] = await Promise.all([
-          getDoc(settingsRef).catch(e => { console.warn("settings read err", e); return null; }),
-          getDoc(shortsRef).catch(e => { console.warn("shorts read err", e); return null; }),
-          getDoc(videosRef).catch(e => { console.warn("videos read err", e); return null; })
-        ]);
+          const row = document.createElement('tr');
 
-        let settings = settingsSnap && settingsSnap.exists() ? settingsSnap.data() : null;
+          // Create cells for all fields with fallback empty string
+          const email = data.email || '';
+          const expireDate = formatTimestamp(data.expireDate);
+          const joinDate = formatTimestamp(data.joinDate);
+          const lastLogin = formatTimestamp(data.lastLogin);
+          const name = data.name || '';
+          const plan = data.plan || '';
+          const status = data.status || '';
+          const svx = data.svx || '';
+          const termsAccepted = data.termsAccepted === true ? 'Yes' : 'No';
+          const termsTimestamp = formatTimestamp(data.termsTimestamp);
 
-        if (!settings) {
-          console.warn("No settings for UID:", uid);
-          setChannelUI(DEFAULT_CHANNEL);
-        } else {
-          // show stored settings immediately while trying YT
-          setChannelUI({
-            channelLogo: settings.channelLogo,
-            channelName: settings.channelName,
-            channelLink: settings.channelLink,
-            desc: settings.desc,
-            instaCount: settings.instaCount,
-            instaLink: settings.instaLink,
-            bannerUrl: settings.bannerUrl,
-            subscriberCount: null
-          });
+          row.innerHTML = `
+            <td>${email}</td>
+            <td>${expireDate}</td>
+            <td>${joinDate}</td>
+            <td>${lastLogin}</td>
+            <td>${name}</td>
+            <td>${plan}</td>
+            <td>${status}</td>
+            <td>${svx}</td>
+            <td>${termsAccepted}</td>
+            <td>${termsTimestamp}</td>
+            <td><button onclick="showTransactions('${uid}')">Show Transactions</button></td>
+          `;
 
-          const channelId = settings.channelId || settings.channelID || null;
-          if (channelId && YT_API_KEY && YT_API_KEY !== "YOUR_YT_API_KEY") {
-            try {
-              const yt = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${YT_API_KEY}`).then(r=>r.json());
-              if (yt && yt.items && yt.items.length) {
-                const ch = yt.items[0];
-                const snip = ch.snippet || {};
-                const stats = ch.statistics || {};
-                setChannelUI({
-                  channelLogo: (snip.thumbnails && (snip.thumbnails.high || snip.thumbnails.medium || snip.thumbnails.default) && (snip.thumbnails.high || snip.thumbnails.medium || snip.thumbnails.default).url) || settings.channelLogo,
-                  channelName: snip.title || settings.channelName,
-                  channelLink: settings.channelLink || `https://www.youtube.com/channel/${channelId}`,
-                  desc: settings.desc || snip.description,
-                  instaCount: settings.instaCount,
-                  instaLink: settings.instaLink,
-                  bannerUrl: settings.bannerUrl,
-                  subscriberCount: stats.subscriberCount || null
-                });
-              } else {
-                console.warn("YT returned no items for id", channelId, yt);
-              }
-            } catch (e) {
-              console.warn("YT fetch failed", e);
-            }
-          }
-        }
-
-        // Populate shorts & replays
-        const shortsContainer = document.getElementById("shortsContainer");
-        const replaysContainer = document.getElementById("replaysContainer");
-        shortsContainer.innerHTML = "";
-        replaysContainer.innerHTML = "";
-
-        if (shortsSnap && shortsSnap.exists()) {
-          const arr = Array.isArray(shortsSnap.data().content) ? shortsSnap.data().content : [];
-          if (arr.length) arr.forEach(link => appendVideo(shortsContainer, link, "shorts-item"));
-          else showEmptyIn(shortsContainer, "No shorts yet.");
-        } else {
-          showEmptyIn(shortsContainer, "No shorts yet.");
-        }
-
-        if (videosSnap && videosSnap.exists()) {
-          const arr = Array.isArray(videosSnap.data().content) ? videosSnap.data().content : [];
-          if (arr.length) arr.forEach(link => appendVideo(replaysContainer, link, "replays-item"));
-          else showEmptyIn(replaysContainer, "No replays yet.");
-        } else {
-          showEmptyIn(replaysContainer, "No replays yet.");
-        }
-
-      } catch (err) {
-        console.error("renderPortal error:", err);
-        setChannelUI(DEFAULT_CHANNEL);
-        showEmptyIn(document.getElementById("shortsContainer"), "Error loading shorts.");
-        showEmptyIn(document.getElementById("replaysContainer"), "Error loading replays.");
+          tbody.appendChild(row);
+        });
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        tbody.innerHTML = `<tr><td colspan="11">Failed to load users. Check console for details.</td></tr>`;
       }
     }
 
-    window.addEventListener("DOMContentLoaded", renderPortal);
+    // Redirect to transactions page for selected user
+    function showTransactions(uid) {
+      window.open(`https://www.squadvertex.great-site.net/transactions?id=${uid}`, '_blank');
+    }
+
+    window.onload = loadUsers;
   </script>
 </body>
 </html>
