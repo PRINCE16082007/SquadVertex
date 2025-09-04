@@ -9,22 +9,21 @@
       font-family: Arial, sans-serif;
       margin: 20px;
     }
-    h1, h2 {
+    h1, h2, h3 {
       margin-bottom: 10px;
     }
     table {
-      width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      width: 100%;
       margin-bottom: 20px;
     }
     th, td {
-      border: 1px solid #ccc;
+      border: 1px solid #ddd;
       padding: 8px;
       text-align: left;
     }
     th {
-      background: #f2f2f2;
+      background-color: #f2f2f2;
     }
   </style>
 
@@ -35,7 +34,7 @@
 </head>
 <body>
   <h1>User Transactions</h1>
-  <div id="info"></div>
+  <p id="userIdDisplay"></p>
   <table id="transactionsTable">
     <thead>
       <tr>
@@ -45,14 +44,14 @@
       </tr>
     </thead>
     <tbody>
-      <!-- Transaction rows will go here -->
+      <!-- Transaction rows go here -->
     </tbody>
   </table>
   <h2>Total Points: <span id="totalPoints">0</span></h2>
-  <h3>SVX Points (from user profile): <span id="svxPoints">-</span></h3>
+  <h3>SVX Points (User Profile): <span id="svxPoints">-</span></h3>
 
   <script>
-    // Firebase config & initialization
+    // Firebase config and initialization
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -64,20 +63,26 @@
 
     firebase.initializeApp(firebaseConfig);
 
+    // Activate App Check with reCaptcha v3
     try {
       const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');
       firebase.appCheck().activate(appCheckProvider, true);
-      console.log("App Check activated.");
-    } catch (e) {
-      console.warn("App Check activation failed:", e);
+      console.log("App Check activated with reCaptcha v3.");
+    } catch (error) {
+      console.warn("App Check activation failed:", error);
     }
 
     const db = firebase.firestore();
 
-    // Utility to get URL parameter
-    function getQueryParam(param) {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get(param);
+    // Utility function to get URL parameter
+    function getParameterByName(name) {
+      const url = window.location.href;
+      name = name.replace(/[\[\]]/g, "\\$&");
+      const regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+            results = regex.exec(url);
+      if (!results) return null;
+      if (!results[2]) return '';
+      return decodeURIComponent(results[2].replace(/\+/g, " "));
     }
 
     // Format Firestore timestamp to readable string
@@ -91,11 +96,12 @@
       return '';
     }
 
-    async function loadTransactions(userId) {
+    async function loadUserTransactions(userId) {
       if (!userId) {
-        document.getElementById('info').textContent = 'User ID is missing in URL.';
+        document.getElementById('userIdDisplay').textContent = 'User ID missing from URL.';
         return;
       }
+      document.getElementById('userIdDisplay').textContent = `Transactions for User ID: ${userId}`;
 
       const tbody = document.querySelector("#transactionsTable tbody");
       tbody.innerHTML = '';
@@ -103,22 +109,22 @@
       document.getElementById('svxPoints').textContent = '-';
 
       try {
-        // Get user's main document to read svx
+        // Get user document for svx field
         const userDoc = await db.collection('users').doc(userId).get();
         if (!userDoc.exists) {
-          document.getElementById('info').textContent = 'User not found.';
+          document.getElementById('userIdDisplay').textContent = 'User not found.';
           document.getElementById('totalPoints').textContent = '0';
           return;
         }
+
         const userData = userDoc.data();
         const svx = userData.svx || '-';
         document.getElementById('svxPoints').textContent = svx;
 
-        // Get transactions sub-collection documents
+        // Get transactions subcollection documents
         const transactionsSnapshot = await db.collection('users').doc(userId).collection('transactions').get();
-
         if (transactionsSnapshot.empty) {
-          tbody.innerHTML = '<tr><td colspan="3">No transactions found.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="3">No transactions found for this user.</td></tr>';
           document.getElementById('totalPoints').textContent = '0';
           return;
         }
@@ -143,18 +149,16 @@
         });
 
         document.getElementById('totalPoints').textContent = totalPoints;
-
       } catch (error) {
         console.error('Error loading transactions:', error);
-        document.getElementById('info').textContent = 'Failed to load transactions. See console for details.';
+        document.getElementById('userIdDisplay').textContent = 'Error loading transactions. Check console.';
         document.getElementById('totalPoints').textContent = '0';
       }
     }
 
-    // On load, read user ID param and fetch transactions
     window.onload = () => {
-      const userId = getQueryParam('id');
-      loadTransactions(userId);
+      const userId = getParameterByName('id');
+      loadUserTransactions(userId);
     };
   </script>
 </body>
