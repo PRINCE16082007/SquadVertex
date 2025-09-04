@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>User Transactions</title>
+  <title>User Transactions with Debug Console</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -25,6 +25,18 @@
     th {
       background-color: #f2f2f2;
     }
+    #debugConsole {
+      background-color: #111;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 10px;
+      height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      border: 2px solid #0f0;
+      margin-top: 20px;
+    }
   </style>
 
   <!-- Firebase compat SDKs -->
@@ -35,6 +47,7 @@
 <body>
   <h1>User Transactions</h1>
   <p id="userIdDisplay"></p>
+
   <table id="transactionsTable">
     <thead>
       <tr>
@@ -47,11 +60,24 @@
       <!-- Transaction rows go here -->
     </tbody>
   </table>
+
   <h2>Total Points: <span id="totalPoints">0</span></h2>
   <h3>SVX Points (User Profile): <span id="svxPoints">-</span></h3>
 
+  <h3>Debug Console</h3>
+  <div id="debugConsole"></div>
+
   <script>
-    // Firebase config and initialization
+    // Debug console logger
+    const debugConsole = document.getElementById('debugConsole');
+    function logDebug(msg) {
+      const time = new Date().toLocaleTimeString();
+      debugConsole.textContent += `[${time}] ${msg}\n`;
+      debugConsole.scrollTop = debugConsole.scrollHeight;
+      console.log(msg);
+    }
+
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -61,20 +87,27 @@
       appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
 
+    // Enable App Check debug mode in development
+    // To use a specific debug token, replace 'true' with the string token
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    logDebug("App Check debug token enabled.");
+
+    // Initialize Firebase app
     firebase.initializeApp(firebaseConfig);
+    logDebug("Firebase initialized.");
 
     // Activate App Check with reCaptcha v3
     try {
       const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');
       firebase.appCheck().activate(appCheckProvider, true);
-      console.log("App Check activated with reCaptcha v3.");
+      logDebug("App Check activated with reCaptcha v3.");
     } catch (error) {
-      console.warn("App Check activation failed:", error);
+      logDebug("App Check activation failed: " + error.message);
     }
 
     const db = firebase.firestore();
 
-    // Utility function to get URL parameter
+    // Utility: get URL parameter
     function getParameterByName(name) {
       const url = window.location.href;
       name = name.replace(/[\[\]]/g, "\\$&");
@@ -85,7 +118,7 @@
       return decodeURIComponent(results[2].replace(/\+/g, " "));
     }
 
-    // Format Firestore timestamp to readable string
+    // Format Firestore timestamp
     function formatTimestamp(ts) {
       if (!ts) return '';
       if (ts.seconds) {
@@ -99,9 +132,11 @@
     async function loadUserTransactions(userId) {
       if (!userId) {
         document.getElementById('userIdDisplay').textContent = 'User ID missing from URL.';
+        logDebug('User ID missing in URL param.');
         return;
       }
       document.getElementById('userIdDisplay').textContent = `Transactions for User ID: ${userId}`;
+      logDebug('Loading transactions for User ID: ' + userId);
 
       const tbody = document.querySelector("#transactionsTable tbody");
       tbody.innerHTML = '';
@@ -109,34 +144,34 @@
       document.getElementById('svxPoints').textContent = '-';
 
       try {
-        // Get user document for svx field
+        // Get user doc to get svx points
         const userDoc = await db.collection('users').doc(userId).get();
         if (!userDoc.exists) {
           document.getElementById('userIdDisplay').textContent = 'User not found.';
           document.getElementById('totalPoints').textContent = '0';
+          logDebug('User document not found.');
           return;
         }
-
         const userData = userDoc.data();
         const svx = userData.svx || '-';
         document.getElementById('svxPoints').textContent = svx;
+        logDebug("User SVX points: " + svx);
 
-        // Get transactions subcollection documents
-        const transactionsSnapshot = await db.collection('users').doc(userId).collection('transactions').get();
-        if (transactionsSnapshot.empty) {
+        // Get transactions subcollection
+        const transSnapshot = await db.collection('users').doc(userId).collection('transactions').get();
+        if (transSnapshot.empty) {
           tbody.innerHTML = '<tr><td colspan="3">No transactions found for this user.</td></tr>';
           document.getElementById('totalPoints').textContent = '0';
+          logDebug('No transactions found.');
           return;
         }
 
         let totalPoints = 0;
-
-        transactionsSnapshot.forEach(doc => {
+        transSnapshot.forEach(doc => {
           const data = doc.data();
           const amount = data.amount || 0;
           const reason = data.reason || '';
           const timestamp = formatTimestamp(data.timestamp);
-
           totalPoints += amount;
 
           const row = document.createElement('tr');
@@ -146,13 +181,15 @@
             <td>${timestamp}</td>
           `;
           tbody.appendChild(row);
+          logDebug(`Transaction: amount=${amount}, reason=${reason}, timestamp=${timestamp}`);
         });
-
         document.getElementById('totalPoints').textContent = totalPoints;
+        logDebug("Total points calculated: " + totalPoints);
       } catch (error) {
-        console.error('Error loading transactions:', error);
+        console.error(error);
         document.getElementById('userIdDisplay').textContent = 'Error loading transactions. Check console.';
         document.getElementById('totalPoints').textContent = '0';
+        logDebug("Error loading transactions: " + error.message);
       }
     }
 
