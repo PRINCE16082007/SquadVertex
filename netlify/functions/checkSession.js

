@@ -1,0 +1,50 @@
+const admin = require("firebase-admin");
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+  });
+}
+
+const db = admin.firestore();
+
+exports.handler = async (event) => {
+  try {
+    const { uid, deviceId } = JSON.parse(event.body);
+
+    const sessionRef = db.collection("userSessions").doc(uid);
+    const sessionDoc = await sessionRef.get();
+
+    if (sessionDoc.exists) {
+      const sessionData = sessionDoc.data();
+
+      if (sessionData.deviceId && sessionData.deviceId !== deviceId && sessionData.sessionValid) {
+        return {
+          statusCode: 403,
+          body: JSON.stringify({ message: "Another device is already logged in." }),
+        };
+      }
+    }
+
+    // Allow login or refresh session
+    await sessionRef.set(
+      {
+        deviceId,
+        lastActive: admin.firestore.FieldValue.serverTimestamp(),
+        fingerprintRegistered: false,
+        sessionValid: true,
+      },
+      { merge: true }
+    );
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: "Session registered successfully." }),
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: error.message }),
+    };
+  }
+};
