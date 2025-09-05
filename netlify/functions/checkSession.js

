@@ -12,27 +12,33 @@ exports.handler = async (event) => {
   try {
     const { uid, deviceId } = JSON.parse(event.body);
 
+    if (!uid || !deviceId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: "Missing uid or deviceId" }),
+      };
+    }
+
     const sessionRef = db.collection("userSessions").doc(uid);
     const sessionDoc = await sessionRef.get();
 
-    if (sessionDoc.exists) {
-      const sessionData = sessionDoc.data();
-
-      if (sessionData.deviceId && sessionData.deviceId !== deviceId && sessionData.sessionValid) {
-        return {
-          statusCode: 403,
-          body: JSON.stringify({ message: "Another device is already logged in." }),
-        };
-      }
+    if (
+      sessionDoc.exists &&
+      sessionDoc.data().deviceId !== deviceId &&
+      sessionDoc.data().sessionValid === true
+    ) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ message: "Another device is already logged in." }),
+      };
     }
 
-    // Allow login or refresh session
     await sessionRef.set(
       {
         deviceId,
-        lastActive: admin.firestore.FieldValue.serverTimestamp(),
-        fingerprintRegistered: false,
         sessionValid: true,
+        fingerprintRegistered: false,
+        lastActive: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
