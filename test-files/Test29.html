@@ -2,332 +2,298 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Google + Biometric + Password Guard - Final Fix</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Secure Chat Device Lock + Fingerprint Guard</title>
+
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
     color: white;
-    margin: 0; padding: 0;
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .container {
-    max-width: 460px;
-    width: 90%;
-    margin: 20px auto;
     background: rgba(0,0,0,0.45);
-    border-radius: 14px;
+    padding: 2.5rem;
+    border-radius: 12px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.7);
-    padding: 2rem 2.5rem;
+    max-width: 420px;
+    width: 90%;
     text-align: center;
   }
   button {
-    padding: 0.9rem 2rem;
-    background: #1db954;
+    padding: 0.9rem 1.8rem;
+    font-size: 1.1rem;
+    background: #0078d7;
     border: none;
     border-radius: 8px;
     color: white;
-    font-size: 1.1rem;
     cursor: pointer;
-    margin-top: 1.3rem;
     transition: background 0.3s ease;
+    margin-top: 1.3rem;
   }
   button:hover {
-    background: #179e45;
+    background: #005fa3;
+  }
+  #protectedContent {
+    display: none;
+    margin-top: 1.5rem;
+    background: rgba(255,255,255,0.1);
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+  }
+  #consoleLog {
+    margin-top: 1rem;
+    background: rgba(0,0,0,0.7);
+    color: #00ff00;
+    font-family: monospace;
+    height: 150px;
+    overflow-y: auto;
+    white-space: pre-line;
+    padding: 0.5rem;
+    border-radius: 8px;
   }
   #signOutBtn {
     background: #d9534f;
     margin-top: 1rem;
-    display: none;
-  }
-  #protectedContent {
-    display: none;
-    background: rgba(255,255,255,0.14);
-    padding: 1.2rem 1.5rem;
-    border-radius: 12px;
-    margin-top: 1.5rem;
-  }
-  #consoleLog {
-    background: rgba(0,0,0,0.75);
-    color: #00ff00;
-    font-family: monospace;
-    height: 140px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    margin: 1rem auto 0 auto;
-    padding: 0.5rem;
-    border-radius: 8px;
-    max-width: 460px;
-    width: 90%;
-  }
-  #passwordModal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.75);
-    display: none;
-    justify-content: center;
-    align-items: center;
-  }
-  #passwordModalContent {
-    background: #222;
-    padding: 2rem;
-    border-radius: 14px;
-    width: 320px;
-    text-align: center;
-  }
-  #passwordModalContent input {
-    width: 100%;
-    padding: 0.75rem;
-    font-size: 1rem;
-    border-radius: 6px;
-    border: none;
-    margin-bottom: 1rem;
-  }
-  #passwordModalContent p {
-    color: #ff6666;
-    height: 1.2rem;
+    display:none;
   }
 </style>
+
+<!-- Load reCAPTCHA v3 -->
+<script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
+
+<!-- Firebase compat SDKs (v9.22.2) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>
+
+<!-- FingerprintJS -->
+<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+
 </head>
 <body>
-<div class="container" id="authSection">
-  <h2>🔐 Login with Google + Biometric + Password</h2>
-  <button id="googleSignInBtn">Sign In with Google</button>
-  <button id="signOutBtn">Sign Out</button>
-  <p id="statusText" style="margin-top:1rem;"></p>
-</div>
 
-<div id="passwordModal">
-  <div id="passwordModalContent">
-    <h3 id="passwordModalTitle">Enter Password</h3>
-    <input type="password" id="passwordInput" placeholder="Enter your password" autocomplete="new-password" />
-    <button id="passwordSubmitBtn">Submit</button>
-    <p id="passwordMsg"></p>
-  </div>
+<div class="container" id="authSection">
+  <h2>🔐 Firebase Secure Device + Fingerprint Guard</h2>
+  <p id="userInfo">Please sign in first.</p>
+  <button id="signInBtn">Sign In with Google</button>
+  <button id="authBtn" style="display:none;">Authenticate with Fingerprint</button>
+  <button id="signOutBtn">Sign Out</button>
+  <p id="status" style="margin-top: 1rem;"></p>
+  <div id="consoleLog"></div>
 </div>
 
 <div class="container" id="protectedContent">
   <h3>✅ Access Granted!</h3>
-  <p>Welcome to the protected content area.</p>
+  <p>Welcome to the protected section of the site. Enjoy your stay! 🎉</p>
 </div>
 
-<div id="consoleLog"></div>
+<script>
+  // Your Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+  };
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import {
-  getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  // Initialize Firebase app
+  firebase.initializeApp(firebaseConfig);
 
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-  authDomain: "squadvertex2007.firebaseapp.com",
-  projectId: "squadvertex2007",
-  storageBucket: "squadvertex2007.appspot.com",
-  messagingSenderId: "168905083514",
-  appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-};
-
-// Init Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// Elements
-const googleSignInBtn = document.getElementById("googleSignInBtn");
-const signOutBtn = document.getElementById("signOutBtn");
-const statusText = document.getElementById("statusText");
-const consoleLog = document.getElementById("consoleLog");
-const authSection = document.getElementById("authSection");
-const protectedContent = document.getElementById("protectedContent");
-
-// Password Modal
-const passwordModal = document.getElementById("passwordModal");
-const passwordModalTitle = document.getElementById("passwordModalTitle");
-const passwordInput = document.getElementById("passwordInput");
-const passwordSubmitBtn = document.getElementById("passwordSubmitBtn");
-const passwordMsg = document.getElementById("passwordMsg");
-
-function logToConsole(msg) {
-  const time = new Date().toLocaleTimeString();
-  consoleLog.textContent += `[${time}] ${msg}\n`;
-  consoleLog.scrollTop = consoleLog.scrollHeight;
-}
-
-// WebAuthn biometric auth
-async function requestFingerprint() {
+  // Activate App Check with reCAPTCHA v3 provider
   try {
-    const challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
-
-    const publicKey = {
-      challenge,
-      rp: { name: "Secure App" },
-      user: {
-        id: new Uint8Array(16),
-        name: auth.currentUser.email,
-        displayName: auth.currentUser.email
-      },
-      pubKeyCredParams: [{ type: "public-key", alg: -7 }],
-      timeout: 60000,
-      authenticatorSelection: {
-        authenticatorAttachment: "platform",
-        userVerification: "required"
-      },
-      attestation: "none"
-    };
-
-    logToConsole("Requesting biometric auth...");
-    const credential = await navigator.credentials.create({ publicKey });
-
-    if (credential) {
-      logToConsole("Biometric Auth Success.");
-      return true;
-    }
-  } catch (err) {
-    logToConsole("Biometric Auth Failed: " + err.message);
-    alert("Biometric auth failed: " + err.message);
-    return false;
-  }
-}
-
-// Firestore password check & set
-async function getUserPassword(uid) {
-  const docRef = doc(db, "passwords", uid);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return docSnap.data().password;
-  }
-  return null;
-}
-
-async function setUserPassword(uid, password) {
-  await setDoc(doc(db, "passwords", uid), { password });
-}
-
-// Show password modal
-function showPasswordModal(isNewUser) {
-  passwordModal.style.display = "flex";
-  passwordInput.value = "";
-  passwordMsg.textContent = "";
-  passwordModalTitle.textContent = isNewUser ? "Create a Password" : "Enter Password";
-  passwordInput.focus();
-}
-
-// Handle password submission
-async function handlePasswordSubmit() {
-  const pw = passwordInput.value.trim();
-  if (!pw) {
-    passwordMsg.textContent = "Password cannot be empty.";
-    return;
+    const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');
+    firebase.appCheck().activate(appCheckProvider, /* isTokenAutoRefreshEnabled */ true);
+    console.log("App Check activated.");
+  } catch (e) {
+    console.warn("App Check activation failed:", e);
   }
 
-  const uid = auth.currentUser.uid;
-  let storedPassword = await getUserPassword(uid);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const provider = new firebase.auth.GoogleAuthProvider();
 
-  if (storedPassword === null) {
-    // First time user: set password
-    await setUserPassword(uid, pw);
-    passwordMsg.textContent = "Password created successfully!";
-    logToConsole("Password created for user " + auth.currentUser.email);
-    closePasswordModal();
-    unlockProtectedContent();
-  } else {
-    // Returning user: check password
-    if (pw === storedPassword) {
-      logToConsole("Password match, access granted.");
-      closePasswordModal();
-      unlockProtectedContent();
-    } else {
-      passwordMsg.textContent = "Incorrect password.";
-      logToConsole("Password mismatch attempt.");
-    }
+  const signInBtn = document.getElementById("signInBtn");
+  const authBtn = document.getElementById("authBtn");
+  const signOutBtn = document.getElementById("signOutBtn");
+  const userInfo = document.getElementById("userInfo");
+  const statusText = document.getElementById("status");
+  const authSection = document.getElementById("authSection");
+  const protectedContent = document.getElementById("protectedContent");
+  const consoleLog = document.getElementById("consoleLog");
+
+  let visitorId = null;  // will hold fingerprintjs device ID
+
+  // Helper function to log messages
+  function logToConsole(message) {
+    const timestamp = new Date().toLocaleTimeString();
+    consoleLog.textContent += `[${timestamp}] ${message}\n`;
+    consoleLog.scrollTop = consoleLog.scrollHeight;
   }
-}
 
-function closePasswordModal() {
-  passwordModal.style.display = "none";
-  passwordInput.value = "";
-  passwordMsg.textContent = "";
-}
+  // Load FingerprintJS and get visitor ID
+  async function generateFingerprint() {
+    const fp = await FingerprintJS.load();
+    const result = await fp.get();
+    return result.visitorId; // This is the device fingerprint
+  }
 
-function unlockProtectedContent() {
-  authSection.style.display = "none";
-  protectedContent.style.display = "block";
-}
+  // WebAuthn UID conversion helper (same as your original)
+  function uidToUint8Array(uid) {
+    // uid is hex string from Firebase
+    if (uid.length % 2 !== 0) return new Uint8Array();
+    return new Uint8Array(uid.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+  }
 
-googleSignInBtn.onclick = async () => {
-  try {
-    const provider = new GoogleAuthProvider();
-
-    // Sign in with Google
-    const result = await signInWithPopup(auth, provider);
-    logToConsole("Signed in as: " + result.user.email);
-    statusText.textContent = "Signed in as: " + result.user.email;
-
-    // Biometric auth next
-    const biometricSuccess = await requestFingerprint();
-    if (!biometricSuccess) {
-      logToConsole("Biometric auth failed, signing out user.");
-      await signOut(auth);
-      statusText.textContent = "Signed out due to biometric failure.";
+  // Fingerprint auth request using WebAuthn API (your existing)
+  async function requestFingerprintWebAuthn() {
+    const user = auth.currentUser;
+    if (!user) {
+      alert("Please sign in first.");
       return;
     }
 
-    // Password modal logic
-    const storedPassword = await getUserPassword(result.user.uid);
-    showPasswordModal(storedPassword === null);
+    statusText.textContent = "Requesting fingerprint scan...";
+    logToConsole("Starting WebAuthn fingerprint request...");
 
-    // Show sign out button and hide sign in button
-    googleSignInBtn.style.display = "none";
-    signOutBtn.style.display = "inline-block";
-  } catch (error) {
-    logToConsole("Sign in error: " + error.message);
-    alert("Google sign-in failed: " + error.message);
+    try {
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+
+      const publicKey = {
+        challenge,
+        rp: { name: "Firebase Fingerprint Guard" },
+        user: {
+          id: uidToUint8Array(user.uid),
+          name: user.email,
+          displayName: user.email,
+        },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+        timeout: 60000,
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required",
+        },
+        attestation: "none",
+      };
+
+      const credential = await navigator.credentials.create({ publicKey });
+
+      if (credential) {
+        logToConsole("Fingerprint authenticated successfully.");
+        statusText.textContent = "Fingerprint authenticated successfully!";
+
+        await db.collection("userSessions").doc(user.uid).collection("fingerprints").add({
+          user_email: user.email,
+          success: true,
+          type: credential.type,
+          created_at: new Date().toISOString(),
+        });
+
+        authSection.style.display = "none";
+        protectedContent.style.display = "block";
+        logToConsole("Access granted.");
+      }
+    } catch (error) {
+      logToConsole("Fingerprint auth failed: " + error.message);
+      statusText.textContent = "Fingerprint authentication failed: " + error.message;
+    }
   }
-};
 
-passwordSubmitBtn.onclick = handlePasswordSubmit;
+  // Function to perform device fingerprint check before showing fingerprint button
+  async function checkDeviceFingerprint(user) {
+    visitorId = await generateFingerprint();
+    logToConsole("Device Fingerprint (visitorId): " + visitorId);
 
-signOutBtn.onclick = async () => {
-  await signOut(auth);
-  logToConsole("User signed out.");
-  statusText.textContent = "";
-  authSection.style.display = "block";
-  protectedContent.style.display = "none";
-  showPasswordModal(false);
-  googleSignInBtn.style.display = "inline-block";
-  signOutBtn.style.display = "none";
-};
+    // Check in Firestore userSessions collection doc for this user.uid if device is registered
+    const userSessionDoc = db.collection("userSessions").doc(user.uid);
+    const sessionSnap = await userSessionDoc.get();
 
-// Auth state watcher: reset UI as necessary
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    logToConsole("User authenticated: " + user.email);
-    statusText.textContent = "Signed in as: " + user.email;
-    googleSignInBtn.style.display = "none";
-    signOutBtn.style.display = "inline-block";
-  } else {
-    logToConsole("No user signed in.");
-    statusText.textContent = "";
-    googleSignInBtn.style.display = "inline-block";
-    signOutBtn.style.display = "none";
-    authSection.style.display = "block";
-    protectedContent.style.display = "none";
-    showPasswordModal(false);
+    if (!sessionSnap.exists) {
+      // First login ever - create the record with visitorId
+      await userSessionDoc.set({
+        deviceFingerprint: visitorId,
+        email: user.email,
+        createdAt: new Date().toISOString(),
+      });
+      logToConsole("First device login - Device fingerprint saved.");
+      return true;  // Allow to proceed
+    } else {
+      const savedFingerprint = sessionSnap.data().deviceFingerprint;
+      if (savedFingerprint !== visitorId) {
+        // Device mismatch - block access and sign out user
+        logToConsole("Device mismatch! Access denied.");
+        statusText.textContent = "Access blocked: This account is locked to another device.";
+        await auth.signOut();
+        return false;
+      } else {
+        logToConsole("Device fingerprint verified. Access allowed.");
+        return true;
+      }
+    }
   }
-});
+
+  // On Auth State Changed
+  auth.onAuthStateChanged(async user => {
+    if (user) {
+      userInfo.textContent = `Signed in as: ${user.email}`;
+      signInBtn.style.display = "none";
+      signOutBtn.style.display = "inline-block";
+      protectedContent.style.display = "none";
+      statusText.textContent = "";
+      logToConsole(`User signed in: ${user.email}`);
+
+      // Check device fingerprint before showing Fingerprint Authentication button
+      const allowed = await checkDeviceFingerprint(user);
+      if (allowed) {
+        authBtn.style.display = "inline-block";
+        statusText.textContent = "Please authenticate your fingerprint to continue.";
+      } else {
+        authBtn.style.display = "none";
+      }
+    } else {
+      userInfo.textContent = "Please sign in first.";
+      signInBtn.style.display = "inline-block";
+      authBtn.style.display = "none";
+      signOutBtn.style.display = "none";
+      protectedContent.style.display = "none";
+      statusText.textContent = "";
+      logToConsole("User signed out");
+    }
+  });
+
+  // Sign In with Google button
+  signInBtn.onclick = async () => {
+    try {
+      // Execute reCaptcha v3 to get token and pass it to your backend / Firebase security rules if needed
+      const token = await grecaptcha.execute('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx', {action: 'login'});
+      logToConsole("reCAPTCHA token acquired.");
+
+      const result = await auth.signInWithPopup(provider);
+      logToConsole(`Sign-in successful: ${result.user.email}`);
+    } catch (error) {
+      logToConsole("Sign-in error: " + error.message);
+      alert("Sign-in failed: " + error.message);
+    }
+  };
+
+  // Sign Out button
+  signOutBtn.onclick = async () => {
+    await auth.signOut();
+    logToConsole("User signed out");
+  };
+
+  // Authenticate with WebAuthn fingerprint button
+  authBtn.onclick = requestFingerprintWebAuthn;
+
 </script>
 </body>
 </html>
