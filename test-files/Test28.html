@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Firebase Fingerprint Guard with App Check</title>
+<title>Secure Chat Device Lock + Fingerprint Guard</title>
+
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -63,17 +64,23 @@
   }
 </style>
 
-<!-- Firebase SDK and AppCheck -->
-<script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
+<!-- Load reCAPTCHA v3 -->
+<script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
+
+<!-- Firebase compat SDKs (v9.22.2) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>
+
+<!-- FingerprintJS -->
+<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
 
 </head>
 <body>
 
 <div class="container" id="authSection">
-  <h2>🔐 Firebase Fingerprint Guard</h2>
+  <h2>🔐 Firebase Secure Device + Fingerprint Guard</h2>
   <p id="userInfo">Please sign in first.</p>
   <button id="signInBtn">Sign In with Google</button>
   <button id="authBtn" style="display:none;">Authenticate with Fingerprint</button>
@@ -98,19 +105,22 @@
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
   };
 
-  // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
 
-  // Initialize Firebase App Check with reCAPTCHA v3 provider
-  firebase.appCheck().activate(
-    '6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx', // Your reCAPTCHA v3 site key here
-    true // Enable auto refresh
-  );
+  // Activate App Check
+  try {
+    const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');
+    firebase.appCheck().activate(appCheckProvider, true);
+    console.log("App Check activated.");
+  } catch (e) {
+    console.warn("App Check activation failed:", e);
+  }
 
   const auth = firebase.auth();
   const db = firebase.firestore();
   const provider = new firebase.auth.GoogleAuthProvider();
 
+  // Elements
   const signInBtn = document.getElementById("signInBtn");
   const authBtn = document.getElementById("authBtn");
   const signOutBtn = document.getElementById("signOutBtn");
@@ -120,60 +130,36 @@
   const protectedContent = document.getElementById("protectedContent");
   const consoleLog = document.getElementById("consoleLog");
 
+  let visitorId = null;
+
+  // Logger
   function logToConsole(message) {
     const timestamp = new Date().toLocaleTimeString();
     consoleLog.textContent += `[${timestamp}] ${message}\n`;
     consoleLog.scrollTop = consoleLog.scrollHeight;
   }
 
-  // Update UI based on auth state
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      userInfo.textContent = `Signed in as: ${user.email}`;
-      signInBtn.style.display = "none";
-      authBtn.style.display = "inline-block";
-      signOutBtn.style.display = "inline-block";
-      protectedContent.style.display = "none";
-      statusText.textContent = "";
-      logToConsole(`User signed in: ${user.email}`);
-    } else {
-      userInfo.textContent = "Please sign in first.";
-      signInBtn.style.display = "inline-block";
-      authBtn.style.display = "none";
-      signOutBtn.style.display = "none";
-      protectedContent.style.display = "none";
-      statusText.textContent = "";
-      logToConsole("User signed out");
-    }
-  });
+  // FingerprintJS ID
+  async function generateFingerprint() {
+    const fp = await FingerprintJS.load();
+    const result = await fp.get();
+    return result.visitorId;
+  }
 
-  signInBtn.onclick = async () => {
-    try {
-      const result = await auth.signInWithPopup(provider);
-      logToConsole(`Sign-in successful: ${result.user.email}`);
-    } catch (error) {
-      logToConsole("Sign-in error: " + error.message);
-      alert("Sign-in failed: " + error.message);
-    }
-  };
-
-  signOutBtn.onclick = async () => {
-    await auth.signOut();
-    logToConsole("User signed out");
-  };
-
+  // Convert user UID hex -> Uint8Array
   function uidToUint8Array(uid) {
+    if (uid.length % 2 !== 0) return new Uint8Array();
     return new Uint8Array(uid.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
   }
 
-  async function requestFingerprint() {
+  // Request WebAuthn fingerprint
+  async function requestFingerprintWebAuthn() {
     const user = auth.currentUser;
     if (!user) {
       alert("Please sign in first.");
       return;
     }
-
-    statusText.textContent = "Requesting fingerprint...";
+    statusText.textContent = "Requesting fingerprint scan...";
     logToConsole("Starting WebAuthn fingerprint request...");
 
     try {
@@ -201,10 +187,9 @@
 
       if (credential) {
         logToConsole("Fingerprint authenticated successfully.");
-
         statusText.textContent = "Fingerprint authenticated successfully!";
 
-        await db.collection("test").add({
+        await db.collection("userSessions").doc(user.uid).collection("fingerprints").add({
           user_email: user.email,
           success: true,
           type: credential.type,
@@ -213,16 +198,91 @@
 
         authSection.style.display = "none";
         protectedContent.style.display = "block";
-
-        logToConsole("Access granted");
+        logToConsole("Access granted.");
       }
     } catch (error) {
       logToConsole("Fingerprint auth failed: " + error.message);
-      statusText.textContent = "Authentication failed: " + error.message;
+      statusText.textContent = "Fingerprint authentication failed: " + error.message;
     }
   }
 
-  authBtn.onclick = requestFingerprint;
+  // -------------------
+  // SERVER VERIFIED SIGN-IN
+  // -------------------
+  signInBtn.onclick = async () => {
+    try {
+      // reCAPTCHA
+      const token = await grecaptcha.execute(
+        '6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx',
+        { action: 'login' }
+      );
+      logToConsole("reCAPTCHA token acquired.");
+
+      // Fingerprint
+      visitorId = await generateFingerprint();
+      logToConsole("Device Fingerprint: " + visitorId);
+
+      // Sign in with Google popup if not already
+      if (!auth.currentUser) {
+        await auth.signInWithPopup(provider);
+        logToConsole(`Sign-in successful: ${auth.currentUser.email}`);
+      }
+      const user = auth.currentUser;
+
+      // Send details to server
+      const res = await fetch("/functions/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recaptchaToken: token,
+          uid: user.uid,
+          email: user.email,
+          visitorId,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        logToConsole("✅ Server verified user + device.");
+        authBtn.style.display = "inline-block";
+        statusText.textContent = "Please authenticate your fingerprint to continue.";
+      } else {
+        logToConsole("❌ Verification failed: " + data.reason);
+        statusText.textContent = "Access denied: " + data.reason;
+        await auth.signOut();
+      }
+    } catch (err) {
+      logToConsole("Error: " + err.message);
+      statusText.textContent = "Error: " + err.message;
+    }
+  };
+
+  // On Auth State Changed
+  auth.onAuthStateChanged(async user => {
+    if (user) {
+      userInfo.textContent = `Signed in as: ${user.email}`;
+      signInBtn.style.display = "none";
+      signOutBtn.style.display = "inline-block";
+      protectedContent.style.display = "none";
+      logToConsole(`User signed in: ${user.email}`);
+    } else {
+      userInfo.textContent = "Please sign in first.";
+      signInBtn.style.display = "inline-block";
+      authBtn.style.display = "none";
+      signOutBtn.style.display = "none";
+      protectedContent.style.display = "none";
+      logToConsole("User signed out");
+    }
+  });
+
+  // Sign Out
+  signOutBtn.onclick = async () => {
+    await auth.signOut();
+    logToConsole("User signed out");
+  };
+
+  // Fingerprint Auth
+  authBtn.onclick = requestFingerprintWebAuthn;
 </script>
 </body>
 </html>
