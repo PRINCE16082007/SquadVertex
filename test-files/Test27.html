@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Firebase Fingerprint Guard with Single Device Session</title>
+<title>Firebase Fingerprint Guard + Single Device Restriction</title>
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -56,11 +56,6 @@
     padding: 0.5rem;
     border-radius: 8px;
   }
-  #signOutBtn {
-    background: #d9534f;
-    margin-top: 1rem;
-    display:none;
-  }
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
@@ -86,6 +81,7 @@
 </div>
 
 <script>
+  // Your Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
     authDomain: "squadvertex2007.firebaseapp.com",
@@ -95,11 +91,13 @@
     appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
   };
 
+  // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
 
+  // Activate Firebase App Check with reCAPTCHA v3
   firebase.appCheck().activate(
-    '6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx',
-    true
+    '6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx', // Your reCaptcha v3 site key
+    true // auto-refresh enabled
   );
 
   const auth = firebase.auth();
@@ -120,90 +118,45 @@
     consoleLog.scrollTop = consoleLog.scrollHeight;
   }
 
-  // Generate or get stored device ID
+  // Generate or get stored deviceId (UUID)
   function getDeviceId() {
     let deviceId = localStorage.getItem("deviceId");
     if (!deviceId) {
-      if (crypto.randomUUID) {
-        deviceId = crypto.randomUUID();
-      } else {
-        // fallback for older browsers
-        deviceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      }
+      deviceId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2) + Date.now().toString(36);
       localStorage.setItem("deviceId", deviceId);
     }
     return deviceId;
   }
 
-  // Call Netlify function to check/create session
   async function verifySession(user) {
     const deviceId = getDeviceId();
     try {
       const res = await fetch("/netlify/functions/checkSession", {
         method: "POST",
-        body: JSON.stringify({ uid: user.uid, deviceId }),
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: user.uid, deviceId }),
       });
 
       if (res.status === 403) {
-        alert("Another device is already logged in with this account. Access denied.");
+        alert("Another device is already logged in. Access denied.");
         await auth.signOut();
         return false;
       }
 
       if (!res.ok) {
-        alert("Error checking session: " + (await res.text()));
+        alert("Session check error: " + (await res.text()));
         await auth.signOut();
         return false;
       }
 
       return true;
-    } catch (err) {
-      alert("Session verification failed: " + err.message);
+    } catch (e) {
+      alert("Network error during session validation: " + e.message);
       await auth.signOut();
       return false;
     }
   }
 
-  auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      userInfo.textContent = `Signed in as: ${user.email}`;
-      signInBtn.style.display = "none";
-      authBtn.style.display = "inline-block";
-      statusText.textContent = "";
-      logToConsole(`User signed in: ${user.email}`);
-
-      const sessionOk = await verifySession(user);
-      if (!sessionOk) return;
-
-      // Do not show protected content until fingerprint auth
-      protectedContent.style.display = "none";
-    } else {
-      userInfo.textContent = "Please sign in first.";
-      signInBtn.style.display = "inline-block";
-      authBtn.style.display = "none";
-      protectedContent.style.display = "none";
-      statusText.textContent = "";
-      logToConsole("User signed out");
-    }
-  });
-
-  signInBtn.onclick = async () => {
-    try {
-      const result = await auth.signInWithPopup(provider);
-      logToConsole(`Sign-in successful: ${result.user.email}`);
-
-      const sessionOk = await verifySession(result.user);
-      if (!sessionOk) return;
-
-      authBtn.style.display = "inline-block";
-    } catch (error) {
-      logToConsole("Sign-in error: " + error.message);
-      alert("Sign-in failed: " + error.message);
-    }
-  };
-
-  // Convert uid string to Uint8Array for WebAuthn
   function uidToUint8Array(uid) {
     return new Uint8Array(uid.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
   }
@@ -240,7 +193,6 @@
       };
 
       const credential = await navigator.credentials.create({ publicKey });
-
       if (credential) {
         logToConsole("Fingerprint authenticated successfully.");
         statusText.textContent = "Fingerprint authenticated successfully!";
@@ -258,13 +210,51 @@
 
         authSection.style.display = "none";
         protectedContent.style.display = "block";
-        logToConsole("Access granted");
+        logToConsole("Access granted!");
       }
     } catch (error) {
       logToConsole("Fingerprint auth failed: " + error.message);
       statusText.textContent = "Authentication failed: " + error.message;
     }
   }
+
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      userInfo.textContent = `Signed in as: ${user.email}`;
+      signInBtn.style.display = "none";
+      authBtn.style.display = "inline-block";
+
+      const sessionOk = await verifySession(user);
+      if (!sessionOk) return;
+
+      protectedContent.style.display = "none";
+      statusText.textContent = "";
+      logToConsole(`User signed in: ${user.email}`);
+    } else {
+      userInfo.textContent = "Please sign in first.";
+      signInBtn.style.display = "inline-block";
+      authBtn.style.display = "none";
+      statusText.textContent = "";
+      authSection.style.display = "block";
+      protectedContent.style.display = "none";
+      logToConsole("User signed out");
+    }
+  });
+
+  signInBtn.onclick = async () => {
+    try {
+      const result = await auth.signInWithPopup(provider);
+      logToConsole(`Sign-in successful: ${result.user.email}`);
+
+      const sessionOk = await verifySession(result.user);
+      if (!sessionOk) return;
+
+      authBtn.style.display = "inline-block";
+    } catch (error) {
+      logToConsole("Sign-in error: " + error.message);
+      alert("Sign-in failed: " + error.message);
+    }
+  };
 
   authBtn.onclick = requestFingerprint;
 </script>
