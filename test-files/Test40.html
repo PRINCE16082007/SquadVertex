@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Galaxy Portfolio — Fixed + AppCheck</title>
+  <title>Galaxy Portfolio — Cover + AppCheck</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
   <style>
@@ -19,26 +19,26 @@
 .portfolio-section { max-width:1200px; margin:0 auto; padding:46px 20px 90px; }
 .portfolio-title { font-size:2.2rem; color:#ffd36b; font-weight:800; margin-bottom:26px; }
 
-/* New row-based layout (1 category per row, alternating sides) */
+/* Row-based layout (single cover image per row) */
 .portfolio-list { display:flex; flex-direction:column; gap:48px }
 .portfolio-row { display:flex; gap:32px; align-items:center; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); padding:22px; border-radius:18px; box-shadow: 0 8px 40px rgba(0,0,0,0.45); }
 .portfolio-row.reverse { flex-direction:row-reverse }
 .row-text { flex:1; min-width:260px }
 .row-title { font-size:1.45rem; color:#ffd36b; font-weight:800; margin-bottom:12px }
 .row-desc { color:#cbd6ef; line-height:1.6; font-size:1rem }
-.row-images { width:52%; display:grid; grid-template-columns:repeat(2,1fr); gap:12px }
-.row-images img { width:100%; height:220px; object-fit:cover; border-radius:12px; cursor:pointer; box-shadow:0 8px 30px rgba(0,0,0,0.5) }
+.row-cover { width:52%; display:flex; align-items:center; justify-content:center }
+.row-cover img { width:100%; height:320px; object-fit:cover; border-radius:12px; cursor:pointer; box-shadow:0 8px 30px rgba(0,0,0,0.5) }
 
 /* Small screens: stack */
 @media (max-width:900px){
   .portfolio-row { flex-direction:column }
   .portfolio-row.reverse { flex-direction:column }
-  .row-images{ width:100%; grid-template-columns:repeat(2,1fr) }
-  .row-images img{ height:160px }
+  .row-cover{ width:100% }
+  .row-cover img{ height:220px }
 }
-@media (max-width:520px){ .row-images{ grid-template-columns:1fr } .row-images img{ height:220px } }
+@media (max-width:520px){ .row-cover img{ height:260px } }
 
-/* Modal styles — made bigger & more usable */
+/* Modal styles — updated */
 .modal-bg { position:fixed; left:0; top:0; width:100vw; height:100vh; background:rgba(6,8,12,0.86); z-index:9999; display:flex; align-items:center; justify-content:center; padding:26px }
 .modal-gallery { background:#08101a; border-radius:18px; padding:20px; width:100%; max-width:1100px; max-height:92vh; overflow:hidden; display:flex; flex-direction:column; gap:16px }
 .modal-header { display:flex; justify-content:space-between; align-items:center; gap:12px }
@@ -82,7 +82,7 @@
       <div class="portfolio-title">Portfolio Gallery</div>
       <div id="portfolioList" class="portfolio-list"> <!-- rows injected here --> </div>
     </div>
-  </main>  <!-- Modal placeholder -->  <div id="portfolioModal" style="display:none"></div>  <footer class="footer">TeamGalaxy — built with care</footer>  <!-- Firebase (compat) kept as-is + App Check -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>  <!-- reCAPTCHA v3 (will be executed when user opens modal) -->  <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>  <script>
+  </main>  <!-- Modal placeholder -->  <div id="portfolioModal" style="display:none"></div>  <footer class="footer">TeamGalaxy — built with care</footer>  <!-- Firebase (compat) kept as-is + App Check -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>  <!-- reCAPTCHA v3 -->  <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>  <script>
     // firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -104,7 +104,7 @@
     } catch (e) { console.warn('App Check activation failed:', e); }
 
     // Data holders
-    let categoryDocs = []; // {id, title, description, previewImages:[], coverUrl}
+    let categoryDocs = []; // {id, title, description, coverUrl}
     let categoriesFetchedImages = {}; // index -> [urls]
     let currentCatIdx = 0;
     let currentImageIdx = 0;
@@ -118,13 +118,12 @@
         const fetchPromises = [];
         snap.docs.forEach((doc, idx) => {
           const data = doc.data() || {};
-          categoryDocs.push({ id: doc.id, title: data.title || doc.id, description: data.description || '', previewImages: [], coverUrl: '' });
-          // fetch up to 4 preview images for the list
-          const p = db.collection('portfolio').doc(doc.id).collection('images').limit(4).get().then(subsnap => {
+          categoryDocs.push({ id: doc.id, title: data.title || doc.id, description: data.description || '', coverUrl: '' });
+          // fetch the first image (cover) for the list
+          const p = db.collection('portfolio').doc(doc.id).collection('images').limit(1).get().then(subsnap => {
             const urls = subsnap.docs.map(d => d.data().url).filter(Boolean);
-            categoryDocs[idx].previewImages = urls;
             categoryDocs[idx].coverUrl = urls[0] || '';
-          }).catch(e => { console.warn('preview fetch failed', e); });
+          }).catch(e => { console.warn('cover fetch failed', e); });
           fetchPromises.push(p);
         });
         await Promise.all(fetchPromises);
@@ -151,27 +150,18 @@
         openBtn.onclick = () => openModal(idx);
         text.appendChild(ttl); text.appendChild(desc); text.appendChild(openBtn);
 
-        const imgs = document.createElement('div'); imgs.className = 'row-images';
-        if (cat.previewImages && cat.previewImages.length) {
-          cat.previewImages.forEach(url => {
-            const im = document.createElement('img'); im.src = url; im.alt = cat.title; im.loading = 'lazy'; im.onclick = () => openModal(idx, url);
-            imgs.appendChild(im);
-          });
-          // pad with placeholders if less images
-          while (imgs.childElementCount < 4) {
-            const ph = document.createElement('img'); ph.src = 'https://dummyimage.com/800x600/121824/99a7bf.png&text=+'; ph.alt = 'placeholder'; ph.style.opacity = 0.25; ph.loading = 'lazy'; imgs.appendChild(ph);
-          }
-        } else {
-          // placeholder layout
-          for (let i=0;i<4;i++){ const ph = document.createElement('img'); ph.src='https://dummyimage.com/800x600/121824/99a7bf.png&text=No+Image'; ph.alt='no-image'; ph.style.opacity=0.25; ph.loading='lazy'; imgs.appendChild(ph);} 
-        }
+        const coverWrap = document.createElement('div'); coverWrap.className = 'row-cover';
+        const im = document.createElement('img'); im.alt = cat.title; im.loading = 'lazy';
+        im.onclick = () => openModal(idx);
+        if (cat.coverUrl) im.src = cat.coverUrl; else { im.src = 'https://dummyimage.com/1200x800/121824/99a7bf.png&text=No+Cover'; im.style.opacity = 0.36; }
+        coverWrap.appendChild(im);
 
-        row.appendChild(text); row.appendChild(imgs);
+        row.appendChild(text); row.appendChild(coverWrap);
         listEl.appendChild(row);
       });
     }
 
-    // Open modal for category index. If a specific imageUrl passed, show it as selected.
+    // Open modal for category index. It will fetch all images for that category and open gallery.
     async function openModal(catIdx, selectedImageUrl) {
       currentCatIdx = catIdx;
       const modalWrap = document.getElementById('portfolioModal');
@@ -204,7 +194,6 @@
     // Navigate to other categories. Will fetch images if missing.
     async function goToCategory(newIdx) {
       if (newIdx < 0 || newIdx >= categoryDocs.length) return;
-      // small visual guard — show loading state
       currentCatIdx = newIdx;
       if (!categoriesFetchedImages[newIdx]) {
         try {
@@ -269,10 +258,7 @@
       const container = document.getElementById('portfolioModal');
       const img = container.querySelector('.modal-main-img');
       if (!img) return;
-      // if already has src, nothing to do
-      if (img.src && !img.src.includes('data:')) return;
       const src = img.getAttribute('data-src');
-      // intersection observer to lazy-load main image
       const obs = new IntersectionObserver((entries, observer) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
@@ -316,10 +302,8 @@
       const modalWrap = document.getElementById('portfolioModal');
       if (!modalWrap || modalWrap.style.display === 'none') return;
       if (e.key === 'Escape') { closeModal(e); return; }
-      // arrows control image
       if (e.key === 'ArrowLeft' && !e.ctrlKey) { prevImage(); }
       else if (e.key === 'ArrowRight' && !e.ctrlKey) { nextImage(); }
-      // ctrl + arrows change categories
       else if (e.key === 'ArrowLeft' && e.ctrlKey) { goToCategory(currentCatIdx - 1); }
       else if (e.key === 'ArrowRight' && e.ctrlKey) { goToCategory(currentCatIdx + 1); }
     }
