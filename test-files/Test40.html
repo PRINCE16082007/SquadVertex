@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Galaxy Portfolio — Fixed</title>
+  <title>Galaxy Portfolio — Fixed + AppCheck</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
   <style>
@@ -82,7 +82,7 @@
       <div class="portfolio-title">Portfolio Gallery</div>
       <div id="portfolioList" class="portfolio-list"> <!-- rows injected here --> </div>
     </div>
-  </main>  <!-- Modal placeholder -->  <div id="portfolioModal" style="display:none"></div>  <footer class="footer">TeamGalaxy — built with care</footer>  <!-- Firebase (compat) kept as-is -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>  <script>
+  </main>  <!-- Modal placeholder -->  <div id="portfolioModal" style="display:none"></div>  <footer class="footer">TeamGalaxy — built with care</footer>  <!-- Firebase (compat) kept as-is + App Check -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>  <!-- reCAPTCHA v3 (will be executed when user opens modal) -->  <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>  <script>
     // firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
@@ -95,10 +95,19 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
+    // App Check activation (reCAPTCHA v3 provider)
+    const RECAPTCHA_SITE_KEY = '6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx';
+    try {
+      const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider(RECAPTCHA_SITE_KEY);
+      firebase.appCheck().activate(appCheckProvider, true);
+      console.info('App Check activated');
+    } catch (e) { console.warn('App Check activation failed:', e); }
+
     // Data holders
     let categoryDocs = []; // {id, title, description, previewImages:[], coverUrl}
     let categoriesFetchedImages = {}; // index -> [urls]
     let currentCatIdx = 0;
+    let currentImageIdx = 0;
 
     async function loadCategories() {
       const listEl = document.getElementById('portfolioList');
@@ -145,16 +154,16 @@
         const imgs = document.createElement('div'); imgs.className = 'row-images';
         if (cat.previewImages && cat.previewImages.length) {
           cat.previewImages.forEach(url => {
-            const im = document.createElement('img'); im.src = url; im.alt = cat.title; im.onclick = () => openModal(idx, url);
+            const im = document.createElement('img'); im.src = url; im.alt = cat.title; im.loading = 'lazy'; im.onclick = () => openModal(idx, url);
             imgs.appendChild(im);
           });
           // pad with placeholders if less images
           while (imgs.childElementCount < 4) {
-            const ph = document.createElement('img'); ph.src = 'https://dummyimage.com/800x600/121824/99a7bf.png&text=+'; ph.alt = 'placeholder'; ph.style.opacity = 0.25; imgs.appendChild(ph);
+            const ph = document.createElement('img'); ph.src = 'https://dummyimage.com/800x600/121824/99a7bf.png&text=+'; ph.alt = 'placeholder'; ph.style.opacity = 0.25; ph.loading = 'lazy'; imgs.appendChild(ph);
           }
         } else {
           // placeholder layout
-          for (let i=0;i<4;i++){ const ph = document.createElement('img'); ph.src='https://dummyimage.com/800x600/121824/99a7bf.png&text=No+Image'; ph.alt='no-image'; ph.style.opacity=0.25; imgs.appendChild(ph);} 
+          for (let i=0;i<4;i++){ const ph = document.createElement('img'); ph.src='https://dummyimage.com/800x600/121824/99a7bf.png&text=No+Image'; ph.alt='no-image'; ph.style.opacity=0.25; ph.loading='lazy'; imgs.appendChild(ph);} 
         }
 
         row.appendChild(text); row.appendChild(imgs);
@@ -167,6 +176,17 @@
       currentCatIdx = catIdx;
       const modalWrap = document.getElementById('portfolioModal');
       modalWrap.style.display = 'block';
+
+      // call reCAPTCHA v3 for this user action (optional but useful for extra signal)
+      if (window.grecaptcha && grecaptcha.execute) {
+        grecaptcha.ready(() => {
+          grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: 'open_modal'}).then(token => {
+            console.info('reCAPTCHA token (open_modal):', token.substr(0, 10) + '...');
+            // token can be sent to server for additional verification if you want
+          }).catch(e => console.warn('grecaptcha exec failed', e));
+        });
+      }
+
       // ensure images loaded for this category
       if (!categoriesFetchedImages[catIdx]) {
         try {
@@ -176,11 +196,15 @@
         } catch (e) { console.warn('failed to load images for', catIdx, e); categoriesFetchedImages[catIdx] = []; }
       }
       showModalContent(catIdx, selectedImageUrl);
+
+      // enable keyboard nav while modal open
+      window.addEventListener('keydown', modalKeyHandler);
     }
 
     // Navigate to other categories. Will fetch images if missing.
     async function goToCategory(newIdx) {
       if (newIdx < 0 || newIdx >= categoryDocs.length) return;
+      // small visual guard — show loading state
       currentCatIdx = newIdx;
       if (!categoriesFetchedImages[newIdx]) {
         try {
@@ -199,8 +223,15 @@
       const prevDisabled = catIdx <= 0;
       const nextDisabled = catIdx >= categoryDocs.length - 1;
 
-      // pick selected image
-      let mainImage = selectedImageUrl || images[0] || '';
+      // determine selected image index
+      if (selectedImageUrl) {
+        currentImageIdx = images.indexOf(selectedImageUrl);
+        if (currentImageIdx === -1) currentImageIdx = 0;
+      } else {
+        currentImageIdx = 0;
+      }
+
+      const mainImgHtml = images.length ? `<img data-src="${escapeAttr(images[currentImageIdx])}" alt="${escapeAttr(cat.title)}" class="modal-main-img">` : '<div style="color:#cfe4ff;">No images in this category.</div>';
 
       modalWrap.innerHTML = `
         <div class="modal-bg" onclick="closeModal(event)">
@@ -219,10 +250,10 @@
 
             <div class="modal-main">
               <div class="modal-main-image">
-                ${ mainImage ? `<img src="${escapeAttr(mainImage)}" alt="${escapeAttr(cat.title)}">` : '<div style="color:#cfe4ff;">No images in this category.</div>' }
+                ${ mainImgHtml }
               </div>
               <div class="modal-thumbs">
-                ${ images.length ? images.map(url => `<img src="${escapeAttr(url)}" onclick="onThumbClick('${escapeAttr(url)}')">`).join('') : '<div style="color:#d6e4ff">No thumbnails.</div>' }
+                ${ images.length ? images.map((url, i) => `<img src="${escapeAttr(url)}" loading="lazy" onclick="onThumbClick('${escapeAttr(url)}', ${i})">`).join('') : '<div style="color:#d6e4ff">No thumbnails.</div>' }
               </div>
             </div>
 
@@ -230,14 +261,67 @@
         </div>
       `;
 
-      modalWrap.scrollTop = 0; // reset
+      // attach observers and ensure the chosen main image loads lazily
+      attachMainImageObserver();
     }
 
-    // helper: when thumbnail clicked, update only the main image
-    function onThumbClick(url) {
+    function attachMainImageObserver(){
       const container = document.getElementById('portfolioModal');
-      const img = container.querySelector('.modal-main-image img');
-      if (img) img.src = url;
+      const img = container.querySelector('.modal-main-img');
+      if (!img) return;
+      // if already has src, nothing to do
+      if (img.src && !img.src.includes('data:')) return;
+      const src = img.getAttribute('data-src');
+      // intersection observer to lazy-load main image
+      const obs = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            img.src = src;
+            observer.disconnect();
+          }
+        });
+      }, { root: null, threshold: 0.1 });
+      obs.observe(img);
+    }
+
+    // thumbnail click -> show that image
+    function onThumbClick(url, idx) {
+      currentImageIdx = idx || 0;
+      const container = document.getElementById('portfolioModal');
+      const mainWrap = container.querySelector('.modal-main-image');
+      if (!mainWrap) return;
+      const nextImg = mainWrap.querySelector('img.modal-main-img');
+      if (nextImg) {
+        nextImg.src = url;
+      } else {
+        mainWrap.innerHTML = `<img src="${escapeAttr(url)}" class="modal-main-img">`;
+      }
+    }
+
+    function nextImage(){
+      const imgs = categoriesFetchedImages[currentCatIdx] || [];
+      if (!imgs.length) return;
+      currentImageIdx = (currentImageIdx + 1) % imgs.length;
+      onThumbClick(imgs[currentImageIdx], currentImageIdx);
+    }
+    function prevImage(){
+      const imgs = categoriesFetchedImages[currentCatIdx] || [];
+      if (!imgs.length) return;
+      currentImageIdx = (currentImageIdx - 1 + imgs.length) % imgs.length;
+      onThumbClick(imgs[currentImageIdx], currentImageIdx);
+    }
+
+    // keyboard handler when modal is open
+    function modalKeyHandler(e){
+      const modalWrap = document.getElementById('portfolioModal');
+      if (!modalWrap || modalWrap.style.display === 'none') return;
+      if (e.key === 'Escape') { closeModal(e); return; }
+      // arrows control image
+      if (e.key === 'ArrowLeft' && !e.ctrlKey) { prevImage(); }
+      else if (e.key === 'ArrowRight' && !e.ctrlKey) { nextImage(); }
+      // ctrl + arrows change categories
+      else if (e.key === 'ArrowLeft' && e.ctrlKey) { goToCategory(currentCatIdx - 1); }
+      else if (e.key === 'ArrowRight' && e.ctrlKey) { goToCategory(currentCatIdx + 1); }
     }
 
     function closeModal(e){
@@ -245,6 +329,7 @@
       const modalWrap = document.getElementById('portfolioModal');
       modalWrap.style.display = 'none';
       modalWrap.innerHTML = '';
+      window.removeEventListener('keydown', modalKeyHandler);
     }
 
     // small escaping helpers to avoid accidental injection
