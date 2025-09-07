@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Galaxy Portfolio — Admin & Manager</title>
+  <title>Galaxy Portfolio — Manager (Supabase Storage)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
   <style>
@@ -47,7 +47,7 @@ footer{margin-top:26px;color:var(--muted);font-size:13px}
 <body>
   <div class="wrap">
     <div class="top">
-      <h1>Galaxy Portfolio — Manager</h1>
+      <h1>Galaxy Portfolio — Manager (Supabase)</h1>
       <div class="actions">
         <button id="newCatBtn" class="btn">+ New Category</button>
         <button id="openPublic" class="ghost">Open Public Page</button>
@@ -82,7 +82,7 @@ footer{margin-top:26px;color:var(--muted);font-size:13px}
 
         <label style="margin-top:14px">Add images</label>
         <div class="dropzone" id="dropzone">Drop image(s) here or <input id="fileInput" type="file" accept="image/*" multiple style="display:inline-block;margin-left:6px"></div>
-        <div class="small-muted">Uploaded images are stored in Firebase Storage and added to the <code>images</code> subcollection. A <strong>rank</strong> field is maintained to control ordering. Lower rank = earlier (used for cover).</div>
+        <div class="small-muted">Uploaded images are stored in Supabase Storage via your Edge Function and the public URL is saved into Firestore under <code>portfolio/{catId}/images</code>. A <strong>rank</strong> field is maintained to control ordering. Lower rank = earlier (used for cover).</div>
 
         <div style="margin-top:12px;font-weight:800;color:var(--muted);">Images</div>
         <div id="imagesGrid" class="images-grid" style="margin-top:10px">No images loaded.</div>
@@ -90,7 +90,7 @@ footer{margin-top:26px;color:var(--muted);font-size:13px}
         <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
           <button id="applyOrdering" class="btn">Save Order</button>
           <button id="setCoverBtn" class="btn">Set selected as cover</button>
-          <div class="small-muted">Cover is defined by lowest <code>rank</code>. The public page should use <code>.orderBy('rank')</code> to pick the cover reliably. (See note below.)</div>
+          <div class="small-muted">Cover is defined by lowest <code>rank</code>. The public page should use <code>.orderBy('rank')</code> to pick the cover reliably.</div>
         </div>
       </div>
 
@@ -100,17 +100,17 @@ footer{margin-top:26px;color:var(--muted);font-size:13px}
 </div>
 
 <footer>
-  <div><strong>Important:</strong> This manager will add/update documents in your existing Firestore structure. It is designed to be compatible with your current public page, but to reliably use the cover image you must set your public page to order images by the <code>rank</code> value. See instructions below.</div>
-  <div style="margin-top:10px">Security note: this manager performs writes and storage deletes. Restrict access by using Firebase Authentication and Firestore/Storage security rules, or host it behind an admin-only route.</div>
+  <div><strong>Important:</strong> This manager will add/update documents in your existing Firestore structure. It is designed to be compatible with your current public page. See instructions below.</div>
+  <div style="margin-top:10px">Security note: this manager performs writes and will call your Supabase Edge Function to upload/delete files. Protect access using Firebase Auth + Rules or host it behind an admin-only route.</div>
   <pre id="howto" style="background:rgba(255,255,255,0.02);padding:10px;border-radius:8px;margin-top:12px;color:var(--muted);font-size:13px;overflow:auto">
 
 How it works (short): • Categories = documents in collection: portfolio.
 
 Each document may have fields: title, description. • Images = documents in portfolio/{catId}/images with fields:
 
-url (string) - public HTTP URL from Firebase Storage
+url (string) - public HTTP URL returned from Supabase
 
-filename (string) - storage filename (for delete)
+filename (string) - storage path/filename used on Supabase
 
 rank (number) - controls ordering; lower = earlier
 
@@ -119,14 +119,23 @@ caption (string, optional)
 createdAt (timestamp)
 
 
-To make your existing public page reliably use the chosen cover, change this line in your public code (old): db.collection('portfolio').doc(docId).collection('images').limit(1).get() Replace with (recommended): db.collection('portfolio').doc(docId).collection('images').orderBy('rank').limit(1).get()
+Supabase edge function contract (required): • Upload endpoint (POST) receives JSON { path: "portfolio/{catId}/images/{filename}", base64 }
 
-This manager will set ranks automatically. By default newly uploaded images get rank = current_max_rank + 1. Use "Set as cover" to assign rank = 0 (it will bump other ranks if needed).
+returns { publicUrl: "https://..." } • (Optional) Delete endpoint (POST) receives JSON { path: "portfolio/{catId}/images/{filename}" }
 
-Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is enabled client-side but enforce rules server-side if needed. </pre> </footer>
+returns { ok: true }
 
-  </div>  <!-- Firebase SDKs: app, firestore, storage, app-check -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>  <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>  <script>
-    // CONFIG
+
+Public page change (to pick cover deterministically): db.collection('portfolio').doc(docId).collection('images').orderBy('rank').limit(1).get()
+
+Keep your Edge Function secure — it should verify requests (App Check token or a secret) before uploading to Supabase. </pre> </footer>
+
+  </div>  <!-- Firebase SDKs: app, firestore, app-check -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>  <!-- reCAPTCHA v3 -->  <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>  <script>
+    // CONFIG — set your supabase function URL below. Example you gave:
+    const SUPABASE_FUNCTION_UPLOAD = 'https://dvjihjkyenzkacviywgk.functions.supabase.co/upload-image';
+    const SUPABASE_FUNCTION_DELETE = ''; // optional delete endpoint if you implement one
+
+    // Firebase config (keep as before)
     const firebaseConfig = {
       apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
       authDomain: "squadvertex2007.firebaseapp.com",
@@ -137,9 +146,8 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const storage = firebase.storage();
 
-    // App Check
+    // App Check (unchanged)
     try { const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx'); firebase.appCheck().activate(appCheckProvider, true); console.info('App Check ready'); } catch(e){console.warn('App Check fail',e)}
 
     // UI refs
@@ -164,6 +172,26 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
     let selectedCat = null; // {id, title, description}
     let currentImages = []; // [{id, url, filename, rank, caption}]
 
+    // Helpful small util: read file as dataURL
+    function readFileAsDataURL(file){
+      return new Promise((res, rej)=>{
+        const r = new FileReader(); r.onload = ()=>res(r.result); r.onerror = rej; r.readAsDataURL(file);
+      });
+    }
+
+    // upload to your Supabase edge function
+    async function uploadToSupabase(path, file){
+      const dataUrl = await readFileAsDataURL(file);
+      const base64 = dataUrl.split(',')[1];
+      const payload = { path, base64 };
+      const res = await fetch(SUPABASE_FUNCTION_UPLOAD, {
+        method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Supabase upload failed');
+      return json.publicUrl || json.url || null;
+    }
+
     // Helper: render categories list
     async function loadCategories(){
       categoriesEl.innerHTML = '<div style="color:var(--muted)">Loading...</div>';
@@ -180,7 +208,7 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
       categories.forEach(cat => {
         const div = document.createElement('div'); div.className = 'cat-item';
         const thumb = document.createElement('img'); thumb.src = 'https://dummyimage.com/300x200/121824/99a7bf.png&text=...';
-        // fetch first image as small cover (rank-ordered if rank exists)
+        // fetch first image as small cover (rank-ordered)
         db.collection('portfolio').doc(cat.id).collection('images').orderBy('rank').limit(1).get().then(s => {
           if (!s.empty) thumb.src = s.docs[0].data().url;
         }).catch(() => {});
@@ -197,7 +225,6 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
     // Select category
     async function selectCategory(catId){
       selectedCat = categories.find(c=>c.id===catId) || {id:catId};
-      // fetch latest doc data
       const doc = await db.collection('portfolio').doc(catId).get();
       const data = doc.exists ? (doc.data()||{}) : {};
       selectedCat = { id: catId, title: data.title||'', description: data.description||'' };
@@ -232,7 +259,7 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
         const controls = document.createElement('div'); controls.className='controls';
         const rankChip = document.createElement('div'); rankChip.className='chip'; rankChip.textContent='rank: ' + (img.rank||0);
         const setBtn = document.createElement('button'); setBtn.className='btn'; setBtn.style.padding='6px 8px'; setBtn.textContent='Set cover'; setBtn.onclick = ()=> setAsCover(img.id);
-        const delBtn = document.createElement('button'); delBtn.className='ghost'; delBtn.style.padding='6px 8px'; delBtn.textContent='Delete'; delBtn.onclick = ()=> deleteImage(img.id, img.url);
+        const delBtn = document.createElement('button'); delBtn.className='ghost'; delBtn.style.padding='6px 8px'; delBtn.textContent='Delete'; delBtn.onclick = ()=> deleteImage(img.id, img.filename);
         controls.appendChild(rankChip); controls.appendChild(setBtn); controls.appendChild(delBtn);
         card.appendChild(im); card.appendChild(controls);
         imagesGrid.appendChild(card);
@@ -246,11 +273,8 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
       e.preventDefault();
       const dst = Number(e.currentTarget.dataset.index);
       if (dragSrcIndex === null || dst === dragSrcIndex) { dragSrcIndex = null; renderImagesGrid(); return; }
-      // reorder currentImages
       const moved = currentImages.splice(dragSrcIndex,1)[0];
       currentImages.splice(dst,0,moved);
-      // re-render with updated indices
-      currentImages.forEach((it,i)=>{ /* display order only, actual DB update on Save Order */ });
       renderImagesGrid();
       dragSrcIndex = null;
     }
@@ -261,7 +285,6 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
       const t = inputTitle.value.trim(); const d = inputDesc.value.trim();
       try{
         await db.collection('portfolio').doc(selectedCat.id).set({ title:t, description:d }, { merge:true });
-        // update local list
         const idx = categories.findIndex(c=>c.id===selectedCat.id);
         if (idx>=0){ categories[idx].title = t; categories[idx].description = d; } else categories.push({id:selectedCat.id,title:t,description:d});
         renderCategoryList();
@@ -273,18 +296,15 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
     deleteCat.onclick = async ()=>{
       if (!selectedCat) return; if (!confirm('Delete category and ALL images? This is permanent.')) return;
       try{
-        // delete all images first
         const imgsSnap = await db.collection('portfolio').doc(selectedCat.id).collection('images').get();
         const batch = db.batch();
         imgsSnap.docs.forEach(d=> batch.delete(d.ref));
-        // delete doc
         batch.delete(db.collection('portfolio').doc(selectedCat.id));
         await batch.commit();
-        // NOTE: storage files remain unless explicitly deleted — we did not delete storage here to avoid accidental removal
         categories = categories.filter(c=>c.id!==selectedCat.id);
         selectedCat = null; currentImages = [];
         renderCategoryList(); renderImagesGrid(); catEditor.style.display='none'; emptyState.style.display='block';
-        alert('Category deleted (images metadata removed).\nStorage files may still exist; delete them manually if needed.');
+        alert('Category deleted (images metadata removed). Storage files may still exist; delete them via your Supabase admin if needed.');
       }catch(e){ console.error(e); alert('Delete failed'); }
     };
 
@@ -294,7 +314,7 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
       if (!id) return; try{ await db.collection('portfolio').doc(id).set({ title:'New Category', description:'' }); await loadCategories(); selectCategory(id); }catch(e){console.error(e);alert('Create failed')}
     };
 
-    // File upload handling
+    // File upload handling (uses Supabase edge function)
     fileInput.onchange = (ev)=> handleFiles(ev.target.files);
     dropzone.ondrop = (ev)=>{ ev.preventDefault(); handleFiles(ev.dataTransfer.files); }
     dropzone.ondragover = (ev)=>{ ev.preventDefault(); }
@@ -304,30 +324,27 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
       const arr = Array.from(files);
       for (const f of arr){
         try{
-          const filename = Date.now() + '_' + f.name.replace(/\s+/g,'_');
-          const ref = storage.ref().child(`portfolio/${selectedCat.id}/images/${filename}`);
-          const task = ref.put(f);
-          // simple progress
-          task.on('state_changed', snap=>{}, err=>{console.error(err)}, async ()=>{
-            const url = await ref.getDownloadURL();
-            // Determine rank = max rank + 1
-            const maxRank = currentImages.reduce((m,it)=> Math.max(m, (typeof it.rank==='number'?it.rank:0)), 0);
-            const newData = { url, filename, rank: maxRank + 1, caption:'', createdAt: firebase.firestore.FieldValue.serverTimestamp() };
-            const docRef = await db.collection('portfolio').doc(selectedCat.id).collection('images').add(newData);
-            currentImages.push({ id: docRef.id, ...newData });
-            renderImagesGrid();
-          });
-        }catch(e){console.error(e);alert('Upload failed');}
+          const path = `portfolio/${selectedCat.id}/images/${Date.now()}_${f.name.replace(/\s+/g,'_')}`;
+          const publicUrl = await uploadToSupabase(path, f);
+          if (!publicUrl) throw new Error('No public URL returned from upload');
+          const maxRank = currentImages.reduce((m,it)=> Math.max(m, (typeof it.rank==='number'?it.rank:0)), 0);
+          const newData = { url: publicUrl, filename: path, rank: maxRank + 1, caption:'', createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+          const docRef = await db.collection('portfolio').doc(selectedCat.id).collection('images').add(newData);
+          currentImages.push({ id: docRef.id, ...newData });
+          renderImagesGrid();
+        }catch(e){console.error(e);alert('Upload failed: '+(e.message||e));}
       }
     }
 
-    // delete image (also delete storage file)
-    async function deleteImage(imgId, url){ if (!confirm('Delete this image (including storage file)?')) return; try{
-      // remove firestore doc
+    // delete image: attempt to call Supabase delete function if provided, otherwise just delete metadata
+    async function deleteImage(imgId, filename){ if (!confirm('Delete this image (including storage file)?')) return; try{
       await db.collection('portfolio').doc(selectedCat.id).collection('images').doc(imgId).delete();
-      // attempt storage delete
-      try{ const ref = storage.refFromURL(url); await ref.delete(); }catch(e){ console.warn('Storage delete failed, maybe public URL or already removed', e); }
-      // remove from currentImages
+      if (SUPABASE_FUNCTION_DELETE){
+        try{
+          const res = await fetch(SUPABASE_FUNCTION_DELETE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path: filename }) });
+          const j = await res.json(); if (!res.ok || j.error) console.warn('Supabase delete failed', j.error || j);
+        }catch(er){ console.warn('delete call failed', er); }
+      }
       currentImages = currentImages.filter(i=>i.id!==imgId);
       renderImagesGrid();
     }catch(e){console.error(e); alert('Delete failed'); } }
@@ -336,20 +353,16 @@ Security: Use Firebase Auth + Rules to restrict writes/deletes; App Check is ena
     async function setAsCover(imgId){
       if (!confirm('Set this image as cover (will set its rank to 0, and increase others by +1)?')) return;
       try{
-        // fetch current images snapshot
         const ref = db.collection('portfolio').doc(selectedCat.id).collection('images');
         const snap = await ref.get();
         const batch = db.batch();
-        // increase rank for all existing
         snap.docs.forEach(d=>{
           const data = d.data() || {};
           const currentRank = typeof data.rank === 'number' ? data.rank : 0;
           batch.update(d.ref, { rank: currentRank + 1 });
         });
-        // set chosen to rank 0
         batch.update(ref.doc(imgId), { rank: 0 });
         await batch.commit();
-        // refresh
         await loadImagesForCategory(selectedCat.id);
         alert('Set as cover');
       }catch(e){ console.error(e); alert('Failed to set cover'); }
