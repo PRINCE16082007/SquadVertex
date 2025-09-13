@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>PDF Editor — Final fix for detached ArrayBuffer + Logs</title>
+<title>PDF Editor — Reliable export (no detached buffers) + Logs</title>
 <style>
   body{ margin:18px; font-family:Inter,system-ui,Roboto,Arial; background:#061021; color:#e8f7ff; }
   h2{ color:#7ed0ff; margin:0 0 12px 0; }
@@ -28,7 +28,7 @@
 </head>
 <body>
 
-<h2>PDF Editor — Final fix for detached ArrayBuffer + Logs</h2>
+<h2>PDF Editor — Reliable export (no detached buffers) + Logs</h2>
 
 <div class="controls">
   <input id="pdf-upload" type="file" accept="application/pdf" />
@@ -86,10 +86,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
 /* ---------------- state ---------------- */
 let pdfDoc = null;
-let originalPdfUint8 = null; // master, immutable-like copy (Uint8Array)
+let uploadedPdfFile = null;   // store File object, always read fresh bytes later
+let uploadedImageFile = null; // store File object, always read fresh bytes later
 let currentPage = 1;
 let scale = 1.5;
-let uploadedImageFile = null;
 let imageElement = null;
 
 /* ---------------- DOM refs ---------------- */
@@ -113,7 +113,7 @@ async function loadScript(url, timeout = 12000){
 let PDFLibReady = false;
 async function ensurePDFLib(){
   if (PDFLibReady && window.PDFLib) return window.PDFLib;
-  if (window.PDFLib) { PDFLibReady = true; log('PDFLib present'); return window.PDFLib; }
+  if (window.PDFLib){ PDFLibReady = true; log('PDFLib present'); return window.PDFLib; }
   const cdns = [
     'https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js',
     'https://unpkg.com/pdf-lib/dist/pdf-lib.min.js'
@@ -123,7 +123,7 @@ async function ensurePDFLib(){
     try { log('Attempting pdf-lib: ' + url); await loadScript(url, 12000); if (window.PDFLib){ PDFLibReady = true; log('Loaded pdf-lib from ' + url); return window.PDFLib; } }
     catch(err){ lastErr = err; log('Load fail: ' + (err.message || err), 'error'); }
   }
-  if (window.PDFLib) { PDFLibReady = true; return window.PDFLib; }
+  if (window.PDFLib){ PDFLibReady = true; return window.PDFLib; }
   throw new Error('Unable to load pdf-lib: ' + (lastErr ? lastErr.message : 'unknown'));
 }
 
@@ -131,13 +131,11 @@ async function ensurePDFLib(){
 document.getElementById('pdf-upload').addEventListener('change', async (e) => {
   try {
     const file = e.target.files[0];
-    if (!file) { log('No PDF chosen', 'error'); return; }
-    // Create master Uint8Array immediately and keep it immutable-like
-    const ab = await file.arrayBuffer();
-    originalPdfUint8 = new Uint8Array(ab); // master copy
-    log(`PDF uploaded: ${file.name} — ${Math.round(originalPdfUint8.byteLength/1024)} KB (master copy)`);
-    // Load for viewing using pdf.js (this does not affect master copy)
-    pdfDoc = await pdfjsLib.getDocument({ data: originalPdfUint8 }).promise;
+    if (!file){ log('No PDF chosen', 'error'); return; }
+    uploadedPdfFile = file; // keep file object (fresh buffer on demand)
+    const ab = await uploadedPdfFile.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: ab }).promise;
+    log(`PDF uploaded: ${file.name} — ${Math.round(ab.byteLength/1024)} KB (file stored)`);
     currentPage = 1;
     await renderPage(currentPage);
   } catch(err){ log('PDF upload/render error: ' + (err.message || err), 'error'); console.error(err); }
@@ -161,15 +159,14 @@ async function renderPage(pageNum){
 }
 
 /* ---------------- image overlay ---------------- */
-document.getElementById('image-upload').addEventListener('change', (e) => {
+document.getElementById('image-upload').addEventListener('change', async (e) => {
   try {
     const file = e.target.files[0];
-    if (!file) { log('No image chosen', 'error'); return; }
-    if (!pdfDoc) { alert('Upload a PDF first.'); log('Image chosen before PDF', 'error'); return; }
+    if (!file){ log('No image chosen', 'error'); return; }
+    if (!pdfDoc){ alert('Upload a PDF first.'); log('Image chosen before PDF', 'error'); return; }
     uploadedImageFile = file;
     const url = URL.createObjectURL(file);
-    // remove any previous element
-    if (imageElement) { try { URL.revokeObjectURL(imageElement.src); } catch(e){} try { pdfContainer.removeChild(imageElement); } catch(e){} imageElement = null; }
+    if (imageElement){ try { URL.revokeObjectURL(imageElement.src); } catch(e){} try { pdfContainer.removeChild(imageElement); } catch(e){} imageElement = null; }
     imageElement = document.createElement('img');
     imageElement.className = 'editable-image';
     imageElement.src = url;
@@ -263,77 +260,57 @@ async function convertFileToPngBytes(file){
     img.src = url;
   });
 }
-function cloneUint8(u8){
-  if (!(u8 instanceof Uint8Array)) return new Uint8Array(u8);
-  return u8.slice(0); // fresh copy
+
+/* Always read fresh bytes from the File objects to avoid detached buffers */
+async function getFreshPdfUint8Array(){
+  if (!uploadedPdfFile) throw new Error('No uploaded PDF file');
+  const ab = await uploadedPdfFile.arrayBuffer(); // fresh ArrayBuffer
+  log(`Fresh PDF bytes read: ${Math.round(ab.byteLength/1024)} KB`);
+  return new Uint8Array(ab); // fresh typed array over fresh buffer
 }
-async function getImageBytesReliable(){
-  if (uploadedImageFile) {
-    const type = (uploadedImageFile.type || '').toLowerCase();
+
+async function getFreshImageBytes(){
+  if (!uploadedImageFile) throw new Error('No uploaded image file');
+  const type = (uploadedImageFile.type || '').toLowerCase();
+  if (type === 'image/png' || type === 'image/jpeg' || type === 'image/jpg') {
     const ab = await uploadedImageFile.arrayBuffer();
-    if (type === 'image/png' || type === 'image/jpeg' || type === 'image/jpg') {
-      log('Using original image bytes (no conversion).');
-      return { bytes: cloneUint8(new Uint8Array(ab)), mime: type || 'image/png' };
-    } else {
-      log('Converting image to PNG for best-quality embed...');
-      const pngBytes = await convertFileToPngBytes(uploadedImageFile);
-      return { bytes: cloneUint8(new Uint8Array(pngBytes)), mime: 'image/png' };
-    }
-  } else if (imageElement && imageElement.src) {
-    if (imageElement.src.startsWith('data:image')) {
-      const mime = imageElement.src.match(/^data:(image\/[^;]+);/)?.[1] || 'image/png';
-      return { bytes: cloneUint8(dataURLToUint8Array(imageElement.src)), mime };
-    } else {
-      log('Fetching image from object URL (fallback).');
-      const resp = await fetch(imageElement.src);
-      const blob = await resp.blob();
-      const mime = blob.type || 'image/png';
-      const ab = await blob.arrayBuffer();
-      if (mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/jpg') {
-        return { bytes: cloneUint8(new Uint8Array(ab)), mime };
-      } else {
-        const file = new File([blob], 'temp.img', { type: mime });
-        const pngBytes = await convertFileToPngBytes(file);
-        return { bytes: cloneUint8(new Uint8Array(pngBytes)), mime: 'image/png' };
-      }
-    }
+    log(`Fresh image bytes read (type=${type}): ${Math.round(ab.byteLength/1024)} KB`);
+    return { bytes: new Uint8Array(ab), mime: type || 'image/png' };
   } else {
-    throw new Error('No usable image source found.');
+    log('Converting image file to PNG (fresh) for embed...');
+    const pngBytes = await convertFileToPngBytes(uploadedImageFile);
+    log(`Converted image to PNG (fresh): ${Math.round(pngBytes.length/1024)} KB`);
+    return { bytes: new Uint8Array(pngBytes), mime: 'image/png' };
   }
 }
 
-/* ---------------- robust embed & save ----------------
-   Always pass fresh clones into PDFLib to avoid detached buffer errors.
-*/
-async function robustEmbedAndSave(PDFLib, pdfMasterUint8, imageBytesUint8, mime, coords){
-  // make fresh clones
-  const pdfBytesCopy = cloneUint8(pdfMasterUint8); // fresh copy of master
-  const imgBytesCopy = cloneUint8(imageBytesUint8);
+/* ---------------- robust embed & save (fresh read) ---------------- */
+async function robustEmbedAndSaveFresh(PDFLib, coords){
+  // Read fresh bytes for PDF and image right now
+  const pdfUint8 = await getFreshPdfUint8Array();
+  const { bytes: imgBytes, mime } = await getFreshImageBytes();
 
-  // load using fresh copy
-  const pdfDoc = await PDFLib.PDFDocument.load(pdfBytesCopy);
-  log('pdf-lib loaded (fresh clone).');
+  // load pdf-lib from fresh pdf bytes (no reuse)
+  const pdfDocLib = await PDFLib.PDFDocument.load(pdfUint8);
+  log('pdf-lib loaded fresh PDF bytes.');
 
-  const page = pdfDoc.getPage(coords.pageIndex);
+  const page = pdfDocLib.getPage(coords.pageIndex);
   const { width: pageWidth, height: pageHeight } = page.getSize();
-  log(`Inside save — page size: ${Math.round(pageWidth)}×${Math.round(pageHeight)} pts`);
+  log(`Page size in embedded doc: ${Math.round(pageWidth)}×${Math.round(pageHeight)} pts`);
 
   let embedded;
   if (mime === 'image/png') {
-    embedded = await pdfDoc.embedPng(imgBytesCopy);
-    log('Embedded PNG (clone).');
-  } else if (mime === 'image/jpeg' || mime === 'image/jpg') {
-    embedded = await pdfDoc.embedJpg(imgBytesCopy);
-    log('Embedded JPG (clone).');
+    embedded = await pdfDocLib.embedPng(imgBytes);
+    log('Embedded PNG (fresh bytes).');
   } else {
-    embedded = await pdfDoc.embedPng(imgBytesCopy);
-    log('Embedded fallback PNG (clone).');
+    embedded = await pdfDocLib.embedJpg(imgBytes);
+    log('Embedded JPG (fresh bytes).');
   }
 
   page.drawImage(embedded, { x: coords.x, y: coords.y, width: coords.width, height: coords.height });
-  log('Image drawn on page (clone flow).');
+  log('Drawn image onto page (fresh).');
 
-  const out = await pdfDoc.save({ useObjectStreams: false });
+  const out = await pdfDocLib.save({ useObjectStreams: false });
   return out;
 }
 
@@ -342,26 +319,28 @@ document.getElementById('save-pdf-btn').addEventListener('click', async () => {
   try {
     if (!pdfDoc) { log('Export failed: no PDF uploaded', 'error'); alert('Upload a PDF first.'); return; }
     if (!imageElement) { log('Export failed: no image placed', 'error'); alert('Place an image first.'); return; }
-    if (!originalPdfUint8) throw new Error('Original PDF master missing');
+    if (!uploadedPdfFile) throw new Error('Uploaded PDF file missing');
 
     log('Starting export — ensuring pdf-lib loaded');
     const PDFLib = await ensurePDFLib();
-    log('pdf-lib ready (final).');
+    log('pdf-lib ready.');
 
-    // compute mapping display -> pdf points using fresh load to get page size
     const pageIndex = currentPage - 1;
+    // get displayed canvas size (for coordinate mapping)
     const canvasRect = canvas.getBoundingClientRect();
     const displayW = canvasRect.width, displayH = canvasRect.height;
     if (!displayW || !displayH) throw new Error('Canvas display size unavailable');
 
+    // image display metrics
     const imgLeft = parseFloat(imageElement.style.left) || 0;
     const imgTop  = parseFloat(imageElement.style.top) || 0;
     const imgW    = parseFloat(imageElement.style.width) || 100;
     const imgH    = parseFloat(imageElement.style.height) || 100;
 
-    // load a temp doc from fresh clone just to get page size (won't detach master)
-    const pdfTemp = await PDFLib.PDFDocument.load(cloneUint8(originalPdfUint8));
-    const tempPage = pdfTemp.getPage(pageIndex);
+    // read fresh pdf just to get page size (and avoid reused buffers)
+    const pdfTempUint8 = await getFreshPdfUint8Array();
+    const pdfTempDoc = await PDFLib.PDFDocument.load(pdfTempUint8);
+    const tempPage = pdfTempDoc.getPage(pageIndex);
     const { width: pageWidth, height: pageHeight } = tempPage.getSize();
     log(`PDF page size (pre-check): ${Math.round(pageWidth)} × ${Math.round(pageHeight)} pts`);
 
@@ -371,14 +350,14 @@ document.getElementById('save-pdf-btn').addEventListener('click', async () => {
     const height_pdf = (imgH / displayH) * pageHeight;
     log(`Mapped coords => x:${x_pdf.toFixed(2)}, y:${y_pdf.toFixed(2)}, w:${width_pdf.toFixed(2)}, h:${height_pdf.toFixed(2)}`);
 
-    const { bytes: imgBytes, mime } = await getImageBytesReliable();
-    if (!imgBytes || !imgBytes.length) throw new Error('Prepared image bytes empty');
-    log(`Image prepared (mime=${mime}, bytes=${imgBytes.length})`);
-
+    // ensure we have an image file to read fresh
+    if (!uploadedImageFile) throw new Error('Uploaded image file missing');
     const coords = { pageIndex, x: x_pdf, y: y_pdf, width: width_pdf, height: height_pdf };
-    const outBytes = await robustEmbedAndSave(PDFLib, originalPdfUint8, imgBytes, mime, coords);
 
+    // call robust fresh-flow embed+save
+    const outBytes = await robustEmbedAndSaveFresh(PDFLib, coords);
     log(`Export succeeded — output ${Math.round(outBytes.byteLength/1024)} KB. Triggering download...`);
+
     const blob = new Blob([outBytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
