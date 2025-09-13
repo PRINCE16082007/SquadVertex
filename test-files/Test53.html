@@ -3,19 +3,21 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PDF Image Editor with Working Export</title>
+<title>PDF Image Editor with Working Export (fixed)</title>
 <style>
-  #pdf-container { border: 1px solid #ccc; width: 600px; height: 800px; overflow: auto; position: relative; }
-  #pdf-canvas { display: block; margin: 0 auto; }
-  img.editable-image { position: absolute; cursor: move; border: 2px dashed #007bff; }
+  body { font-family: system-ui, sans-serif; background:#f6f7fb; color:#111; padding:16px; }
+  #pdf-container { border: 1px solid #ccc; width: 600px; height: 800px; overflow: auto; position: relative; background:#fff; }
+  #pdf-canvas { display: block; margin: 0; width: 100%; height: auto; }
+  img.editable-image { position: absolute; cursor: move; border: 2px dashed #007bff; box-sizing: border-box; }
   #controls { margin: 10px 0; }
   label { margin-right: 10px; }
-  input[type=number] { width: 60px; margin-right: 15px; }
+  input[type=number] { width: 70px; margin-right: 12px; }
+  button { margin-right: 8px; padding: 8px 12px; }
 </style>
 </head>
 <body>
 
-<h2>PDF Editor - Image Position & Size with Save</h2>
+<h2>PDF Editor — fixed export & best-quality save</h2>
 
 <input type="file" id="pdf-upload" accept="application/pdf"/>
 <input type="file" id="image-upload" accept="image/*"/>
@@ -42,33 +44,37 @@
   let pdfDoc = null;
   let currentPage = 1;
   let scale = 1.5;
+  let originalPdfBytes = null;        // keep original bytes for saving
+  let uploadedImageFile = null;       // keep uploaded image file for reliable bytes
+  let imageElement = null;
 
   const canvas = document.getElementById('pdf-canvas');
   const ctx = canvas.getContext('2d');
   const pdfContainer = document.getElementById('pdf-container');
 
-  let imageElement = null;
-
   document.getElementById('pdf-upload').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    const arrayBuffer = await file.arrayBuffer();
-    pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    renderPage(currentPage);
+    originalPdfBytes = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: originalPdfBytes }).promise;
+    // render first page
+    currentPage = 1;
+    await renderPage(currentPage);
   });
 
   async function renderPage(pageNum) {
     const page = await pdfDoc.getPage(pageNum);
     const viewport = page.getViewport({ scale: scale });
+
+    // set canvas backing and CSS width to make coordinate mapping predictable
     canvas.width = viewport.width;
     canvas.height = viewport.height;
+    canvas.style.width = viewport.width + 'px'; // ensure bounding rect matches
+    canvas.style.height = viewport.height + 'px';
 
-    // Remove image overlay if any
+    // hide/remove overlay image until user loads one
     if (imageElement) {
-      try {
-        pdfContainer.removeChild(imageElement);
-      } catch {}
+      try { pdfContainer.removeChild(imageElement); } catch(e){}
       imageElement = null;
       document.getElementById('controls').style.display = 'none';
     }
@@ -78,6 +84,32 @@
       viewport: viewport,
     };
     await page.render(renderContext).promise;
+
+    // ensure container scroll region fits canvas
+    pdfContainer.style.width = Math.min(viewport.width, 900) + 'px';
+    pdfContainer.style.height = Math.min(viewport.height, 1100) + 'px';
+  }
+
+  // allow simple drag to move the image (UX helper)
+  function makeDraggable(img) {
+    let offsetX=0, offsetY=0, dragging=false;
+    img.addEventListener('mousedown', (ev) => {
+      dragging = true;
+      const rect = img.getBoundingClientRect();
+      offsetX = ev.clientX - rect.left;
+      offsetY = ev.clientY - rect.top;
+      ev.preventDefault();
+    });
+    window.addEventListener('mousemove', (ev) => {
+      if (!dragging) return;
+      const containerRect = pdfContainer.getBoundingClientRect();
+      const left = ev.clientX - containerRect.left - offsetX;
+      const top  = ev.clientY - containerRect.top - offsetY;
+      img.style.left = Math.max(0, Math.round(left)) + 'px';
+      img.style.top = Math.max(0, Math.round(top)) + 'px';
+      updateControlValues();
+    });
+    window.addEventListener('mouseup', () => { dragging = false; });
   }
 
   document.getElementById('image-upload').addEventListener('change', (e) => {
@@ -86,10 +118,12 @@
       alert('Please upload a PDF first!');
       return;
     }
-    const url = URL.createObjectURL(file);
+    uploadedImageFile = file;
 
+    const url = URL.createObjectURL(file);
     if (imageElement) {
-      pdfContainer.removeChild(imageElement);
+      try { pdfContainer.removeChild(imageElement); } catch(e){}
+      URL.revokeObjectURL(imageElement.src);
       imageElement = null;
     }
 
@@ -102,99 +136,171 @@
     imageElement.style.height = '100px';
     pdfContainer.appendChild(imageElement);
 
+    makeDraggable(imageElement);
+
     document.getElementById('controls').style.display = 'block';
     updateControlValues();
   });
 
   function updateControlValues() {
     if (!imageElement) return;
-    document.getElementById('pos-x').value = parseInt(imageElement.style.left);
-    document.getElementById('pos-y').value = parseInt(imageElement.style.top);
-    document.getElementById('img-width').value = parseInt(imageElement.style.width);
-    document.getElementById('img-height').value = parseInt(imageElement.style.height);
+    document.getElementById('pos-x').value = parseInt(imageElement.style.left) || 0;
+    document.getElementById('pos-y').value = parseInt(imageElement.style.top) || 0;
+    document.getElementById('img-width').value = parseInt(imageElement.style.width) || 100;
+    document.getElementById('img-height').value = parseInt(imageElement.style.height) || 100;
   }
 
   document.getElementById('update-btn').addEventListener('click', () => {
     if (!imageElement) return;
-    const x = parseInt(document.getElementById('pos-x').value);
-    const y = parseInt(document.getElementById('pos-y').value);
-    const w = parseInt(document.getElementById('img-width').value);
-    const h = parseInt(document.getElementById('img-height').value);
-
+    const x = parseInt(document.getElementById('pos-x').value) || 0;
+    const y = parseInt(document.getElementById('pos-y').value) || 0;
+    const w = parseInt(document.getElementById('img-width').value) || 100;
+    const h = parseInt(document.getElementById('img-height').value) || 100;
     imageElement.style.left = x + 'px';
     imageElement.style.top = y + 'px';
     imageElement.style.width = w + 'px';
     imageElement.style.height = h + 'px';
   });
 
+  // Convert base64 dataURL to Uint8Array
+  function dataURLToUint8Array(dataURL) {
+    const base64 = dataURL.split(',')[1];
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  // Convert arbitrary image file to PNG bytes with high resolution (for quality)
+  async function convertFileToPngBytes(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        // upscale canvas to preserve detail: use devicePixelRatio * 2
+        const scale = (window.devicePixelRatio || 1) * 2;
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.width * scale));
+        c.height = Math.max(1, Math.round(img.height * scale));
+        const cctx = c.getContext('2d');
+        cctx.drawImage(img, 0, 0, c.width, c.height);
+        const dataURL = c.toDataURL('image/png');
+        resolve(dataURLToUint8Array(dataURL));
+      };
+      img.onerror = (err) => reject(err);
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  async function getImageBytesReliable() {
+    // Prefer uploadedImageFile (read directly), fallback to imageElement.src fetch
+    if (uploadedImageFile) {
+      const type = uploadedImageFile.type || '';
+      const ab = await uploadedImageFile.arrayBuffer();
+      // if PNG or JPEG already, return bytes directly
+      if (type === 'image/png' || type === 'image/jpeg' || type === 'image/jpg') {
+        return { bytes: new Uint8Array(ab), mime: type };
+      } else {
+        // convert to PNG bytes for quality
+        const pngBytes = await convertFileToPngBytes(uploadedImageFile);
+        return { bytes: pngBytes, mime: 'image/png' };
+      }
+    } else {
+      // fallback: try fetching imageElement.src
+      const src = imageElement.src;
+      if (src.startsWith('data:image')) {
+        const bytes = dataURLToUint8Array(src);
+        const mime = src.match(/^data:(image\/[^;]+);/)[1];
+        return { bytes, mime };
+      } else {
+        const resp = await fetch(src);
+        const blob = await resp.blob();
+        const mime = blob.type || 'image/png';
+        const ab = await blob.arrayBuffer();
+        if (mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/jpg') {
+          return { bytes: new Uint8Array(ab), mime };
+        } else {
+          // convert to PNG
+          const file = new File([blob], 'temp.img', { type: mime });
+          const pngBytes = await convertFileToPngBytes(file);
+          return { bytes: pngBytes, mime: 'image/png' };
+        }
+      }
+    }
+  }
+
   document.getElementById('save-pdf-btn').addEventListener('click', async () => {
-    if (!pdfDoc || !imageElement) {
+    if (!pdfDoc || !imageElement || !originalPdfBytes) {
       alert('Upload both PDF and image!');
       return;
     }
 
-    // Load original PDF array buffer again
-    const fileInput = document.getElementById('pdf-upload');
-    const originalBytes = await fileInput.files[0].arrayBuffer();
+    // load pdf-lib with original bytes to preserve quality
+    const pdfLibDoc = await PDFLib.PDFDocument.load(originalPdfBytes);
 
-    // Load pdf-lib document
-    const pdfLibDoc = await PDFLib.PDFDocument.load(originalBytes);
+    // get the page in pdf-lib coordinates
+    const pageIndex = currentPage - 1;
+    const page = pdfLibDoc.getPage(pageIndex);
+    const { width: pageWidth, height: pageHeight } = page.getSize();
 
-    const page = pdfLibDoc.getPage(currentPage - 1);
-    const { width, height } = page.getSize();
+    // determine displayed (screen) canvas size for mapping
+    const canvasRect = canvas.getBoundingClientRect();
+    const displayWidth = canvasRect.width;
+    const displayHeight = canvasRect.height;
 
-    // Convert image src to Uint8Array (handling Object URL or Base64)
-    async function getImageBytes(src) {
-      if (src.startsWith('data:image')) {
-        // Base64 decode:
-        const base64 = src.split(',')[1];
-        const binary = atob(base64);
-        const len = binary.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-        return bytes;
-      } else {
-        const resp = await fetch(src);
-        const blob = await resp.blob();
-        return new Uint8Array(await blob.arrayBuffer());
-      }
-    }
-    const imgBytes = await getImageBytes(imageElement.src);
+    // displayed image metrics (css pixels relative to container)
+    const imgLeft = parseFloat(imageElement.style.left) || 0;
+    const imgTop  = parseFloat(imageElement.style.top)  || 0;
+    const imgW    = parseFloat(imageElement.style.width) || 100;
+    const imgH    = parseFloat(imageElement.style.height) || 100;
 
-    // Embed image based on type
+    // Map display coords -> PDF points
+    // x_pdf = (imgLeft / displayWidth) * pageWidth
+    // y_pdf = pageHeight - ((imgTop + imgH) / displayHeight) * pageHeight
+    const x_pdf = (imgLeft / displayWidth) * pageWidth;
+    const width_pdf = (imgW / displayWidth) * pageWidth;
+    const y_pdf = pageHeight - ((imgTop + imgH) / displayHeight) * pageHeight;
+    const height_pdf = (imgH / displayHeight) * pageHeight;
+
+    // get reliable image bytes and mime
+    const { bytes: imgBytes, mime } = await getImageBytesReliable();
+
+    // embed appropriate image format (prefer PNG/JPG)
     let embeddedImage;
-    if (imageElement.src.includes('.png') || imageElement.src.startsWith('data:image/png')) {
+    if (mime === 'image/png') {
       embeddedImage = await pdfLibDoc.embedPng(imgBytes);
-    } else {
+    } else if (mime === 'image/jpeg' || mime === 'image/jpg') {
       embeddedImage = await pdfLibDoc.embedJpg(imgBytes);
+    } else {
+      // default to png embed as fallback
+      embeddedImage = await pdfLibDoc.embedPng(imgBytes);
     }
 
-    // Calculate coordinates: pdf-lib origin is bottom-left, CSS is top-left
-    const x = parseInt(imageElement.style.left);
-    const y = height - parseInt(imageElement.style.top) - parseInt(imageElement.style.height);
-
-    const imgWidth = parseInt(imageElement.style.width);
-    const imgHeight = parseInt(imageElement.style.height);
-
-    // Draw image on the page
+    // draw image on page using computed pdf coordinates
     page.drawImage(embeddedImage, {
-      x: x,
-      y: y,
-      width: imgWidth,
-      height: imgHeight,
+      x: x_pdf,
+      y: y_pdf,
+      width: width_pdf,
+      height: height_pdf,
     });
 
-    // Save PDF bytes and download
-    const pdfBytesNew = await pdfLibDoc.save();
+    // Save PDF with reasonable options (preserve quality)
+    const pdfBytesNew = await pdfLibDoc.save({ useObjectStreams: false });
+
+    // trigger download
     const blob = new Blob([pdfBytesNew], { type: 'application/pdf' });
     const pdfUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = pdfUrl;
     a.download = 'edited.pdf';
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     URL.revokeObjectURL(pdfUrl);
+
+    // cleanup any created object URLs for image
+    try { URL.revokeObjectURL(imageElement.src); } catch (e) {}
+    alert('Saved — check your downloads. PDF image placed at high quality.');
   });
 </script>
 </body>
