@@ -1,97 +1,201 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SquadVertex Dev Zone</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(to right, #0f0f0f, #1c1c1c);
-            color: #f0f0f0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        .container {
-            text-align: center;
-            background-color: #1e1e1e;
-            padding: 2.5rem;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
-            max-width: 700px;
-            width: 90%;
-            animation: fadeIn 1s ease-in-out;
-        }
-
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            color: #ffffff;
-        }
-
-        p {
-            font-size: 1rem;
-            line-height: 1.6;
-            margin: 0.8rem 0;
-        }
-
-        .badge {
-            display: inline-block;
-            background-color: #ffb300;
-            color: #1c1c1c;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            font-weight: 600;
-            margin-top: 1.2rem;
-            letter-spacing: 0.5px;
-        }
-
-        .reserved {
-            margin-top: 1.8rem;
-            background-color: #2a2a2a;
-            border-left: 4px solid #ffb300;
-            padding: 1rem;
-            font-size: 1rem;
-            color: #f0f0f0;
-            font-weight: 500;
-            border-radius: 6px;
-            box-shadow: 0 0 10px rgba(255, 179, 0, 0.2);
-            animation: glow 2s infinite alternate;
-        }
-
-        .footer {
-            margin-top: 2.5rem;
-            font-size: 0.9rem;
-            color: #ccc;
-        }
-
-        @keyframes fadeIn {
-            0% { opacity: 0; transform: translateY(20px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes glow {
-            0% { box-shadow: 0 0 10px rgba(255, 179, 0, 0.2); }
-            100% { box-shadow: 0 0 20px rgba(255, 179, 0, 0.5); }
-        }
-    </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PDF Image Editor with Working Export</title>
+<style>
+  #pdf-container { border: 1px solid #ccc; width: 600px; height: 800px; overflow: auto; position: relative; }
+  #pdf-canvas { display: block; margin: 0 auto; }
+  img.editable-image { position: absolute; cursor: move; border: 2px dashed #007bff; }
+  #controls { margin: 10px 0; }
+  label { margin-right: 10px; }
+  input[type=number] { width: 60px; margin-right: 15px; }
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>SquadVertex Test Development Area</h1>
-        <p>This is a designated dev zone within the SquadVertex ecosystem.</p>
-        <p>Only authorized personnel are permitted to make changes here.</p>
-        <span class="badge">Authorized Access Only</span>
-        <div class="reserved">
-            This development slot is currently <strong>empty</strong> and <strong>reusable</strong>.<br>
-            <strong>Reserved for:</strong> Empty ( Not Assigned For Any Use )
-        </div>
-        <p class="footer">Prince Gahlot, Founder &amp; CEO, SquadVertex</p>
-    </div>
+
+<h2>PDF Editor - Image Position & Size with Save</h2>
+
+<input type="file" id="pdf-upload" accept="application/pdf"/>
+<input type="file" id="image-upload" accept="image/*"/>
+<div id="pdf-container">
+  <canvas id="pdf-canvas"></canvas>
+</div>
+
+<div id="controls" style="display:none;">
+  <label>X: <input type="number" id="pos-x" value="50"/></label>
+  <label>Y: <input type="number" id="pos-y" value="50"/></label>
+  <label>Width: <input type="number" id="img-width" value="100"/></label>
+  <label>Height: <input type="number" id="img-height" value="100"/></label>
+  <button id="update-btn">Update Image</button>
+  <button id="save-pdf-btn">Save PDF with Image</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.19.0/pdf-lib.min.js"></script>
+
+<script>
+  const pdfjsLib = window['pdfjs-dist/build/pdf'];
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.worker.min.js';
+
+  let pdfDoc = null;
+  let currentPage = 1;
+  let scale = 1.5;
+
+  const canvas = document.getElementById('pdf-canvas');
+  const ctx = canvas.getContext('2d');
+  const pdfContainer = document.getElementById('pdf-container');
+
+  let imageElement = null;
+
+  document.getElementById('pdf-upload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const arrayBuffer = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    renderPage(currentPage);
+  });
+
+  async function renderPage(pageNum) {
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: scale });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    // Remove image overlay if any
+    if (imageElement) {
+      try {
+        pdfContainer.removeChild(imageElement);
+      } catch {}
+      imageElement = null;
+      document.getElementById('controls').style.display = 'none';
+    }
+
+    const renderContext = {
+      canvasContext: ctx,
+      viewport: viewport,
+    };
+    await page.render(renderContext).promise;
+  }
+
+  document.getElementById('image-upload').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file || !pdfDoc) {
+      alert('Please upload a PDF first!');
+      return;
+    }
+    const url = URL.createObjectURL(file);
+
+    if (imageElement) {
+      pdfContainer.removeChild(imageElement);
+      imageElement = null;
+    }
+
+    imageElement = document.createElement('img');
+    imageElement.src = url;
+    imageElement.className = 'editable-image';
+    imageElement.style.left = '50px';
+    imageElement.style.top = '50px';
+    imageElement.style.width = '100px';
+    imageElement.style.height = '100px';
+    pdfContainer.appendChild(imageElement);
+
+    document.getElementById('controls').style.display = 'block';
+    updateControlValues();
+  });
+
+  function updateControlValues() {
+    if (!imageElement) return;
+    document.getElementById('pos-x').value = parseInt(imageElement.style.left);
+    document.getElementById('pos-y').value = parseInt(imageElement.style.top);
+    document.getElementById('img-width').value = parseInt(imageElement.style.width);
+    document.getElementById('img-height').value = parseInt(imageElement.style.height);
+  }
+
+  document.getElementById('update-btn').addEventListener('click', () => {
+    if (!imageElement) return;
+    const x = parseInt(document.getElementById('pos-x').value);
+    const y = parseInt(document.getElementById('pos-y').value);
+    const w = parseInt(document.getElementById('img-width').value);
+    const h = parseInt(document.getElementById('img-height').value);
+
+    imageElement.style.left = x + 'px';
+    imageElement.style.top = y + 'px';
+    imageElement.style.width = w + 'px';
+    imageElement.style.height = h + 'px';
+  });
+
+  document.getElementById('save-pdf-btn').addEventListener('click', async () => {
+    if (!pdfDoc || !imageElement) {
+      alert('Upload both PDF and image!');
+      return;
+    }
+
+    // Load original PDF array buffer again
+    const fileInput = document.getElementById('pdf-upload');
+    const originalBytes = await fileInput.files[0].arrayBuffer();
+
+    // Load pdf-lib document
+    const pdfLibDoc = await PDFLib.PDFDocument.load(originalBytes);
+
+    const page = pdfLibDoc.getPage(currentPage - 1);
+    const { width, height } = page.getSize();
+
+    // Convert image src to Uint8Array (handling Object URL or Base64)
+    async function getImageBytes(src) {
+      if (src.startsWith('data:image')) {
+        // Base64 decode:
+        const base64 = src.split(',')[1];
+        const binary = atob(base64);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+      } else {
+        const resp = await fetch(src);
+        const blob = await resp.blob();
+        return new Uint8Array(await blob.arrayBuffer());
+      }
+    }
+    const imgBytes = await getImageBytes(imageElement.src);
+
+    // Embed image based on type
+    let embeddedImage;
+    if (imageElement.src.includes('.png') || imageElement.src.startsWith('data:image/png')) {
+      embeddedImage = await pdfLibDoc.embedPng(imgBytes);
+    } else {
+      embeddedImage = await pdfLibDoc.embedJpg(imgBytes);
+    }
+
+    // Calculate coordinates: pdf-lib origin is bottom-left, CSS is top-left
+    const x = parseInt(imageElement.style.left);
+    const y = height - parseInt(imageElement.style.top) - parseInt(imageElement.style.height);
+
+    const imgWidth = parseInt(imageElement.style.width);
+    const imgHeight = parseInt(imageElement.style.height);
+
+    // Draw image on the page
+    page.drawImage(embeddedImage, {
+      x: x,
+      y: y,
+      width: imgWidth,
+      height: imgHeight,
+    });
+
+    // Save PDF bytes and download
+    const pdfBytesNew = await pdfLibDoc.save();
+    const blob = new Blob([pdfBytesNew], { type: 'application/pdf' });
+    const pdfUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = pdfUrl;
+    a.download = 'edited.pdf';
+    a.click();
+    URL.revokeObjectURL(pdfUrl);
+  });
+</script>
 </body>
 </html>
