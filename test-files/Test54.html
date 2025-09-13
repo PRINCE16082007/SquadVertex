@@ -3,39 +3,39 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>PDF Editor — Fixed detached ArrayBuffer + Logs</title>
+<title>PDF Editor — Final fix for detached ArrayBuffer + Logs</title>
 <style>
-  body{ margin:16px; font-family:Inter,system-ui,Roboto,Arial; background:#071025; color:#e6f3ff; }
-  h2{ color:#7cc1ff; }
-  .controls{ display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
-  input[type=file]{ padding:8px; border-radius:6px; background:#071428; color:#fff; border:1px solid rgba(255,255,255,0.03); }
-  button{ padding:8px 12px; border-radius:8px; border:none; background:#7cc1ff; color:#032033; font-weight:600; cursor:pointer; }
+  body{ margin:18px; font-family:Inter,system-ui,Roboto,Arial; background:#061021; color:#e8f7ff; }
+  h2{ color:#7ed0ff; margin:0 0 12px 0; }
+  .controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  input[type=file]{ padding:8px; border-radius:6px; background:#0b1b2b; color:#fff; border:1px solid rgba(255,255,255,0.03); }
+  button{ padding:8px 12px; border-radius:8px; border:none; background:#7ed0ff; color:#02202b; font-weight:700; cursor:pointer; }
+  .btn-ghost{ background:transparent; border:1px solid rgba(255,255,255,0.04); color:#9ed8f9; padding:6px 10px; border-radius:6px; cursor:pointer; }
   #workspace{ display:flex; gap:16px; align-items:flex-start; }
   #pdf-panel{ width:720px; height:920px; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.6); }
   #pdf-container{ position:relative; width:100%; height:100%; background:#fff; }
   #pdf-canvas{ display:block; width:100%; height:auto; background:#fff; }
-  img.editable-image{ position:absolute; cursor:move; border:2px dashed rgba(124,193,255,0.9); box-sizing:border-box; }
+  img.editable-image{ position:absolute; cursor:move; border:2px dashed rgba(126,208,255,0.9); box-sizing:border-box; }
   #side{ width:360px; }
-  .field{ margin-bottom:8px; color:#cde6ff; }
+  .field{ margin-bottom:8px; color:#cfeeff; }
   label{ color:#bfe7ff; margin-right:6px; }
   input[type=number]{ width:80px; padding:6px; border-radius:6px; border:1px solid rgba(255,255,255,0.04); background:#071428; color:#e6f7ff; }
-  #log-window{ margin-top:10px; height:220px; overflow:auto; padding:10px; background:#041422; border-radius:8px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; font-size:12px; color:#bfe1ff; border:1px solid rgba(255,255,255,0.03); }
-  .log-time{ color:#80bde6; margin-right:8px; }
+  #log-window{ margin-top:10px; height:240px; overflow:auto; padding:10px; background:#041522; border-radius:8px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; font-size:12px; color:#bfe1ff; border:1px solid rgba(255,255,255,0.03); }
+  .log-time{ color:#86c8ef; margin-right:8px; }
   .log-error{ color:#ff9b9b; }
   .log-info{ color:#cfeeff; }
-  .btn-ghost{ background:transparent; border:1px solid rgba(255,255,255,0.04); color:#9fc8ea; padding:6px 10px; border-radius:6px; cursor:pointer; }
 </style>
 </head>
 <body>
 
-<h2>PDF Editor — Fixed detached ArrayBuffer + Logs</h2>
+<h2>PDF Editor — Final fix for detached ArrayBuffer + Logs</h2>
 
 <div class="controls">
   <input id="pdf-upload" type="file" accept="application/pdf" />
   <input id="image-upload" type="file" accept="image/*" />
   <button id="save-pdf-btn">Save PDF with Image</button>
   <button id="clear-logs" class="btn-ghost">Clear logs</button>
-  <div style="color:#9fc8ea;">Upload PDF first → then image. Drag to place.</div>
+  <div style="color:#9ed8f9; margin-left:8px;">Order: PDF → Image → Place → Save</div>
 </div>
 
 <div id="workspace">
@@ -67,52 +67,45 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.js"></script>
 <script>
-/* -------- logger -------- */
+/* ---------------- logger ---------------- */
 const logWindow = document.getElementById('log-window');
 function now(){ return new Date().toLocaleTimeString(); }
 function log(msg, type='info'){
-  const row = document.createElement('div');
-  row.className = 'log-row';
-  const t = document.createElement('span');
-  t.className = 'log-time';
-  t.textContent = '['+now()+']';
-  const m = document.createElement('span');
-  m.className = (type==='error' ? 'log-error' : 'log-info');
-  m.textContent = ' ' + msg;
+  const row = document.createElement('div'); row.className = 'log-row';
+  const t = document.createElement('span'); t.className = 'log-time'; t.textContent = '['+now()+']';
+  const m = document.createElement('span'); m.className = (type==='error' ? 'log-error' : 'log-info'); m.textContent = ' ' + msg;
   row.appendChild(t); row.appendChild(m);
-  logWindow.appendChild(row);
-  logWindow.scrollTop = logWindow.scrollHeight;
+  logWindow.appendChild(row); logWindow.scrollTop = logWindow.scrollHeight;
   console[type==='error' ? 'error' : 'log'](`[${now()}] ${msg}`);
 }
 document.getElementById('clear-logs').addEventListener('click', ()=>{ logWindow.innerHTML=''; log('Logs cleared'); });
 
-/* -------- pdf.js ---------- */
+/* ---------------- pdf.js ---------------- */
 const pdfjsLib = window['pdfjs-dist/build/pdf'];
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.worker.min.js';
 
-/* -------- state -------- */
+/* ---------------- state ---------------- */
 let pdfDoc = null;
-let originalPdfBytes = null;
+let originalPdfUint8 = null; // master, immutable-like copy (Uint8Array)
 let currentPage = 1;
 let scale = 1.5;
 let uploadedImageFile = null;
 let imageElement = null;
 
-/* -------- DOM refs -------- */
+/* ---------------- DOM refs ---------------- */
 const canvas = document.getElementById('pdf-canvas');
 const ctx = canvas.getContext('2d');
 const pdfContainer = document.getElementById('pdf-container');
 const controls = document.getElementById('controls');
 
-/* -------- dynamic loader for pdf-lib -------- */
+/* ---------------- dynamic loader for pdf-lib ---------------- */
 async function loadScript(url, timeout = 12000){
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
     let done = false;
-    s.src = url;
-    s.async = true;
-    s.onload = () => { done = true; resolve(s); };
-    s.onerror = (e) => { if (!done) { done = true; reject(new Error('Script load failed: ' + url)); } };
+    s.src = url; s.async = true;
+    s.onload = () => { if (!done){ done = true; resolve(s); } };
+    s.onerror = (e) => { if (!done){ done = true; reject(new Error('Script load failed: ' + url)); } };
     document.head.appendChild(s);
     setTimeout(()=>{ if (!done) reject(new Error('Timeout loading script: ' + url)); }, timeout);
   });
@@ -120,34 +113,34 @@ async function loadScript(url, timeout = 12000){
 let PDFLibReady = false;
 async function ensurePDFLib(){
   if (PDFLibReady && window.PDFLib) return window.PDFLib;
-  if (window.PDFLib) { PDFLibReady = true; log('PDFLib already present'); return window.PDFLib; }
+  if (window.PDFLib) { PDFLibReady = true; log('PDFLib present'); return window.PDFLib; }
   const cdns = [
     'https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js',
     'https://unpkg.com/pdf-lib/dist/pdf-lib.min.js'
   ];
   let lastErr = null;
   for (const url of cdns){
-    try{
-      log('Attempting to load pdf-lib from: ' + url);
-      await loadScript(url, 12000);
-      if (window.PDFLib) { PDFLibReady = true; log('Loaded pdf-lib from: ' + url); return window.PDFLib; }
-    } catch(err){ lastErr = err; log('Failed to load from ' + url + ' — ' + (err.message||err), 'error'); }
+    try { log('Attempting pdf-lib: ' + url); await loadScript(url, 12000); if (window.PDFLib){ PDFLibReady = true; log('Loaded pdf-lib from ' + url); return window.PDFLib; } }
+    catch(err){ lastErr = err; log('Load fail: ' + (err.message || err), 'error'); }
   }
   if (window.PDFLib) { PDFLibReady = true; return window.PDFLib; }
-  throw new Error('Unable to load pdf-lib library: ' + (lastErr ? lastErr.message : 'unknown'));
+  throw new Error('Unable to load pdf-lib: ' + (lastErr ? lastErr.message : 'unknown'));
 }
 
-/* -------- PDF load & render -------- */
+/* ---------------- PDF upload & render ---------------- */
 document.getElementById('pdf-upload').addEventListener('change', async (e) => {
   try {
     const file = e.target.files[0];
     if (!file) { log('No PDF chosen', 'error'); return; }
-    originalPdfBytes = await file.arrayBuffer();
-    pdfDoc = await pdfjsLib.getDocument({ data: originalPdfBytes }).promise;
-    log(`PDF loaded: ${file.name} (${Math.max(0, Math.round(originalPdfBytes.byteLength/1024))} KB)`);
+    // Create master Uint8Array immediately and keep it immutable-like
+    const ab = await file.arrayBuffer();
+    originalPdfUint8 = new Uint8Array(ab); // master copy
+    log(`PDF uploaded: ${file.name} — ${Math.round(originalPdfUint8.byteLength/1024)} KB (master copy)`);
+    // Load for viewing using pdf.js (this does not affect master copy)
+    pdfDoc = await pdfjsLib.getDocument({ data: originalPdfUint8 }).promise;
     currentPage = 1;
     await renderPage(currentPage);
-  } catch(err){ log('PDF load error: ' + (err.message || err), 'error'); }
+  } catch(err){ log('PDF upload/render error: ' + (err.message || err), 'error'); console.error(err); }
 });
 
 async function renderPage(pageNum){
@@ -164,18 +157,19 @@ async function renderPage(pageNum){
     log(`Page ${pageNum} rendered — canvas ${viewport.width}×${viewport.height}px`);
     pdfContainer.style.width = viewport.width + 'px';
     pdfContainer.style.height = viewport.height + 'px';
-  } catch(err){ log('Render error: ' + (err.message || err), 'error'); }
+  } catch(err){ log('Render error: ' + (err.message || err), 'error'); console.error(err); }
 }
 
-/* -------- image overlay handling -------- */
+/* ---------------- image overlay ---------------- */
 document.getElementById('image-upload').addEventListener('change', (e) => {
   try {
     const file = e.target.files[0];
     if (!file) { log('No image chosen', 'error'); return; }
-    if (!pdfDoc) { alert('Upload a PDF first.'); log('Tried to upload image before PDF', 'error'); return; }
+    if (!pdfDoc) { alert('Upload a PDF first.'); log('Image chosen before PDF', 'error'); return; }
     uploadedImageFile = file;
     const url = URL.createObjectURL(file);
-    if (imageElement) { try { pdfContainer.removeChild(imageElement); } catch(e){} try { URL.revokeObjectURL(imageElement.src);}catch(e){} imageElement = null; }
+    // remove any previous element
+    if (imageElement) { try { URL.revokeObjectURL(imageElement.src); } catch(e){} try { pdfContainer.removeChild(imageElement); } catch(e){} imageElement = null; }
     imageElement = document.createElement('img');
     imageElement.className = 'editable-image';
     imageElement.src = url;
@@ -188,7 +182,7 @@ document.getElementById('image-upload').addEventListener('change', (e) => {
     controls.style.display = 'block';
     updateControlValues();
     log(`Image loaded: ${file.name} (${file.type || 'unknown'})`);
-  } catch(err){ log('Image upload error: ' + (err.message || err), 'error'); }
+  } catch(err){ log('Image overlay error: ' + (err.message || err), 'error'); console.error(err); }
 });
 
 function makeDraggable(img){
@@ -239,7 +233,7 @@ document.getElementById('scale-300').addEventListener('click', () => {
   log('Scaled image visually for higher DPI (approx 300 DPI).');
 });
 
-/* -------- image conversion helpers -------- */
+/* ---------------- helpers ---------------- */
 function dataURLToUint8Array(dataURL){
   const base64 = dataURL.split(',')[1];
   const raw = atob(base64);
@@ -263,48 +257,32 @@ async function convertFileToPngBytes(file){
         const dataURL = c.toDataURL('image/png');
         try { URL.revokeObjectURL(url); } catch(e){}
         resolve(dataURLToUint8Array(dataURL));
-      } catch(err){
-        try { URL.revokeObjectURL(url); } catch(e){}
-        reject(err);
-      }
+      } catch(err){ try { URL.revokeObjectURL(url); } catch(e){} reject(err); }
     };
     img.onerror = (err) => { try { URL.revokeObjectURL(url); } catch(e){} reject(err || new Error('image load failed')); };
     img.src = url;
   });
 }
-
-/* make a safe copy of any ArrayBuffer-like input */
-function ensureFreshUint8Array(input){
-  // input may be ArrayBuffer, Uint8Array, or ArrayBuffer view
-  if (input instanceof Uint8Array) {
-    return input.slice(0); // returns a fresh copy
-  } else if (input instanceof ArrayBuffer) {
-    return new Uint8Array(input.slice(0));
-  } else if (ArrayBuffer.isView(input) && input.buffer) {
-    // like DataView or TypedArray
-    return new Uint8Array(input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength));
-  } else {
-    // fallback: try to coerce
-    return new Uint8Array(input);
-  }
+function cloneUint8(u8){
+  if (!(u8 instanceof Uint8Array)) return new Uint8Array(u8);
+  return u8.slice(0); // fresh copy
 }
-
 async function getImageBytesReliable(){
   if (uploadedImageFile) {
     const type = (uploadedImageFile.type || '').toLowerCase();
     const ab = await uploadedImageFile.arrayBuffer();
     if (type === 'image/png' || type === 'image/jpeg' || type === 'image/jpg') {
       log('Using original image bytes (no conversion).');
-      return { bytes: ensureFreshUint8Array(new Uint8Array(ab)), mime: type || 'image/png' };
+      return { bytes: cloneUint8(new Uint8Array(ab)), mime: type || 'image/png' };
     } else {
       log('Converting image to PNG for best-quality embed...');
       const pngBytes = await convertFileToPngBytes(uploadedImageFile);
-      return { bytes: ensureFreshUint8Array(pngBytes), mime: 'image/png' };
+      return { bytes: cloneUint8(new Uint8Array(pngBytes)), mime: 'image/png' };
     }
   } else if (imageElement && imageElement.src) {
     if (imageElement.src.startsWith('data:image')) {
       const mime = imageElement.src.match(/^data:(image\/[^;]+);/)?.[1] || 'image/png';
-      return { bytes: ensureFreshUint8Array(dataURLToUint8Array(imageElement.src)), mime };
+      return { bytes: cloneUint8(dataURLToUint8Array(imageElement.src)), mime };
     } else {
       log('Fetching image from object URL (fallback).');
       const resp = await fetch(imageElement.src);
@@ -312,11 +290,11 @@ async function getImageBytesReliable(){
       const mime = blob.type || 'image/png';
       const ab = await blob.arrayBuffer();
       if (mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/jpg') {
-        return { bytes: ensureFreshUint8Array(new Uint8Array(ab)), mime };
+        return { bytes: cloneUint8(new Uint8Array(ab)), mime };
       } else {
         const file = new File([blob], 'temp.img', { type: mime });
         const pngBytes = await convertFileToPngBytes(file);
-        return { bytes: ensureFreshUint8Array(pngBytes), mime: 'image/png' };
+        return { bytes: cloneUint8(new Uint8Array(pngBytes)), mime: 'image/png' };
       }
     }
   } else {
@@ -324,70 +302,66 @@ async function getImageBytesReliable(){
   }
 }
 
-/* -------- save/export handler (waits for pdf-lib) -------- */
-async function robustEmbedAndSave(PDFLib, originalBytes, imageBytes, mime, coords){
-  // Make fresh copies of both PDF bytes and image bytes to avoid any detached buffer problems
-  const pdfBytesCopy = (originalBytes instanceof ArrayBuffer) ? originalBytes.slice(0) : originalBytes;
-  const imageBytesSafe = ensureFreshUint8Array(imageBytes);
+/* ---------------- robust embed & save ----------------
+   Always pass fresh clones into PDFLib to avoid detached buffer errors.
+*/
+async function robustEmbedAndSave(PDFLib, pdfMasterUint8, imageBytesUint8, mime, coords){
+  // make fresh clones
+  const pdfBytesCopy = cloneUint8(pdfMasterUint8); // fresh copy of master
+  const imgBytesCopy = cloneUint8(imageBytesUint8);
 
-  const pdfLibDoc = await PDFLib.PDFDocument.load(pdfBytesCopy);
-  log('pdf-lib loaded original PDF (safe copy).');
+  // load using fresh copy
+  const pdfDoc = await PDFLib.PDFDocument.load(pdfBytesCopy);
+  log('pdf-lib loaded (fresh clone).');
 
-  const page = pdfLibDoc.getPage(coords.pageIndex);
+  const page = pdfDoc.getPage(coords.pageIndex);
   const { width: pageWidth, height: pageHeight } = page.getSize();
-  log(`PDF page size inside save: ${Math.round(pageWidth)}×${Math.round(pageHeight)} pts`);
+  log(`Inside save — page size: ${Math.round(pageWidth)}×${Math.round(pageHeight)} pts`);
 
   let embedded;
-  try {
-    if (mime === 'image/png') {
-      embedded = await pdfLibDoc.embedPng(imageBytesSafe);
-      log('Embedded PNG (safe copy).');
-    } else if (mime === 'image/jpeg' || mime === 'image/jpg') {
-      embedded = await pdfLibDoc.embedJpg(imageBytesSafe);
-      log('Embedded JPG (safe copy).');
-    } else {
-      embedded = await pdfLibDoc.embedPng(imageBytesSafe);
-      log('Embedded fallback PNG (safe copy).');
-    }
-  } catch (err) {
-    // If embed fails, log detailed info and rethrow
-    log('Embed failure — bytes length: ' + (imageBytesSafe ? imageBytesSafe.length : 'unknown'), 'error');
-    log('Embed stack: ' + (err && err.message ? err.message : err), 'error');
-    throw err;
+  if (mime === 'image/png') {
+    embedded = await pdfDoc.embedPng(imgBytesCopy);
+    log('Embedded PNG (clone).');
+  } else if (mime === 'image/jpeg' || mime === 'image/jpg') {
+    embedded = await pdfDoc.embedJpg(imgBytesCopy);
+    log('Embedded JPG (clone).');
+  } else {
+    embedded = await pdfDoc.embedPng(imgBytesCopy);
+    log('Embedded fallback PNG (clone).');
   }
 
   page.drawImage(embedded, { x: coords.x, y: coords.y, width: coords.width, height: coords.height });
-  log('Image drawn on PDF page (inside robustEmbedAndSave).');
+  log('Image drawn on page (clone flow).');
 
-  const outBytes = await pdfLibDoc.save({ useObjectStreams: false });
-  return outBytes;
+  const out = await pdfDoc.save({ useObjectStreams: false });
+  return out;
 }
 
+/* ---------------- Save/export handler ---------------- */
 document.getElementById('save-pdf-btn').addEventListener('click', async () => {
   try {
-    if (!pdfDoc) { log('Export failed: No PDF uploaded', 'error'); alert('Upload a PDF first'); return; }
-    if (!imageElement) { log('Export failed: No image placed', 'error'); alert('Place an image first'); return; }
-    if (!originalPdfBytes) throw new Error('Original PDF bytes missing');
+    if (!pdfDoc) { log('Export failed: no PDF uploaded', 'error'); alert('Upload a PDF first.'); return; }
+    if (!imageElement) { log('Export failed: no image placed', 'error'); alert('Place an image first.'); return; }
+    if (!originalPdfUint8) throw new Error('Original PDF master missing');
 
-    log('Starting export process... (ensuring pdf-lib is loaded)');
+    log('Starting export — ensuring pdf-lib loaded');
     const PDFLib = await ensurePDFLib();
-    if (!PDFLib) throw new Error('pdf-lib did not initialize');
-    log('pdf-lib ready.');
+    log('pdf-lib ready (final).');
 
-    // compute mapping from display -> PDF points
+    // compute mapping display -> pdf points using fresh load to get page size
     const pageIndex = currentPage - 1;
     const canvasRect = canvas.getBoundingClientRect();
     const displayW = canvasRect.width, displayH = canvasRect.height;
-    if (!displayW || !displayH) throw new Error('Canvas display dimensions unavailable');
+    if (!displayW || !displayH) throw new Error('Canvas display size unavailable');
 
     const imgLeft = parseFloat(imageElement.style.left) || 0;
-    const imgTop  = parseFloat(imageElement.style.top)  || 0;
+    const imgTop  = parseFloat(imageElement.style.top) || 0;
     const imgW    = parseFloat(imageElement.style.width) || 100;
     const imgH    = parseFloat(imageElement.style.height) || 100;
 
-    // load a lightweight page with pdf-lib just to compute page size (we will reload safely inside robust function)
-    const pdfTempDoc = await PDFLib.PDFDocument.load(originalPdfBytes);
-    const tempPage = pdfTempDoc.getPage(pageIndex);
+    // load a temp doc from fresh clone just to get page size (won't detach master)
+    const pdfTemp = await PDFLib.PDFDocument.load(cloneUint8(originalPdfUint8));
+    const tempPage = pdfTemp.getPage(pageIndex);
     const { width: pageWidth, height: pageHeight } = tempPage.getSize();
     log(`PDF page size (pre-check): ${Math.round(pageWidth)} × ${Math.round(pageHeight)} pts`);
 
@@ -397,29 +371,26 @@ document.getElementById('save-pdf-btn').addEventListener('click', async () => {
     const height_pdf = (imgH / displayH) * pageHeight;
     log(`Mapped coords => x:${x_pdf.toFixed(2)}, y:${y_pdf.toFixed(2)}, w:${width_pdf.toFixed(2)}, h:${height_pdf.toFixed(2)}`);
 
-    // prepare image bytes (fresh copy)
     const { bytes: imgBytes, mime } = await getImageBytesReliable();
-    log(`Image bytes prepared (mime=${mime}, bytes=${imgBytes.length})`);
+    if (!imgBytes || !imgBytes.length) throw new Error('Prepared image bytes empty');
+    log(`Image prepared (mime=${mime}, bytes=${imgBytes.length})`);
 
-    // call robust embed/save which clones buffers and embeds
     const coords = { pageIndex, x: x_pdf, y: y_pdf, width: width_pdf, height: height_pdf };
-    const outBytes = await robustEmbedAndSave(PDFLib, originalPdfBytes, imgBytes, mime, coords);
+    const outBytes = await robustEmbedAndSave(PDFLib, originalPdfUint8, imgBytes, mime, coords);
 
-    log(`PDF saved in-memory (${Math.round(outBytes.byteLength/1024)} KB). Preparing download...`);
+    log(`Export succeeded — output ${Math.round(outBytes.byteLength/1024)} KB. Triggering download...`);
     const blob = new Blob([outBytes], { type: 'application/pdf' });
-    const pdfUrl = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = pdfUrl;
-    a.download = 'edited.pdf';
+    a.href = url; a.download = 'edited.pdf';
     document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(pdfUrl);
-    log('Download triggered — check your Downloads folder.');
+    a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    log('Download triggered. Check your Downloads folder.');
   } catch(err){
     log('Export error: ' + (err && err.message ? err.message : err), 'error');
     console.error(err);
-    alert('Export failed — check logs for details.');
+    alert('Export failed — check logs. Paste last logs if you want me to keep fixing.');
   }
 });
 </script>
