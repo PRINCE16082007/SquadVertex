@@ -1,204 +1,493 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Custom PDF Editor</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PDF Editor — Multi-image, Multi-page Export</title>
 <style>
-  body, html { margin: 0; padding: 0; height: 100%; }
-  #pdf-container { position: relative; width: 100vw; height: 90vh; overflow: auto; border: 1px solid #ccc; }
-  canvas { display: block; margin: 0 auto; }
-  .editable-text {
-    position: absolute;
-    border: 1px dashed grey;
-    background: rgba(255,255,255,0.8);
-    min-width: 100px;
-    min-height: 30px;
-    padding: 4px;
-    cursor: text;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
-    font-family: Arial, sans-serif;
-  }
-  .resizable-image {
-    position: absolute;
-    border: 1px solid blue;
-    cursor: move;
-    user-select: none;
-  }
-  #tools { padding: 10px; background: #eee; display: flex; gap: 10px; }
+  body{ margin:18px; font-family:Inter,system-ui,Roboto,Arial; background:#061021; color:#eaf7ff; }
+  h2{ color:#7ed0ff; margin:0 0 12px; }
+  .controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  input[type=file]{ padding:8px; border-radius:6px; background:#0b1b2b; color:#fff; border:1px solid rgba(255,255,255,0.03); }
+  button{ padding:8px 12px; border-radius:8px; border:none; background:#7ed0ff; color:#02202b; font-weight:700; cursor:pointer; }
+  .btn-ghost{ background:transparent; border:1px solid rgba(255,255,255,0.04); color:#9ed8f9; padding:6px 10px; border-radius:6px; cursor:pointer; }
+  #workspace{ display:flex; gap:16px; align-items:flex-start; }
+  #pdf-panel{ width:720px; height:920px; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.6); position:relative; }
+  #pdf-container{ position:relative; width:100%; height:100%; background:#fff; }
+  #pdf-canvas{ display:block; width:100%; height:auto; background:#fff; }
+  img.overlay { position:absolute; cursor:move; border:2px dashed rgba(126,208,255,0.9); box-sizing:border-box; }
+  #side{ width:360px; color:#cfeeff; }
+  .field{ margin-bottom:8px; color:#cfeeff; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  label{ color:#bfe7ff; font-size:13px; }
+  input[type=number], select{ width:86px; padding:6px; border-radius:6px; border:1px solid rgba(255,255,255,0.04); background:#071428; color:#e6f7ff; }
+  #image-list{ margin-top:8px; max-height:320px; overflow:auto; border-radius:6px; padding:6px; background:#041427; border:1px solid rgba(255,255,255,0.03); }
+  .img-row{ display:flex; gap:8px; align-items:center; padding:6px; border-radius:6px; cursor:pointer; }
+  .img-row.selected{ background:linear-gradient(90deg, rgba(126,208,255,0.06), rgba(126,208,255,0.02)); }
+  .img-thumb{ width:56px; height:56px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.03);}
+  .img-meta{ flex:1; font-size:13px; color:#dff6ff; }
+  small{ color:#9fc8ea; display:block; }
+  #log-window{ margin-top:10px; height:180px; overflow:auto; padding:10px; background:#041522; border-radius:8px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; font-size:12px; color:#bfe1ff; border:1px solid rgba(255,255,255,0.03); }
+  .log-time{ color:#86c8ef; margin-right:8px; }
+  .log-error{ color:#ff9b9b; }
+  .log-info{ color:#cfeeff; }
+  .top-page-controls{ display:flex; gap:8px; align-items:center; margin-bottom:8px;}
 </style>
 </head>
 <body>
 
-<div id="tools">
-  <input type="file" id="file-upload" accept="application/pdf" />
-  <button id="add-text-btn">Add Text</button>
-  <input type="file" id="image-upload" accept="image/*" />
-  <button id="save-pdf-btn">Save PDF</button>
-  <button id="undo-btn">Undo</button>
-  <button id="redo-btn">Redo</button>
+<h2>PDF Editor — Multi-image, Multi-page</h2>
+
+<div class="controls">
+  <input id="pdf-upload" type="file" accept="application/pdf" />
+  <input id="image-upload" type="file" accept="image/*" multiple />
+  <button id="save-pdf-btn">Save PDF with All Images</button>
+  <button id="clear-logs" class="btn-ghost">Clear logs</button>
+  <div style="color:#9ed8f9; margin-left:8px;">Order: PDF → Images → Place → Save</div>
 </div>
 
-<div id="pdf-container"></div>
+<div id="workspace">
+  <div id="pdf-panel">
+    <div style="padding:8px; position:absolute; z-index:20; top:8px; left:8px;">
+      <div class="top-page-controls">
+        <button id="prev-page" class="btn-ghost">Prev</button>
+        <button id="next-page" class="btn-ghost">Next</button>
+        <div style="padding:6px 10px; background:rgba(0,0,0,0.04); border-radius:6px; color:#cfeeff;">
+          Page <span id="page-indicator">0</span> / <span id="page-count">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="pdf-container">
+      <canvas id="pdf-canvas"></canvas>
+    </div>
+  </div>
+
+  <div id="side">
+    <div id="controls" style="display:block;">
+      <div class="field">
+        <label>X:</label><input type="number" id="pos-x" value="50"/>
+        <label>Y:</label><input type="number" id="pos-y" value="50"/>
+      </div>
+      <div class="field">
+        <label>Width:</label><input type="number" id="img-width" value="160"/>
+        <label>Height:</label><input type="number" id="img-height" value="160"/>
+      </div>
+      <div class="field">
+        <label>Page:</label>
+        <select id="img-page-select"></select>
+        <button id="update-btn" class="btn-ghost">Update</button>
+        <button id="remove-btn" class="btn-ghost">Remove</button>
+      </div>
+      <small>Click a thumbnail below to edit that image. You can upload multiple images at once.</small>
+    </div>
+
+    <div id="image-list"></div>
+
+    <div id="log-window" aria-live="polite"></div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.19.0/pdf-lib.min.js"></script>
 <script>
-  // Setup PDF.js
-  const pdfContainer = document.getElementById('pdf-container');
-  let pdfDoc = null;
-  let currentScale = 1.5;
-  let pageElements = [];
-  let editableElements = [];
-  let undoStack = [];
-  let redoStack = [];
+/* ---------- logger ---------- */
+const logWindow = document.getElementById('log-window');
+function now(){ return new Date().toLocaleTimeString(); }
+function log(msg, type='info'){
+  const row = document.createElement('div');
+  row.className = 'log-row';
+  const t = document.createElement('span');
+  t.className = 'log-time';
+  t.textContent = '['+now()+']';
+  const m = document.createElement('span');
+  m.className = (type==='error' ? 'log-error' : 'log-info');
+  m.textContent = ' ' + msg;
+  row.appendChild(t); row.appendChild(m);
+  logWindow.appendChild(row);
+  logWindow.scrollTop = logWindow.scrollHeight;
+  console[type==='error' ? 'error' : 'log'](`[${now()}] ${msg}`);
+}
+document.getElementById('clear-logs').addEventListener('click', ()=>{ logWindow.innerHTML=''; log('Logs cleared'); });
 
-  // Load PDF on file upload
-  document.getElementById('file-upload').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const arrayBuffer = await file.arrayBuffer();
-    pdfDoc = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
-    renderPages();
-    clearUndoRedo();
+/* ---------- pdf.js setup ---------- */
+const pdfjsLib = window['pdfjs-dist/build/pdf'];
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.worker.min.js';
+
+/* ---------- app state ---------- */
+let uploadedPdfFile = null;      // File object for PDF (fresh reads on export)
+let pdfDoc = null;               // pdf.js doc for viewing
+let currentPage = 1;
+let scale = 1.5;
+
+let images = []; // array of { id, file, url, page, left, top, width, height, displayW, displayH }
+let activeImageId = null; // which image is selected for editing
+let overlayImgElem = null; // visible overlay element for editing (DOM img)
+
+const canvas = document.getElementById('pdf-canvas');
+const ctx = canvas.getContext('2d');
+const pdfContainer = document.getElementById('pdf-container');
+const imageListEl = document.getElementById('image-list');
+const pageIndicator = document.getElementById('page-indicator');
+const pageCountEl = document.getElementById('page-count');
+const imgPageSelect = document.getElementById('img-page-select');
+
+/* ---------- helpers ---------- */
+function uid(){ return Math.random().toString(36).slice(2,9); }
+
+function renderImageList(){
+  imageListEl.innerHTML = '';
+  images.forEach(img => {
+    const row = document.createElement('div');
+    row.className = 'img-row' + (img.id === activeImageId ? ' selected' : '');
+    row.dataset.id = img.id;
+    const thumb = document.createElement('img');
+    thumb.className = 'img-thumb';
+    thumb.src = img.url;
+    const meta = document.createElement('div');
+    meta.className = 'img-meta';
+    meta.innerHTML = `<strong>${img.file.name}</strong><small>Page: ${img.page}</small>`;
+    row.appendChild(thumb);
+    row.appendChild(meta);
+    row.addEventListener('click', () => { selectImage(img.id); });
+    imageListEl.appendChild(row);
   });
+}
 
-  // Render all pages as canvas
-  async function renderPages() {
-    pdfContainer.innerHTML = '';
-    pageElements = [];
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-      const page = await pdfDoc.getPage(i);
-      const viewport = page.getViewport({scale: currentScale});
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const context = canvas.getContext('2d');
-      await page.render({canvasContext: context, viewport: viewport}).promise;
+function updatePageOptions(){
+  imgPageSelect.innerHTML = '';
+  const total = pdfDoc ? pdfDoc.numPages : 0;
+  for (let i=1;i<=total;i++){
+    const opt = document.createElement('option'); opt.value = i; opt.textContent = i;
+    imgPageSelect.appendChild(opt);
+  }
+}
 
-      const pageWrapper = document.createElement('div');
-      pageWrapper.style.position = 'relative';
-      pageWrapper.style.width = viewport.width + 'px';
-      pageWrapper.style.height = viewport.height + 'px';
-      pageWrapper.appendChild(canvas);
-      pdfContainer.appendChild(pageWrapper);
-      pageElements.push(pageWrapper);
+/* ---------- PDF load & render ---------- */
+document.getElementById('pdf-upload').addEventListener('change', async (e) => {
+  try {
+    const file = e.target.files[0];
+    if (!file) { log('No PDF chosen', 'error'); return; }
+    uploadedPdfFile = file;
+    const ab = await uploadedPdfFile.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: ab }).promise;
+    log(`PDF loaded: ${file.name} (${Math.round(ab.byteLength/1024)} KB)`);
+    currentPage = 1;
+    await renderPage(currentPage);
+    updatePageOptions();
+  } catch(err){ log('PDF load error: ' + (err.message || err), 'error'); console.error(err); }
+});
+
+async function renderPage(pageNum){
+  try {
+    if (!pdfDoc) throw new Error('No PDF loaded');
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    canvas.style.width = viewport.width + 'px';
+    canvas.style.height = viewport.height + 'px';
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    pageIndicator.textContent = pageNum;
+    pageCountEl.textContent = pdfDoc.numPages;
+    pdfContainer.style.width = viewport.width + 'px';
+    pdfContainer.style.height = viewport.height + 'px';
+    log(`Page ${pageNum} rendered — canvas ${viewport.width}×${viewport.height}px`);
+
+    // on page change, if active image belongs to this page, show its overlay; else hide overlay
+    refreshOverlayForActiveImage();
+  } catch(err){ log('Render page error: ' + (err.message || err), 'error'); console.error(err); }
+}
+
+/* ---------- page navigation ---------- */
+document.getElementById('prev-page').addEventListener('click', async () => {
+  if (!pdfDoc) return;
+  currentPage = Math.max(1, currentPage - 1);
+  await renderPage(currentPage);
+});
+document.getElementById('next-page').addEventListener('click', async () => {
+  if (!pdfDoc) return;
+  currentPage = Math.min(pdfDoc.numPages, currentPage + 1);
+  await renderPage(currentPage);
+});
+
+/* ---------- image uploads (multiple) ---------- */
+document.getElementById('image-upload').addEventListener('change', async (e) => {
+  try {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) { log('No images chosen', 'error'); return; }
+    if (!pdfDoc) { alert('Upload PDF first'); log('Tried to add images before PDF', 'error'); return; }
+
+    const canvasRect = canvas.getBoundingClientRect();
+    for (const f of files){
+      const id = uid();
+      const url = URL.createObjectURL(f);
+      const imgObj = {
+        id, file: f, url,
+        page: currentPage,
+        left: 50, top: 50, width: 160, height: 160,
+        displayW: canvasRect.width, displayH: canvasRect.height
+      };
+      images.push(imgObj);
+      log(`Image added: ${f.name} -> page ${currentPage}`);
     }
+    renderImageList();
+  } catch(err){ log('Add images error: ' + (err.message || err), 'error'); console.error(err); }
+});
+
+/* ---------- select & overlay ---------- */
+function selectImage(id){
+  activeImageId = id;
+  renderImageList();
+  refreshOverlayForActiveImage();
+  // set controls
+  const img = images.find(i=>i.id===id);
+  if (img){
+    document.getElementById('pos-x').value = img.left;
+    document.getElementById('pos-y').value = img.top;
+    document.getElementById('img-width').value = img.width;
+    document.getElementById('img-height').value = img.height;
+    imgPageSelect.value = img.page;
+  }
+}
+
+function refreshOverlayForActiveImage(){
+  // remove existing overlay
+  if (overlayImgElem) { try { pdfContainer.removeChild(overlayImgElem); } catch(e){} overlayImgElem = null; }
+
+  const img = images.find(i=>i.id===activeImageId);
+  if (!img) return;
+
+  if (img.page !== currentPage){
+    // overlay not on this page; nothing to show
+    return;
   }
 
-  // Add editable text
-  document.getElementById('add-text-btn').addEventListener('click', () => {
-    if (!pdfDoc) return alert('Upload a PDF first');
-    // Add text to first page for demo; can add on any page with coordinates
-    const editable = document.createElement('div');
-    editable.contentEditable = true;
-    editable.className = 'editable-text';
-    editable.style.top = '50px';
-    editable.style.left = '50px';
-    editable.style.fontSize = '16px';
-    editable.innerText = 'Editable text here';
-    pageElements[0].appendChild(editable);
-    makeDraggableAndResizable(editable);
-    editableElements.push(editable);
-    pushUndoState();
-  });
+  // create overlay element
+  overlayImgElem = document.createElement('img');
+  overlayImgElem.className = 'overlay';
+  overlayImgElem.src = img.url;
+  overlayImgElem.style.left = img.left + 'px';
+  overlayImgElem.style.top = img.top + 'px';
+  overlayImgElem.style.width = img.width + 'px';
+  overlayImgElem.style.height = img.height + 'px';
+  // ensure it sits above canvas
+  overlayImgElem.style.zIndex = 15;
+  pdfContainer.appendChild(overlayImgElem);
 
-  // Add image upload
-  document.getElementById('image-upload').addEventListener('change', (e) => {
-    if (!pdfDoc) return alert('Upload a PDF first');
-    const file = e.target.files[0];
-    if (!file) return;
+  makeDraggableOverlay(overlayImgElem, img.id);
+  // store display canvas size at time of placement for mapping later
+  const canvasRect = canvas.getBoundingClientRect();
+  img.displayW = canvasRect.width; img.displayH = canvasRect.height;
+}
+
+function makeDraggableOverlay(domImg, imgId){
+  let dragging=false, offsetX=0, offsetY=0;
+  domImg.addEventListener('mousedown', (ev) => {
+    dragging = true;
+    const rect = domImg.getBoundingClientRect();
+    offsetX = ev.clientX - rect.left; offsetY = ev.clientY - rect.top;
+    ev.preventDefault();
+  });
+  window.addEventListener('mousemove', (ev) => {
+    if (!dragging) return;
+    const contRect = pdfContainer.getBoundingClientRect();
+    const left = ev.clientX - contRect.left - offsetX;
+    const top  = ev.clientY - contRect.top - offsetY;
+    domImg.style.left = Math.max(0, Math.round(left)) + 'px';
+    domImg.style.top  = Math.max(0, Math.round(top)) + 'px';
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    // commit position to image object
+    const img = images.find(i=>i.id===imgId);
+    if (img && overlayImgElem){
+      img.left = parseInt(overlayImgElem.style.left) || 0;
+      img.top  = parseInt(overlayImgElem.style.top) || 0;
+      // update stored display canvas used
+      const canvasRect = canvas.getBoundingClientRect();
+      img.displayW = canvasRect.width; img.displayH = canvasRect.height;
+      document.getElementById('pos-x').value = img.left;
+      document.getElementById('pos-y').value = img.top;
+      log(`Image ${img.file.name} moved -> x:${img.left}, y:${img.top}`);
+      renderImageList();
+    }
+  });
+}
+
+/* ---------- update / remove image ---------- */
+document.getElementById('update-btn').addEventListener('click', () => {
+  if (!activeImageId) return;
+  const img = images.find(i=>i.id===activeImageId);
+  if (!img) return;
+  const x = parseInt(document.getElementById('pos-x').value) || 0;
+  const y = parseInt(document.getElementById('pos-y').value) || 0;
+  const w = parseInt(document.getElementById('img-width').value) || 100;
+  const h = parseInt(document.getElementById('img-height').value) || 100;
+  const p = parseInt(imgPageSelect.value) || img.page;
+  img.left = x; img.top = y; img.width = w; img.height = h; img.page = p;
+  // update display dims used for mapping now
+  const canvasRect = canvas.getBoundingClientRect();
+  img.displayW = canvasRect.width; img.displayH = canvasRect.height;
+  log(`Image ${img.file.name} updated -> page:${p}, x:${x}, y:${y}, w:${w}, h:${h}`);
+  renderImageList();
+  refreshOverlayForActiveImage();
+});
+
+document.getElementById('remove-btn').addEventListener('click', () => {
+  if (!activeImageId) return;
+  const idx = images.findIndex(i=>i.id===activeImageId);
+  if (idx>=0){
+    const removed = images.splice(idx,1)[0];
+    try { URL.revokeObjectURL(removed.url); } catch(e){}
+    activeImageId = null;
+    overlayImgElem && pdfContainer.removeChild(overlayImgElem);
+    overlayImgElem = null;
+    renderImageList();
+    log(`Removed image ${removed.file.name}`);
+  }
+});
+
+/* ---------- dynamic pdf-lib loader (same robust approach) ---------- */
+async function loadScript(url, timeout = 12000){
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    let done = false;
+    s.src = url; s.async = true;
+    s.onload = () => { if (!done){ done = true; resolve(s); } };
+    s.onerror = (e) => { if (!done){ done = true; reject(new Error('Script load failed: ' + url)); } };
+    document.head.appendChild(s);
+    setTimeout(()=>{ if (!done) reject(new Error('Timeout loading script: ' + url)); }, timeout);
+  });
+}
+let PDFLibReady = false;
+async function ensurePDFLib(){
+  if (PDFLibReady && window.PDFLib) return window.PDFLib;
+  if (window.PDFLib){ PDFLibReady = true; log('PDFLib present'); return window.PDFLib; }
+  const cdns = [
+    'https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js',
+    'https://unpkg.com/pdf-lib/dist/pdf-lib.min.js'
+  ];
+  let lastErr = null;
+  for (const url of cdns){
+    try { log('Attempting pdf-lib: ' + url); await loadScript(url, 12000); if (window.PDFLib){ PDFLibReady = true; log('Loaded pdf-lib from ' + url); return window.PDFLib; } }
+    catch(err){ lastErr = err; log('Load fail: ' + (err.message || err), 'error'); }
+  }
+  if (window.PDFLib){ PDFLibReady = true; return window.PDFLib; }
+  throw new Error('Unable to load pdf-lib: ' + (lastErr ? lastErr.message : 'unknown'));
+}
+
+/* ---------- image bytes fresh read & convert ---------- */
+function dataURLToUint8Array(dataURL){
+  const base64 = dataURL.split(',')[1];
+  const raw = atob(base64);
+  const u8 = new Uint8Array(raw.length);
+  for (let i=0;i<raw.length;i++) u8[i] = raw.charCodeAt(i);
+  return u8;
+}
+async function convertFileToPngBytes(file){
+  return new Promise((resolve,reject)=>{
     const url = URL.createObjectURL(file);
-    const img = document.createElement('img');
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const r = window.devicePixelRatio || 1;
+        const scaleFactor = Math.max(1, r * 2);
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.naturalWidth * scaleFactor));
+        c.height = Math.max(1, Math.round(img.naturalHeight * scaleFactor));
+        const cctx = c.getContext('2d');
+        cctx.drawImage(img, 0, 0, c.width, c.height);
+        const dataURL = c.toDataURL('image/png');
+        try { URL.revokeObjectURL(url); } catch(e){}
+        resolve(dataURLToUint8Array(dataURL));
+      } catch(err){ try { URL.revokeObjectURL(url); } catch(e){} reject(err); }
+    };
+    img.onerror = (err) => { try { URL.revokeObjectURL(url); } catch(e){} reject(err || new Error('image load failed')); };
     img.src = url;
-    img.className = 'resizable-image';
-    img.style.top = '100px';
-    img.style.left = '100px';
-    img.style.width = '100px';
-    img.style.height = '100px';
-    img.style.position = 'absolute';
-    pageElements[0].appendChild(img);
-    makeDraggableAndResizable(img);
-    editableElements.push(img);
-    pushUndoState();
   });
-
-  // Simple drag and resize
-  function makeDraggableAndResizable(el) {
-    el.style.position = 'absolute';
-    let isDragging = false;
-    let startX, startY, origX, origY;
-    el.addEventListener('mousedown', e => {
-      isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      origX = el.offsetLeft;
-      origY = el.offsetTop;
-      e.preventDefault();
-    });
-    document.addEventListener('mousemove', e => {
-      if (isDragging) {
-        let dx = e.clientX - startX;
-        let dy = e.clientY - startY;
-        el.style.left = origX + dx + 'px';
-        el.style.top = origY + dy + 'px';
-      }
-    });
-    document.addEventListener('mouseup', e => {
-      if (isDragging) {
-        isDragging = false;
-        pushUndoState();
-      }
-    });
-
-    // Resize with ctrl+drag bottom-right corner (simplified)
-    el.addEventListener('dblclick', e => {
-      if (el.style.width && el.style.height) {
-        // Toggle size for demo
-        el.style.width = el.style.width === '100px' ? '150px' : '100px';
-        el.style.height = el.style.height === '100px' ? '150px' : '100px';
-        pushUndoState();
-      }
-    });
+}
+async function getFreshImageBytesFromFile(file){
+  const type = (file.type || '').toLowerCase();
+  if (type === 'image/png' || type === 'image/jpeg' || type === 'image/jpg') {
+    const ab = await file.arrayBuffer();
+    return { bytes: new Uint8Array(ab), mime: type || 'image/png' };
+  } else {
+    const png = await convertFileToPngBytes(file);
+    return { bytes: new Uint8Array(png), mime: 'image/png' };
   }
+}
 
-  // Undo/Redo state management
-  function pushUndoState() {
-    redoStack = [];
-    const state = pdfContainer.innerHTML;
-    undoStack.push(state);
-    if (undoStack.length > 20) undoStack.shift();
+/* ---------- Export: embed all images onto their target pages and save once ---------- */
+document.getElementById('save-pdf-btn').addEventListener('click', async () => {
+  try {
+    if (!uploadedPdfFile) { log('Export failed: no PDF uploaded', 'error'); alert('Upload a PDF first'); return; }
+    if (!images.length){ log('No images to embed (list empty)', 'error'); alert('Add images first'); return; }
+
+    log('Starting export — ensuring pdf-lib is loaded');
+    const PDFLib = await ensurePDFLib();
+    log('pdf-lib ready.');
+
+    // fresh read of original pdf bytes and load into pdf-lib once (fresh copy)
+    const pdfAb = await uploadedPdfFile.arrayBuffer();
+    const pdfUint8 = new Uint8Array(pdfAb);
+    const pdfDocLib = await PDFLib.PDFDocument.load(pdfUint8);
+    log(`Loaded original PDF into pdf-lib (${Math.round(pdfUint8.byteLength/1024)} KB)`);
+
+    // For each image, read fresh bytes from its file and embed+draw on the assigned page.
+    for (const img of images){
+      log(`Processing image: ${img.file.name} -> target page ${img.page}`);
+      // validate target page
+      const pageIndex = Math.max(0, Math.min(img.page - 1, pdfDocLib.getPageCount() - 1));
+      const page = pdfDocLib.getPage(pageIndex);
+      const { width: pageWidth, height: pageHeight } = page.getSize();
+      log(`  PDF page ${img.page} size: ${Math.round(pageWidth)}×${Math.round(pageHeight)} pts`);
+
+      // read fresh image bytes
+      const { bytes: imgBytes, mime } = await getFreshImageBytesFromFile(img.file);
+      log(`  Fresh image bytes: ${Math.round(imgBytes.byteLength/1024)} KB, mime=${mime}`);
+
+      // compute mapping from placement-time display dims -> PDF points
+      // Stored img.displayW/H are the canvas CSS width/height at placement time
+      const dW = img.displayW || canvas.getBoundingClientRect().width;
+      const dH = img.displayH || canvas.getBoundingClientRect().height;
+      if (!dW || !dH) throw new Error('Invalid display dims for mapping');
+      const x_pdf = (img.left / dW) * pageWidth;
+      const width_pdf = (img.width / dW) * pageWidth;
+      const y_pdf = pageHeight - ((img.top + img.height) / dH) * pageHeight;
+      const height_pdf = (img.height / dH) * pageHeight;
+      log(`  Mapped coords => x:${x_pdf.toFixed(2)} y:${y_pdf.toFixed(2)} w:${width_pdf.toFixed(2)} h:${height_pdf.toFixed(2)}`);
+
+      // embed
+      let embedded;
+      if (mime === 'image/png') {
+        embedded = await pdfDocLib.embedPng(imgBytes);
+        log('  Embedded PNG');
+      } else {
+        embedded = await pdfDocLib.embedJpg(imgBytes);
+        log('  Embedded JPG');
+      }
+      // draw
+      page.drawImage(embedded, { x: x_pdf, y: y_pdf, width: width_pdf, height: height_pdf });
+      log(`  Image drawn on page ${img.page}`);
+    }
+
+    // Save PDF and trigger download
+    const outBytes = await pdfDocLib.save({ useObjectStreams: false });
+    log(`PDF exported (${Math.round(outBytes.byteLength/1024)} KB). Triggering download...`);
+    const blob = new Blob([outBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'edited_multi.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    log('Download triggered — check your Downloads folder.');
+    alert('Export finished — check your downloads.');
+  } catch(err){
+    log('Export error: ' + (err && err.message ? err.message : err), 'error');
+    console.error(err);
+    alert('Export failed — check logs for details.');
   }
-
-  document.getElementById('undo-btn').addEventListener('click', () => {
-    if (undoStack.length < 2) return;
-    redoStack.push(undoStack.pop());
-    const lastState = undoStack[undoStack.length - 1];
-    pdfContainer.innerHTML = lastState;
-    // Restore editable references (simplified)
-  });
-
-  document.getElementById('redo-btn').addEventListener('click', () => {
-    if (!redoStack.length) return;
-    const nextState = redoStack.pop();
-    pdfContainer.innerHTML = nextState;
-  });
-
-  function clearUndoRedo() {
-    undoStack = [];
-    redoStack = [];
-    pushUndoState();
-  }
-
-  // Save edited PDF - simplistic example with pdf-lib to insert text/images is complex,
-  // this is a placeholder to illustrate intent.
-  document.getElementById('save-pdf-btn').addEventListener('click', async () => {
-    if (!pdfDoc) return alert('Upload a PDF first');
-    alert('Saving PDF with edits is complex and requires embedding changes with pdf-lib, which needs custom coding.');
-    // Full save/export implementation involves mapping HTML edits to PDF-lib API calls for text and image embedding.
-  });
+});
 </script>
-
 </body>
 </html>
