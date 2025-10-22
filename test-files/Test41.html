@@ -442,86 +442,170 @@
 
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>
-  <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-
-    try {
-      const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');
-      firebase.appCheck().activate(appCheckProvider, true);
-    } catch (e) {
-      console.warn("App Check failed:", e);
-    }
-
-    const db = firebase.firestore();
-
-    const content = document.getElementById("content");
-
-    function getQueryParam(param) {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get(param);
-    }
-
-    async function fetchCardDetail(id) {
-      try {
-        const docRef = db.collection("cards").doc(id);
-        const docSnap = await docRef.get();
-
-        if (!docSnap.exists) {
-          content.innerHTML = "<p>No card found for this ID.</p>";
-          return;
-        }
-
-        const data = docSnap.data();
-
-        content.innerHTML = `
-          <h1>${data.heading}</h1>
-          <p class="description">${data.description}</p>
-          <img class="card-image" src="${data.imageUrl}" alt="${data.heading}" />
-          <div class="stats">
-            <span><i class="fa-regular fa-eye"></i> ${data.views || 0}</span>
-            <span><i class="fa-regular fa-heart"></i> ${data.likes || 0}</span>
-          </div>
-        `;
-      } catch (error) {
-        content.innerHTML = `<p>Error fetching card detail: ${error.message}</p>`;
-      }
-    }
-
-    window.onload = () => {
-      const cardId = getQueryParam("id");
-      if (cardId) {
-        fetchCardDetail(cardId);
-      } else {
-        content.innerHTML = "<p>No card selected.</p>";
-      }
-    };
-  </script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>
+<script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
 <script>
+  // Single Firebase initialization with combined config
+  // Using the project that supports both Firestore and Auth (teamgalaxy)
+  const firebaseConfig = {
+    apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+    authDomain: "teamgalaxy-77344.firebaseapp.com",
+    projectId: "teamgalaxy-77344",
+    storageBucket: "teamgalaxy-77344.firebasestorage.app",
+    messagingSenderId: "770256225320",
+    appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+    measurementId: "G-6C2W9NSNCH"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+
+  // Activate App Check
+  try {
+    const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');
+    firebase.appCheck().activate(appCheckProvider, true);
+  } catch (e) {
+    console.warn("App Check failed:", e);
+  }
+
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+
+  // Card detail fetching code (using same db instance)
+  const content = document.getElementById("content");
+
+  function getQueryParam(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+  }
+
+  async function fetchCardDetail(id) {
+    try {
+      const docRef = db.collection("cards").doc(id);
+      const docSnap = await docRef.get();
+
+      if (!docSnap.exists) {
+        content.innerHTML = "<p>No card found for this ID.</p>";
+        return;
+      }
+
+      const data = docSnap.data();
+
+      content.innerHTML = `
+        <h1>${data.heading}</h1>
+        <p class="description">${data.description}</p>
+        <img class="card-image" src="${data.imageUrl}" alt="${data.heading}" />
+        <div class="stats">
+          <span><i class="fa-regular fa-eye"></i> ${data.views || 0}</span>
+          <span><i class="fa-regular fa-heart"></i> ${data.likes || 0}</span>
+        </div>
+      `;
+    } catch (error) {
+      content.innerHTML = `<p>Error fetching card detail: ${error.message}</p>`;
+    }
+  }
+
+  // Hamburger menu script
+  document.querySelector('.hamburger').addEventListener('click', function() {
+    document.querySelector('.nav-buttons').classList.toggle('show');
+  });
+
+  // Profile and authentication code
   const profileBtn = document.getElementById("profileBtn");
   const profileMenu = document.getElementById("profileMenu");
 
+  // Make collaborator boxes clickable
+  document.querySelectorAll('.collaborator-logo-box').forEach(box => {
+    box.addEventListener('click', () => {
+      const url = box.getAttribute('data-url');
+      if (url) {
+        window.open(url, '_blank');
+      }
+    });
+  });
+
   profileBtn.addEventListener("click", (e) => {
     e.stopPropagation();
+    // If user is not signed in, trigger sign in
+    if (!currentUser) {
+      signIn();
+      return;
+    }
+    // If signed in, show the menu
     profileMenu.style.display =
       profileMenu.style.display === "block" ? "none" : "block";
   });
 
-  // Close the profile dropdown if clicked outside
+  // Close profile menu if clicked outside
   window.addEventListener("click", () => {
     profileMenu.style.display = "none";
   });
+
+  // Sign-In Function (Google OAuth)
+  async function signIn() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+      await auth.signInWithPopup(provider);
+    } catch (error) {
+      alert("Sign-in failed: " + error.message);
+    }
+  }
+
+  // Sign-Out Function
+  async function signOut() {
+    try {
+      await auth.signOut();
+    } catch (error) {
+      alert("Sign-out failed: " + error.message);
+    }
+  }
+
+  // Track current user
+  let currentUser = null;
+  auth.onAuthStateChanged((user) => {
+    currentUser = user;
+    updateProfileButton();
+    // loadCards(); // Uncomment if you have this function
+  });
+
+  // Update Profile Button (show sign in or profile photo)
+  function updateProfileButton() {
+    if (currentUser) {
+      if (currentUser.photoURL) {
+        profileBtn.innerHTML = `<img src="${currentUser.photoURL}" alt="Profile">`;
+      } else {
+        profileBtn.innerHTML = '<i class="fa-solid fa-user"></i>';
+      }
+      // Logout link inside the menu
+      document.getElementById("logoutLink").onclick = async (e) => {
+        e.preventDefault();
+        await signOut();
+      };
+      // Profile link placeholder
+      document.getElementById("profileLink").onclick = (e) => {
+        e.preventDefault();
+        alert("Profile clicked - implement profile page.");
+      };
+    } else {
+      profileBtn.innerHTML = "Sign In";
+      // Remove any existing click handler to prevent multiple bindings
+      profileBtn.onclick = (e) => {
+        e.stopPropagation();
+        signIn();
+      };
+    }
+  }
+
+  // Load card detail on page load
+  window.onload = () => {
+    const cardId = getQueryParam("id");
+    if (cardId) {
+      fetchCardDetail(cardId);
+    } else {
+      content.innerHTML = "<p>No card selected.</p>";
+    }
+  };
 </script>
 </body>
 </html>
