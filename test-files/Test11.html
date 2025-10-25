@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Font Size Visualizer Tool</title>
+    <title>Advanced Mind Mapper</title>
     <style>
         * {
             margin: 0;
@@ -12,245 +12,726 @@
         }
 
         body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            background-color: #f5f5f5;
-            line-height: 1.6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 1000;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
         }
 
-        .controls {
+        .tool-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 0 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .tool-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .canvas {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        .canvas:active {
+            cursor: grabbing;
+        }
+
+        .node {
+            position: absolute;
+            min-width: 120px;
+            min-height: 60px;
             background: white;
-            padding: 20px;
+            border: 2px solid #333;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            cursor: move;
+            user-select: none;
+            transition: all 0.3s ease;
+            z-index: 100;
         }
 
-        .control-group {
-            margin-bottom: 15px;
+        .node:hover {
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            transform: scale(1.02);
         }
 
-        label {
-            display: block;
-            margin-bottom: 5px;
+        .node.selected {
+            border-color: #4CAF50;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .node-content {
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .node-title {
             font-weight: bold;
+            margin-bottom: 5px;
             color: #333;
         }
 
-        select, input[type="range"] {
+        .connection {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .connection-line {
+            stroke: #666;
+            stroke-width: 2;
+            marker-end: url(#arrowhead);
+        }
+
+        .connection-label {
+            fill: #333;
+            font-size: 12px;
+            text-anchor: middle;
+        }
+
+        .connection:hover .connection-line {
+            stroke: #4CAF50;
+            stroke-width: 3;
+        }
+
+        .connection.selected .connection-line {
+            stroke: #ff6b6b;
+            stroke-width: 4;
+        }
+
+        .sidebar {
+            position: fixed;
+            right: 0;
+            top: 60px;
+            width: 300px;
+            height: calc(100vh - 60px);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            box-shadow: -2px 0 20px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+
+        .property-panel {
+            margin-top: 20px;
+        }
+
+        .property-panel h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .property-input {
             width: 100%;
             padding: 8px;
+            margin-bottom: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
 
-        .preview-area {
+        .zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
             background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            min-height: 200px;
-            transition: all 0.3s ease;
+            border: 2px solid #333;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
 
-        .preview-text {
-            transition: font-size 0.2s ease;
+        .zoom-btn:hover {
+            background: #f5f5f5;
         }
 
-        /* CSS font-size keywords */
-        .xx-small { font-size: xx-small; }
-        .x-small { font-size: x-small; }
-        .small { font-size: small; }
-        .medium { font-size: medium; }
-        .large { font-size: large; }
-        .x-large { font-size: x-large; }
-        .xx-large { font-size: xx-large; }
-        .xxx-large { font-size: xxx-large; }
-        .smaller { font-size: smaller; }
-        .larger { font-size: larger; }
-
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .controls, .preview-area {
-                padding: 15px;
-            }
-            
-            body {
-                padding: 10px;
-            }
+        .node-counter {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #333;
+            backdrop-filter: blur(10px);
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Font Size Visualizer Tool</h1>
-        
-        <div class="controls">
-            <div class="control-group">
-                <label for="fontSizeType">Font Size Type:</label>
-                <select id="fontSizeType">
-                    <option value="keyword">CSS Keywords</option>
-                    <option value="px">Pixels (px)</option>
-                    <option value="em">Em (em)</option>
-                    <option value="rem">Rem (rem)</option>
-                    <option value="percentage">Percentage (%)</option>
-                    <option value="viewport">Viewport Units</option>
-                </select>
-            </div>
-            
-            <div class="control-group" id="keywordControls">
-                <label for="fontSizeKeyword">Select Keyword:</label>
-                <select id="fontSizeKeyword">
-                    <option value="xx-small">xx-small</option>
-                    <option value="x-small">x-small</option>
-                    <option value="small">small</option>
-                    <option value="medium">medium</option>
-                    <option value="large">large</option>
-                    <option value="x-large">x-large</option>
-                    <option value="xx-large">xx-large</option>
-                    <option value="xxx-large">xxx-large</option>
-                    <option value="smaller">smaller</option>
-                    <option value="larger">larger</option>
-                </select>
-            </div>
-            
-            <div class="control-group" id="pxControls" style="display:none;">
-                <label for="fontSizePx">Pixel Size (px):</label>
-                <input type="range" id="fontSizePx" min="8" max="72" value="16">
-                <span id="pxValue">16px</span>
-            </div>
-            
-            <div class="control-group" id="emControls" style="display:none;">
-                <label for="fontSizeEm">Em Size (em):</label>
-                <input type="range" id="fontSizeEm" min="0.5" max="4" step="0.1" value="1">
-                <span id="emValue">1em</span>
-            </div>
-            
-            <div class="control-group" id="remControls" style="display:none;">
-                <label for="fontSizeRem">Rem Size (rem):</label>
-                <input type="range" id="fontSizeRem" min="0.5" max="4" step="0.1" value="1">
-                <span id="remValue">1rem</span>
-            </div>
-            
-            <div class="control-group" id="percentageControls" style="display:none;">
-                <label for="fontSizePercentage">Percentage (%):</label>
-                <input type="range" id="fontSizePercentage" min="50" max="200" value="100">
-                <span id="percentageValue">100%</span>
-            </div>
-            
-            <div class="control-group" id="viewportControls" style="display:none;">
-                <label for="fontSizeViewport">Viewport Size (vw):</label>
-                <input type="range" id="fontSizeViewport" min="1" max="10" step="0.1" value="2">
-                <span id="viewportValue">2vw</span>
-            </div>
+    <div class="toolbar">
+        <button class="tool-btn" id="addNodeBtn">Add Node</button>
+        <button class="tool-btn" id="connectBtn">Connect Nodes</button>
+        <button class="tool-btn" id="deleteBtn">Delete Selected</button>
+        <button class="tool-btn" id="clearBtn">Clear All</button>
+        <button class="tool-btn" id="exportBtn">Export</button>
+    </div>
+
+    <div class="canvas" id="canvas">
+        <svg id="connections" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></svg>
+    </div>
+
+    <div class="sidebar">
+        <h2>Mind Mapper</h2>
+        <div class="property-panel">
+            <h3>Node Properties</h3>
+            <input type="text" class="property-input" id="nodeTitle" placeholder="Node Title">
+            <textarea class="property-input" id="nodeContent" placeholder="Node Content" rows="4"></textarea>
+            <button class="tool-btn" id="updateNodeBtn" style="width: 100%;">Update Node</button>
         </div>
-        
-        <div class="preview-area">
-            <p class="preview-text" id="previewText">This is a preview of the font size. The quick brown fox jumps over the lazy dog. 1234567890.</p>
+        <div class="property-panel">
+            <h3>Connection Label</h3>
+            <input type="text" class="property-input" id="connectionLabel" placeholder="Connection Type">
+            <button class="tool-btn" id="updateConnectionBtn" style="width: 100%;">Update Connection</button>
         </div>
     </div>
 
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomIn">+</button>
+        <button class="zoom-btn" id="zoomOut">-</button>
+        <button class="zoom-btn" id="resetView">↺</button>
+    </div>
+
+    <div class="node-counter" id="nodeCounter">
+        Nodes: 0 | Connections: 0
+    </div>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const fontSizeType = document.getElementById('fontSizeType');
-            const previewText = document.getElementById('previewText');
-            
-            // Control elements
-            const keywordControls = document.getElementById('keywordControls');
-            const pxControls = document.getElementById('pxControls');
-            const emControls = document.getElementById('emControls');
-            const remControls = document.getElementById('remControls');
-            const percentageControls = document.getElementById('percentageControls');
-            const viewportControls = document.getElementById('viewportControls');
-            
-            const fontSizeKeyword = document.getElementById('fontSizeKeyword');
-            const fontSizePx = document.getElementById('fontSizePx');
-            const fontSizeEm = document.getElementById('fontSizeEm');
-            const fontSizeRem = document.getElementById('fontSizeRem');
-            const fontSizePercentage = document.getElementById('fontSizePercentage');
-            const fontSizeViewport = document.getElementById('fontSizeViewport');
-            
-            const pxValue = document.getElementById('pxValue');
-            const emValue = document.getElementById('emValue');
-            const remValue = document.getElementById('remValue');
-            const percentageValue = document.getElementById('percentageValue');
-            const viewportValue = document.getElementById('viewportValue');
-            
-            // Show appropriate controls based on selection
-            fontSizeType.addEventListener('change', function() {
-                const type = this.value;
+        class AdvancedMindMapper {
+            constructor() {
+                this.nodes = [];
+                this.connections = [];
+                this.selectedElement = null;
+                this.isConnecting = false;
+                this.tempConnection = null;
+                this.scale = 1;
+                this.translateX = 0;
+                this.translateY = 0;
+                this.isDraggingCanvas = false;
+                this.lastX = 0;
+                this.lastY = 0;
                 
-                // Hide all
-                keywordControls.style.display = 'none';
-                pxControls.style.display = 'none';
-                emControls.style.display = 'none';
-                remControls.style.display = 'none';
-                percentageControls.style.display = 'none';
-                viewportControls.style.display = 'none';
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.setupSVG();
+                this.createSampleMap();
+            }
+
+            setupEventListeners() {
+                // Toolbar buttons
+                document.getElementById('addNodeBtn').addEventListener('click', () => this.addNode());
+                document.getElementById('connectBtn').addEventListener('click', () => this.toggleConnectMode());
+                document.getElementById('deleteBtn').addEventListener('click', () => this.deleteSelected());
+                document.getElementById('clearBtn').addEventListener('click', () => this.clearAll());
+                document.getElementById('exportBtn').addEventListener('click', () => this.exportMap());
                 
-                // Show selected
-                if (type === 'keyword') {
-                    keywordControls.style.display = 'block';
-                } else if (type === 'px') {
-                    pxControls.style.display = 'block';
-                } else if (type === 'em') {
-                    emControls.style.display = 'block';
-                } else if (type === 'rem') {
-                    remControls.style.display = 'block';
-                } else if (type === 'percentage') {
-                    percentageControls.style.display = 'block';
-                } else if (type === 'viewport') {
-                    viewportControls.style.display = 'block';
-                }
+                // Property panel
+                document.getElementById('updateNodeBtn').addEventListener('click', () => this.updateSelectedNode());
+                document.getElementById('updateConnectionBtn').addEventListener('click', () => this.updateSelectedConnection());
                 
-                updateFontSize();
-            });
-            
-            // Update font size function
-            function updateFontSize() {
-                const type = fontSizeType.value;
+                // Zoom controls
+                document.getElementById('zoomIn').addEventListener('click', () => this.zoom(1.2));
+                document.getElementById('zoomOut').addEventListener('click', () => this.zoom(0.8));
+                document.getElementById('resetView').addEventListener('click', () => this.resetView());
                 
-                if (type === 'keyword') {
-                    const keyword = fontSizeKeyword.value;
-                    previewText.className = 'preview-text ' + keyword;
-                } else if (type === 'px') {
-                    previewText.className = 'preview-text';
-                    previewText.style.fontSize = fontSizePx.value + 'px';
-                    pxValue.textContent = fontSizePx.value + 'px';
-                } else if (type === 'em') {
-                    previewText.className = 'preview-text';
-                    previewText.style.fontSize = fontSizeEm.value + 'em';
-                    emValue.textContent = fontSizeEm.value + 'em';
-                } else if (type === 'rem') {
-                    previewText.className = 'preview-text';
-                    previewText.style.fontSize = fontSizeRem.value + 'rem';
-                    remValue.textContent = fontSizeRem.value + 'rem';
-                } else if (type === 'percentage') {
-                    previewText.className = 'preview-text';
-                    previewText.style.fontSize = fontSizePercentage.value + '%';
-                    percentageValue.textContent = fontSizePercentage.value + '%';
-                } else if (type === 'viewport') {
-                    previewText.className = 'preview-text';
-                    previewText.style.fontSize = fontSizeViewport.value + 'vw';
-                    viewportValue.textContent = fontSizeViewport.value + 'vw';
+                // Canvas interactions
+                const canvas = document.getElementById('canvas');
+                canvas.addEventListener('mousedown', (e) => this.handleCanvasMouseDown(e));
+                canvas.addEventListener('mousemove', (e) => this.handleCanvasMouseMove(e));
+                canvas.addEventListener('mouseup', (e) => this.handleCanvasMouseUp(e));
+                canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+            }
+
+            setupSVG() {
+                const svg = document.getElementById('connections');
+                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                
+                marker.setAttribute('id', 'arrowhead');
+                marker.setAttribute('markerWidth', '10');
+                marker.setAttribute('markerHeight', '7');
+                marker.setAttribute('refX', '9');
+                marker.setAttribute('refY', '3.5');
+                marker.setAttribute('orient', 'auto');
+                
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+                polygon.setAttribute('fill', '#666');
+                
+                marker.appendChild(polygon);
+                defs.appendChild(marker);
+                svg.appendChild(defs);
+            }
+
+            addNode(x = 200, y = 200) {
+                const nodeId = 'node_' + Date.now();
+                const node = {
+                    id: nodeId,
+                    x: x,
+                    y: y,
+                    width: 150,
+                    height: 80,
+                    title: 'New Node',
+                    content: 'Click to edit',
+                    element: null
+                };
+
+                const nodeElement = document.createElement('div');
+                nodeElement.className = 'node';
+                nodeElement.id = nodeId;
+                nodeElement.style.left = x + 'px';
+                nodeElement.style.top = y + 'px';
+                nodeElement.innerHTML = `
+                    <div class="node-title">${node.title}</div>
+                    <div class="node-content">${node.content}</div>
+                `;
+
+                nodeElement.addEventListener('mousedown', (e) => this.handleNodeMouseDown(e, node));
+                nodeElement.addEventListener('dblclick', () => this.selectNode(node));
+                
+                document.getElementById('canvas').appendChild(nodeElement);
+                node.element = nodeElement;
+                this.nodes.push(node);
+                
+                this.updateCounter();
+                return node;
+            }
+
+            handleNodeMouseDown(e, node) {
+                e.stopPropagation();
+                this.selectNode(node);
+                
+                if (!this.isConnecting) {
+                    this.dragNode(e, node);
+                } else {
+                    this.createConnection(node);
                 }
             }
-            
-            // Add event listeners for all controls
-            fontSizeKeyword.addEventListener('change', updateFontSize);
-            fontSizePx.addEventListener('input', updateFontSize);
-            fontSizeEm.addEventListener('input', updateFontSize);
-            fontSizeRem.addEventListener('input', updateFontSize);
-            fontSizePercentage.addEventListener('input', updateFontSize);
-            fontSizeViewport.addEventListener('input', updateFontSize);
-            
-            // Initialize
-            updateFontSize();
+
+            dragNode(e, node) {
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startNodeX = node.x;
+                const startNodeY = node.y;
+
+                const moveHandler = (e) => {
+                    const dx = (e.clientX - startX) / this.scale;
+                    const dy = (e.clientY - startY) / this.scale;
+                    node.x = startNodeX + dx;
+                    node.y = startNodeY + dy;
+                    
+                    node.element.style.left = node.x + 'px';
+                    node.element.style.top = node.y + 'px';
+                    
+                    this.updateAllConnections();
+                };
+
+                const upHandler = () => {
+                    document.removeEventListener('mousemove', moveHandler);
+                    document.removeEventListener('mouseup', upHandler);
+                };
+
+                document.addEventListener('mousemove', moveHandler);
+                document.addEventListener('mouseup', upHandler);
+            }
+
+            selectNode(node) {
+                this.clearSelection();
+                this.selectedElement = node;
+                
+                if (node.element) {
+                    node.element.classList.add('selected');
+                }
+                
+                this.populateNodeProperties(node);
+            }
+
+            selectConnection(connection) {
+                this.clearSelection();
+                this.selectedElement = connection;
+                
+                // SVG elements ke liye different selection method
+                const connElement = document.querySelector(`g[id="${connection.id}"]`);
+                if (connElement) {
+                    connElement.setAttribute('class', 'connection selected');
+                }
+                
+                this.populateConnectionProperties(connection);
+            }
+
+            clearSelection() {
+                // Clear node selection
+                this.nodes.forEach(node => {
+                    if (node.element) {
+                        node.element.classList.remove('selected');
+                    }
+                });
+                
+                // Clear connection selection
+                this.connections.forEach(conn => {
+                    const element = document.querySelector(`g[id="${conn.id}"]`);
+                    if (element) {
+                        element.setAttribute('class', 'connection');
+                    }
+                });
+                
+                this.selectedElement = null;
+            }
+
+            toggleConnectMode() {
+                this.isConnecting = !this.isConnecting;
+                const btn = document.getElementById('connectBtn');
+                btn.style.background = this.isConnecting ? '#ff6b6b' : '#4CAF50';
+                btn.textContent = this.isConnecting ? 'Cancel Connect' : 'Connect Nodes';
+            }
+
+            createConnection(node) {
+                if (!this.tempConnection) {
+                    this.tempConnection = {
+                        from: node,
+                        to: null,
+                        label: 'connects to'
+                    };
+                } else if (this.tempConnection.from !== node) {
+                    const connection = {
+                        id: 'conn_' + Date.now(),
+                        from: this.tempConnection.from,
+                        to: node,
+                        label: this.tempConnection.label
+                    };
+                    
+                    this.drawConnection(connection);
+                    this.connections.push(connection);
+                    this.updateCounter();
+                    
+                    this.tempConnection = null;
+                    this.toggleConnectMode(); // Auto-cancel connect mode
+                }
+            }
+
+            drawConnection(connection) {
+                const svg = document.getElementById('connections');
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('id', connection.id);
+                g.setAttribute('class', 'connection');
+                
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('class', 'connection-line');
+                
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('class', 'connection-label');
+                text.textContent = connection.label;
+                
+                g.appendChild(line);
+                g.appendChild(text);
+                svg.appendChild(g);
+                
+                // SVG click event handler
+                g.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.selectConnection(connection);
+                });
+                
+                this.updateConnectionPosition(connection);
+            }
+
+            updateConnectionPosition(connection) {
+                const g = document.querySelector(`g[id="${connection.id}"]`);
+                if (!g || !connection.from.element || !connection.to.element) return;
+                
+                const line = g.querySelector('.connection-line');
+                const text = g.querySelector('.connection-label');
+                
+                const fromRect = connection.from.element.getBoundingClientRect();
+                const toRect = connection.to.element.getBoundingClientRect();
+                const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+                
+                const fromX = fromRect.left - canvasRect.left + fromRect.width/2;
+                const fromY = fromRect.top - canvasRect.top + fromRect.height/2;
+                const toX = toRect.left - canvasRect.left + toRect.width/2;
+                const toY = toRect.top - canvasRect.top + toRect.height/2;
+                
+                line.setAttribute('x1', fromX);
+                line.setAttribute('y1', fromY);
+                line.setAttribute('x2', toX);
+                line.setAttribute('y2', toY);
+                
+                text.setAttribute('x', (fromX + toX) / 2);
+                text.setAttribute('y', (fromY + toY) / 2 - 10);
+            }
+
+            updateAllConnections() {
+                this.connections.forEach(conn => this.updateConnectionPosition(conn));
+            }
+
+            handleCanvasMouseDown(e) {
+                if (e.target === document.getElementById('canvas')) {
+                    this.isDraggingCanvas = true;
+                    this.lastX = e.clientX;
+                    this.lastY = e.clientY;
+                    e.preventDefault();
+                }
+            }
+
+            handleCanvasMouseMove(e) {
+                if (this.isDraggingCanvas) {
+                    const dx = e.clientX - this.lastX;
+                    const dy = e.clientY - this.lastY;
+                    
+                    this.translateX += dx;
+                    this.translateY += dy;
+                    
+                    this.applyTransform();
+                    
+                    this.lastX = e.clientX;
+                    this.lastY = e.clientY;
+                }
+            }
+
+            handleCanvasMouseUp(e) {
+                this.isDraggingCanvas = false;
+            }
+
+            handleWheel(e) {
+                e.preventDefault();
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                this.zoom(zoomFactor);
+            }
+
+            zoom(factor) {
+                this.scale *= factor;
+                this.scale = Math.max(0.1, Math.min(3, this.scale));
+                this.applyTransform();
+            }
+
+            applyTransform() {
+                const canvas = document.getElementById('canvas');
+                canvas.style.transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.scale})`;
+            }
+
+            resetView() {
+                this.scale = 1;
+                this.translateX = 0;
+                this.translateY = 0;
+                this.applyTransform();
+            }
+
+            populateNodeProperties(node) {
+                document.getElementById('nodeTitle').value = node.title;
+                document.getElementById('nodeContent').value = node.content;
+            }
+
+            populateConnectionProperties(connection) {
+                document.getElementById('connectionLabel').value = connection.label;
+            }
+
+            updateSelectedNode() {
+                if (this.selectedElement && this.selectedElement.hasOwnProperty('title')) {
+                    const node = this.selectedElement;
+                    node.title = document.getElementById('nodeTitle').value;
+                    node.content = document.getElementById('nodeContent').value;
+                    
+                    if (node.element) {
+                        node.element.innerHTML = `
+                            <div class="node-title">${node.title}</div>
+                            <div class="node-content">${node.content}</div>
+                        `;
+                    }
+                }
+            }
+
+            updateSelectedConnection() {
+                if (this.selectedElement && this.selectedElement.hasOwnProperty('label')) {
+                    const connection = this.selectedElement;
+                    connection.label = document.getElementById('connectionLabel').value;
+                    
+                    const text = document.querySelector(`g[id="${connection.id}"] .connection-label`);
+                    if (text) {
+                        text.textContent = connection.label;
+                    }
+                }
+            }
+
+            deleteSelected() {
+                if (!this.selectedElement) return;
+                
+                if (this.selectedElement.hasOwnProperty('title')) {
+                    // Delete node
+                    const nodeIndex = this.nodes.findIndex(n => n.id === this.selectedElement.id);
+                    if (nodeIndex > -1) {
+                        this.nodes[nodeIndex].element.remove();
+                        this.nodes.splice(nodeIndex, 1);
+                        
+                        // Remove related connections
+                        this.connections = this.connections.filter(conn => 
+                            conn.from.id !== this.selectedElement.id && 
+                            conn.to.id !== this.selectedElement.id
+                        );
+                        
+                        // Remove connection elements
+                        const svg = document.getElementById('connections');
+                        this.connections.forEach(conn => {
+                            const element = document.querySelector(`g[id="${conn.id}"]`);
+                            if (element) element.remove();
+                        });
+                        
+                        // Re-add connection elements
+                        svg.innerHTML = svg.querySelector('defs').outerHTML; // Keep defs
+                        this.connections.forEach(conn => this.drawConnection(conn));
+                    }
+                } else if (this.selectedElement.hasOwnProperty('label')) {
+                    // Delete connection
+                    const connIndex = this.connections.findIndex(c => c.id === this.selectedElement.id);
+                    if (connIndex > -1) {
+                        const element = document.querySelector(`g[id="${this.selectedElement.id}"]`);
+                        if (element) element.remove();
+                        this.connections.splice(connIndex, 1);
+                    }
+                }
+                
+                this.clearSelection();
+                this.updateCounter();
+            }
+
+            clearAll() {
+                if (confirm('Are you sure you want to clear everything?')) {
+                    this.nodes.forEach(node => node.element.remove());
+                    this.nodes = [];
+                    this.connections = [];
+                    
+                    const svg = document.getElementById('connections');
+                    svg.innerHTML = svg.querySelector('defs').outerHTML; // Keep defs
+                    
+                    this.clearSelection();
+                    this.updateCounter();
+                }
+            }
+
+            exportMap() {
+                const data = {
+                    nodes: this.nodes.map(n => ({
+                        id: n.id,
+                        x: n.x,
+                        y: n.y,
+                        title: n.title,
+                        content: n.content
+                    })),
+                    connections: this.connections.map(c => ({
+                        id: c.id,
+                        from: c.from.id,
+                        to: c.to.id,
+                        label: c.label
+                    }))
+                };
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'mindmap.json';
+                a.click();
+            }
+
+            updateCounter() {
+                document.getElementById('nodeCounter').textContent = 
+                    `Nodes: ${this.nodes.length} | Connections: ${this.connections.length}`;
+            }
+
+            createSampleMap() {
+                // Create sample nodes
+                const node1 = this.addNode(100, 100);
+                node1.title = 'Main Idea';
+                node1.content = 'Central concept';
+                
+                const node2 = this.addNode(300, 150);
+                node2.title = 'Sub-idea 1';
+                node2.content = 'Related concept';
+                
+                const node3 = this.addNode(200, 300);
+                node3.title = 'Sub-idea 2';
+                node3.content = 'Another related concept';
+                
+                const node4 = this.addNode(400, 250);
+                node4.title = 'Cross-link';
+                node4.content = 'Direct connection';
+                
+                // Update node displays
+                [node1, node2, node3, node4].forEach(node => {
+                    if (node.element) {
+                        node.element.innerHTML = `
+                            <div class="node-title">${node.title}</div>
+                            <div class="node-content">${node.content}</div>
+                        `;
+                    }
+                });
+                
+                // Create connections (including cross-connections)
+                setTimeout(() => {
+                    this.createSampleConnection(node1, node2, 'expands to');
+                    this.createSampleConnection(node2, node3, 'leads to');
+                    this.createSampleConnection(node1, node4, 'connects to'); // Cross-connection
+                    this.createSampleConnection(node3, node4, 'relates to'); // Cross-connection
+                }, 100);
+            }
+
+            createSampleConnection(from, to, label) {
+                const connection = {
+                    id: 'conn_' + Date.now(),
+                    from: from,
+                    to: to,
+                    label: label
+                };
+                
+                this.drawConnection(connection);
+                this.connections.push(connection);
+                this.updateCounter();
+            }
+        }
+
+        // Initialize the mind mapper
+        document.addEventListener('DOMContentLoaded', () => {
+            new AdvancedMindMapper();
         });
     </script>
 </body>
