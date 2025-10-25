@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Profile - TeamGalaxy</title>
-  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js "></script>
-  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js "></script>
-  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js "></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js  "></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js  "></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js  "></script>
   <style>
     * {
       margin: 0;
@@ -245,9 +245,10 @@
       margin-bottom: 2rem;
     }
 
+    /* CHANGED: Single column for posts */
     .posts-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: 1fr; /* Single column */
       gap: 2rem;
       margin-top: 2rem;
     }
@@ -302,9 +303,10 @@
       margin-top: 2.5rem;
     }
 
+    /* CHANGED: Single column for comments */
     .comments-grid {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr; /* Single column */
       gap: 1.5rem;
       margin-top: 1.5rem;
     }
@@ -574,7 +576,6 @@
       </div>
     </div>
   </footer>
-
   <script>
     // Firebase configuration
     const firebaseConfig = {
@@ -606,35 +607,59 @@
       for (let i = 0; i < 30; i++) {
         const star = document.createElement('div');
         star.classList.add('star');
-        
+
         // Random position
         const x = Math.random() * 100;
         const y = Math.random() * 100;
         star.style.left = `${x}%`;
         star.style.top = `${y}%`;
-        
+
         // Random size
         const size = Math.random() * 3 + 1;
         star.style.width = `${size}px`;
         star.style.height = `${size}px`;
-        
+
         // Random animation duration
         const duration = Math.random() * 3 + 2;
         star.style.setProperty('--duration', `${duration}s`);
-        
+
         container.appendChild(star);
       }
     }
 
-    // Format date
-    function formatDate(dateString) {
-      if (!dateString) return '';
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
+    // Format date - FIXED
+    function formatDate(dateValue) {
+      if (!dateValue) return '';
+      
+      // Check if it's a Firestore Timestamp object
+      if (dateValue && dateValue.seconds) {
+        const date = new Date(dateValue.seconds * 1000);
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
+      // If it's already a Date object
+      else if (dateValue instanceof Date) {
+        return dateValue.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
+      // If it's a string or number
+      else {
+        const date = new Date(dateValue);
+        if (isNaN(date.getTime())) {
+          return 'Invalid Date';
+        }
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
     }
 
     // Format number (e.g., 1000 -> 1K)
@@ -648,10 +673,27 @@
       return num.toString();
     }
 
-    // Time ago function
-    function timeAgo(dateString) {
-      if (!dateString) return 'Just now';
-      const date = new Date(dateString);
+    // Time ago function - FIXED
+    function timeAgo(dateValue) {
+      if (!dateValue) return 'Just now';
+      
+      let date;
+      // Check if it's a Firestore Timestamp object
+      if (dateValue && dateValue.seconds) {
+        date = new Date(dateValue.seconds * 1000);
+      }
+      // If it's already a Date object
+      else if (dateValue instanceof Date) {
+        date = dateValue;
+      }
+      // If it's a string or number
+      else {
+        date = new Date(dateValue);
+        if (isNaN(date.getTime())) {
+          return 'Invalid Date';
+        }
+      }
+
       const now = new Date();
       const seconds = Math.floor((now - date) / 1000);
 
@@ -725,7 +767,7 @@
           
           <!-- Profile Header -->
           <div class="profile-header">
-            <img src="${data.profilePhotoUrl || 'https://via.placeholder.com/150 '}" alt="Profile Photo" class="profile-photo">
+            <img src="${data.profilePhotoUrl || 'https://via.placeholder.com/150  '}" alt="Profile Photo" class="profile-photo">
             <div class="profile-info">
               <h1 class="profile-name">${data.name || 'Unknown User'}</h1>
               <div class="profile-slug">${data.slug ? '@' + data.slug : ''}${data.verified ? '<span class="verified-badge">✓ Verified</span>' : ''}</div>
@@ -797,7 +839,7 @@
             <p class="post-body">${post.body || 'No content available.'}</p>
             <div class="post-meta">
               <span class="post-author">By ${post.authorName || 'Anonymous'}</span>
-              <span class="post-time">${timeAgo(post.createdAt?.toDate())}</span>
+              <span class="post-time">${timeAgo(post.createdAt)}</span>
             </div>
             <div class="post-meta">
               <span>👍 ${formatNumber(post.upvotesCount || 0)}</span>
@@ -813,7 +855,7 @@
                     <div class="comment-card">
                       <div class="comment-header">
                         <span class="comment-author">${comment.authorName || 'Anonymous'}</span>
-                        <span class="comment-time">${timeAgo(comment.createdAt?.toDate())}</span>
+                        <span class="comment-time">${timeAgo(comment.createdAt)}</span>
                       </div>
                       <p class="comment-body">${comment.body || ''}</p>
                     </div>
@@ -875,7 +917,7 @@
     // Initialize stars and handle loading overlay
     window.addEventListener('load', () => {
       createStars();
-      
+
       // Simulate a minimum 2 second load time
       setTimeout(() => {
         loadingOverlay.classList.add('hidden');
