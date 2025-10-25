@@ -389,7 +389,7 @@
     // ---------- imports (Firebase v11.9.0) ----------
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js ';
     import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js ';
-    import { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js ';
+    import { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp, runTransaction, increment } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js ';
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js ';
 
     // ---------- init ----------
@@ -498,15 +498,6 @@
     });
 
     // ---------- helpers ----------
-    function slugify(text) {
-      return text.toString().toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^\w\-]+/g, '')
-        .replace(/\-\-+/g, '-')
-        .replace(/^-+/, '')
-        .replace(/-+$/, '');
-    }
-
     function showStatus(message, type = 'success') {
       statusEl.textContent = message;
       statusEl.className = type === 'success' ? 'status-message status-success' : 'status-message status-error';
@@ -549,14 +540,35 @@
       const authorEmail = form.dataset.currentEmail || null;
 
       const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
-      const slug = slugify(title) + '-' + Date.now().toString().slice(-6);
 
       try {
+        // Fetch the user's private profile to get the slug
+        const userPrivateDocRef = doc(db, 'usersPrivate', uid);
+        const userPrivateSnap = await getDoc(userPrivateDocRef);
+
+        if (!userPrivateSnap.exists()) {
+          showStatus('User private profile not found.', 'error');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Publish Post';
+          return;
+        }
+
+        const userPrivateData = userPrivateSnap.data();
+        const slug = userPrivateData.slug;
+
+        if (!slug) {
+          showStatus('User slug not found.', 'error');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Publish Post';
+          return;
+        }
+
+        // Create the post document
         const docRef = await addDoc(postsCol, {
           title,
           body,
           tags,
-          slug,
+          slug, // Use the slug from user's private profile
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           authorId: uid,
@@ -567,6 +579,18 @@
           commentsCount: 0,
           status: 'published',
         });
+
+        // Update counts in both collections using a transaction
+        await runTransaction(db, async (transaction) => {
+          // Update publicPostCount in usersPrivate collection
+          const userPrivateDoc = doc(db, 'usersPrivate', uid);
+          transaction.update(userPrivateDoc, { publicPostCount: increment(1) });
+
+          // Update publicPostCount in publicProfiles collection
+          const publicProfileDoc = doc(db, 'publicProfiles', slug);
+          transaction.update(publicProfileDoc, { publicPostCount: increment(1) });
+        });
+
         showStatus('Your post has been published successfully!', 'success');
         form.reset();
       } catch (err) {
