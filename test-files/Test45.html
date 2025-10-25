@@ -620,15 +620,39 @@
       return urlParams.get(''); // Empty string because after ? it's just the value
     }
 
-    // Format date
-    function formatDate(dateString) {
-      if (!dateString) return '';
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
+    // Format date - FIXED
+    function formatDate(dateValue) {
+      if (!dateValue) return 'Invalid Date';
+      
+      // Check if it's a Firestore Timestamp object
+      if (dateValue && dateValue.seconds) {
+        const date = new Date(dateValue.seconds * 1000);
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
+      // If it's already a Date object
+      else if (dateValue instanceof Date) {
+        return dateValue.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
+      // If it's a string or number
+      else {
+        const date = new Date(dateValue);
+        if (isNaN(date.getTime())) {
+          return 'Invalid Date';
+        }
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
     }
 
     // Format number (e.g., 1000 -> 1K)
@@ -642,10 +666,27 @@
       return num.toString();
     }
 
-    // Time ago function
-    function timeAgo(dateString) {
-      if (!dateString) return 'Just now';
-      const date = new Date(dateString);
+    // Time ago function - FIXED
+    function timeAgo(dateValue) {
+      if (!dateValue) return 'Just now';
+      
+      let date;
+      // Check if it's a Firestore Timestamp object
+      if (dateValue && dateValue.seconds) {
+        date = new Date(dateValue.seconds * 1000);
+      }
+      // If it's already a Date object
+      else if (dateValue instanceof Date) {
+        date = dateValue;
+      }
+      // If it's a string or number
+      else {
+        date = new Date(dateValue);
+        if (isNaN(date.getTime())) {
+          return 'Invalid Date';
+        }
+      }
+
       const now = new Date();
       const seconds = Math.floor((now - date) / 1000);
 
@@ -711,12 +752,12 @@
       }
     }
 
-    // Load user posts by slug
+    // Load user posts by slug - FIXED to use 'slug' field
     async function loadUserPostsBySlug(slug) {
       try {
-        // Load posts using slug field
+        // Load posts using 'slug' field instead of 'authorSlug'
         const postsQuery = await db.collection('posts')
-          .where('authorSlug', '==', slug) // Using authorSlug field
+          .where('slug', '==', slug) // Using 'slug' field
           .orderBy('createdAt', 'desc')
           .limit(3)
           .get();
@@ -819,7 +860,7 @@
             <p class="post-body">${post.body || 'No content available.'}</p>
             <div class="post-meta">
               <span class="post-author">By ${post.authorName || 'Anonymous'}</span>
-              <span class="post-time">${timeAgo(post.createdAt?.toDate())}</span>
+              <span class="post-time">${timeAgo(post.createdAt)}</span>
             </div>
             <div class="post-meta">
               <span>👍 ${formatNumber(post.upvotesCount || 0)}</span>
@@ -835,7 +876,7 @@
                     <div class="comment-card">
                       <div class="comment-header">
                         <span class="comment-author">${comment.authorName || 'Anonymous'}</span>
-                        <span class="comment-time">${timeAgo(comment.createdAt?.toDate())}</span>
+                        <span class="comment-time">${timeAgo(comment.createdAt)}</span>
                       </div>
                       <p class="comment-body">${comment.body || ''}</p>
                     </div>
