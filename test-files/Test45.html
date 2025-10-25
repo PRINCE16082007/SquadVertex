@@ -25,7 +25,7 @@
     /* Header */
     .header {
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
       padding: 1rem 2rem;
       background: rgba(10, 10, 35, 0.95);
@@ -38,6 +38,17 @@
     }
 
     .logo {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #8a7cff;
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 10px rgba(138, 124, 255, 0.5);
+      background: linear-gradient(45deg, #8a7cff, #d66efd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .public-label {
       font-size: 1.8rem;
       font-weight: bold;
       color: #8a7cff;
@@ -65,6 +76,7 @@
       backdrop-filter: blur(10px);
       margin-bottom: 2rem;
       width: 100%;
+      position: relative;
     }
 
     .profile-header {
@@ -126,6 +138,31 @@
       color: #a0a0d0;
       font-size: 1.1rem;
       margin: 0.3rem 0;
+    }
+
+    .profile-actions {
+      position: absolute;
+      top: 2rem;
+      right: 2rem;
+    }
+
+    .btn-share {
+      padding: 0.7rem 1.4rem;
+      border-radius: 8px;
+      border: 1px solid rgba(138, 124, 255, 0.3);
+      background: rgba(20, 20, 40, 0.5);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+      color: #b1a6ff;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-share:hover {
+      background: rgba(30, 30, 60, 0.7);
+      border: 1px solid rgba(138, 124, 255, 0.6);
+      box-shadow: 0 0 15px rgba(138, 124, 255, 0.2);
     }
 
     .bio-section {
@@ -196,7 +233,7 @@
 
     .posts-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: 1fr; /* Single column for single post */
       gap: 2rem;
       margin-top: 2rem;
     }
@@ -401,6 +438,54 @@
       color: #a0a0d0;
     }
 
+    /* Loading Overlay */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 0.5s ease;
+    }
+
+    .loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-message {
+      font-size: 1.8rem;
+      color: #e0e0ff;
+      margin-bottom: 2rem;
+      text-align: center;
+      font-weight: 600;
+      text-shadow: 0 0 10px rgba(138, 124, 255, 0.5);
+    }
+
+    .stars-container {
+      position: relative;
+      width: 300px;
+      height: 300px;
+    }
+
+    .star {
+      position: absolute;
+      background-color: white;
+      border-radius: 50%;
+      animation: twinkle var(--duration) infinite ease-in-out;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 1; }
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .header {
@@ -411,6 +496,12 @@
 
       .profile-header {
         flex-direction: column;
+        text-align: center;
+      }
+
+      .profile-actions {
+        position: static;
+        margin-top: 1.5rem;
         text-align: center;
       }
 
@@ -433,9 +524,16 @@
     }
   </style>
 </head><body>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-message">Wait for a second...</div>
+    <div class="stars-container" id="starsContainer"></div>
+  </div>
+
   <!-- Header -->
   <header class="header">
-    <div class="logo">Public Profile</div>
+    <div class="logo">GalaxyWeb</div>
+    <div class="public-label">Public Profile</div>
   </header>
 
   <!-- Main Content -->
@@ -485,8 +583,36 @@
     const db = firebase.firestore();
 
     // DOM Elements
+    const loadingOverlay = document.getElementById('loadingOverlay');
     const profileContent = document.getElementById('profile-content');
     const postsSection = document.getElementById('posts-section');
+
+    // Create stars for loading overlay
+    function createStars() {
+      const container = document.getElementById('starsContainer');
+      container.innerHTML = '';
+      for (let i = 0; i < 30; i++) {
+        const star = document.createElement('div');
+        star.classList.add('star');
+        
+        // Random position
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        star.style.left = `${x}%`;
+        star.style.top = `${y}%`;
+        
+        // Random size
+        const size = Math.random() * 3 + 1;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        
+        // Random animation duration
+        const duration = Math.random() * 3 + 2;
+        star.style.setProperty('--duration', `${duration}s`);
+        
+        container.appendChild(star);
+      }
+    }
 
     // Get slug from URL
     function getSlugFromUrl() {
@@ -541,6 +667,10 @@
       const slug = getSlugFromUrl();
       if (!slug) {
         profileContent.innerHTML = '<div class="loading">Profile slug not found in URL.</div>';
+        // Hide loading overlay
+        setTimeout(() => {
+          loadingOverlay.classList.add('hidden');
+        }, 500);
         return;
       }
 
@@ -550,6 +680,10 @@
 
         if (!doc.exists) {
           profileContent.innerHTML = '<div class="loading">Profile not found.</div>';
+          // Hide loading overlay
+          setTimeout(() => {
+            loadingOverlay.classList.add('hidden');
+          }, 500);
           return;
         }
 
@@ -558,6 +692,10 @@
         // Check visibility
         if (data.visibility !== true && data.visibility !== 'true') {
           profileContent.innerHTML = '<div class="loading">This profile is not visible to public.</div>';
+          // Hide loading overlay
+          setTimeout(() => {
+            loadingOverlay.classList.add('hidden');
+          }, 500);
           return;
         }
 
@@ -566,24 +704,19 @@
       } catch (error) {
         console.error('Error loading public profile:', error);
         profileContent.innerHTML = '<div class="loading">Error loading profile.</div>';
+        // Hide loading overlay
+        setTimeout(() => {
+          loadingOverlay.classList.add('hidden');
+          }, 500);
       }
     }
 
     // Load user posts by slug
     async function loadUserPostsBySlug(slug) {
       try {
-        // First, get the authorId from publicProfiles
-        const profileDoc = await db.collection('publicProfiles').doc(slug).get();
-        if (!profileDoc.exists) {
-          postsSection.innerHTML = '<div class="loading">Profile not found.</div>';
-          return;
-        }
-        const profileData = profileDoc.data();
-        const authorId = profileData.id; // Assuming you store the actual userId as 'id' in publicProfiles
-
-        // Load posts using authorId
+        // Load posts using slug field
         const postsQuery = await db.collection('posts')
-          .where('authorId', '==', authorId)
+          .where('authorSlug', '==', slug) // Using authorSlug field
           .orderBy('createdAt', 'desc')
           .limit(3)
           .get();
@@ -597,6 +730,11 @@
       } catch (error) {
         console.error('Error loading posts:', error);
         postsSection.innerHTML = '<div class="loading">Error loading posts.</div>';
+      } finally {
+        // Hide loading overlay after data is loaded (or failed)
+        setTimeout(() => {
+          loadingOverlay.classList.add('hidden');
+        }, 2000); // Minimum 2 seconds display time
       }
     }
 
@@ -604,6 +742,10 @@
     function renderProfile(data) {
       profileContent.innerHTML = `
         <div class="profile-card">
+          <div class="profile-actions">
+            <button class="btn-share" id="shareBtn">Share Profile</button>
+          </div>
+          
           <!-- Profile Header -->
           <div class="profile-header">
             <img src="${data.profilePhotoUrl || 'https://via.placeholder.com/150 '}" alt="Profile Photo" class="profile-photo">
@@ -629,6 +771,21 @@
           </div>
         </div>
       `;
+
+      // Add share button functionality
+      document.getElementById('shareBtn').addEventListener('click', () => {
+        if(data.slug) {
+          const shareUrl = `https://www.squadvertex.great-site.net/public_profile?=${data.slug}`;
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            alert('Profile URL copied to clipboard!');
+          }).catch(err => {
+            console.error('Failed to copy: ', err);
+            alert('Failed to copy URL. Please try again.');
+          });
+        } else {
+          alert('No profile slug available for sharing.');
+        }
+      });
     }
 
     // Render posts HTML
@@ -713,6 +870,7 @@
 
     // Load profile when page loads
     window.addEventListener('load', () => {
+      createStars();
       loadPublicProfile();
     });
   </script>
