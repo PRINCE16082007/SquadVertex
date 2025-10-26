@@ -78,7 +78,7 @@
         
         .folders-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -121,6 +121,7 @@
             justify-content: space-between;
             color: #888;
             font-size: 0.9rem;
+            margin-bottom: 15px;
         }
         
         .folder-actions {
@@ -207,6 +208,33 @@
             padding: 4px 8px;
             font-size: 0.8rem;
             cursor: pointer;
+        }
+        
+        .assigned-indicator {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(40, 167, 69, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        
+        .folder-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .folder-image {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 6px;
         }
         
         .modal {
@@ -315,7 +343,7 @@
         <div class="items-section">
             <div id="folderHeader" class="folder-header" style="display: none;">
                 <h2 class="folder-name" id="currentFolderName"></h2>
-                <button class="btn btn-secondary" onclick="showUnassignedItems()">Back to All</button>
+                <button class="btn btn-secondary" onclick="resetView()">Back to All</button>
             </div>
             <h2 class="section-title" id="itemsSectionTitle">All Portfolio Items</h2>
             <div id="itemsGrid" class="items-grid">
@@ -454,23 +482,34 @@
             }
         }
 
-        // Render folder card
+        // Render folder card with images preview
         function renderFolder(folder) {
             const folderCard = document.createElement('div');
             folderCard.className = 'folder-card';
             folderCard.onclick = () => selectFolder(folder.id);
             
+            // Get images in this folder
+            const folderImages = folder.images || [];
+            
             folderCard.innerHTML = `
                 <div class="folder-title">${folder.title}</div>
                 <div class="folder-description">${folder.description || 'No description'}</div>
                 <div class="folder-stats">
-                    <span>${folder.itemCount || 0} items</span>
+                    <span>${folderImages.length} items</span>
                     <span>${folder.isPublic ? 'Public' : 'Private'}</span>
                 </div>
                 <div class="folder-actions">
                     <button class="action-btn edit-btn" onclick="editFolder('${folder.id}'); event.stopPropagation();">Edit</button>
                     <button class="action-btn delete-btn" onclick="deleteFolder('${folder.id}'); event.stopPropagation();">Delete</button>
                 </div>
+                ${folderImages.length > 0 ? `
+                <div class="folder-images">
+                    ${folderImages.slice(0, 6).map(img => `
+                        <img src="${img.url}" alt="${img.title}" class="folder-image" onerror="this.src='image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"150\" height=\"100\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
+                    `).join('')}
+                    ${folderImages.length > 6 ? `<div>+${folderImages.length - 6} more</div>` : ''}
+                </div>
+                ` : ''}
             `;
             
             foldersGrid.appendChild(folderCard);
@@ -481,11 +520,18 @@
             const itemCard = document.createElement('div');
             itemCard.className = 'item-card';
             
+            let assignedIndicator = '';
+            if (item.folderId) {
+                const folder = folders.find(f => f.id === item.folderId);
+                assignedIndicator = `<div class="assigned-indicator">In ${folder ? folder.title : 'Folder'}</div>`;
+            }
+            
             itemCard.innerHTML = `
+                ${assignedIndicator}
                 <div class="item-actions">
                     <button class="assign-btn" onclick="assignItem('${item.id}')">Assign</button>
                 </div>
-                <img src="${item.dropboxUrl}" alt="${item.title}" class="item-image" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"250\" height=\"200\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
+                <img src="${item.dropboxUrl}" alt="${item.title}" class="item-image" onerror="this.src='image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"250\" height=\"200\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
                 <div class="item-info">
                     <div class="item-title">${item.title}</div>
                     <div class="item-category">${item.category || 'Uncategorized'}</div>
@@ -497,7 +543,7 @@
         }
 
         // Select folder to view items
-        function selectFolder(folderId) {
+        async function selectFolder(folderId) {
             currentFolder = folderId;
             document.querySelectorAll('.folder-card').forEach(card => card.classList.remove('active'));
             const selectedCard = document.querySelector(`[onclick*="selectFolder('${folderId}')"]`);
@@ -510,7 +556,7 @@
                 itemsSectionTitle.textContent = `Items in ${folder.title}`;
             }
             
-            loadItems(folderId);
+            await loadItems(folderId);
         }
 
         // Show unassigned items
@@ -614,7 +660,7 @@
                 description: document.getElementById('folderDescription').value,
                 isPublic: document.getElementById('folderPublic').value === 'true',
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                itemCount: 0
+                images: [] // Empty array initially
             };
             
             if (folderId) {
@@ -634,9 +680,47 @@
             e.preventDefault();
             if (currentItemToAssign) {
                 const selectedFolderId = document.getElementById('assignFolder').value || null;
-                await db.collection('portfolioItems').doc(currentItemToAssign).update({
-                    folderId: selectedFolderId
+                const item = items.find(i => i.id === currentItemToAssign);
+                
+                if (!item) return;
+                
+                const batch = db.batch();
+                
+                // Update item's folderId
+                batch.update(db.collection('portfolioItems').doc(currentItemToAssign), { 
+                    folderId: selectedFolderId 
                 });
+                
+                // Update folder's images array
+                if (selectedFolderId) {
+                    const folderRef = db.collection('portfolioFolders').doc(selectedFolderId);
+                    const folderDoc = await folderRef.get();
+                    if (folderDoc.exists) {
+                        const folderImages = folderDoc.data().images || [];
+                        const newImage = {
+                            id: item.id,
+                            url: item.dropboxUrl,
+                            title: item.title,
+                            orderBy: folderImages.length
+                        };
+                        
+                        folderImages.push(newImage);
+                        batch.update(folderRef, { images: folderImages });
+                    }
+                }
+                
+                // If moving from a folder, remove from old folder's array
+                if (item.folderId) {
+                    const oldFolderRef = db.collection('portfolioFolders').doc(item.folderId);
+                    const oldFolderDoc = await oldFolderRef.get();
+                    if (oldFolderDoc.exists) {
+                        const oldImages = oldFolderDoc.data().images || [];
+                        const updatedImages = oldImages.filter(img => img.id !== item.id);
+                        batch.update(oldFolderRef, { images: updatedImages });
+                    }
+                }
+                
+                await batch.commit();
                 closeAssignModal();
                 
                 // Reload based on current view
@@ -647,6 +731,9 @@
                 } else {
                     loadItems();
                 }
+                
+                // Reload folders to update preview
+                await loadFolders();
             }
         });
 
