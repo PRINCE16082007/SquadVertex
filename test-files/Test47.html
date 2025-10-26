@@ -326,6 +326,48 @@
         input:checked + .slider:before {
             transform: translateX(26px);
         }
+
+        /* Preview styles */
+        .preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .preview-item {
+            width: 100px;
+            height: 100px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .preview-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-item .file-name {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            font-size: 10px;
+            padding: 2px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 </head>
 <body>
@@ -359,6 +401,7 @@
                 <button id="uploadBtn" class="upload-btn">
                     <i class="fas fa-upload"></i> Upload to Portfolio
                 </button>
+                <div id="previewContainer" class="preview-container"></div>
             </div>
 
             <select class="category-filter" id="categoryFilter">
@@ -425,7 +468,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
-
     <script>
         // REPLACE THIS WITH YOUR CLOUDFLARE WORKER URL
         const CLOUDFLARE_WORKER_URL = 'https://portfolio-dropbox-handler.teamgalaxy-interactive.workers.dev/';
@@ -469,8 +511,37 @@
 
         function handleFileSelect(event) {
             const files = event.target.files;
+            const previewContainer = document.getElementById('previewContainer');
+            previewContainer.innerHTML = ''; // Clear previous previews
+
             if (files.length > 0) {
-                log.info(`${files.length} files selected`);
+                log.info(`${files.length} files selected: ${Array.from(files).map(f => f.name).join(', ')}`);
+
+                // Update button text
+                const uploadBtn = document.getElementById('uploadBtn');
+                uploadBtn.innerHTML = `<i class="fas fa-upload"></i> Upload ${files.length} File(s)`;
+                uploadBtn.title = Array.from(files).map(f => f.name).join(', ');
+
+                // Create previews
+                Array.from(files).forEach(file => {
+                    if (!file.type.startsWith('image/')) return; // Only process images
+
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const previewItem = document.createElement('div');
+                        previewItem.className = 'preview-item';
+                        previewItem.innerHTML = `
+                            <img src="${e.target.result}" alt="${file.name}">
+                            <div class="file-name">${file.name}</div>
+                        `;
+                        previewContainer.appendChild(previewItem);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            } else {
+                // Reset button text if no files selected
+                document.getElementById('uploadBtn').innerHTML = `<i class="fas fa-upload"></i> Upload to Portfolio`;
+                document.getElementById('uploadBtn').title = '';
             }
         }
 
@@ -486,12 +557,31 @@
             // Show loading indicator
             document.getElementById('loadingIndicator').classList.add('active');
 
-            // Process each file
-            Array.from(files).forEach((file, index) => {
-                setTimeout(() => {
-                    uploadToCloudflareWorker(file);
-                }, index * 1000); // Stagger uploads
+            // Process all files at once
+            const uploadPromises = Array.from(files).map((file, index) => {
+                return new Promise((resolve, reject) => {
+                    setTimeout(async () => {
+                        try {
+                            await uploadToCloudflareWorker(file);
+                            resolve();
+                        } catch (error) {
+                            reject(error);
+                        }
+                    }, index * 1000); // Stagger uploads
+                });
             });
+
+            // Wait for all uploads to complete
+            Promise.all(uploadPromises)
+                .then(() => {
+                    log.success('All uploads completed');
+                    document.getElementById('loadingIndicator').classList.remove('active');
+                })
+                .catch(error => {
+                    log.error(`Upload failed: ${error.message}`);
+                    alert('Upload failed: ' + error.message);
+                    document.getElementById('loadingIndicator').classList.remove('active');
+                });
         }
 
         // Upload to Cloudflare Worker and save to Firebase
@@ -505,7 +595,7 @@
 
             try {
                 log.info(`Uploading ${file.name} to Cloudflare Worker...`);
-                
+
                 const response = await fetch(`${CLOUDFLARE_WORKER_URL}/api/upload`, {
                     method: 'POST',
                     body: formData,
@@ -519,11 +609,11 @@
                 }
 
                 const result = await response.json();
-                
+
                 if (result.success) {
                     log.success(`Successfully uploaded: ${file.name}`);
-                    
-                    // Create portfolio item data
+
+                   // Create portfolio item data
                     const itemData = {
                         fileName: result.fileName,
                         originalName: file.name,
@@ -549,10 +639,7 @@
 
             } catch (error) {
                 log.error(`Upload failed: ${error.message}`);
-                alert('Upload failed: ' + error.message);
-                
-                // Hide loading indicator on error
-                document.getElementById('loadingIndicator').classList.remove('active');
+                throw error; // Re-throw to be caught by handleUpload
             }
         }
 
@@ -613,7 +700,7 @@
             card.dataset.id = item.id;
 
             card.innerHTML = `
-                <img src="${item.dropboxUrl}" alt="${item.title}" class="image-preview" onerror="this.src='image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMzMzIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPkltYWdlIEVycm9yPC90ZXh0Pjwvc3ZnPg=='">
+                <img src="${item.dropboxUrl}" alt="${item.title}" class="image-preview" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMzMzIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPkltYWdlIEVycm9yPC90ZXh0Pjwvc3ZnPg=='">
                 <div class="image-info">
                     <div class="image-title">${item.title || item.originalName}</div>
                     <div class="image-description">${item.description}</div>
