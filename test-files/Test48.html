@@ -20,6 +20,7 @@
             padding: 20px;
             background: var(--background);
             color: var(--text);
+            min-height: 100vh;
         }
         
         .container {
@@ -90,6 +91,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
             border: 2px solid transparent;
+            cursor: pointer;
         }
         
         .folder-card:hover {
@@ -268,6 +270,8 @@
             font-weight: 600;
         }
         
+        .form-group input,
+        .form-group textarea,
         .form-group select {
             width: 100%;
             padding: 12px;
@@ -277,6 +281,8 @@
             transition: border-color 0.3s ease;
         }
         
+        .form-group input:focus,
+        .form-group textarea:focus,
         .form-group select:focus {
             outline: none;
             border-color: var(--primary);
@@ -321,6 +327,24 @@
             color: var(--primary);
             margin: 0;
         }
+        
+        .status-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .status-public {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-private {
+            background: #f8d7da;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
@@ -330,6 +354,7 @@
             <div class="controls">
                 <button class="btn btn-primary" onclick="showFolderModal()">Add Folder</button>
                 <button class="btn btn-secondary" onclick="showUnassignedItems()">View Unassigned Items</button>
+                <button class="btn btn-secondary" onclick="ensureFolderIdField()">Fix Missing Fields</button>
             </div>
         </div>
 
@@ -432,9 +457,23 @@
 
         // Initialize the app
         async function init() {
+            showLoading();
             await loadFolders();
             await loadItems();
             populateFolderDropdown();
+            hideLoading();
+        }
+
+        // Loading indicator
+        function showLoading() {
+            itemsGrid.innerHTML = '<div class="loading">Loading...</div>';
+        }
+
+        function hideLoading() {
+            // Remove loading message if it exists
+            if (itemsGrid.innerHTML.includes('Loading...')) {
+                itemsGrid.innerHTML = '';
+            }
         }
 
         // Load folders from Firestore
@@ -451,6 +490,7 @@
                 });
             } catch (error) {
                 console.error('Error loading folders:', error);
+                itemsGrid.innerHTML = '<div class="no-items">Error loading folders. Please try again.</div>';
             }
         }
 
@@ -471,15 +511,23 @@
                 
                 snapshot.forEach(doc => {
                     const item = { id: doc.id, ...doc.data() };
+                    // Ensure folderId exists
+                    if (item.folderId === undefined) {
+                        item.folderId = null;
+                    }
                     items.push(item);
                     renderItem(item);
                 });
                 
                 if (items.length === 0) {
-                    itemsGrid.innerHTML = '<div class="no-items">No items found in this section.</div>';
+                    const message = folderId === 'unassigned' ? 
+                        'No unassigned items found.' : 
+                        'No items found in this section.';
+                    itemsGrid.innerHTML = `<div class="no-items">${message}</div>`;
                 }
             } catch (error) {
                 console.error('Error loading items:', error);
+                itemsGrid.innerHTML = '<div class="no-items">Error loading items. Please try again.</div>';
             }
         }
 
@@ -497,7 +545,9 @@
                 <div class="folder-description">${folder.description || 'No description'}</div>
                 <div class="folder-stats">
                     <span>${folderImages.length} items</span>
-                    <span>${folder.isPublic ? 'Public' : 'Private'}</span>
+                    <span class="status-indicator ${folder.isPublic ? 'status-public' : 'status-private'}">
+                        ${folder.isPublic ? 'Public' : 'Private'}
+                    </span>
                 </div>
                 <div class="folder-actions">
                     <button class="action-btn edit-btn" onclick="editFolder('${folder.id}'); event.stopPropagation();">Edit</button>
@@ -506,7 +556,7 @@
                 ${folderImages.length > 0 ? `
                 <div class="folder-images">
                     ${folderImages.slice(0, 8).map(img => `
-                        <img src="${img.url}" alt="${img.title}" class="folder-image" onerror="this.src='image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"80\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
+                        <img src="${img.url}" alt="${img.title}" class="folder-image" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"80\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
                     `).join('')}
                     ${folderImages.length > 8 ? `<div style="text-align:center; font-size:0.8rem; color:#888;">+${folderImages.length - 8} more</div>` : ''}
                 </div>
@@ -532,7 +582,7 @@
                 <div class="item-actions">
                     <button class="assign-btn" onclick="assignItem('${item.id}')">Assign</button>
                 </div>
-                <img src="${item.dropboxUrl}" alt="${item.title}" class="item-image" onerror="this.src='image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"250\" height=\"200\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
+                <img src="${item.dropboxUrl}" alt="${item.title}" class="item-image" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"250\" height=\"200\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
                 <div class="item-info">
                     <div class="item-title">${item.title}</div>
                     <div class="item-category">${item.category || 'Uncategorized'}</div>
@@ -594,6 +644,7 @@
         function showFolderModal() {
             document.getElementById('folderModalTitle').textContent = 'Add New Folder';
             folderForm.reset();
+            folderForm.removeAttribute('data-folder-id');
             folderModal.style.display = 'block';
         }
 
@@ -651,6 +702,38 @@
             }
         }
 
+        // Add missing folderId field to all documents
+        async function ensureFolderIdField() {
+            try {
+                const snapshot = await db.collection('portfolioItems').get();
+                const batch = db.batch();
+                let updatedCount = 0;
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.folderId === undefined) {
+                        batch.update(doc.ref, { folderId: null });
+                        updatedCount++;
+                    }
+                });
+                
+                if (updatedCount > 0) {
+                    await batch.commit();
+                    alert(`Fixed ${updatedCount} items. Added missing folderId field.`);
+                    if (currentFolder === 'unassigned') {
+                        await loadItems('unassigned');
+                    } else {
+                        await init();
+                    }
+                } else {
+                    alert('No items needed fixing - all have folderId field.');
+                }
+            } catch (error) {
+                console.error('Error fixing folderId fields:', error);
+                alert('Error fixing folderId fields. Check console for details.');
+            }
+        }
+
         // Event Listeners
         folderForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -664,17 +747,22 @@
                 images: [] // Empty array initially
             };
             
-            if (folderId) {
-                await db.collection('portfolioFolders').doc(folderId).update(folderData);
-            } else {
-                folderData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                folderData.folderOrder = folders.length;
-                await db.collection('portfolioFolders').add(folderData);
+            try {
+                if (folderId) {
+                    await db.collection('portfolioFolders').doc(folderId).update(folderData);
+                } else {
+                    folderData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    folderData.folderOrder = folders.length;
+                    await db.collection('portfolioFolders').add(folderData);
+                }
+                
+                closeFolderModal();
+                folderForm.removeAttribute('data-folder-id');
+                await init();
+            } catch (error) {
+                console.error('Error saving folder:', error);
+                alert('Error saving folder. Check console for details.');
             }
-            
-            closeFolderModal();
-            folderForm.removeAttribute('data-folder-id');
-            await init();
         });
 
         assignForm.addEventListener('submit', async (e) => {
@@ -685,47 +773,52 @@
                 
                 if (!item) return;
                 
-                const batch = db.batch();
-                
-                // Update item's folderId
-                batch.update(db.collection('portfolioItems').doc(currentItemToAssign), { 
-                    folderId: selectedFolderId 
-                });
-                
-                // If assigning to a folder, add to folder's images array
-                if (selectedFolderId) {
-                    const folderRef = db.collection('portfolioFolders').doc(selectedFolderId);
-                    const folderDoc = await folderRef.get();
-                    if (folderDoc.exists) {
-                        const folderImages = folderDoc.data().images || [];
-                        const newImage = {
-                            id: item.id,
-                            url: item.dropboxUrl,
-                            title: item.title,
-                            orderBy: folderImages.length
-                        };
-                        
-                        folderImages.push(newImage);
-                        batch.update(folderRef, { images: folderImages });
+                try {
+                    const batch = db.batch();
+                    
+                    // Update item's folderId
+                    batch.update(db.collection('portfolioItems').doc(currentItemToAssign), { 
+                        folderId: selectedFolderId 
+                    });
+                    
+                    // If assigning to a folder, add to folder's images array
+                    if (selectedFolderId) {
+                        const folderRef = db.collection('portfolioFolders').doc(selectedFolderId);
+                        const folderDoc = await folderRef.get();
+                        if (folderDoc.exists) {
+                            const folderImages = folderDoc.data().images || [];
+                            const newImage = {
+                                id: item.id,
+                                url: item.dropboxUrl,
+                                title: item.title,
+                                orderBy: folderImages.length
+                            };
+                            
+                            folderImages.push(newImage);
+                            batch.update(folderRef, { images: folderImages });
+                        }
                     }
-                }
-                
-                // If moving from a folder, remove from old folder's array
-                if (item.folderId) {
-                    const oldFolderRef = db.collection('portfolioFolders').doc(item.folderId);
-                    const oldFolderDoc = await oldFolderRef.get();
-                    if (oldFolderDoc.exists) {
-                        const oldImages = oldFolderDoc.data().images || [];
-                        const updatedImages = oldImages.filter(img => img.id !== item.id);
-                        batch.update(oldFolderRef, { images: updatedImages });
+                    
+                    // If moving from a folder, remove from old folder's array
+                    if (item.folderId) {
+                        const oldFolderRef = db.collection('portfolioFolders').doc(item.folderId);
+                        const oldFolderDoc = await oldFolderRef.get();
+                        if (oldFolderDoc.exists) {
+                            const oldImages = oldFolderDoc.data().images || [];
+                            const updatedImages = oldImages.filter(img => img.id !== item.id);
+                            batch.update(oldFolderRef, { images: updatedImages });
+                        }
                     }
+                    
+                    await batch.commit();
+                    closeAssignModal();
+                    
+                    // Reload everything to reflect changes
+                    await init();
+                } catch (error) {
+                    console.error('Error assigning item:', error);
+                    alert('Error assigning item. Check console for details.');
                 }
-                
-                await batch.commit();
-                closeAssignModal();
-                
-                // Reload everything to reflect changes
-                await init();
             }
         });
 
@@ -734,13 +827,8 @@
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
             const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(log(bytes) / log(k));
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-        
-        // Helper for log (since Math.log is not defined in some contexts)
-        function log(x) {
-            return Math.log(x);
         }
 
         // Close modals when clicking outside
