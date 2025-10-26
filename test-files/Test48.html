@@ -223,8 +223,8 @@
         
         .folder-images {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 8px;
             margin-top: 15px;
             padding-top: 15px;
             border-top: 1px solid var(--border);
@@ -232,7 +232,7 @@
         
         .folder-image {
             width: 100%;
-            height: 100px;
+            height: 80px;
             object-fit: cover;
             border-radius: 6px;
         }
@@ -458,10 +458,11 @@
         async function loadItems(folderId = null) {
             try {
                 let query = db.collection('portfolioItems');
-                if (folderId !== null) {
-                    query = query.where('folderId', '==', folderId);
-                } else if (currentFolder === 'unassigned') {
+                
+                if (folderId === 'unassigned') {
                     query = query.where('folderId', '==', null);
+                } else if (folderId) {
+                    query = query.where('folderId', '==', folderId);
                 }
                 
                 const snapshot = await query.orderBy('uploadDate', 'desc').get();
@@ -475,7 +476,7 @@
                 });
                 
                 if (items.length === 0) {
-                    itemsGrid.innerHTML = '<div class="no-items">No items found in this folder.</div>';
+                    itemsGrid.innerHTML = '<div class="no-items">No items found in this section.</div>';
                 }
             } catch (error) {
                 console.error('Error loading items:', error);
@@ -504,12 +505,12 @@
                 </div>
                 ${folderImages.length > 0 ? `
                 <div class="folder-images">
-                    ${folderImages.slice(0, 6).map(img => `
-                        <img src="${img.url}" alt="${img.title}" class="folder-image" onerror="this.src='image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"150\" height=\"100\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
+                    ${folderImages.slice(0, 8).map(img => `
+                        <img src="${img.url}" alt="${img.title}" class="folder-image" onerror="this.src='image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"80\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
                     `).join('')}
-                    ${folderImages.length > 6 ? `<div>+${folderImages.length - 6} more</div>` : ''}
+                    ${folderImages.length > 8 ? `<div style="text-align:center; font-size:0.8rem; color:#888;">+${folderImages.length - 8} more</div>` : ''}
                 </div>
-                ` : ''}
+                ` : '<div style="text-align:center; color:#888; font-style:italic;">No images in folder</div>'}
             `;
             
             foldersGrid.appendChild(folderCard);
@@ -543,7 +544,7 @@
         }
 
         // Select folder to view items
-        async function selectFolder(folderId) {
+        function selectFolder(folderId) {
             currentFolder = folderId;
             document.querySelectorAll('.folder-card').forEach(card => card.classList.remove('active'));
             const selectedCard = document.querySelector(`[onclick*="selectFolder('${folderId}')"]`);
@@ -556,7 +557,7 @@
                 itemsSectionTitle.textContent = `Items in ${folder.title}`;
             }
             
-            await loadItems(folderId);
+            loadItems(folderId);
         }
 
         // Show unassigned items
@@ -565,7 +566,7 @@
             document.querySelectorAll('.folder-card').forEach(card => card.classList.remove('active'));
             folderHeader.style.display = 'none';
             itemsSectionTitle.textContent = 'Unassigned Portfolio Items';
-            loadItems(null);
+            loadItems('unassigned');
         }
 
         // Reset to all items view
@@ -691,7 +692,7 @@
                     folderId: selectedFolderId 
                 });
                 
-                // Update folder's images array
+                // If assigning to a folder, add to folder's images array
                 if (selectedFolderId) {
                     const folderRef = db.collection('portfolioFolders').doc(selectedFolderId);
                     const folderDoc = await folderRef.get();
@@ -723,17 +724,8 @@
                 await batch.commit();
                 closeAssignModal();
                 
-                // Reload based on current view
-                if (currentFolder === 'unassigned') {
-                    showUnassignedItems();
-                } else if (currentFolder) {
-                    selectFolder(currentFolder);
-                } else {
-                    loadItems();
-                }
-                
-                // Reload folders to update preview
-                await loadFolders();
+                // Reload everything to reflect changes
+                await init();
             }
         });
 
@@ -742,8 +734,13 @@
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
             const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            const i = Math.floor(log(bytes) / log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Helper for log (since Math.log is not defined in some contexts)
+        function log(x) {
+            return Math.log(x);
         }
 
         // Close modals when clicking outside
