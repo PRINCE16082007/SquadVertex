@@ -177,7 +177,6 @@
             height: 200px;
             object-fit: cover;
             border-bottom: 1px solid var(--border);
-            transition: opacity 0.3s ease;
         }
 
         .item-info {
@@ -207,6 +206,15 @@
         }
 
         .assign-btn {
+            background: rgba(255,255,255,0.9);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .edit-item-btn {
             background: rgba(255,255,255,0.9);
             border: 1px solid var(--border);
             border-radius: 4px;
@@ -349,29 +357,6 @@
             color: #721c24;
         }
 
-        /* Lazy loading placeholder */
-        .lazy-image {
-            background-color: #f0f0f0;
-            position: relative;
-        }
-        
-        .lazy-image::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-        }
-        
-        @keyframes loading {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .header {
@@ -405,7 +390,6 @@
                 <button class="btn btn-primary" onclick="showFolderModal()">Add Folder</button>
                 <button class="btn btn-secondary" onclick="showUnassignedItems()">View Unassigned Items</button>
                 <button class="btn btn-secondary" onclick="ensureFolderIdField()">Fix Missing Fields</button>
-                <button class="btn btn-secondary" onclick="optimizePortfolio()">Optimize Portfolio</button>
             </div>
         </div>
 
@@ -472,6 +456,25 @@
         </div>
     </div>
 
+    <!-- Edit Item Modal -->
+    <div id="editItemModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditItemModal()">&times;</span>
+            <h2>Edit Item</h2>
+            <form id="editItemForm">
+                <div class="form-group">
+                    <label for="editItemTitle">Title</label>
+                    <input type="text" id="editItemTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="editItemDescription">Description</label>
+                    <textarea id="editItemDescription" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js "></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js "></script>
     <script>
@@ -493,8 +496,6 @@
         let currentFolder = null;
         let folders = [];
         let items = [];
-        let imageCache = new Map(); // For caching optimized images
-        let currentUserId = null; // To track current user for security
 
         // DOM Elements
         const foldersGrid = document.getElementById('foldersGrid');
@@ -504,9 +505,12 @@
         const currentFolderName = document.getElementById('currentFolderName');
         const folderModal = document.getElementById('folderModal');
         const assignModal = document.getElementById('assignModal');
+        const editItemModal = document.getElementById('editItemModal');
         const folderForm = document.getElementById('folderForm');
         const assignForm = document.getElementById('assignForm');
+        const editItemForm = document.getElementById('editItemForm');
         let currentItemToAssign = null;
+        let currentItemToEdit = null;
 
         // Initialize the app
         async function init() {
@@ -550,42 +554,76 @@
         // Load items from Firestore
         async function loadItems(folderId = null) {
             try {
-                let snapshot;
-                
+                // For unassigned items, we'll get all items and filter in client-side
                 if (folderId === 'unassigned') {
-                    // For unassigned items
-                    snapshot = await db.collection('portfolioItems')
-                        .where('folderId', '==', null)
-                        .orderBy('uploadDate', 'desc')
-                        .get();
-                } else if (folderId) {
-                    // For specific folder - this is the main fix
-                    snapshot = await db.collection('portfolioItems')
+                    const snapshot = await db.collection('portfolioItems').get();
+                    items = [];
+                    itemsGrid.innerHTML = '';
+
+                    snapshot.forEach(doc => {
+                        const item = { id: doc.id, ...doc.data() };
+                        // Ensure folderId exists (default to null if missing)
+                        if (item.folderId === undefined) {
+                            item.folderId = null;
+                        }
+
+                        // Only include items with folderId === null (unassigned)
+                        if (item.folderId === null) {
+                            items.push(item);
+                            renderItem(item);
+                        }
+                    });
+
+                    if (items.length === 0) {
+                        itemsGrid.innerHTML = '<div class="no-items">No unassigned items found.</div>';
+                    }
+                } 
+                // For specific folder
+                else if (folderId) {
+                    const snapshot = await db.collection('portfolioItems')
                         .where('folderId', '==', folderId)
                         .orderBy('uploadDate', 'desc')
                         .get();
-                } else {
-                    // For all items
-                    snapshot = await db.collection('portfolioItems')
+
+                    items = [];
+                    itemsGrid.innerHTML = '';
+
+                    snapshot.forEach(doc => {
+                        const item = { id: doc.id, ...doc.data() };
+                        // Ensure folderId exists
+                        if (item.folderId === undefined) {
+                            item.folderId = null;
+                        }
+                        items.push(item);
+                        renderItem(item);
+                    });
+
+                    if (items.length === 0) {
+                        itemsGrid.innerHTML = '<div class="no-items">No items found in this folder.</div>';
+                    }
+                } 
+                // For all items
+                else {
+                    const snapshot = await db.collection('portfolioItems')
                         .orderBy('uploadDate', 'desc')
                         .get();
-                }
 
-                items = [];
-                itemsGrid.innerHTML = '';
+                    items = [];
+                    itemsGrid.innerHTML = '';
 
-                snapshot.forEach(doc => {
-                    const item = { id: doc.id, ...doc.data() };
-                    // Ensure folderId exists
-                    if (item.folderId === undefined) {
-                        item.folderId = null;
+                    snapshot.forEach(doc => {
+                        const item = { id: doc.id, ...doc.data() };
+                        // Ensure folderId exists
+                        if (item.folderId === undefined) {
+                            item.folderId = null;
+                        }
+                        items.push(item);
+                        renderItem(item);
+                    });
+
+                    if (items.length === 0) {
+                        itemsGrid.innerHTML = '<div class="no-items">No items found.</div>';
                     }
-                    items.push(item);
-                    renderItem(item);
-                });
-
-                if (items.length === 0) {
-                    itemsGrid.innerHTML = '<div class="no-items">No items found.</div>';
                 }
             } catch (error) {
                 console.error('Error loading items:', error);
@@ -618,7 +656,7 @@
                 ${folderImages.length > 0 ? `
                 <div class="folder-images">
                     ${folderImages.slice(0, 8).map(img => `
-                        <img src="${getOptimizedImageUrl(img.url, 100)}" alt="${img.title}" class="folder-image" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"80\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
+                        <img src="${img.url}" alt="${img.title}" class="folder-image" onerror="this.src='image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"80\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
                     `).join('')}
                     ${folderImages.length > 8 ? `<div style="text-align:center; font-size:0.8rem; color:#888;">+${folderImages.length - 8} more</div>` : ''}
                 </div>
@@ -628,7 +666,7 @@
             foldersGrid.appendChild(folderCard);
         }
 
-        // Render item card with lazy loading
+        // Render item card
         function renderItem(item) {
             const itemCard = document.createElement('div');
             itemCard.className = 'item-card';
@@ -639,19 +677,13 @@
                 assignedIndicator = `<div class="assigned-indicator">In ${folder ? folder.title : 'Folder'}</div>`;
             }
 
-            // Create optimized image URL
-            const optimizedUrl = getOptimizedImageUrl(item.dropboxUrl, 300);
-            
             itemCard.innerHTML = `
                 ${assignedIndicator}
                 <div class="item-actions">
-                    <button class="assign-btn" onclick="assignItem('${item.id}')">Assign</button>
+                    <button class="edit-item-btn" onclick="editItem('${item.id}'); event.stopPropagation();">Edit</button>
+                    <button class="assign-btn" onclick="assignItem('${item.id}'); event.stopPropagation();">Assign</button>
                 </div>
-                <img src="image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='250' height='200' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='2' ry='2'></rect><circle cx='8.5' cy='8.5' r='1.5'></circle><path d='M21 15l-5-5L5 21'></path></svg>" 
-                     data-src="${optimizedUrl}" 
-                     alt="${item.title}" 
-                     class="item-image lazy-image" 
-                     onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"250\" height=\"200\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
+                <img src="${item.dropboxUrl}" alt="${item.title}" class="item-image" onerror="this.src='image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"250\" height=\"200\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><path d=\"M21 15l-5-5L5 21\"></path></svg>'">
                 <div class="item-info">
                     <div class="item-title">${item.title}</div>
                     <div class="item-category">${item.category || 'Uncategorized'}</div>
@@ -730,6 +762,17 @@
             assignModal.style.display = 'block';
         }
 
+        // Show edit item modal
+        function editItem(itemId) {
+            const item = items.find(i => i.id === itemId);
+            if (item) {
+                currentItemToEdit = itemId;
+                document.getElementById('editItemTitle').value = item.title || '';
+                document.getElementById('editItemDescription').value = item.description || '';
+                editItemModal.style.display = 'block';
+            }
+        }
+
         // Close modals
         function closeFolderModal() {
             folderModal.style.display = 'none';
@@ -738,6 +781,11 @@
         function closeAssignModal() {
             assignModal.style.display = 'none';
             currentItemToAssign = null;
+        }
+
+        function closeEditItemModal() {
+            editItemModal.style.display = 'none';
+            currentItemToEdit = null;
         }
 
         // Edit folder
@@ -812,106 +860,6 @@
             }
         }
 
-        // OPTIMIZATION FUNCTIONS
-        // Get optimized image URL with size parameters
-        function getOptimizedImageUrl(originalUrl, size) {
-            // For Dropbox URLs, add size parameter
-            if (originalUrl.includes('dropbox.com')) {
-                // Replace dl=0 with dl=1 for direct download and add size parameter
-                return originalUrl.replace('dl=0', 'dl=1') + `?raw=1&w=${size}&h=${size}`;
-            }
-            // For other services, add query parameters for optimization
-            return `${originalUrl}?w=${size}&h=${size}&fit=cover`;
-        }
-
-        // Optimize portfolio - compress images, implement lazy loading, etc.
-        async function optimizePortfolio() {
-            const result = confirm("This will optimize your entire portfolio by compressing images, implementing lazy loading, and cleaning up data. Continue?");
-            if (!result) return;
-
-            // Show optimization progress
-            const progressBar = document.createElement('div');
-            progressBar.id = 'optimization-progress';
-            progressBar.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 4px;
-                background: linear-gradient(to right, #4a00e0, #8e2de2);
-                z-index: 9999;
-            `;
-            document.body.appendChild(progressBar);
-
-            try {
-                // Step 1: Optimize all images
-                const snapshot = await db.collection('portfolioItems').get();
-                let processed = 0;
-                
-                for (const doc of snapshot.docs) {
-                    const item = { id: doc.id, ...doc.data() };
-                    
-                    // Update image URLs to optimized versions
-                    if (item.dropboxUrl) {
-                        // For Dropbox, we'll use size parameters in URLs instead of actual compression
-                        // This reduces bandwidth without changing stored URLs
-                        const optimizedUrl = getOptimizedImageUrl(item.dropboxUrl, 800);
-                        
-                        // Store optimized URL in a new field for future use
-                        await db.collection('portfolioItems').doc(doc.id).update({
-                            optimizedUrl: optimizedUrl
-                        });
-                    }
-                    
-                    processed++;
-                    const progress = (processed / snapshot.docs.length) * 100;
-                    progressBar.style.width = `${progress}%`;
-                }
-
-                // Step 2: Implement lazy loading
-                implementLazyLoading();
-
-                // Step 3: Clear image cache
-                imageCache.clear();
-
-                alert(`Portfolio optimized! Processed ${processed} items.`);
-            } catch (error) {
-                console.error('Error during optimization:', error);
-                alert('Error during optimization. Check console for details.');
-            } finally {
-                // Remove progress bar
-                document.body.removeChild(progressBar);
-            }
-        }
-
-        // Implement lazy loading for images
-        function implementLazyLoading() {
-            const imageObserver = new IntersectionObserver((entries, observer) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const img = entry.target;
-                        const src = img.dataset.src;
-                        
-                        if (src) {
-                            img.src = src;
-                            img.classList.remove('lazy-image');
-                            img.onload = () => {
-                                // Cache the loaded image
-                                imageCache.set(src, img.src);
-                            };
-                        }
-                        
-                        observer.unobserve(img);
-                    }
-                });
-            });
-
-            // Observe all lazy images
-            document.querySelectorAll('.lazy-image').forEach(img => {
-                imageObserver.observe(img);
-            });
-        }
-
         // Event Listeners
         folderForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -921,8 +869,7 @@
                 title: document.getElementById('folderTitle').value,
                 description: document.getElementById('folderDescription').value,
                 isPublic: document.getElementById('folderPublic').value === 'true',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                images: [] // Empty array initially
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
             try {
@@ -1000,6 +947,45 @@
             }
         });
 
+        editItemForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (currentItemToEdit) {
+                const item = items.find(i => i.id === currentItemToEdit);
+                if (!item) return;
+
+                try {
+                    const updatedData = {
+                        title: document.getElementById('editItemTitle').value,
+                        description: document.getElementById('editItemDescription').value
+                    };
+
+                    // Update item in Firestore
+                    await db.collection('portfolioItems').doc(currentItemToEdit).update(updatedData);
+
+                    // Update folder's image array if item is in a folder
+                    if (item.folderId) {
+                        const folderRef = db.collection('portfolioFolders').doc(item.folderId);
+                        const folderDoc = await folderRef.get();
+                        if (folderDoc.exists) {
+                            const folderImages = folderDoc.data().images || [];
+                            const imageIndex = folderImages.findIndex(img => img.id === currentItemToEdit);
+                            if (imageIndex !== -1) {
+                                folderImages[imageIndex].title = updatedData.title;
+                                await folderRef.update({ images: folderImages });
+                            }
+                        }
+                    }
+
+                    closeEditItemModal();
+                    // Reload items to reflect changes
+                    await init();
+                } catch (error) {
+                    console.error('Error updating item:', error);
+                    alert('Error updating item. Check console for details.');
+                }
+            }
+        });
+
         // Helper function to format file size
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
@@ -1013,6 +999,7 @@
         window.onclick = (event) => {
             if (event.target === folderModal) closeFolderModal();
             if (event.target === assignModal) closeAssignModal();
+            if (event.target === editItemModal) closeEditItemModal();
         };
 
         // Initialize when page loads
