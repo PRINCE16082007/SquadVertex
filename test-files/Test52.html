@@ -1,636 +1,690 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>PDF Editor — Multiple Images Support</title>
-<style>
-  body{ margin:16px; font-family:Inter,system-ui,Roboto,Arial; background:#071025; color:#e6f3ff; }
-  h2{ color:#7cc1ff; }
-  .controls{ display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
-  input[type=file]{ padding:8px; border-radius:6px; background:#071428; color:#fff; border:1px solid rgba(255,255,255,0.03); }
-  button{ padding:8px 12px; border-radius:8px; border:none; background:#7cc1ff; color:#032033; font-weight:600; cursor:pointer; }
-  #workspace{ display:flex; gap:16px; align-items:flex-start; }
-  #pdf-panel{ width:720px; height:920px; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.6); }
-  #pdf-container{ position:relative; width:100%; height:100%; background:#fff; }
-  #pdf-canvas{ display:block; width:100%; height:auto; background:#fff; }
-  img.editable-image{ position:absolute; cursor:move; border:2px dashed rgba(124,193,255,0.9); box-sizing:border-box; }
-  #side{ width:360px; }
-  .field{ margin-bottom:8px; color:#cde6ff; }
-  label{ color:#bfe7ff; margin-right:6px; }
-  input[type=number]{ width:80px; padding:6px; border-radius:6px; border:1px solid rgba(255,255,255,0.04); background:#071428; color:#e6f7ff; }
-  #log-window{ margin-top:10px; height:220px; overflow:auto; padding:10px; background:#041422; border-radius:8px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; font-size:12px; color:#bfe1ff; border:1px solid rgba(255,255,255,0.03); }
-  .log-time{ color:#80bde6; margin-right:8px; }
-  .log-error{ color:#ff9b9b; }
-  .log-info{ color:#cfeeff; }
-  .btn-ghost{ background:transparent; border:1px solid rgba(255,255,255,0.04); color:#9fc8ea; padding:6px 10px; border-radius:6px; cursor:pointer; }
-  #image-list{ margin-top:10px; padding:10px; background:#041422; border-radius:8px; max-height:200px; overflow:auto; }
-  .image-item{ display:flex; align-items:center; padding:5px; margin:5px 0; background:#0a1a2a; border-radius:6px; }
-  .image-thumb{ width:40px; height:40px; object-fit:cover; margin-right:10px; border-radius:4px; }
-  .page-selector{ padding:4px; border-radius:4px; background:#071428; color:#e6f7ff; border:1px solid rgba(255,255,255,0.04); }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TeamGalaxy — Create Post</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Base styling */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, Roboto, sans-serif;
+      background: #0a0e17;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      line-height: 1.6;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Stars background */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(2px 2px at 10% 20%, #fff, transparent),
+        radial-gradient(1px 1px at 30% 40%, #64c2ff, transparent),
+        radial-gradient(1.5px 1.5px at 50% 60%, #fab84f, transparent),
+        radial-gradient(1px 1px at 70% 80%, #fff, transparent),
+        radial-gradient(2px 2px at 90% 10%, #64c2ff, transparent),
+        radial-gradient(1px 1px at 20% 80%, #fab84f, transparent),
+        radial-gradient(1.5px 1.5px at 80% 30%, #fff, transparent),
+        radial-gradient(1px 1px at 60% 70%, #64c2ff, transparent),
+        radial-gradient(2px 2px at 40% 10%, #fab84f, transparent),
+        radial-gradient(1px 1px at 95% 50%, #fff, transparent);
+      background-repeat: repeat;
+      background-size: 100% 100%;
+      z-index: -1;
+      animation: sparkle 20s linear infinite;
+    }
+
+    @keyframes sparkle {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-100vh); }
+    }
+
+    .card {
+      width: 100%;
+      max-width: 800px;
+      background: linear-gradient(145deg, rgba(24, 31, 43, 0.95) 0%, rgba(32, 40, 57, 0.95) 100%);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Header styling */
+    .app-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(90deg, #ffffff 0%, #64c2ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .beta-badge {
+      background: #fab84f;
+      color: #000;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    /* Form styling */
+    .form-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .main-content {
+      grid-column: 1 / -1;
+    }
+
+    .tag-section {
+      grid-column: 1 / -1;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #d0d0d0;
+      font-size: 14px;
+    }
+
+    input[type="text"], textarea, select {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(24, 31, 43, 0.95);
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 15px;
+      transition: all 0.2s ease;
+    }
+
+    input[type="text"]:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #64c2ff;
+      background: rgba(32, 40, 57, 0.95);
+      box-shadow: 0 0 0 3px rgba(100, 194, 255, 0.2);
+    }
+
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+    }
+
+    /* Tag input styling */
+    .tags-input-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(24, 31, 43, 0.95);
+      min-height: 50px;
+    }
+
+    .tag-item {
+      background: rgba(250, 184, 79, 0.2);
+      color: #fab84f;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid rgba(250, 184, 79, 0.3);
+    }
+
+    .tag-item span {
+      margin-right: 6px;
+    }
+
+    .tag-item i {
+      cursor: pointer;
+      font-size: 12px;
+      color: #fab84f;
+    }
+
+    .tags-input {
+      flex-grow: 1;
+      border: none;
+      outline: none;
+      padding: 8px 0;
+      background: transparent;
+      min-width: 80px;
+      color: #ffffff;
+    }
+
+    /* Buttons */
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    button {
+      padding: 14px 20px;
+      border-radius: 10px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      font-size: 15px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(90deg, #fab84f, #64c2ff);
+      color: #000;
+      box-shadow: 0 4px 12px rgba(250, 184, 79, 0.25);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(250, 184, 79, 0.35);
+    }
+
+    .btn-secondary {
+      background: rgba(24, 31, 43, 0.95);
+      color: #d0d0d0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(32, 40, 57, 0.95);
+    }
+
+    /* User bar */
+    .user-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      background: rgba(24, 31, 43, 0.95);
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .user-info h2 {
+      font-size: 18px;
+      margin-bottom: 4px;
+      color: #ffffff;
+    }
+
+    .user-info p {
+      color: #d0d0d0;
+      font-size: 14px;
+    }
+
+    .auth-btn {
+      background: #64c2ff;
+      color: #000;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+
+    .auth-btn:hover {
+      background: #fab84f;
+    }
+
+    /* Status messages */
+    .status-message {
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-top: 20px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .status-success {
+      background: rgba(27, 58, 45, 0.9);
+      color: #86efac;
+      border: 1px solid #34d399;
+    }
+
+    .status-error {
+      background: rgba(69, 26, 26, 0.9);
+      color: #fca5a5;
+      border: 1px solid #f87171;
+    }
+
+    /* Footer */
+    .app-footer {
+      margin-top: 24px;
+      text-align: center;
+      color: #d0d0d0;
+      font-size: 14px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .form-container {
+        grid-template-columns: 1fr;
+      }
+
+      .user-bar {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+    }
+  </style>
 </head>
 <body>
+  <div class="card">
+    <div class="app-header">
+      <div class="logo">
+        <i class="fas fa-rocket"></i>
+        <span>TeamGalaxy</span>
+        <span class="beta-badge">BETA</span>
+      </div>
+    </div>
 
-<h2>PDF Editor — Multiple Images Support</h2>
+    <div class="user-bar">
+      <div class="user-info">
+        <h2>Create Post</h2>
+        <p id="userHint">Sign in to post — we'll use your profile information</p>
+      </div>
+      <div id="authControls">
+        <button class="auth-btn" id="signInBtn">
+          <i class="fab fa-google"></i>
+          Sign in with Google
+        </button>
+      </div>
+    </div>
 
-<div class="controls">
-  <input id="pdf-upload" type="file" accept="application/pdf" />
-  <input id="image-upload" type="file" accept="image/*" />
-  <button id="prev-page">Previous Page</button>
-  <button id="next-page">Next Page</button>
-  <span id="page-number">Page 1</span>
-  <button id="save-pdf-btn">Save PDF with Images</button>
-  <button id="clear-logs" class="btn-ghost">Clear logs</button>
-  <div style="color:#9fc8ea;">Upload PDF first → then images. Drag to place. Click image to edit.</div>
-</div>
+    <form id="postForm">
+      <div class="form-container">
+        <div class="form-group main-content">
+          <label for="title">Post Title</label>
+          <input type="text" id="title" placeholder="Enter a catchy title for your post" required>
+        </div>
 
-<div id="workspace">
-  <div id="pdf-panel">
-    <div id="pdf-container">
-      <canvas id="pdf-canvas"></canvas>
+        <div class="form-group main-content">
+          <label for="body">Post Content</label>
+          <textarea id="body" placeholder="Write your post content here..." required></textarea>
+        </div>
+
+        <div class="form-group tag-section">
+          <label for="tags">Tags (Comma separated)</label>
+          <div class="tags-input-container">
+            <div id="tagsList"></div>
+            <input type="text" id="tagsInput" class="tags-input" placeholder="Add tags (e.g., javascript, web, firebase)">
+          </div>
+          <div class="small">Add relevant tags to help others find your post</div>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button type="submit" id="submitBtn" class="btn-primary">
+          <i class="fas fa-paper-plane"></i>
+          Publish Post
+        </button>
+        <button type="button" id="clearBtn" class="btn-secondary">
+          <i class="fas fa-eraser"></i>
+          Clear Form
+        </button>
+      </div>
+
+      <div id="status" class="status-message"></div>
+    </form>
+
+    <div class="app-footer">
+      <p>© 2023 TeamGalaxy — Share your knowledge with the community</p>
     </div>
   </div>
 
-  <div id="side">
-    <div id="controls" style="display:none;">
-      <div class="field">
-        <label>Page:</label>
-        <select id="image-page">
-          <!-- Options will be added when PDF is loaded -->
-        </select>
-      </div>
-      <div class="field">
-        <label>X:</label><input type="number" id="pos-x" value="50"/>
-        <label style="margin-left:8px;">Y:</label><input type="number" id="pos-y" value="50"/>
-      </div>
-      <div class="field">
-        <label>Width:</label><input type="number" id="img-width" value="160"/>
-        <label style="margin-left:8px;">Height:</label><input type="number" id="img-height" value="160"/>
-      </div>
-      <div class="field">
-        <button id="update-btn">Update Image</button>
-        <button id="scale-300" class="btn-ghost">Scale for 300 DPI</button>
-        <button id="delete-image" class="btn-ghost">Delete Image</button>
-      </div>
-    </div>
+  <script type="module">
+    // ---------- 🔧 Your Firebase config & recaptcha ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+      authDomain: "teamgalaxy-77344.firebaseapp.com",
+      projectId: "teamgalaxy-77344",
+      storageBucket: "teamgalaxy-77344.firebasestorage.app",
+      messagingSenderId: "770256225320",
+      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+      measurementId: "G-6C2W9NSNCH"
+    };
+    const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
 
-    <div id="image-list" style="display:none; margin-top:10px;"></div>
+    // ---------- imports (Firebase v11.9.0) ----------
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js';
+    import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js';
+    import { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp, runTransaction, increment } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js';
 
-    <div id="log-window" aria-live="polite"></div>
-  </div>
-</div>
+    // ---------- init ----------
+    const app = initializeApp(firebaseConfig);
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.js "></script>
-<script>
-/* -------- logger -------- */
-const logWindow = document.getElementById('log-window');
-function now(){ return new Date().toLocaleTimeString(); }
-function log(msg, type='info'){
-  const row = document.createElement('div');
-  row.className = 'log-row';
-  const t = document.createElement('span');
-  t.className = 'log-time';
-  t.textContent = '['+now()+']';
-  const m = document.createElement('span');
-  m.className = (type==='error' ? 'log-error' : 'log-info');
-  m.textContent = ' ' + msg;
-  row.appendChild(t); row.appendChild(m);
-  logWindow.appendChild(row);
-  logWindow.scrollTop = logWindow.scrollHeight;
-  console[type==='error' ? 'error' : 'log'](`[${now()}] ${msg}`);
-}
-document.getElementById('clear-logs').addEventListener('click', ()=>{ logWindow.innerHTML=''; log('Logs cleared'); });
-
-/* -------- pdf.js ---------- */
-const pdfjsLib = window['pdfjs-dist/build/pdf'];
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.worker.min.js ';
-
-/* -------- state -------- */
-let pdfDoc = null;
-let originalPdfBytes = null;
-let currentPage = 1;
-let scale = 1.5;
-let images = []; // Array of image objects
-let activeImageId = null; // ID of the currently selected image
-
-/* -------- DOM refs -------- */
-const canvas = document.getElementById('pdf-canvas');
-const ctx = canvas.getContext('2d');
-const pdfContainer = document.getElementById('pdf-container');
-const controls = document.getElementById('controls');
-const imageList = document.getElementById('image-list');
-
-/* -------- dynamic loader for pdf-lib -------- */
-async function loadScript(url, timeout = 12000){
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    let done = false;
-    s.src = url;
-    s.async = true;
-    s.onload = () => { done = true; resolve(s); };
-    s.onerror = (e) => { if (!done) { done = true; reject(new Error('Script load failed: ' + url)); } };
-    document.head.appendChild(s);
-    setTimeout(()=>{ if (!done) reject(new Error('Timeout loading script: ' + url)); }, timeout);
-  });
-}
-let PDFLibReady = false;
-async function ensurePDFLib(){
-  if (PDFLibReady && window.PDFLib) return window.PDFLib;
-  if (window.PDFLib) { PDFLibReady = true; log('PDFLib already present'); return window.PDFLib; }
-  const cdns = [
-    'https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js ',
-    'https://unpkg.com/pdf-lib/dist/pdf-lib.min.js '
-  ];
-  let lastErr = null;
-  for (const url of cdns){
-    try{
-      log('Attempting to load pdf-lib from: ' + url);
-      await loadScript(url, 12000);
-      if (window.PDFLib) { PDFLibReady = true; log('Loaded pdf-lib from: ' + url); return window.PDFLib; }
-    } catch(err){ lastErr = err; log('Failed to load from ' + url + ' — ' + (err.message||err), 'error'); }
-  }
-  if (window.PDFLib) { PDFLibReady = true; return window.PDFLib; }
-  throw new Error('Unable to load pdf-lib library: ' + (lastErr ? lastErr.message : 'unknown'));
-}
-
-/* -------- PDF load & render -------- */
-document.getElementById('pdf-upload').addEventListener('change', async (e) => {
-  try {
-    const file = e.target.files[0];
-    if (!file) { log('No PDF chosen', 'error'); return; }
-    
-    // Make two copies: one for pdf.js (which may detach it), one for pdf-lib
-    const ab = await file.arrayBuffer();
-    originalPdfBytes = ab.slice(0); // Safe copy for pdf-lib
-    const pdfJsBuffer = ab.slice(0); // Separate copy for pdf.js
-    
-    pdfDoc = await pdfjsLib.getDocument({ data: pdfJsBuffer }).promise;
-    log(`PDF loaded: ${file.name} (${Math.max(0, Math.round(ab.byteLength/1024))} KB)`);
-    
-    // Update page options
-    const pageOptions = document.getElementById('image-page');
-    pageOptions.innerHTML = '';
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-      const option = document.createElement('option');
-      option.value = i - 1; // 0-based
-      option.textContent = `Page ${i}`;
-      pageOptions.appendChild(option);
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+        isTokenAutoRefreshEnabled: true
+      });
+      console.log('App Check initialized.');
+    } catch (err) {
+      console.warn('App Check init problem:', err);
     }
-    
-    currentPage = 1;
-    await renderPage(currentPage);
-    document.getElementById('page-number').textContent = `Page ${currentPage}`;
-    
-    // Clear existing images
-    images = [];
-    activeImageId = null;
-    updateImageList();
-    controls.style.display = 'none';
-    log('Ready for new images');
-  } catch(err){ log('PDF load error: ' + (err.message || err), 'error'); }
-});
 
-async function renderPage(pageNum){
-  try {
-    if (!pdfDoc) throw new Error('No PDF loaded');
-    const page = await pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale });
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    canvas.style.width = viewport.width + 'px';
-    canvas.style.height = viewport.height + 'px';
-    const renderContext = { canvasContext: ctx, viewport };
-    await page.render(renderContext).promise;
-    log(`Page ${pageNum} rendered — canvas ${viewport.width}×${viewport.height}px`);
-    pdfContainer.style.width = viewport.width + 'px';
-    pdfContainer.style.height = viewport.height + 'px';
-    
-    // Update image visibility for current page
-    updatePageVisibility();
-  } catch(err){ log('Render error: ' + (err.message || err), 'error'); }
-}
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const postsCol = collection(db, 'posts');
 
-/* -------- Image handling -------- */
-function updatePageVisibility() {
-  // Hide all images
-  images.forEach(img => {
-    img.element.style.display = 'none';
-  });
+    // ---------- UI elements ----------
+    const signInBtn = document.getElementById('signInBtn');
+    const authControls = document.getElementById('authControls');
+    const userHint = document.getElementById('userHint');
+    const statusEl = document.getElementById('status');
+    const form = document.getElementById('postForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const tagsInput = document.getElementById('tagsInput');
+    const tagsList = document.getElementById('tagsList');
 
-  // Show images for current page
-  images.forEach(img => {
-    if (img.page === currentPage - 1) {
-      img.element.style.display = 'block';
-    }
-  });
-}
+    // ---------- tag management ----------
+    let tags = [];
 
-function createImageItem(image) {
-  const item = document.createElement('div');
-  item.className = 'image-item';
-  item.innerHTML = `
-    <img src="${image.element.src}" class="image-thumb" />
-    <div>
-      <span>${image.file.name}</span>
-      <select class="page-selector" data-id="${image.id}">
-        ${Array.from(document.getElementById('image-page').options).map(opt => 
-          `<option value="${opt.value}" ${image.page == opt.value ? 'selected' : ''}>${opt.text}</option>`
-        ).join('')}
-      </select>
-      <button class="select-image" data-id="${image.id}">Select</button>
-      <button class="delete-image" data-id="${image.id}">X</button>
-    </div>
-  `;
-  return item;
-}
-
-function updateImageList() {
-  imageList.innerHTML = '';
-  if (images.length === 0) {
-    imageList.style.display = 'none';
-    return;
-  }
-  
-  imageList.style.display = 'block';
-  images.forEach(img => {
-    const item = createImageItem(img);
-    imageList.appendChild(item);
-  });
-  
-  // Add event listeners to image list items
-  document.querySelectorAll('.select-image').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      activeImageId = e.target.dataset.id;
-      updateControlValuesForActiveImage();
-      controls.style.display = 'block';
+    // Add tag when comma is pressed or input loses focus
+    tagsInput.addEventListener('input', (e) => {
+      const value = e.target.value.trim();
+      if (value.includes(',')) {
+        const newTags = value.split(',').map(tag => tag.trim()).filter(tag => tag && !tags.includes(tag));
+        tags.push(...newTags);
+        renderTags();
+        e.target.value = '';
+      }
     });
-  });
-  
-  document.querySelectorAll('.delete-image').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const id = e.target.dataset.id;
-      const image = images.find(img => img.id === id);
-      if (image) {
-        pdfContainer.removeChild(image.element);
-        images = images.filter(img => img.id !== id);
-        updateImageList();
-        if (activeImageId === id) {
-          activeImageId = null;
-          controls.style.display = 'none';
+
+    // Add tag on Enter key
+    tagsInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = tagsInput.value.trim();
+        if (value && !tags.includes(value)) {
+          tags.push(value);
+          renderTags();
+          tagsInput.value = '';
         }
-        log('Image deleted');
       }
     });
-  });
-  
-  document.querySelectorAll('.page-selector').forEach(sel => {
-    sel.addEventListener('change', (e) => {
-      const id = e.target.dataset.id;
-      const page = parseInt(e.target.value);
-      const image = images.find(img => img.id === id);
-      if (image) {
-        image.page = page;
-        updatePageVisibility();
-        log(`Image moved to page ${page + 1}`);
-      }
-    });
-  });
-}
 
-document.getElementById('image-upload').addEventListener('change', async (e) => {
-  try {
-    const file = e.target.files[0];
-    if (!file) { log('No image chosen', 'error'); return; }
-    if (!pdfDoc) { alert('Upload a PDF first.'); log('Tried to upload image before PDF', 'error'); return; }
-
-    // Create a new image object
-    const imgId = `img-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const url = URL.createObjectURL(file);
-    const imgElement = document.createElement('img');
-    imgElement.className = 'editable-image';
-    imgElement.src = url;
-    imgElement.style.left = '50px';
-    imgElement.style.top = '50px';
-    imgElement.style.width = '160px';
-    imgElement.style.height = '160px';
-    imgElement.dataset.id = imgId;
-    pdfContainer.appendChild(imgElement);
-    makeDraggable(imgElement);
-    
-    // Get image bytes and mime type
-    const { bytes: imgBytes, mime } = await getImageBytesReliable(file);
-    
-    // Add to images array
-    images.push({
-      id: imgId,
-      file: file,
-      element: imgElement,
-      page: currentPage - 1, // 0-based
-      x: 50,
-      y: 50,
-      width: 160,
-      height: 160,
-      bytes: imgBytes,
-      mime: mime
-    });
-    
-    // Update UI
-    updateImageList();
-    activeImageId = imgId;
-    updateControlValuesForActiveImage();
-    controls.style.display = 'block';
-    log(`Image loaded: ${file.name} (${file.type || 'unknown'})`);
-  } catch(err){ log('Image upload error: ' + (err.message || err), 'error'); }
-});
-
-function makeDraggable(img) {
-  let dragging = false, offsetX = 0, offsetY = 0;
-  img.addEventListener('mousedown', (ev) => {
-    dragging = true;
-    const rect = img.getBoundingClientRect();
-    offsetX = ev.clientX - rect.left;
-    offsetY = ev.clientY - rect.top;
-    ev.preventDefault();
-  });
-  window.addEventListener('mousemove', (ev) => {
-    if (!dragging) return;
-    const contRect = pdfContainer.getBoundingClientRect();
-    const left = ev.clientX - contRect.left - offsetX;
-    const top = ev.clientY - contRect.top - offsetY;
-    img.style.left = Math.max(0, Math.round(left)) + 'px';
-    img.style.top = Math.max(0, Math.round(top)) + 'px';
-    updateControlValuesForActiveImage();
-  });
-  window.addEventListener('mouseup', () => dragging = false);
-  img.addEventListener('click', () => {
-    activeImageId = img.dataset.id;
-    updateControlValuesForActiveImage();
-    controls.style.display = 'block';
-  });
-}
-
-function updateControlValuesForActiveImage() {
-  if (!activeImageId) return;
-  const image = images.find(img => img.id === activeImageId);
-  if (!image) return;
-
-  document.getElementById('image-page').value = image.page;
-  document.getElementById('pos-x').value = image.x;
-  document.getElementById('pos-y').value = image.y;
-  document.getElementById('img-width').value = image.width;
-  document.getElementById('img-height').value = image.height;
-}
-
-document.getElementById('update-btn').addEventListener('click', () => {
-  if (!activeImageId) return;
-  const image = images.find(img => img.id === activeImageId);
-  if (!image) return;
-
-  const x = parseInt(document.getElementById('pos-x').value) || 0;
-  const y = parseInt(document.getElementById('pos-y').value) || 0;
-  const w = parseInt(document.getElementById('img-width').value) || 100;
-  const h = parseInt(document.getElementById('img-height').value) || 100;
-  const page = parseInt(document.getElementById('image-page').value) || 0;
-
-  image.x = x;
-  image.y = y;
-  image.width = w;
-  image.height = h;
-  image.page = page;
-
-  image.element.style.left = x + 'px';
-  image.element.style.top = y + 'px';
-  image.element.style.width = w + 'px';
-  image.element.style.height = h + 'px';
-
-  updateImageList();
-  log(`Image moved/resized -> x:${x}, y:${y}, w:${w}, h:${h}, page:${page + 1}`);
-});
-
-document.getElementById('scale-300').addEventListener('click', () => {
-  if (!activeImageId) return;
-  const image = images.find(img => img.id === activeImageId);
-  if (!image) return;
-  
-  const newWidth = image.width * 1.8;
-  const newHeight = image.height * 1.8;
-  
-  image.width = newWidth;
-  image.height = newHeight;
-  image.element.style.width = newWidth + 'px';
-  image.element.style.height = newHeight + 'px';
-  
-  updateControlValuesForActiveImage();
-  log('Scaled image visually for higher DPI (approx 300 DPI).');
-});
-
-/* -------- Image conversion helpers -------- */
-async function getImageBytesReliable(file) {
-  try {
-    const type = (file.type || '').toLowerCase();
-    const ab = await file.arrayBuffer();
-    if (type === 'image/png' || type === 'image/jpeg' || type === 'image/jpg') {
-      log('Using original image bytes (no conversion).');
-      return { bytes: ensureFreshUint8Array(ab), mime: type || 'image/png' };
-    } else {
-      log('Converting image to PNG for best-quality embed...');
-      const pngBytes = await convertFileToPngBytes(file);
-      return { bytes: ensureFreshUint8Array(pngBytes), mime: 'image/png' };
+    // Remove tag when X is clicked
+    function removeTag(tag) {
+      tags = tags.filter(t => t !== tag);
+      renderTags();
     }
-  } catch(err) {
-    log('Image conversion error: ' + (err.message || err), 'error');
-    throw err;
-  }
-}
 
-async function convertFileToPngBytes(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
+    // Render tags as separate containers
+    function renderTags() {
+      tagsList.innerHTML = '';
+      tags.forEach(tag => {
+        const tagEl = document.createElement('div');
+        tagEl.className = 'tag-item';
+        tagEl.innerHTML = `<span>${tag}</span><i class="fas fa-times" data-tag="${tag}"></i>`;
+        tagsList.appendChild(tagEl);
+      });
+
+      // Add event listeners to remove buttons
+      document.querySelectorAll('.tag-item i').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          removeTag(e.target.getAttribute('data-tag'));
+        });
+      });
+    }
+
+    // ---------- auth flow ----------
+    const provider = new GoogleAuthProvider();
+
+    signInBtn.addEventListener('click', async () => {
       try {
-        const r = window.devicePixelRatio || 1;
-        const scaleFactor = Math.max(1, r * 2);
-        const c = document.createElement('canvas');
-        c.width = Math.max(1, Math.round(img.naturalWidth * scaleFactor));
-        c.height = Math.max(1, Math.round(img.naturalHeight * scaleFactor));
-        const cctx = c.getContext('2d');
-        cctx.drawImage(img, 0, 0, c.width, c.height);
-        const dataURL = c.toDataURL('image/png');
-        try { URL.revokeObjectURL(url); } catch(e){}
-        resolve(dataURLToUint8Array(dataURL));
-      } catch(err) {
-        try { URL.revokeObjectURL(url); } catch(e){}
-        reject(err);
+        await signInWithPopup(auth, provider);
+        // onAuthStateChanged handles UI update
+      } catch (err) {
+        console.error('Sign-in failed', err);
+        showStatus('Sign-in failed — check console.', 'error');
       }
-    };
-    img.onerror = (err) => {
-      try { URL.revokeObjectURL(url); } catch(e){}
-      reject(err || new Error('image load failed'));
-    };
-    img.src = url;
-  });
-}
+    });
 
-function dataURLToUint8Array(dataURL) {
-  const base64 = dataURL.split(',')[1];
-  const raw = atob(base64);
-  const u8 = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i);
-  return u8;
-}
-
-/* Make a safe copy of any ArrayBuffer-like input, handles detached buffers */
-function ensureFreshUint8Array(input) {
-  if (input instanceof Uint8Array) {
-    return input.slice(0);
-  } else if (input instanceof ArrayBuffer) {
-    try {
-      return new Uint8Array(input.slice(0));
-    } catch (e) {
-      // Fallback to byte-by-byte copy for detached buffers
-      const arr = new Uint8Array(input.byteLength);
-      for (let i = 0; i < input.byteLength; i++) {
-        arr[i] = new Uint8Array(input)[i];
-      }
-      return arr;
+    // handle sign out click (we'll render it dynamically)
+    function renderSignedIn(user, profile) {
+      authControls.innerHTML = `
+        <div style="text-align: right">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <img src="${user.photoURL || 'https://via.placeholder.com/40x40/1a1a25/ffffff?text=' + (profile?.name || user.email || 'U')[0]}" 
+                 alt="Profile" 
+                 style="width: 40px; height: 40px; border-radius: 50%; border: 2px solid #64c2ff;">
+            <div style="text-align: right">
+              <div style="font-weight: 700; color: #64c2ff">${profile?.name || user.email || 'User'}</div>
+              <div style="font-size: 13px; color: #d0d0d0">${profile?.email || user.email}</div>
+            </div>
+            <button class="auth-btn" id="signOutBtn" style="padding: 8px 12px">
+              <i class="fas fa-sign-out-alt"></i>
+              Sign out
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('signOutBtn').addEventListener('click', () => signOut(auth));
+      userHint.textContent = 'Signed in. Posts will use your profile information.';
     }
-  } else if (ArrayBuffer.isView(input) && input.buffer) {
-    try {
-      return new Uint8Array(input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength));
-    } catch (e) {
-      const arr = new Uint8Array(input.byteLength);
-      for (let i = 0; i < input.byteLength; i++) {
-        arr[i] = input[i];
-      }
-      return arr;
+
+    function renderSignedOut() {
+      authControls.innerHTML = `
+        <button class="auth-btn" id="signInBtn">
+          <i class="fab fa-google"></i>
+          Sign in with Google
+        </button>
+      `;
+      document.getElementById('signInBtn').addEventListener('click', async () => {
+        try { await signInWithPopup(auth, provider); } catch (err) { console.error(err); showStatus('Sign-in failed', 'error'); }
+      });
+      userHint.textContent = 'Sign in to post — we will use your profile information.';
     }
-  } else {
-    // Fallback: try to coerce
-    return new Uint8Array(input);
-  }
-}
 
-/* -------- Page navigation -------- */
-document.getElementById('prev-page').addEventListener('click', () => {
-  if (currentPage > 1) {
-    currentPage--;
-    renderPage(currentPage);
-    document.getElementById('page-number').textContent = `Page ${currentPage}`;
-  }
-});
-
-document.getElementById('next-page').addEventListener('click', () => {
-  if (currentPage < pdfDoc?.numPages) {
-    currentPage++;
-    renderPage(currentPage);
-    document.getElementById('page-number').textContent = `Page ${currentPage}`;
-  }
-});
-
-/* -------- save/export handler -------- */
-async function robustEmbedAndSave(PDFLib, originalBytes, imageBytes, mime, coords) {
-  // Make fresh copies of both PDF bytes and image bytes to avoid any detached buffer problems
-  const pdfBytesCopy = ensureFreshUint8Array(originalBytes).buffer;
-  const imageBytesSafe = ensureFreshUint8Array(imageBytes);
-
-  const pdfLibDoc = await PDFLib.PDFDocument.load(pdfBytesCopy);
-  log('pdf-lib loaded original PDF (safe copy).');
-
-  const page = pdfLibDoc.getPage(coords.pageIndex);
-  const { width: pageWidth, height: pageHeight } = page.getSize();
-  log(`PDF page size inside save: ${Math.round(pageWidth)}×${Math.round(pageHeight)} pts`);
-
-  let embedded;
-  try {
-    if (mime === 'image/png') {
-      embedded = await pdfLibDoc.embedPng(imageBytesSafe);
-      log('Embedded PNG (safe copy).');
-    } else if (mime === 'image/jpeg' || mime === 'image/jpg') {
-      embedded = await pdfLibDoc.embedJpg(imageBytesSafe);
-      log('Embedded JPG (safe copy).');
-    } else {
-      embedded = await pdfLibDoc.embedPng(imageBytesSafe);
-      log('Embedded fallback PNG (safe copy).');
-    }
-  } catch (err) {
-    log('Embed failure — bytes length: ' + (imageBytesSafe ? imageBytesSafe.length : 'unknown'), 'error');
-    log('Embed stack: ' + (err && err.message ? err.message : err), 'error');
-    throw err;
-  }
-
-  page.drawImage(embedded, { x: coords.x, y: coords.y, width: coords.width, height: coords.height });
-  log('Image drawn on PDF page (inside robustEmbedAndSave).');
-
-  return pdfLibDoc;
-}
-
-document.getElementById('save-pdf-btn').addEventListener('click', async () => {
-  try {
-    if (!pdfDoc) { log('Export failed: No PDF uploaded', 'error'); alert('Upload a PDF first'); return; }
-    if (images.length === 0) { log('Export failed: No images placed', 'error'); alert('Place an image first'); return; }
-    if (!originalPdfBytes) throw new Error('Original PDF bytes missing');
-
-    log('Starting export process... (ensuring pdf-lib is loaded)');
-    const PDFLib = await ensurePDFLib();
-    if (!PDFLib) throw new Error('pdf-lib did not initialize');
-    log('pdf-lib ready.');
-
-    // Load the PDF once
-    const pdfLibDoc = await PDFLib.PDFDocument.load(originalPdfBytes);
-    log('pdf-lib loaded original PDF (safe copy).');
-
-    // Process each image
-    for (const img of images) {
-      const pageIndex = img.page;
-      const page = pdfLibDoc.getPage(pageIndex);
-      const { width: pageWidth, height: pageHeight } = page.getSize();
-
-      const canvasRect = canvas.getBoundingClientRect();
-      const displayW = canvasRect.width, displayH = canvasRect.height;
-
-      const x_pdf = (img.x / displayW) * pageWidth;
-      const width_pdf = (img.width / displayW) * pageWidth;
-      const y_pdf = pageHeight - ((img.y + img.height) / displayH) * pageHeight;
-      const height_pdf = (img.height / displayH) * pageHeight;
-
-      log(`Processing image on page ${pageIndex + 1} -> x:${x_pdf.toFixed(2)}, y:${y_pdf.toFixed(2)}, w:${width_pdf.toFixed(2)}, h:${height_pdf.toFixed(2)}`);
-
-      let embedded;
-      if (img.mime === 'image/png') {
-        embedded = await pdfLibDoc.embedPng(img.bytes);
-        log('Embedded PNG');
-      } else if (img.mime === 'image/jpeg' || img.mime === 'image/jpg') {
-        embedded = await pdfLibDoc.embedJpg(img.bytes);
-        log('Embedded JPG');
+    // onAuth state: fetch your users/{uid} doc and use it
+    onAuthStateChanged(auth, async (user) => {
+      statusEl.style.display = 'none';
+      if (user) {
+        // fetch your users collection doc
+        const userDocRef = doc(db, 'users', user.uid);
+        let profile = null;
+        try {
+          const snap = await getDoc(userDocRef);
+          if (snap.exists()) {
+            profile = snap.data();
+          } else {
+            // fallback: use auth profile if users doc doesn't exist.
+            profile = { name: user.displayName || null, email: user.email || null };
+            // NOTE: we are NOT auto-creating the users doc here (per your existing setup).
+          }
+        } catch (err) {
+          console.warn('Failed reading users/{uid} doc', err);
+          profile = { name: user.displayName || null, email: user.email || null };
+        }
+        renderSignedIn(user, profile);
+        // attach profile to form element for use during submit
+        form.dataset.currentUid = user.uid;
+        form.dataset.currentName = profile?.name || (user.displayName || '');
+        form.dataset.currentEmail = profile?.email || (user.email || '');
+        form.dataset.currentPhotoUrl = user.photoURL || '';
       } else {
-        embedded = await pdfLibDoc.embedPng(img.bytes);
-        log('Embedded fallback PNG');
+        renderSignedOut();
+        delete form.dataset.currentUid;
+        delete form.dataset.currentName;
+        delete form.dataset.currentEmail;
+        delete form.dataset.currentPhotoUrl;
       }
+    });
 
-      page.drawImage(embedded, { x: x_pdf, y: y_pdf, width: width_pdf, height: height_pdf });
-      log('Image drawn on PDF page');
+    // ---------- helpers ----------
+    function showStatus(message, type = 'success') {
+      statusEl.textContent = message;
+      statusEl.className = type === 'success' ? 'status-message status-success' : 'status-message status-error';
+      statusEl.style.display = 'block';
+
+      // Auto-hide success messages after 5 seconds
+      if (type === 'success') {
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 5000);
+      }
     }
 
-    const outBytes = await pdfLibDoc.save({ useObjectStreams: false });
-    log(`PDF saved in-memory (${Math.round(outBytes.byteLength/1024)} KB). Preparing download...`);
-    const blob = new Blob([outBytes], { type: 'application/pdf' });
-    const pdfUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = pdfUrl;
-    a.download = 'edited.pdf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(pdfUrl);
-    log('Download triggered — check your Downloads folder.');
-  } catch(err) {
-    log('Export error: ' + (err && err.message ? err.message : err), 'error');
-    console.error(err);
-    alert('Export failed — check logs for details.');
-  }
-});
-</script>
+    // ---------- form submit ----------
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      statusEl.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Publishing...';
+
+      const title = (document.getElementById('title').value || '').trim();
+      const body = (document.getElementById('body').value || '').trim();
+
+      if (!title || !body) {
+        showStatus('Title and body are required.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Publish Post';
+        return;
+      }
+      if (!form.dataset.currentUid) {
+        showStatus('You must sign in before publishing.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Publish Post';
+        return;
+      }
+
+      const uid = form.dataset.currentUid;
+      const authorName = form.dataset.currentName || null;
+      const authorEmail = form.dataset.currentEmail || null;
+      const photoUrl = form.dataset.currentPhotoUrl || null;
+
+      // Use the processed tags array
+      const processedTags = tags;
+
+      try {
+        // Fetch the user's private profile to get the slug
+        const userPrivateDocRef = doc(db, 'usersPrivate', uid);
+        const userPrivateSnap = await getDoc(userPrivateDocRef);
+
+        if (!userPrivateSnap.exists()) {
+          showStatus('User private profile not found.', 'error');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Publish Post';
+          return;
+        }
+
+        const userPrivateData = userPrivateSnap.data();
+        const slug = userPrivateData.slug;
+
+        if (!slug) {
+          showStatus('User slug not found.', 'error');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Publish Post';
+          return;
+        }
+
+        // Create the post document
+        const docRef = await addDoc(postsCol, {
+          title,
+          body,
+          tags: processedTags,
+          slug, // Use the slug from user's private profile
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          authorId: uid,
+          authorName: authorName,
+          authorEmail: authorEmail,
+          photoUrl: photoUrl, // Added photoUrl field
+          upvotesCount: 0,
+          downvotesCount: 0,
+          commentsCount: 0,
+          status: 'published',
+        });
+
+        // Update counts in both collections using a transaction
+        await runTransaction(db, async (transaction) => {
+          // Update publicPostCount in usersPrivate collection
+          const userPrivateDoc = doc(db, 'usersPrivate', uid);
+          transaction.update(userPrivateDoc, { publicPostCount: increment(1) });
+
+          // Update publicPostCount in publicProfiles collection
+          const publicProfileDoc = doc(db, 'publicProfiles', slug);
+          transaction.update(publicProfileDoc, { publicPostCount: increment(1) });
+        });
+
+        showStatus('Your post has been published successfully!', 'success');
+        form.reset();
+        tags = []; // Reset tags array
+        renderTags(); // Clear tag display
+      } catch (err) {
+        console.error('Write failed', err);
+        showStatus('Publish failed — check console. App Check or rules might be blocking.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Publish Post';
+      }
+    });
+
+    clearBtn.addEventListener('click', () => { 
+      form.reset(); 
+      statusEl.style.display = 'none';
+      tags = []; // Reset tags array
+      renderTags(); // Clear tag display
+    });
+  </script>
 </body>
 </html>
