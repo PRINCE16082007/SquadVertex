@@ -529,13 +529,14 @@
     }
   </style>
 </head>
+```html
 <body>
     <!-- Header -->
   <header class="header">
     <div class="logo">GalaxyWeb</div>
     <div class="header-buttons">
-      <button class="btn btn-settings">Settings</button>
-      <button class="btn btn-logout">Log Out</button>
+      <button class="btn btn-settings" id="settingsBtn">Settings</button>
+      <button class="btn btn-logout" id="logoutBtn">Log Out</button>
     </div>
   </header>
 
@@ -624,14 +625,14 @@
     const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
 
     // ---------- Firebase imports (v11.9.0) ----------
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js  ';
-    import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js  ';
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js   ';
+    import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js   ';
     import {
       getFirestore, collection, query, orderBy, limit, startAfter, getDocs,
       doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
       where, serverTimestamp, runTransaction, increment
-    } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js  ';
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js  ';
+    } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js   ';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js   ';
 
     // ---------- initialize ----------
     const app = initializeApp(firebaseConfig);
@@ -655,8 +656,6 @@
     const loadMoreBtn = document.getElementById('loadMoreBtn');
     const refreshBtn = document.getElementById('refreshBtn');
     const backToFeed = document.getElementById('backToFeed');
-    const signInBtn = document.getElementById('signInBtn');
-    const authArea = document.getElementById('authArea');
     const commentInput = document.getElementById('commentInput');
     const submitComment = document.getElementById('submitComment');
     const commentsList = document.getElementById('commentsList');
@@ -667,6 +666,8 @@
     const profileLink = document.getElementById('profileLink');
     const settingsLink = document.getElementById('settingsLink');
     const signOutLink = document.getElementById('signOutLink');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const settingsBtn = document.getElementById('settingsBtn');
 
     let lastVisible = null;
     const PAGE_SIZE = 8;
@@ -675,6 +676,7 @@
     let currentPostId = null;
     let commentsUnsub = null;
     let isVoting = false; // Track if a vote is in progress
+    let authInitialized = false;
 
     // ---------- small helpers ----------
     function timeAgo(ts) {
@@ -775,13 +777,20 @@
 
     // ---------- auth ----------
     async function signIn() {
-      try { await signInWithPopup(auth, provider); }
-      catch(e){ console.error('Signin error', e); alert('Signin failed'); }
+      try { 
+        await signInWithPopup(auth, provider); 
+      }
+      catch(e){ 
+        console.error('Signin error', e); 
+        alert('Signin failed: ' + e.message); 
+      }
     }
-    signInBtn.addEventListener('click', signIn);
 
+    // Optimized auth state listener with loading state
     onAuthStateChanged(auth, async (user) => {
       currentUser = user;
+      authInitialized = true;
+      
       if (user) {
         // try read existing users/{uid} doc for name/email
         try {
@@ -799,54 +808,40 @@
 
         // place avatar image (use photoURL if available, else placeholder initials image)
         const avatarSrc = user.photoURL || (`https://via.placeholder.com/80/444444/ffffff?text=${encodeURIComponent(getInitials(currentUserProfile?.name || user.email))}`);
-        authArea.innerHTML = `
-          <div class="user-info">
-            <img class="avatar" id="headerAvatar" src="${escapeHTML(avatarSrc)}" alt="Profile">
-          </div>
+        document.querySelector('.header-buttons').innerHTML = `
+          <button class="btn btn-settings" id="settingsBtn">Settings</button>
+          <button class="btn btn-logout" id="logoutBtn">Log Out</button>
         `;
-
-        // Add event listener to avatar for dropdown, and position dropdown under avatar
-        const avatarEl = document.getElementById('headerAvatar');
-        avatarEl.addEventListener('click', (e) => {
-          e.stopPropagation();
-
-          // toggle
-          const willShow = !dropdownMenu.classList.contains('show');
-          dropdownMenu.classList.remove('show');
-          dropdownMenu.style.position = 'fixed'; // use fixed so it doesn't depend on container positioning
-          dropdownMenu.style.right = 'auto';
-
-          if (willShow) {
-            // compute coords
-            const rect = avatarEl.getBoundingClientRect();
-            // estimate menu width (fallback to 200)
-            const estimatedWidth = dropdownMenu.offsetWidth || 200;
-            // position so right edge of menu aligns with right edge of avatar
-            let left = Math.round(rect.right - estimatedWidth);
-            if (left < 8) left = 8;
-            const top = Math.round(rect.bottom + 8);
-            dropdownMenu.style.left = left + 'px';
-            dropdownMenu.style.top = top + 'px';
-            dropdownMenu.classList.add('show');
-            dropdownMenu.setAttribute('aria-hidden','false');
-          } else {
-            dropdownMenu.classList.remove('show');
-            dropdownMenu.setAttribute('aria-hidden','true');
-          }
+        
+        // Re-attach event listeners for the new buttons
+        document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+          window.location.href = 'settings.html';
         });
       } else {
-        authArea.innerHTML = `<button id="signInBtn" class="btn-primary">Sign in</button>`;
-        document.getElementById('signInBtn').addEventListener('click', signIn);
+        document.querySelector('.header-buttons').innerHTML = `
+          <button class="btn btn-settings" id="settingsBtn">Settings</button>
+          <button class="btn btn-logout" id="logoutBtn">Log In</button>
+        `;
+        
+        // Re-attach event listeners for the new buttons
+        document.getElementById('logoutBtn').addEventListener('click', signIn);
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+          window.location.href = 'settings.html';
+        });
         currentUserProfile = null;
       }
-      // re-render vote buttons to reflect current user's votes if viewing feed/post
+      
+      // Re-render feed to reflect auth state
       if (currentPostId) renderPostView(currentPostId);
-      else { refreshFeed(true); }
+      else { 
+        refreshFeed(true); 
+      }
     });
 
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
-      if (!dropdownMenu.contains(e.target) && !e.target.classList.contains('avatar') && !e.target.id === 'headerAvatar') {
+      if (!dropdownMenu.contains(e.target) && !e.target.classList.contains('avatar') && e.target.id !== 'headerAvatar') {
         dropdownMenu.classList.remove('show');
         dropdownMenu.setAttribute('aria-hidden','true');
       }
@@ -855,13 +850,13 @@
     // Dropdown item event listeners
     profileLink.addEventListener('click', (e) => {
       e.preventDefault();
-      alert('Navigate to profile page');
+      window.location.href = 'profile.html';
       dropdownMenu.classList.remove('show');
     });
 
     settingsLink.addEventListener('click', (e) => {
       e.preventDefault();
-      alert('Navigate to settings page');
+      window.location.href = 'settings.html';
       dropdownMenu.classList.remove('show');
     });
 
@@ -948,7 +943,7 @@
       // Check for photoUrl first, then other possible fields
       const photo = (data && (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.photoURL || data.authorAvatar)) || null;
       // Google default avatar fallback (public-ish)
-      const googleDefault = '  https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png  ';
+      const googleDefault = '   https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png   ';
       if (photo) {
         return `<img class="avatar small" src="${escapeHTML(photo)}" alt="${escapeHTML(author)}">`;
       } else {
@@ -1089,7 +1084,7 @@
         const created = data.createdAt ? timeAgo(data.createdAt) : '';
 
         // Use image avatar if present in post data; fallback to google default
-        const avatarForPost = (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.authorAvatar || data.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png  ';
+        const avatarForPost = (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.authorAvatar || data.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png   ';
 
         postContainer.innerHTML = `
           <div class="card">
@@ -1139,7 +1134,7 @@
             const c = docSnap.data();
             const authorC = c.authorName || 'Anonymous';
             // choose avatar for comment: check comment data for photo fields, prioritizing photoUrl
-            const cAvatar = (c.photoUrl || c.authorPhotoUrl || c.authorPhoto || c.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png  ';
+            const cAvatar = (c.photoUrl || c.authorPhotoUrl || c.authorPhoto || c.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png   ';
             const cEl = document.createElement('div');
             cEl.className = 'comment';
             cEl.innerHTML = `
@@ -1220,9 +1215,8 @@
 
     // Logout functionality
     logoutBtn.addEventListener('click', () => {
-      auth.signOut().then(() => {
+      signOut(auth).then(() => {
         console.log('User signed out');
-        window.location.href = 'index.html';
       }).catch((error) => {
         console.error('Sign out error:', error);
         alert('Error signing out. Please try again.');
@@ -1233,7 +1227,22 @@
     settingsBtn.addEventListener('click', () => {
       window.location.href = 'settings.html';
     });
- 
+
+    // Wait for auth to be initialized before showing content
+    function waitForAuthInitialization() {
+      if (authInitialized) {
+        if (currentUser) {
+          refreshFeed(true);
+        } else {
+          postsListEl.innerHTML = '<div class="card small muted">Sign in to view your posts.</div>';
+        }
+      } else {
+        setTimeout(waitForAuthInitialization, 100);
+      }
+    }
+    
+    waitForAuthInitialization();
+
   </script>
 </body>
 </html>
