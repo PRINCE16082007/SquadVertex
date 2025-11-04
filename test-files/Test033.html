@@ -796,14 +796,14 @@ footer.footer {
   const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
 
   // ---------- Firebase imports (v11.9.0) ----------
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js ';
-  import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js ';
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js';
+  import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js';
   import {
     getFirestore, collection, query, orderBy, limit, startAfter, getDocs,
     doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
     where, serverTimestamp, runTransaction, increment
-  } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js ';
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js ';
+  } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js';
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js';
 
   // ---------- initialize ----------
   const app = initializeApp(firebaseConfig);
@@ -848,7 +848,27 @@ footer.footer {
   let commentsUnsub = null;
   let isVoting = false; // Track if a vote is in progress
   let authInitialized = false;
-  let currentSlug = null; // <-- Added to store the slug
+
+  // Determine URL params: postId and profileSlug
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedPostId = urlParams.get('postId');
+
+  // support ?slug=xxx OR weird ?=xxx format (the value after '=' is the slug)
+  let profileSlug = null;
+  if (!requestedPostId) {
+    profileSlug = urlParams.get('slug') || (function(){
+      const raw = window.location.search || '';
+      if (raw.startsWith('?=')) {
+        // take everything after '?=' until & or end
+        return raw.slice(2).split('&')[0] || null;
+      }
+      // Also handle case where entire search is like "?abcdef" (no equals) — not expected but safe:
+      if (raw.startsWith('?') && raw.indexOf('=') === -1 && raw.length > 1) {
+        return raw.slice(1).split('&')[0];
+      }
+      return null;
+    })();
+  }
 
   // ---------- small helpers ----------
   function timeAgo(ts) {
@@ -860,14 +880,14 @@ footer.footer {
     if (diff < 86400) return Math.floor(diff/3600) + 'h';
     return Math.floor(diff/86400) + 'd';
   }
-  function snippet(text, n=220){ return text.length>n ? text.slice(0,n)+'…' : text; }
+  function snippet(text, n=220){ return (text||'').length>n ? text.slice(0,n)+'…' : (text||''); }
 
   // Escape HTML to prevent XSS
   function escapeHTML(s){
-    return String(s)
+    return String(s || '')
       .replaceAll('&','&amp;')
-      .replaceAll('<','<')
-      .replaceAll('>','>')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
       .replaceAll('"','&quot;')
       .replaceAll("'",'&#039;');
   }
@@ -948,12 +968,12 @@ footer.footer {
 
   // ---------- auth ----------
   async function signIn() {
-    try { 
-      await signInWithPopup(auth, provider); 
+    try {
+      await signInWithPopup(auth, provider);
     }
-    catch(e){ 
-      console.error('Signin error', e); 
-      alert('Signin failed: ' + e.message); 
+    catch(e){
+      console.error('Signin error', e);
+      alert('Signin failed: ' + e.message);
     }
   }
 
@@ -1005,8 +1025,9 @@ footer.footer {
 
     // Re-render feed to reflect auth state
     if (currentPostId) renderPostView(currentPostId);
-    else { 
-      refreshFeed(true); 
+    else {
+      // refreshFeed behaviour handles both profileSlug (public) and user posts
+      refreshFeed(true);
     }
   });
 
@@ -1046,30 +1067,19 @@ footer.footer {
     window.location.href = '/teamgalaxy/tools/create_post.html';
   });
 
-  // ---------- routing: get slug from URL ----------
-  const urlParams = new URLSearchParams(window.location.search);
-  const requestedPostId = urlParams.get('postId');
-  // Extract slug from the query string (e.g., ?jvf8la7u972dl3x3rfkpx)
-  // This assumes the slug is the *first* query parameter with no key
-  const queryString = window.location.search.substring(1); // Remove the '?'
-  const parts = queryString.split('&');
-  let extractedSlug = null;
-  // Check if the first part is just a value (slug) without an equals sign
-  if (parts.length > 0 && !parts[0].includes('=')) {
-    extractedSlug = parts[0];
-  }
-
-  // If there's a postId, show single post view (existing logic)
+  // ---------- routing: if ?postId=... show single post view ----------
   if (requestedPostId) {
+    // show single post page
     feedView.style.display = 'none';
     postView.style.display = 'block';
     currentPostId = requestedPostId;
     renderPostView(requestedPostId);
   } else {
-    // Use the extracted slug for fetching posts
-    currentSlug = extractedSlug; // Store the slug
+    // show feed (either profileSlug public feed OR currentUser posts)
     feedView.style.display = 'block';
     postView.style.display = 'none';
+    // call to refreshFeed should wait for auth init only for non-public-case;
+    // but we want it to run now (refreshFeed internally handles whether currentUser is required).
     refreshFeed(true);
   }
 
@@ -1080,49 +1090,52 @@ footer.footer {
       renderPostSkeletons(4); // Show 4 skeleton loaders
     }
 
-    // query
-    if (!currentUser) {
-      postsListEl.innerHTML = '<div class="card small muted">Sign in to view your posts.</div>';
-      loadMoreBtn.style.display = 'none';
-      return;
-    }
-
-    // Use the currentSlug instead of currentUser.uid
-    if (!currentSlug) {
-       postsListEl.innerHTML = '<div class="card small muted">No slug provided to fetch posts.</div>';
-       loadMoreBtn.style.display = 'none';
-       return;
-    }
-
     const postsRef = collection(db, 'posts');
     let q;
-    if (!lastVisible) {
-      // Changed: Use 'slug' instead of 'authorId'
-      q = query(postsRef, where('slug', '==', currentSlug), orderBy('createdAt','desc'), limit(PAGE_SIZE));
-    }
-    else {
-      // Changed: Use 'slug' instead of 'authorId'
-      q = query(postsRef, where('slug', '==', currentSlug), orderBy('createdAt','desc'), startAfter(lastVisible), limit(PAGE_SIZE));
+
+    // If profileSlug is provided in URL -> public profile view: fetch posts with slug == profileSlug
+    if (profileSlug) {
+      // build query for slug (slug must exist in post documents)
+      if (!lastVisible) q = query(postsRef, where('slug', '==', profileSlug), orderBy('createdAt','desc'), limit(PAGE_SIZE));
+      else q = query(postsRef, where('slug', '==', profileSlug), orderBy('createdAt','desc'), startAfter(lastVisible), limit(PAGE_SIZE));
+    } else {
+      // No slug: fall back to currentUser's posts (private feed). require auth
+      if (!currentUser) {
+        // If auth hasn't initialized yet, show skeleton until it does
+        if (!authInitialized) { renderPostSkeletons(4); loadMoreBtn.style.display = 'none'; return; }
+        postsListEl.innerHTML = '<div class="card small muted">Sign in to view your posts.</div>';
+        loadMoreBtn.style.display = 'none';
+        return;
+      }
+      if (!lastVisible) q = query(postsRef, where('authorId', '==', currentUser.uid), orderBy('createdAt','desc'), limit(PAGE_SIZE));
+      else q = query(postsRef, where('authorId', '==', currentUser.uid), orderBy('createdAt','desc'), startAfter(lastVisible), limit(PAGE_SIZE));
     }
 
     try {
       const snaps = await getDocs(q);
       if (snaps.docs.length === 0) {
-        if (!lastVisible) postsListEl.innerHTML = '<div class="card small muted">No posts found for this slug.</div>';
+        if (!lastVisible) {
+          if (profileSlug) postsListEl.innerHTML = `<div class="card small muted">No posts found for "${escapeHTML(profileSlug)}".</div>`;
+          else postsListEl.innerHTML = '<div class="card small muted">You have no posts yet — create one!</div>';
+        }
         loadMoreBtn.style.display = 'none';
         return;
       }
 
-      postsListEl.innerHTML = ''; // Clear skeletons
+      // If resetting, clear skeletons and list
+      if (!lastVisible) postsListEl.innerHTML = '';
+
       for (const d of snaps.docs) {
         renderPostCard(d.id, d.data());
       }
+
       lastVisible = snaps.docs[snaps.docs.length - 1];
       // show load more only if returned PAGE_SIZE items
       loadMoreBtn.style.display = snaps.docs.length === PAGE_SIZE ? 'inline-block' : 'none';
     } catch(e){
       console.error('feed fetch error', e);
       postsListEl.innerHTML = '<div class="card small muted">Failed to load posts</div>';
+      loadMoreBtn.style.display = 'none';
     }
   }
 
@@ -1138,7 +1151,7 @@ footer.footer {
     // Check for photoUrl first, then other possible fields
     const photo = (data && (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.photoURL || data.authorAvatar)) || null;
     // Google default avatar fallback (public-ish)
-    const googleDefault = ' https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png ';
+    const googleDefault = 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png';
     if (photo) {
       return `<img class="avatar small" src="${escapeHTML(photo)}" alt="${escapeHTML(author)}">`;
     } else {
@@ -1279,7 +1292,7 @@ footer.footer {
       const created = data.createdAt ? timeAgo(data.createdAt) : '';
 
       // Use image avatar if present in post data; fallback to google default
-      const avatarForPost = (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.authorAvatar || data.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png ';
+      const avatarForPost = (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.authorAvatar || data.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png';
 
       postContainer.innerHTML = `
         <div class="card">
@@ -1329,7 +1342,7 @@ footer.footer {
           const c = docSnap.data();
           const authorC = c.authorName || 'Anonymous';
           // choose avatar for comment: check comment data for photo fields, prioritizing photoUrl
-          const cAvatar = (c.photoUrl || c.authorPhotoUrl || c.authorPhoto || c.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png ';
+          const cAvatar = (c.photoUrl || c.authorPhotoUrl || c.authorPhoto || c.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png';
           const cEl = document.createElement('div');
           cEl.className = 'comment';
           cEl.innerHTML = `
@@ -1423,21 +1436,17 @@ footer.footer {
     window.location.href = 'settings.html';
   });
 
-  // Wait for auth to be initialized before showing content
+  // Wait for auth to be initialized before showing non-public content
   function waitForAuthInitialization() {
     if (authInitialized) {
-      if (currentUser) {
-        refreshFeed(true);
-      } else {
-        postsListEl.innerHTML = '<div class="card small muted">Sign in to view your posts.</div>';
-      }
+      // Always refresh feed once auth state is known (refreshFeed handles public vs private)
+      refreshFeed(true);
     } else {
       setTimeout(waitForAuthInitialization, 100);
     }
   }
 
   waitForAuthInitialization();
-
 </script>
 </body>
 </html>
