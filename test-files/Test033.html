@@ -782,637 +782,662 @@ footer.footer {
       setTimeout(tryMove, 400);
     })();
   </script>
-  <script type="module">
-    // ---------- CONFIG (do not change unless needed) ----------
-    const firebaseConfig = {
-      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-      authDomain: "teamgalaxy-77344.firebaseapp.com",
-      projectId: "teamgalaxy-77344",
-      storageBucket: "teamgalaxy-77344.firebasestorage.app",
-      messagingSenderId: "770256225320",
-      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-      measurementId: "G-6C2W9NSNCH"
-    };
-    const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
+<script type="module">
+  // ---------- CONFIG (do not change unless needed) ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+    authDomain: "teamgalaxy-77344.firebaseapp.com",
+    projectId: "teamgalaxy-77344",
+    storageBucket: "teamgalaxy-77344.firebasestorage.app",
+    messagingSenderId: "770256225320",
+    appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+    measurementId: "G-6C2W9NSNCH"
+  };
+  const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
 
-    // ---------- Firebase imports (v11.9.0) ----------
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js';
-    import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js';
-    import {
-      getFirestore, collection, query, orderBy, limit, startAfter, getDocs,
-      doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
-      where, serverTimestamp, runTransaction, increment
-    } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js';
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js';
+  // ---------- Firebase imports (v11.9.0) ----------
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js ';
+  import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js ';
+  import {
+    getFirestore, collection, query, orderBy, limit, startAfter, getDocs,
+    doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+    where, serverTimestamp, runTransaction, increment
+  } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js ';
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js ';
 
-    // ---------- initialize ----------
-    const app = initializeApp(firebaseConfig);
-    try {
-      initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
-        isTokenAutoRefreshEnabled: true
-      });
-      console.log('App Check initialized');
-    } catch(e) { console.warn('App Check problem', e); }
+  // ---------- initialize ----------
+  const app = initializeApp(firebaseConfig);
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+      isTokenAutoRefreshEnabled: true
+    });
+    console.log('App Check initialized');
+  } catch(e) { console.warn('App Check problem', e); }
 
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
 
-    // ---------- page-state ----------
-    const postsListEl = document.getElementById('postsList');
-    const feedView = document.getElementById('feedView');
-    const postView = document.getElementById('postView');
-    const postContainer = document.getElementById('postContainer');
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const backToFeed = document.getElementById('backToFeed');
-    const commentInput = document.getElementById('commentInput');
-    const submitComment = document.getElementById('submitComment');
-    const commentsList = document.getElementById('commentsList');
-    const commentStatus = document.getElementById('commentStatus');
-    const clearComment = document.getElementById('clearComment');
-    const createPostBtn = document.querySelector('.create-post-btn');
-    const dropdownMenu = document.getElementById('dropdownMenu');
-    const profileLink = document.getElementById('profileLink');
-    const settingsLink = document.getElementById('settingsLink');
-    const signOutLink = document.getElementById('signOutLink');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const settingsBtn = document.getElementById('settingsBtn');
+  // ---------- page-state ----------
+  const postsListEl = document.getElementById('postsList');
+  const feedView = document.getElementById('feedView');
+  const postView = document.getElementById('postView');
+  const postContainer = document.getElementById('postContainer');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const backToFeed = document.getElementById('backToFeed');
+  const commentInput = document.getElementById('commentInput');
+  const submitComment = document.getElementById('submitComment');
+  const commentsList = document.getElementById('commentsList');
+  const commentStatus = document.getElementById('commentStatus');
+  const clearComment = document.getElementById('clearComment');
+  const createPostBtn = document.querySelector('.create-post-btn');
+  const dropdownMenu = document.getElementById('dropdownMenu');
+  const profileLink = document.getElementById('profileLink');
+  const settingsLink = document.getElementById('settingsLink');
+  const signOutLink = document.getElementById('signOutLink');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
 
-    let lastVisible = null;
-    const PAGE_SIZE = 8;
-    let currentUser = null;
-    let currentUserProfile = null; // from /users/{uid} if exists
-    let currentPostId = null;
-    let commentsUnsub = null;
-    let isVoting = false; // Track if a vote is in progress
-    let authInitialized = false;
+  let lastVisible = null;
+  const PAGE_SIZE = 8;
+  let currentUser = null;
+  let currentUserProfile = null; // from /users/{uid} if exists
+  let currentPostId = null;
+  let commentsUnsub = null;
+  let isVoting = false; // Track if a vote is in progress
+  let authInitialized = false;
+  let currentSlug = null; // <-- Added to store the slug
 
-    // ---------- small helpers ----------
-    function timeAgo(ts) {
-      if (!ts) return '';
-      const d = ts.toDate ? ts.toDate() : new Date(ts);
-      const diff = Math.floor((Date.now() - d.getTime())/1000);
-      if (diff < 60) return diff + 's';
-      if (diff < 3600) return Math.floor(diff/60) + 'm';
-      if (diff < 86400) return Math.floor(diff/3600) + 'h';
-      return Math.floor(diff/86400) + 'd';
-    }
-    function snippet(text, n=220){ return text.length>n ? text.slice(0,n)+'…' : text; }
+  // ---------- small helpers ----------
+  function timeAgo(ts) {
+    if (!ts) return '';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    const diff = Math.floor((Date.now() - d.getTime())/1000);
+    if (diff < 60) return diff + 's';
+    if (diff < 3600) return Math.floor(diff/60) + 'm';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h';
+    return Math.floor(diff/86400) + 'd';
+  }
+  function snippet(text, n=220){ return text.length>n ? text.slice(0,n)+'…' : text; }
 
-    // Escape HTML to prevent XSS
-    function escapeHTML(s){
-      return String(s)
-        .replaceAll('&','&amp;')
-        .replaceAll('<','<')
-        .replaceAll('>','>')
-        .replaceAll('"','&quot;')
-        .replaceAll("'",'&#039;');
-    }
+  // Escape HTML to prevent XSS
+  function escapeHTML(s){
+    return String(s)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','<')
+      .replaceAll('>','>')
+      .replaceAll('"','&quot;')
+      .replaceAll("'",'&#039;');
+  }
 
-    // Generate initials from name
-    function getInitials(name) {
-      return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'U';
-    }
+  // Generate initials from name
+  function getInitials(name) {
+    return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'U';
+  }
 
-    // Show skeleton loading for posts
-    function renderPostSkeletons(count) {
-      let skeletonsHtml = '';
-      for (let i = 0; i < count; i++) {
-        skeletonsHtml += `
-          <div class="card post-skeleton">
-            <div class="meta">
-              <div class="skeleton skeleton-circle"></div>
-              <div class="skeleton skeleton-text" style="width: 120px;"></div>
-            </div>
-            <div class="skeleton skeleton-title"></div>
-            <div class="skeleton skeleton-text"></div>
-            <div class="skeleton skeleton-text" style="width: 80%;"></div>
-            <div class="tags">
-              <span class="skeleton-tag"></span>
-              <span class="skeleton-tag"></span>
-            </div>
-            <div class="actions">
-              <div class="skeleton skeleton-text" style="width: 80px; height: 30px;"></div>
-              <div style="margin-left: auto;">
-                <div class="skeleton skeleton-text" style="width: 120px; height: 30px;"></div>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-      postsListEl.innerHTML = skeletonsHtml;
-    }
-    // Show skeleton loading for comments
-    function renderCommentSkeletons(count) {
-      let skeletonsHtml = '';
-      for (let i = 0; i < count; i++) {
-        skeletonsHtml += `
-          <div class="comment-skeleton">
-            <div class="skeleton skeleton-text" style="width: 100px; margin-bottom: 0.5rem;"></div>
-            <div class="skeleton skeleton-text"></div>
-            <div class="skeleton skeleton-text" style="width: 80%;"></div>
-          </div>
-        `;
-      }
-      commentsList.innerHTML = skeletonsHtml;
-    }
-
-    // Show skeleton for post view
-    function renderPostViewSkeleton() {
-      postContainer.innerHTML = `
+  // Show skeleton loading for posts
+  function renderPostSkeletons(count) {
+    let skeletonsHtml = '';
+    for (let i = 0; i < count; i++) {
+      skeletonsHtml += `
         <div class="card post-skeleton">
           <div class="meta">
             <div class="skeleton skeleton-circle"></div>
             <div class="skeleton skeleton-text" style="width: 120px;"></div>
           </div>
-          <div class="skeleton skeleton-title" style="width: 80%;"></div>
+          <div class="skeleton skeleton-title"></div>
           <div class="skeleton skeleton-text"></div>
-          <div class="skeleton skeleton-text"></div>
-          <div class="skeleton skeleton-text" style="width: 60%;"></div>
+          <div class="skeleton skeleton-text" style="width: 80%;"></div>
           <div class="tags">
             <span class="skeleton-tag"></span>
             <span class="skeleton-tag"></span>
           </div>
           <div class="actions">
             <div class="skeleton skeleton-text" style="width: 80px; height: 30px;"></div>
+            <div style="margin-left: auto;">
+              <div class="skeleton skeleton-text" style="width: 120px; height: 30px;"></div>
+            </div>
           </div>
         </div>
       `;
-
-      // Also render comment skeletons
-      renderCommentSkeletons(3);
     }
-
-    // ---------- auth ----------
-    async function signIn() {
-      try { 
-        await signInWithPopup(auth, provider); 
-      }
-      catch(e){ 
-        console.error('Signin error', e); 
-        alert('Signin failed: ' + e.message); 
-      }
+    postsListEl.innerHTML = skeletonsHtml;
+  }
+  // Show skeleton loading for comments
+  function renderCommentSkeletons(count) {
+    let skeletonsHtml = '';
+    for (let i = 0; i < count; i++) {
+      skeletonsHtml += `
+        <div class="comment-skeleton">
+          <div class="skeleton skeleton-text" style="width: 100px; margin-bottom: 0.5rem;"></div>
+          <div class="skeleton skeleton-text"></div>
+          <div class="skeleton skeleton-text" style="width: 80%;"></div>
+        </div>
+      `;
     }
+    commentsList.innerHTML = skeletonsHtml;
+  }
 
-    // Optimized auth state listener with loading state
-    onAuthStateChanged(auth, async (user) => {
-      currentUser = user;
-      authInitialized = true;
+  // Show skeleton for post view
+  function renderPostViewSkeleton() {
+    postContainer.innerHTML = `
+      <div class="card post-skeleton">
+        <div class="meta">
+          <div class="skeleton skeleton-circle"></div>
+          <div class="skeleton skeleton-text" style="width: 120px;"></div>
+        </div>
+        <div class="skeleton skeleton-title" style="width: 80%;"></div>
+        <div class="skeleton skeleton-text"></div>
+        <div class="skeleton skeleton-text"></div>
+        <div class="skeleton skeleton-text" style="width: 60%;"></div>
+        <div class="tags">
+          <span class="skeleton-tag"></span>
+          <span class="skeleton-tag"></span>
+        </div>
+        <div class="actions">
+          <div class="skeleton skeleton-text" style="width: 80px; height: 30px;"></div>
+        </div>
+      </div>
+    `;
 
-      if (user) {
-        // try read existing users/{uid} doc for name/email
-        try {
-          const udocRef = doc(db,'users', user.uid);
-          const uSnap = await getDoc(udocRef);
-          if (uSnap.exists()) {
-            currentUserProfile = uSnap.data();
-          } else {
-            currentUserProfile = { name: user.displayName || null, email: user.email || null, photoURL: user.photoURL || null };
-          }
-        } catch(e) {
-          console.warn('users read failed', e);
+    // Also render comment skeletons
+    renderCommentSkeletons(3);
+  }
+
+  // ---------- auth ----------
+  async function signIn() {
+    try { 
+      await signInWithPopup(auth, provider); 
+    }
+    catch(e){ 
+      console.error('Signin error', e); 
+      alert('Signin failed: ' + e.message); 
+    }
+  }
+
+  // Optimized auth state listener with loading state
+  onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+    authInitialized = true;
+
+    if (user) {
+      // try read existing users/{uid} doc for name/email
+      try {
+        const udocRef = doc(db,'users', user.uid);
+        const uSnap = await getDoc(udocRef);
+        if (uSnap.exists()) {
+          currentUserProfile = uSnap.data();
+        } else {
           currentUserProfile = { name: user.displayName || null, email: user.email || null, photoURL: user.photoURL || null };
         }
-
-        // place avatar image (use photoURL if available, else placeholder initials image)
-        const avatarSrc = user.photoURL || (`https://via.placeholder.com/80/444444/ffffff?text=${encodeURIComponent(getInitials(currentUserProfile?.name || user.email))}`);
-        document.querySelector('.header-buttons').innerHTML = `
-          <button class="btn btn-settings" id="settingsBtn">Settings</button>
-          <button class="btn btn-logout" id="logoutBtn">Log Out</button>
-        `;
-
-        // Re-attach event listeners for the new buttons
-        document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-          window.location.href = 'settings.html';
-        });
-      } else {
-        document.querySelector('.header-buttons').innerHTML = `
-          <button class="btn btn-settings" id="settingsBtn">Settings</button>
-          <button class="btn btn-logout" id="logoutBtn">Log In</button>
-        `;
-
-        // Re-attach event listeners for the new buttons
-        document.getElementById('logoutBtn').addEventListener('click', signIn);
-        document.getElementById('settingsBtn').addEventListener('click', () => {
-          window.location.href = 'settings.html';
-        });
-        currentUserProfile = null;
+      } catch(e) {
+        console.warn('users read failed', e);
+        currentUserProfile = { name: user.displayName || null, email: user.email || null, photoURL: user.photoURL || null };
       }
 
-      // Re-render feed to reflect auth state
-      if (currentPostId) renderPostView(currentPostId);
-      else { 
-        refreshFeed(true); 
-      }
-    });
+      // place avatar image (use photoURL if available, else placeholder initials image)
+      const avatarSrc = user.photoURL || (`https://via.placeholder.com/80/444444/ffffff?text=${encodeURIComponent(getInitials(currentUserProfile?.name || user.email))}`);
+      document.querySelector('.header-buttons').innerHTML = `
+        <button class="btn btn-settings" id="settingsBtn">Settings</button>
+        <button class="btn btn-logout" id="logoutBtn">Log Out</button>
+      `;
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!dropdownMenu.contains(e.target) && !e.target.classList.contains('avatar') && e.target.id !== 'headerAvatar') {
-        dropdownMenu.classList.remove('show');
-        dropdownMenu.setAttribute('aria-hidden','true');
-      }
-    });
-
-    // Dropdown item event listeners
-    profileLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.location.href = 'profile.html';
-      dropdownMenu.classList.remove('show');
-    });
-
-    settingsLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.location.href = 'settings.html';
-      dropdownMenu.classList.remove('show');
-    });
-
-    signOutLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      signOut(auth);
-      dropdownMenu.classList.remove('show');
-    });
-
-    // Create Post button functionality
-    createPostBtn.addEventListener('click', () => {
-      if (!currentUser) {
-        alert('Sign in to create a post');
-        return;
-      }
-      window.location.href = '/teamgalaxy/tools/create_post.html';
-    });
-
-    // ---------- routing: if ?postId=... show single post view ----------
-    const urlParams = new URLSearchParams(window.location.search);
-    const requestedPostId = urlParams.get('postId');
-
-    if (requestedPostId) {
-      // show single post page
-      feedView.style.display = 'none';
-      postView.style.display = 'block';
-      currentPostId = requestedPostId;
-      renderPostView(requestedPostId);
+      // Re-attach event listeners for the new buttons
+      document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+      document.getElementById('settingsBtn').addEventListener('click', () => {
+        window.location.href = 'settings.html';
+      });
     } else {
-      feedView.style.display = 'block';
-      postView.style.display = 'none';
-      refreshFeed(true);
+      document.querySelector('.header-buttons').innerHTML = `
+        <button class="btn btn-settings" id="settingsBtn">Settings</button>
+        <button class="btn btn-logout" id="logoutBtn">Log In</button>
+      `;
+
+      // Re-attach event listeners for the new buttons
+      document.getElementById('logoutBtn').addEventListener('click', signIn);
+      document.getElementById('settingsBtn').addEventListener('click', () => {
+        window.location.href = 'settings.html';
+      });
+      currentUserProfile = null;
     }
 
-    // ---------- FEED: fetch posts (paged) ----------
-    async function refreshFeed(reset=false) {
-      if (reset) {
-        lastVisible = null;
-        renderPostSkeletons(4); // Show 4 skeleton loaders
-      }
+    // Re-render feed to reflect auth state
+    if (currentPostId) renderPostView(currentPostId);
+    else { 
+      refreshFeed(true); 
+    }
+  });
 
-      // query
-      if (!currentUser) {
-        postsListEl.innerHTML = '<div class="card small muted">Sign in to view your posts.</div>';
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!dropdownMenu.contains(e.target) && !e.target.classList.contains('avatar') && e.target.id !== 'headerAvatar') {
+      dropdownMenu.classList.remove('show');
+      dropdownMenu.setAttribute('aria-hidden','true');
+    }
+  });
+
+  // Dropdown item event listeners
+  profileLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.location.href = 'profile.html';
+    dropdownMenu.classList.remove('show');
+  });
+
+  settingsLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.location.href = 'settings.html';
+    dropdownMenu.classList.remove('show');
+  });
+
+  signOutLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    signOut(auth);
+    dropdownMenu.classList.remove('show');
+  });
+
+  // Create Post button functionality
+  createPostBtn.addEventListener('click', () => {
+    if (!currentUser) {
+      alert('Sign in to create a post');
+      return;
+    }
+    window.location.href = '/teamgalaxy/tools/create_post.html';
+  });
+
+  // ---------- routing: get slug from URL ----------
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedPostId = urlParams.get('postId');
+  // Extract slug from the query string (e.g., ?jvf8la7u972dl3x3rfkpx)
+  // This assumes the slug is the *first* query parameter with no key
+  const queryString = window.location.search.substring(1); // Remove the '?'
+  const parts = queryString.split('&');
+  let extractedSlug = null;
+  // Check if the first part is just a value (slug) without an equals sign
+  if (parts.length > 0 && !parts[0].includes('=')) {
+    extractedSlug = parts[0];
+  }
+
+  // If there's a postId, show single post view (existing logic)
+  if (requestedPostId) {
+    feedView.style.display = 'none';
+    postView.style.display = 'block';
+    currentPostId = requestedPostId;
+    renderPostView(requestedPostId);
+  } else {
+    // Use the extracted slug for fetching posts
+    currentSlug = extractedSlug; // Store the slug
+    feedView.style.display = 'block';
+    postView.style.display = 'none';
+    refreshFeed(true);
+  }
+
+  // ---------- FEED: fetch posts (paged) ----------
+  async function refreshFeed(reset=false) {
+    if (reset) {
+      lastVisible = null;
+      renderPostSkeletons(4); // Show 4 skeleton loaders
+    }
+
+    // query
+    if (!currentUser) {
+      postsListEl.innerHTML = '<div class="card small muted">Sign in to view your posts.</div>';
+      loadMoreBtn.style.display = 'none';
+      return;
+    }
+
+    // Use the currentSlug instead of currentUser.uid
+    if (!currentSlug) {
+       postsListEl.innerHTML = '<div class="card small muted">No slug provided to fetch posts.</div>';
+       loadMoreBtn.style.display = 'none';
+       return;
+    }
+
+    const postsRef = collection(db, 'posts');
+    let q;
+    if (!lastVisible) {
+      // Changed: Use 'slug' instead of 'authorId'
+      q = query(postsRef, where('slug', '==', currentSlug), orderBy('createdAt','desc'), limit(PAGE_SIZE));
+    }
+    else {
+      // Changed: Use 'slug' instead of 'authorId'
+      q = query(postsRef, where('slug', '==', currentSlug), orderBy('createdAt','desc'), startAfter(lastVisible), limit(PAGE_SIZE));
+    }
+
+    try {
+      const snaps = await getDocs(q);
+      if (snaps.docs.length === 0) {
+        if (!lastVisible) postsListEl.innerHTML = '<div class="card small muted">No posts found for this slug.</div>';
         loadMoreBtn.style.display = 'none';
         return;
       }
 
-      const postsRef = collection(db, 'posts');
-      let q;
-      if (!lastVisible) q = query(postsRef, where('authorId', '==', currentUser.uid), orderBy('createdAt','desc'), limit(PAGE_SIZE));
-      else q = query(postsRef, where('authorId', '==', currentUser.uid), orderBy('createdAt','desc'), startAfter(lastVisible), limit(PAGE_SIZE));
-
-      try {
-        const snaps = await getDocs(q);
-        if (snaps.docs.length === 0) {
-          if (!lastVisible) postsListEl.innerHTML = '<div class="card small muted">You have no posts yet — create one!</div>';
-          loadMoreBtn.style.display = 'none';
-          return;
-        }
-
-        postsListEl.innerHTML = ''; // Clear skeletons
-        for (const d of snaps.docs) {
-          renderPostCard(d.id, d.data());
-        }
-        lastVisible = snaps.docs[snaps.docs.length - 1];
-        // show load more only if returned PAGE_SIZE items
-        loadMoreBtn.style.display = snaps.docs.length === PAGE_SIZE ? 'inline-block' : 'none';
-      } catch(e){
-        console.error('feed fetch error', e);
-        postsListEl.innerHTML = '<div class="card small muted">Failed to load posts</div>';
+      postsListEl.innerHTML = ''; // Clear skeletons
+      for (const d of snaps.docs) {
+        renderPostCard(d.id, d.data());
       }
+      lastVisible = snaps.docs[snaps.docs.length - 1];
+      // show load more only if returned PAGE_SIZE items
+      loadMoreBtn.style.display = snaps.docs.length === PAGE_SIZE ? 'inline-block' : 'none';
+    } catch(e){
+      console.error('feed fetch error', e);
+      postsListEl.innerHTML = '<div class="card small muted">Failed to load posts</div>';
     }
+  }
 
-    refreshBtn.addEventListener('click', ()=> {
-      lastVisible=null;
-      refreshFeed(true);
+  refreshBtn.addEventListener('click', ()=> {
+    lastVisible=null;
+    refreshFeed(true);
+  });
+
+  loadMoreBtn.addEventListener('click', ()=> refreshFeed(false));
+
+  // Helper to choose avatar for posts/comments
+  function avatarHtmlFor(author, data) {
+    // Check for photoUrl first, then other possible fields
+    const photo = (data && (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.photoURL || data.authorAvatar)) || null;
+    // Google default avatar fallback (public-ish)
+    const googleDefault = ' https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png ';
+    if (photo) {
+      return `<img class="avatar small" src="${escapeHTML(photo)}" alt="${escapeHTML(author)}">`;
+    } else {
+      // Use googleDefault if you want a consistent "google-like" fallback
+      return `<img class="avatar small" src="${googleDefault}" alt="avatar">`;
+    }
+  }
+
+  function renderPostCard(postId, data) {
+    const el = document.createElement('div');
+    el.className = 'card';
+    const author = data.authorName || data.authorEmail || 'Unknown';
+    const created = data.createdAt ? timeAgo(data.createdAt) : '';
+
+    // build avatar (image if available else google default image)
+    const avatarHtml = avatarHtmlFor(author, data);
+
+    el.innerHTML = `
+      <div class="meta">
+        ${avatarHtml}
+        <span style="margin-left:8px">${escapeHTML(author)} · <span class="muted">${created}</span></span>
+      </div>
+      <div class="title">${escapeHTML(data.title || 'Untitled')}</div>
+      <div class="snippet">${escapeHTML(snippet(data.body || ''))}</div>
+      <div class="tags">${(data.tags || []).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>
+      <div class="actions">
+        <div class="vote">
+          <button class="link-like upvote" data-id="${postId}">▲</button>
+          <div class="count" id="up_${postId}">${data.upvotesCount||0}</div>
+          <button class="link-like downvote" data-id="${postId}">▼</button>
+          <div class="count" id="down_${postId}">${data.downvotesCount||0}</div>
+        </div>
+        <div style="margin-left:auto">
+          <button class="btn-ghost commentBtn" data-id="${postId}"><i class="far fa-comment"></i> Comments (${data.commentsCount||0})</button>
+          <button class="btn-primary viewBtn" data-id="${postId}">View Post</button>
+        </div>
+      </div>
+    `;
+    postsListEl.appendChild(el);
+
+    // attach handlers
+    el.querySelector('.viewBtn').addEventListener('click', ()=> openPostPage(postId));
+    el.querySelector('.commentBtn').addEventListener('click', ()=> openPostPage(postId));
+    el.querySelector('.upvote').addEventListener('click', ()=> handleVoteClick(postId, 1));
+    el.querySelector('.downvote').addEventListener('click', ()=> handleVoteClick(postId, -1));
+  }
+
+  function openPostPage(postId) {
+    // navigate to same file with ?postId
+    const base = window.location.href.split('?')[0];
+    window.location.href = base + '?postId=' + postId;
+  }
+
+  // ---------- Voting logic (safe per-user using 'votes' collection) ----------
+  async function handleVoteClick(postId, delta) {
+    if (isVoting) return; // Prevent multiple simultaneous votes
+    if (!currentUser) { alert('Sign in to vote'); return; }
+
+    const uid = currentUser.uid;
+    const voteDocRef = doc(db, 'votes', `${postId}_${uid}`);
+    const postRef = doc(db, 'posts', postId);
+
+    // Set voting state and update UI
+    isVoting = true;
+    const voteButtons = document.querySelectorAll(`.upvote[data-id="${postId}"], .downvote[data-id="${postId}"]`);
+    voteButtons.forEach(btn => {
+      btn.classList.add('vote-loading');
+      btn.innerHTML = delta === 1 && btn.classList.contains('upvote') ?
+        '<span class="spinner"></span> ▲' :
+        (delta === -1 && btn.classList.contains('downvote') ?
+        '<span class="spinner"></span> ▼' : btn.innerHTML);
     });
 
-    loadMoreBtn.addEventListener('click', ()=> refreshFeed(false));
+    try {
+      await runTransaction(db, async (tx) => {
+        const voteSnap = await tx.get(voteDocRef);
+        const postSnap = await tx.get(postRef);
+        if (!postSnap.exists()) throw 'Post not found';
+        let up = postSnap.data().upvotesCount || 0;
+        let down = postSnap.data().downvotesCount || 0;
 
-    // Helper to choose avatar for posts/comments
-    function avatarHtmlFor(author, data) {
-      // Check for photoUrl first, then other possible fields
-      const photo = (data && (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.photoURL || data.authorAvatar)) || null;
-      // Google default avatar fallback (public-ish)
-      const googleDefault = 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png';
-      if (photo) {
-        return `<img class="avatar small" src="${escapeHTML(photo)}" alt="${escapeHTML(author)}">`;
-      } else {
-        // Use googleDefault if you want a consistent "google-like" fallback
-        return `<img class="avatar small" src="${googleDefault}" alt="avatar">`;
-      }
+        if (!voteSnap.exists()) {
+          // create vote
+          tx.set(voteDocRef, { postId, userId: uid, vote: delta, createdAt: serverTimestamp() });
+          if (delta === 1) up++; else down++;
+        } else {
+          const prev = voteSnap.data().vote || 0;
+          if (prev === delta) {
+            // undo
+            tx.delete(voteDocRef);
+            if (delta === 1) up = Math.max(0, up-1); else down = Math.max(0, down-1);
+          } else {
+            // switch
+            tx.update(voteDocRef, { vote: delta, updatedAt: serverTimestamp() });
+            if (delta === 1) { up++; down = Math.max(0, down-1); }
+            else { down++; up = Math.max(0, up-1); }
+          }
+        }
+        tx.update(postRef, { upvotesCount: up, downvotesCount: down });
+      });
+      // update UI quickly by refetching either the single post view or the feed counts
+      if (currentPostId === postId) renderPostView(postId);
+      else refreshFeed(true);
+    } catch(e) {
+      console.error('vote failed', e);
+      alert('Vote failed');
+    } finally {
+      isVoting = false;
+      // Reset UI state
+      voteButtons.forEach(btn => {
+        btn.classList.remove('vote-loading');
+        btn.innerHTML = btn.classList.contains('upvote') ? '▲' : '▼';
+      });
     }
+  }
 
-    function renderPostCard(postId, data) {
-      const el = document.createElement('div');
-      el.className = 'card';
+  // ---------- POST VIEW (single post + comments) ----------
+  backToFeed.addEventListener('click', ()=> {
+    const base = window.location.href.split('?')[0];
+    window.location.href = base; // go back to feed
+  });
+
+  async function renderPostView(postId) {
+    currentPostId = postId;
+    // Show skeleton while loading
+    renderPostViewSkeleton();
+
+    try {
+      const postRef = doc(db,'posts',postId);
+      const pSnap = await getDoc(postRef);
+      if (!pSnap.exists()) {
+        postContainer.innerHTML = '<div class="card small muted">Post not found</div>';
+        return;
+      }
+
+      const data = pSnap.data();
       const author = data.authorName || data.authorEmail || 'Unknown';
       const created = data.createdAt ? timeAgo(data.createdAt) : '';
 
-      // build avatar (image if available else google default image)
-      const avatarHtml = avatarHtmlFor(author, data);
+      // Use image avatar if present in post data; fallback to google default
+      const avatarForPost = (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.authorAvatar || data.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png ';
 
-      el.innerHTML = `
-        <div class="meta">
-          ${avatarHtml}
-          <span style="margin-left:8px">${escapeHTML(author)} · <span class="muted">${created}</span></span>
-        </div>
-        <div class="title">${escapeHTML(data.title || 'Untitled')}</div>
-        <div class="snippet">${escapeHTML(snippet(data.body || ''))}</div>
-        <div class="tags">${(data.tags || []).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>
-        <div class="actions">
-          <div class="vote">
-            <button class="link-like upvote" data-id="${postId}">▲</button>
-            <div class="count" id="up_${postId}">${data.upvotesCount||0}</div>
-            <button class="link-like downvote" data-id="${postId}">▼</button>
-            <div class="count" id="down_${postId}">${data.downvotesCount||0}</div>
+      postContainer.innerHTML = `
+        <div class="card">
+          <div class="meta">
+            <img class="avatar small" src="${escapeHTML(avatarForPost)}" alt="${escapeHTML(author)}">
+            ${escapeHTML(author)} · <span class="muted">${created}</span>
           </div>
-          <div style="margin-left:auto">
-            <button class="btn-ghost commentBtn" data-id="${postId}"><i class="far fa-comment"></i> Comments (${data.commentsCount||0})</button>
-            <button class="btn-primary viewBtn" data-id="${postId}">View Post</button>
+          <div class="title">${escapeHTML(data.title || 'Untitled')}</div>
+          <div style="margin-top:0.75rem; line-height: 1.8;">${escapeHTML(data.body || '').replace(/\n/g, '<br>')}</div>
+          <div class="tags">${(data.tags||[]).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>
+
+          <div style="margin-top:1rem" class="actions">
+            <div class="vote">
+              <button id="pvUp" class="link-like">▲</button>
+              <div id="pvUpCount" class="count">${data.upvotesCount||0}</div>
+              <button id="pvDown" class="link-like">▼</button>
+              <div id="pvDownCount" class="count">${data.downvotesCount||0}</div>
+            </div>
           </div>
         </div>
       `;
-      postsListEl.appendChild(el);
 
-      // attach handlers
-      el.querySelector('.viewBtn').addEventListener('click', ()=> openPostPage(postId));
-      el.querySelector('.commentBtn').addEventListener('click', ()=> openPostPage(postId));
-      el.querySelector('.upvote').addEventListener('click', ()=> handleVoteClick(postId, 1));
-      el.querySelector('.downvote').addEventListener('click', ()=> handleVoteClick(postId, -1));
-    }
+      // bind vote handlers and show user's current vote visually
+      document.getElementById('pvUp').addEventListener('click', ()=> handleVoteClick(postId, 1));
+      document.getElementById('pvDown').addEventListener('click', ()=> handleVoteClick(postId, -1));
 
-    function openPostPage(postId) {
-      // navigate to same file with ?postId
-      const base = window.location.href.split('?')[0];
-      window.location.href = base + '?postId=' + postId;
-    }
+      // fetch and highlight user's vote (if logged in)
+      if (currentUser) {
+        try {
+          const voteSnap = await getDoc(doc(db,'votes', `${postId}_${currentUser.uid}`));
+          const prev = voteSnap.exists() ? (voteSnap.data().vote||0) : 0;
+          highlightVoteButtons(prev);
+        } catch(e){ console.warn('vote read failed', e); }
+      } else highlightVoteButtons(0);
 
-    // ---------- Voting logic (safe per-user using 'votes' collection) ----------
-    async function handleVoteClick(postId, delta) {
-      if (isVoting) return; // Prevent multiple simultaneous votes
-      if (!currentUser) { alert('Sign in to vote'); return; }
-
-      const uid = currentUser.uid;
-      const voteDocRef = doc(db, 'votes', `${postId}_${uid}`);
-      const postRef = doc(db, 'posts', postId);
-
-      // Set voting state and update UI
-      isVoting = true;
-      const voteButtons = document.querySelectorAll(`.upvote[data-id="${postId}"], .downvote[data-id="${postId}"]`);
-      voteButtons.forEach(btn => {
-        btn.classList.add('vote-loading');
-        btn.innerHTML = delta === 1 && btn.classList.contains('upvote') ?
-          '<span class="spinner"></span> ▲' :
-          (delta === -1 && btn.classList.contains('downvote') ?
-          '<span class="spinner"></span> ▼' : btn.innerHTML);
-      });
-
-      try {
-        await runTransaction(db, async (tx) => {
-          const voteSnap = await tx.get(voteDocRef);
-          const postSnap = await tx.get(postRef);
-          if (!postSnap.exists()) throw 'Post not found';
-          let up = postSnap.data().upvotesCount || 0;
-          let down = postSnap.data().downvotesCount || 0;
-
-                    if (!voteSnap.exists()) {
-            // create vote
-            tx.set(voteDocRef, { postId, userId: uid, vote: delta, createdAt: serverTimestamp() });
-            if (delta === 1) up++; else down++;
-          } else {
-            const prev = voteSnap.data().vote || 0;
-            if (prev === delta) {
-              // undo
-              tx.delete(voteDocRef);
-              if (delta === 1) up = Math.max(0, up-1); else down = Math.max(0, down-1);
-            } else {
-              // switch
-              tx.update(voteDocRef, { vote: delta, updatedAt: serverTimestamp() });
-              if (delta === 1) { up++; down = Math.max(0, down-1); }
-              else { down++; up = Math.max(0, up-1); }
-            }
-          }
-          tx.update(postRef, { upvotesCount: up, downvotesCount: down });
-        });
-        // update UI quickly by refetching either the single post view or the feed counts
-        if (currentPostId === postId) renderPostView(postId);
-        else refreshFeed(true);
-      } catch(e) {
-        console.error('vote failed', e);
-        alert('Vote failed');
-      } finally {
-        isVoting = false;
-        // Reset UI state
-        voteButtons.forEach(btn => {
-          btn.classList.remove('vote-loading');
-          btn.innerHTML = btn.classList.contains('upvote') ? '▲' : '▼';
-        });
-      }
-    }
-
-    // ---------- POST VIEW (single post + comments) ----------
-    backToFeed.addEventListener('click', ()=> {
-      const base = window.location.href.split('?')[0];
-      window.location.href = base; // go back to feed
-    });
-
-    async function renderPostView(postId) {
-      currentPostId = postId;
-      // Show skeleton while loading
-      renderPostViewSkeleton();
-
-      try {
-        const postRef = doc(db,'posts',postId);
-        const pSnap = await getDoc(postRef);
-        if (!pSnap.exists()) {
-          postContainer.innerHTML = '<div class="card small muted">Post not found</div>';
+      // subscribe to comments in real-time
+      const commentsRef = collection(db, 'posts', postId, 'comments');
+      const commentsQuery = query(commentsRef, orderBy('createdAt','asc'));
+      commentsUnsub = onSnapshot(commentsQuery, (snap) => {
+        commentsList.innerHTML = '';
+        if (snap.empty) {
+          commentsList.innerHTML = '<div class="small muted" style="padding: 1rem; text-align: center;">No comments yet</div>';
           return;
         }
 
-        const data = pSnap.data();
-        const author = data.authorName || data.authorEmail || 'Unknown';
-        const created = data.createdAt ? timeAgo(data.createdAt) : '';
-
-        // Use image avatar if present in post data; fallback to google default
-        const avatarForPost = (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.authorAvatar || data.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png';
-
-        postContainer.innerHTML = `
-          <div class="card">
+        snap.forEach(docSnap => {
+          const c = docSnap.data();
+          const authorC = c.authorName || 'Anonymous';
+          // choose avatar for comment: check comment data for photo fields, prioritizing photoUrl
+          const cAvatar = (c.photoUrl || c.authorPhotoUrl || c.authorPhoto || c.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png ';
+          const cEl = document.createElement('div');
+          cEl.className = 'comment';
+          cEl.innerHTML = `
             <div class="meta">
-              <img class="avatar small" src="${escapeHTML(avatarForPost)}" alt="${escapeHTML(author)}">
-              ${escapeHTML(author)} · <span class="muted">${created}</span>
+              <img class="avatar small" src="${escapeHTML(cAvatar)}" alt="${escapeHTML(authorC)}">
+              ${escapeHTML(authorC)} · <span class="muted">${c.createdAt ? timeAgo(c.createdAt) : ''}</span>
             </div>
-            <div class="title">${escapeHTML(data.title || 'Untitled')}</div>
-            <div style="margin-top:0.75rem; line-height: 1.8;">${escapeHTML(data.body || '').replace(/\n/g, '<br>')}</div>
-            <div class="tags">${(data.tags||[]).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>
-
-            <div style="margin-top:1rem" class="actions">
-              <div class="vote">
-                <button id="pvUp" class="link-like">▲</button>
-                <div id="pvUpCount" class="count">${data.upvotesCount||0}</div>
-                <button id="pvDown" class="link-like">▼</button>
-                <div id="pvDownCount" class="count">${data.downvotesCount||0}</div>
-              </div>
-            </div>
-          </div>
-        `;
-
-        // bind vote handlers and show user's current vote visually
-        document.getElementById('pvUp').addEventListener('click', ()=> handleVoteClick(postId, 1));
-        document.getElementById('pvDown').addEventListener('click', ()=> handleVoteClick(postId, -1));
-
-        // fetch and highlight user's vote (if logged in)
-        if (currentUser) {
-          try {
-            const voteSnap = await getDoc(doc(db,'votes', `${postId}_${currentUser.uid}`));
-            const prev = voteSnap.exists() ? (voteSnap.data().vote||0) : 0;
-            highlightVoteButtons(prev);
-          } catch(e){ console.warn('vote read failed', e); }
-        } else highlightVoteButtons(0);
-
-        // subscribe to comments in real-time
-        const commentsRef = collection(db, 'posts', postId, 'comments');
-        const commentsQuery = query(commentsRef, orderBy('createdAt','asc'));
-        commentsUnsub = onSnapshot(commentsQuery, (snap) => {
-          commentsList.innerHTML = '';
-          if (snap.empty) {
-            commentsList.innerHTML = '<div class="small muted" style="padding: 1rem; text-align: center;">No comments yet</div>';
-            return;
-          }
-
-          snap.forEach(docSnap => {
-            const c = docSnap.data();
-            const authorC = c.authorName || 'Anonymous';
-            // choose avatar for comment: check comment data for photo fields, prioritizing photoUrl
-            const cAvatar = (c.photoUrl || c.authorPhotoUrl || c.authorPhoto || c.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png';
-            const cEl = document.createElement('div');
-            cEl.className = 'comment';
-            cEl.innerHTML = `
-              <div class="meta">
-                <img class="avatar small" src="${escapeHTML(cAvatar)}" alt="${escapeHTML(authorC)}">
-                ${escapeHTML(authorC)} · <span class="muted">${c.createdAt ? timeAgo(c.createdAt) : ''}</span>
-              </div>
-              <div style="margin-top:0.5rem">${escapeHTML(c.body||'').replace(/\n/g, '<br>')}</div>`;
-            commentsList.appendChild(cEl);
-          });
-        }, (error) => {
-          console.error('Comments subscription error:', error);
-          commentsList.innerHTML = '<div class="small muted" style="padding: 1rem;">Failed to load comments</div>';
+            <div style="margin-top:0.5rem">${escapeHTML(c.body||'').replace(/\n/g, '<br>')}</div>`;
+          commentsList.appendChild(cEl);
         });
-
-      } catch(e) {
-        console.error('render post error', e);
-        postContainer.innerHTML = '<div class="card small muted">Failed to load post</div>';
-      }
-    }
-
-    function highlightVoteButtons(v) {
-      const up = document.getElementById('pvUp');
-      const down = document.getElementById('pvDown');
-      if (!up || !down) return;
-
-      up.style.color = v === 1 ? 'var(--accent1)' : 'var(--muted)';
-      down.style.color = v === -1 ? 'var(--accent1)' : 'var(--muted)';
-      up.style.fontWeight = v === 1 ? '900' : '600';
-      down.style.fontWeight = v === -1 ? '900' : '600';
-    }
-
-    // ---------- comments: add ----------
-    clearComment.addEventListener('click', ()=> commentInput.value='');
-
-    submitComment.addEventListener('click', async () => {
-      if (!currentUser) { alert('Sign in to comment'); return; }
-      const text = (commentInput.value || '').trim();
-      if (!text) { commentStatus.textContent = 'Type your comment'; return; }
-
-      commentStatus.textContent = 'Posting...';
-      submitComment.disabled = true;
-
-      try {
-        const commentsRef = collection(db, 'posts', currentPostId, 'comments');
-        await addDoc(commentsRef, {
-          body: text,
-          authorId: currentUser.uid,
-          authorName: currentUserProfile?.name || currentUser.email || null,
-          photoUrl: currentUserProfile?.photoURL || currentUser.photoURL || null, // Add photoUrl to comment
-          createdAt: serverTimestamp(),
-          upvotesCount: 0
-        });
-        // increment commentsCount on post
-        await updateDoc(doc(db,'posts',currentPostId), { commentsCount: increment(1) });
-        commentInput.value = '';
-        commentStatus.textContent = 'Posted';
-      } catch(e) {
-        console.error('post comment failed', e);
-        commentStatus.textContent = 'Failed';
-      } finally {
-        submitComment.disabled = false;
-        setTimeout(()=>commentStatus.textContent='',1200);
-      }
-    });
-
-    // ---------- initial render for feed view ----------
-    function showFeed() {
-      feedView.style.display = 'block';
-      postView.style.display = 'none';
-    }
-    function showPost() {
-      feedView.style.display = 'none';
-      postView.style.display = 'block';
-    }
-    // ensure proper view shown depending on currentPostId
-    if (currentPostId) { showPost(); } else { showFeed(); }
-
-        // Logout functionality
-    logoutBtn.addEventListener('click', () => {
-      signOut(auth).then(() => {
-        console.log('User signed out');
-      }).catch((error) => {
-        console.error('Sign out error:', error);
-        alert('Error signing out. Please try again.');
+      }, (error) => {
+        console.error('Comments subscription error:', error);
+        commentsList.innerHTML = '<div class="small muted" style="padding: 1rem;">Failed to load comments</div>';
       });
-    });
 
-    // Settings functionality
-    settingsBtn.addEventListener('click', () => {
-      window.location.href = 'settings.html';
-    });
-
-    // Wait for auth to be initialized before showing content
-    function waitForAuthInitialization() {
-      if (authInitialized) {
-        if (currentUser) {
-          refreshFeed(true);
-        } else {
-          postsListEl.innerHTML = '<div class="card small muted">Sign in to view your posts.</div>';
-        }
-      } else {
-        setTimeout(waitForAuthInitialization, 100);
-      }
+    } catch(e) {
+      console.error('render post error', e);
+      postContainer.innerHTML = '<div class="card small muted">Failed to load post</div>';
     }
+  }
 
-    waitForAuthInitialization();
+  function highlightVoteButtons(v) {
+    const up = document.getElementById('pvUp');
+    const down = document.getElementById('pvDown');
+    if (!up || !down) return;
 
-  </script>
+    up.style.color = v === 1 ? 'var(--accent1)' : 'var(--muted)';
+    down.style.color = v === -1 ? 'var(--accent1)' : 'var(--muted)';
+    up.style.fontWeight = v === 1 ? '900' : '600';
+    down.style.fontWeight = v === -1 ? '900' : '600';
+  }
+
+  // ---------- comments: add ----------
+  clearComment.addEventListener('click', ()=> commentInput.value='');
+
+  submitComment.addEventListener('click', async () => {
+    if (!currentUser) { alert('Sign in to comment'); return; }
+    const text = (commentInput.value || '').trim();
+    if (!text) { commentStatus.textContent = 'Type your comment'; return; }
+
+    commentStatus.textContent = 'Posting...';
+    submitComment.disabled = true;
+
+    try {
+      const commentsRef = collection(db, 'posts', currentPostId, 'comments');
+      await addDoc(commentsRef, {
+        body: text,
+        authorId: currentUser.uid,
+        authorName: currentUserProfile?.name || currentUser.email || null,
+        photoUrl: currentUserProfile?.photoURL || currentUser.photoURL || null, // Add photoUrl to comment
+        createdAt: serverTimestamp(),
+        upvotesCount: 0
+      });
+      // increment commentsCount on post
+      await updateDoc(doc(db,'posts',currentPostId), { commentsCount: increment(1) });
+      commentInput.value = '';
+      commentStatus.textContent = 'Posted';
+    } catch(e) {
+      console.error('post comment failed', e);
+      commentStatus.textContent = 'Failed';
+    } finally {
+      submitComment.disabled = false;
+      setTimeout(()=>commentStatus.textContent='',1200);
+    }
+  });
+
+  // ---------- initial render for feed view ----------
+  function showFeed() {
+    feedView.style.display = 'block';
+    postView.style.display = 'none';
+  }
+  function showPost() {
+    feedView.style.display = 'none';
+    postView.style.display = 'block';
+  }
+  // ensure proper view shown depending on currentPostId
+  if (currentPostId) { showPost(); } else { showFeed(); }
+
+  // Logout functionality
+  logoutBtn.addEventListener('click', () => {
+    signOut(auth).then(() => {
+      console.log('User signed out');
+    }).catch((error) => {
+      console.error('Sign out error:', error);
+      alert('Error signing out. Please try again.');
+    });
+  });
+
+  // Settings functionality
+  settingsBtn.addEventListener('click', () => {
+    window.location.href = 'settings.html';
+  });
+
+  // Wait for auth to be initialized before showing content
+  function waitForAuthInitialization() {
+    if (authInitialized) {
+      if (currentUser) {
+        refreshFeed(true);
+      } else {
+        postsListEl.innerHTML = '<div class="card small muted">Sign in to view your posts.</div>';
+      }
+    } else {
+      setTimeout(waitForAuthInitialization, 100);
+    }
+  }
+
+  waitForAuthInitialization();
+
+</script>
 </body>
 </html>
