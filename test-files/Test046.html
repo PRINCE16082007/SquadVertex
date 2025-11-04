@@ -571,409 +571,354 @@
       </div>
     </div>
   </footer>
-<script>
-  // Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-    authDomain: "teamgalaxy-77344.firebaseapp.com",
-    projectId: "teamgalaxy-77344",
-    storageBucket: "teamgalaxy-77344.firebasestorage.app",
-    messagingSenderId: "770256225320",
-    appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-    measurementId: "G-6C2W9NSNCH"
-  };
-
-  // Initialize Firebase (namespaced SDK style you used)
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-
-  // DOM Elements
-  const loadingOverlay = document.getElementById('loadingOverlay');
-  const profileContent = document.getElementById('profile-content');
-  const postsSection = document.getElementById('posts-section');
-  const logoutBtn = document.querySelector('.btn-logout');
-  const settingsBtn = document.querySelector('.btn-settings');
-
-  // Create stars for loading overlay
-  function createStars() {
-    const container = document.getElementById('starsContainer');
-    if (!container) return;
-    container.innerHTML = '';
-    for (let i = 0; i < 30; i++) {
-      const star = document.createElement('div');
-      star.classList.add('star');
-
-      // Random position
-      const x = Math.random() * 100;
-      const y = Math.random() * 100;
-      star.style.left = `${x}%`;
-      star.style.top = `${y}%`;
-
-      // Random size
-      const size = Math.random() * 3 + 1;
-      star.style.width = `${size}px`;
-      star.style.height = `${size}px`;
-
-      // Random animation duration
-      const duration = Math.random() * 3 + 2;
-      star.style.setProperty('--duration', `${duration}s`);
-
-      container.appendChild(star);
-    }
-  }
-
-  // Format date
-  function formatDate(dateValue) {
-    if (!dateValue) return '';
-
-    if (dateValue && dateValue.seconds) {
-      const date = new Date(dateValue.seconds * 1000);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } else if (dateValue instanceof Date) {
-      return dateValue.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } else {
-      const date = new Date(dateValue);
-      if (isNaN(date.getTime())) {
-        return 'Invalid Date';
-      }
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    }
-  }
-
-  // Format number
-  function formatNumber(num) {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + 'M';
-    }
-    if (num >= 1000) {
-      return (num / 1000).toFixed(1) + 'K';
-    }
-    return num.toString();
-  }
-
-  // Time ago
-  function timeAgo(dateValue) {
-    if (!dateValue) return 'Just now';
-
-    let date;
-    if (dateValue && dateValue.seconds) {
-      date = new Date(dateValue.seconds * 1000);
-    } else if (dateValue instanceof Date) {
-      date = dateValue;
-    } else {
-      date = new Date(dateValue);
-      if (isNaN(date.getTime())) {
-        return 'Invalid Date';
-      }
-    }
-
-    const now = new Date();
-    const seconds = Math.floor((now - date) / 1000);
-
-    let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + ' years ago';
-    interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + ' months ago';
-    interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + ' days ago';
-    interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + ' hours ago';
-    interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + ' minutes ago';
-    return Math.floor(seconds) + ' seconds ago';
-  }
-
-  // Load profile data
-  async function loadProfile() {
-    const user = auth.currentUser;
-    if (!user) {
-      profileContent.innerHTML = '<div class="loading">Please log in to view your profile.</div>';
-      return;
-    }
-
-    try {
-      // *** NOTE: per your instruction we read slug from collection `userPrivate` ***
-      const docRef = db.collection('userPrivate').doc(user.uid);
-      const docSnap = await docRef.get();
-
-      if (!docSnap.exists) {
-        profileContent.innerHTML = '<div class="loading">Profile not found.</div>';
-        return;
-      }
-
-      // merge profile data (profile info may be stored elsewhere — adapt if needed)
-      const data = docSnap.data();
-      // If you also keep public profile data in another collection (e.g., 'users'), you can merge here.
-      renderProfile(data);
-      await loadUserPosts(user.uid);
-    } catch (error) {
-      console.error('Error loading profile:', error);
-      profileContent.innerHTML = '<div class="loading">Error loading profile.</div>';
-    }
-  }
-
-  // Load user posts
-  async function loadUserPosts(userId) {
-    try {
-      const postsQuery = await db.collection('posts')
-        .where('authorId', '==', userId)
-        .orderBy('createdAt', 'desc')
-        .limit(3)
-        .get();
-
-      const posts = [];
-      postsQuery.forEach(doc => {
-        posts.push({ id: doc.id, ...doc.data() });
-      });
-
-      renderPosts(posts);
-    } catch (error) {
-      console.error('Error loading posts:', error);
-      postsSection.innerHTML = '<div class="loading">Error loading posts.</div>';
-    }
-  }
-
-  // Build public profile URL dynamically from current URL and slug
-  function buildPublicProfileUrlFromCurrentLocation(slug) {
-    if (!slug) return null;
-
-    // Work with base URL (strip query and hash)
-    const hrefBase = window.location.href.split('?')[0].split('#')[0];
-
-    // Preferred replace pattern (explicit)
-    if (hrefBase.includes('user_management/user_profile.html')) {
-      return hrefBase.replace('user_management/user_profile.html',
-        `public_user_manager/public_user_profile.html?=${encodeURIComponent(slug)}`);
-    }
-
-    // If different structure, attempt a safer replacement:
-    // Remove the last path segment and append the new path (preserves repo path)
-    const origin = window.location.origin;
-    const pathParts = window.location.pathname.split('/').filter(Boolean); // drop empty
-    // remove last segment
-    if (pathParts.length > 0) pathParts.pop();
-    // push desired segments
-    pathParts.push('public_user_manager', 'public_user_profile.html');
-    const newPath = '/' + pathParts.join('/');
-    return origin + newPath + `?=${encodeURIComponent(slug)}`;
-  }
-
-  // Render profile HTML
-  function renderProfile(data) {
-    // safe-guard: ensure data is an object
-    data = data || {};
-
-    profileContent.innerHTML = `
-      <div class="profile-card">
-        <div class="profile-actions">
-          <button class="btn-share" id="shareBtn">Share Profile</button>
-        </div>
-
-        <!-- Profile Header -->
-        <div class="profile-header">
-          <img src="${data.profilePhotoUrl || 'https://via.placeholder.com/150'}" alt="Profile Photo" class="profile-photo">
-          <div class="profile-info">
-            <h1 class="profile-name">${data.name || 'Unknown User'}</h1>
-            <div class="profile-slug">${data.slug ? '@' + data.slug : ''}${data.verified ? '<span class="verified-badge">✓ Verified</span>' : ''}</div>
-            <div class="join-date">Joined: ${formatDate(data.joinDate)}</div>
-            <div class="email">${data.email || ''}</div>
-          </div>
-        </div>
-
-        <!-- Bio Section -->
-        <div class="bio-section">
-          <h2 class="section-title">Bio</h2>
-          <p class="bio-text">${data.bio || 'No bio available.'}</p>
-        </div>
-
-        <!-- Stats Section -->
-        <div class="profile-stats">
-          <div class="stat-card">
-            <div class="stat-value">${formatNumber(data.publicPostCount || 0)}</div>
-            <div class="stat-label">Public Posts</div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Add share button functionality: build public URL using slug from userPrivate doc (data.slug)
-    const shareBtn = document.getElementById('shareBtn');
-    shareBtn.addEventListener('click', async () => {
-      try {
-        let slug = data.slug || null;
-
-        // If slug not present in the rendered data (just in case), try fetching from userPrivate again
-        if (!slug && auth.currentUser) {
-          const fallbackSnap = await db.collection('userPrivate').doc(auth.currentUser.uid).get();
-          if (fallbackSnap.exists) {
-            const fallbackData = fallbackSnap.data();
-            slug = fallbackData && fallbackData.slug ? fallbackData.slug : null;
-          }
-        }
-
-        if (!slug) {
-          alert('No profile slug available for sharing.');
-          return;
-        }
-
-        const shareUrl = buildPublicProfileUrlFromCurrentLocation(slug);
-
-        if (!shareUrl) {
-          alert('Failed to build share URL. Contact admin.');
-          return;
-        }
-
-        // copy to clipboard
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(shareUrl);
-          alert('Profile URL copied to clipboard!');
-        } else {
-          // fallback
-          const tmp = document.createElement('textarea');
-          tmp.value = shareUrl;
-          document.body.appendChild(tmp);
-          tmp.select();
-          document.execCommand('copy');
-          document.body.removeChild(tmp);
-          alert('Profile URL copied to clipboard!');
-        }
-      } catch (err) {
-        console.error('Failed to copy URL', err);
-        alert('Failed to copy URL. Please try again.');
-      }
-    });
-  }
-
-  // Render posts HTML
-  async function renderPosts(posts) {
-    if (!Array.isArray(posts) || posts.length === 0) {
-      postsSection.innerHTML = '<div class="loading">No posts found.</div>';
-      return;
-    }
-
-    let postsHTML = `
-      <div class="posts-section">
-        <h2 class="section-title">Recent Posts</h2>
-        <div class="posts-grid">
-    `;
-
-    for (const post of posts) {
-      // Load comments for this post (top 3)
-      const commentsQuery = await db.collection('posts').doc(post.id).collection('comments')
-        .orderBy('createdAt', 'desc')
-        .limit(3)
-        .get();
-
-      const comments = [];
-      commentsQuery.forEach(doc => {
-        comments.push({ id: doc.id, ...doc.data() });
-      });
-
-      postsHTML += `
-        <div class="post-card">
-          <h3 class="post-title">${post.title || 'Untitled Post'}</h3>
-          <p class="post-body">${post.body || 'No content available.'}</p>
-          <div class="post-meta">
-            <span class="post-author">By ${post.authorName || 'Anonymous'}</span>
-            <span class="post-time">${timeAgo(post.createdAt)}</span>
-          </div>
-          <div class="post-meta">
-            <span>👍 ${formatNumber(post.upvotesCount || 0)}</span>
-            <span>👎 ${formatNumber(post.downvotesCount || 0)}</span>
-            <span>💬 ${formatNumber(post.commentsCount || 0)}</span>
-          </div>
-
-          ${comments.length > 0 ? `
-            <div class="comments-section">
-              <h4>Recent Comments</h4>
-              <div class="comments-grid">
-                ${comments.map(comment => `
-                  <div class="comment-card">
-                    <div class="comment-header">
-                      <span class="comment-author">${comment.authorName || 'Anonymous'}</span>
-                      <span class="comment-time">${timeAgo(comment.createdAt)}</span>
-                    </div>
-                    <p class="comment-body">${comment.body || ''}</p>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-        </div>
-      `;
-    }
-
-    postsHTML += `
-        </div>
-        <div class="post-actions">
-          <button class="btn-post" id="explore-btn">Explore</button>
-          <button class="btn-post" id="show-all-btn">Show All Posts</button>
-        </div>
-      </div>
-    `;
-
-    postsSection.innerHTML = postsHTML;
-
-    // Add event listeners for buttons
-    const exploreBtn = document.getElementById('explore-btn');
-    if (exploreBtn) exploreBtn.addEventListener('click', () => { window.location.href = 'explore.html'; });
-
-    const showAllBtn = document.getElementById('show-all-btn');
-    if (showAllBtn) showAllBtn.addEventListener('click', () => { window.location.href = 'all-posts.html'; });
-  }
-
-  // Auth state listener
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      loadProfile();
-    } else {
-      profileContent.innerHTML = '<div class="loading">Please log in to view your profile.</div>';
-      postsSection.innerHTML = '';
-    }
-  });
-
-  // Logout
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-      auth.signOut().then(() => {
-        console.log('User signed out');
-        window.location.href = 'index.html';
-      }).catch((error) => {
-        console.error('Sign out error:', error);
-        alert('Error signing out. Please try again.');
-      });
-    });
-  }
-
-  // Settings
-  if (settingsBtn) {
-    settingsBtn.addEventListener('click', () => {
-      window.location.href = 'settings.html';
-    });
-  }
-
-  // Initialize stars and handle loading overlay
-  window.addEventListener('load', () => {
-    createStars();
-
-    // Simulate a minimum load time
-    setTimeout(() => {
-      if (loadingOverlay) loadingOverlay.classList.add('hidden');
-    }, 1200);
-  });
-</script>
+  <script>    
+    // Firebase configuration    
+    const firebaseConfig = {    
+      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",    
+      authDomain: "teamgalaxy-77344.firebaseapp.com",    
+      projectId: "teamgalaxy-77344",    
+      storageBucket: "teamgalaxy-77344.firebasestorage.app",    
+      messagingSenderId: "770256225320",    
+      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",    
+      measurementId: "G-6C2W9NSNCH"    
+    };    
+    
+    // Initialize Firebase    
+    firebase.initializeApp(firebaseConfig);    
+    const auth = firebase.auth();    
+    const db = firebase.firestore();    
+    
+    // DOM Elements    
+    const loadingOverlay = document.getElementById('loadingOverlay');    
+    const profileContent = document.getElementById('profile-content');    
+    const postsSection = document.getElementById('posts-section');    
+    const logoutBtn = document.querySelector('.btn-logout');    
+    const settingsBtn = document.querySelector('.btn-settings');    
+    
+    // Create stars for loading overlay    
+    function createStars() {    
+      const container = document.getElementById('starsContainer');    
+      container.innerHTML = '';    
+      for (let i = 0; i < 30; i++) {    
+        const star = document.createElement('div');    
+        star.classList.add('star');    
+    
+        // Random position    
+        const x = Math.random() * 100;    
+        const y = Math.random() * 100;    
+        star.style.left = `${x}%`;    
+        star.style.top = `${y}%`;    
+    
+        // Random size    
+        const size = Math.random() * 3 + 1;    
+        star.style.width = `${size}px`;    
+        star.style.height = `${size}px`;    
+    
+        // Random animation duration    
+        const duration = Math.random() * 3 + 2;    
+        star.style.setProperty('--duration', `${duration}s`);    
+    
+        container.appendChild(star);    
+      }    
+    }    
+    
+    // Format date - FIXED    
+    function formatDate(dateValue) {    
+      if (!dateValue) return '';    
+    
+      // Check if it's a Firestore Timestamp object    
+      if (dateValue && dateValue.seconds) {    
+        const date = new Date(dateValue.seconds * 1000);    
+        return date.toLocaleDateString('en-US', {     
+          year: 'numeric',     
+          month: 'long',     
+          day: 'numeric'     
+        });    
+      }    
+      // If it's already a Date object    
+      else if (dateValue instanceof Date) {    
+        return dateValue.toLocaleDateString('en-US', {     
+          year: 'numeric',     
+          month: 'long',     
+          day: 'numeric'     
+        });    
+      }    
+      // If it's a string or number    
+      else {    
+        const date = new Date(dateValue);    
+        if (isNaN(date.getTime())) {    
+          return 'Invalid Date';    
+        }    
+        return date.toLocaleDateString('en-US', {     
+          year: 'numeric',     
+          month: 'long',     
+          day: 'numeric'     
+        });    
+      }    
+    }    
+    
+    // Format number (e.g., 1000 -> 1K)    
+    function formatNumber(num) {    
+      if (num >= 1000000) {    
+        return (num / 1000000).toFixed(1) + 'M';    
+      }    
+      if (num >= 1000) {    
+        return (num / 1000).toFixed(1) + 'K';    
+      }    
+      return num.toString();    
+    }    
+    
+    // Time ago function - FIXED    
+    function timeAgo(dateValue) {    
+      if (!dateValue) return 'Just now';    
+    
+      let date;    
+      // Check if it's a Firestore Timestamp object    
+      if (dateValue && dateValue.seconds) {    
+        date = new Date(dateValue.seconds * 1000);    
+      }    
+      // If it's already a Date object    
+      else if (dateValue instanceof Date) {    
+        date = dateValue;    
+      }    
+      // If it's a string or number    
+      else {    
+        date = new Date(dateValue);    
+        if (isNaN(date.getTime())) {    
+          return 'Invalid Date';    
+        }    
+      }    
+    
+      const now = new Date();    
+      const seconds = Math.floor((now - date) / 1000);    
+    
+      let interval = seconds / 31536000;    
+      if (interval > 1) return Math.floor(interval) + ' years ago';    
+      interval = seconds / 2592000;    
+      if (interval > 1) return Math.floor(interval) + ' months ago';    
+      interval = seconds / 86400;    
+      if (interval > 1) return Math.floor(interval) + ' days ago';    
+      interval = seconds / 3600;    
+      if (interval > 1) return Math.floor(interval) + ' hours ago';    
+      interval = seconds / 60;    
+      if (interval > 1) return Math.floor(interval) + ' minutes ago';    
+      return Math.floor(seconds) + ' seconds ago';    
+    }    
+    
+    // Load profile data    
+    async function loadProfile() {    
+      const user = auth.currentUser;    
+      if (!user) {    
+        profileContent.innerHTML = '<div class="loading">Please log in to view your profile.</div>';    
+        return;    
+      }    
+    
+      try {    
+        const docRef = db.collection('usersPrivate').doc(user.uid);    
+        const doc = await docRef.get();    
+    
+        if (!doc.exists) {    
+          profileContent.innerHTML = '<div class="loading">Profile not found.</div>';    
+          return;    
+        }    
+    
+        const data = doc.data();    
+        renderProfile(data);    
+        await loadUserPosts(user.uid);    
+      } catch (error) {    
+        console.error('Error loading profile:', error);    
+        profileContent.innerHTML = '<div class="loading">Error loading profile.</div>';    
+      }    
+    }    
+    
+    // Load user posts    
+    async function loadUserPosts(userId) {    
+      try {    
+        const postsQuery = await db.collection('posts')    
+          .where('authorId', '==', userId)    
+          .orderBy('createdAt', 'desc')    
+          .limit(3)    
+          .get();    
+    
+        const posts = [];    
+        postsQuery.forEach(doc => {    
+          posts.push({ id: doc.id, ...doc.data() });    
+        });    
+    
+        renderPosts(posts);    
+      } catch (error) {    
+        console.error('Error loading posts:', error);    
+        postsSection.innerHTML = '<div class="loading">Error loading posts.</div>';    
+      }    
+    }    
+    
+    // Render profile HTML    
+    function renderProfile(data) {    
+      profileContent.innerHTML = `    
+        <div class="profile-card">    
+          <div class="profile-actions">    
+            <button class="btn-share" id="shareBtn">Share Profile</button>    
+          </div>    
+              
+          <!-- Profile Header -->    
+          <div class="profile-header">    
+            <img src="${data.profilePhotoUrl || 'https://via.placeholder.com/150  '}" alt="Profile Photo" class="profile-photo">    
+            <div class="profile-info">    
+              <h1 class="profile-name">${data.name || 'Unknown User'}</h1>    
+              <div class="profile-slug">${data.slug ? '@' + data.slug : ''}${data.verified ? '<span class="verified-badge">✓ Verified</span>' : ''}</div>    
+              <div class="join-date">Joined: ${formatDate(data.joinDate)}</div>    
+              <div class="email">${data.email || ''}</div>    
+            </div>    
+          </div>    
+    
+          <!-- Bio Section -->    
+          <!-- Bio Section -->    
+          <div class="bio-section">    
+            <h2 class="section-title">Bio</h2>    
+            <p class="bio-text">${data.bio || 'No bio available.'}</p>    
+          </div>    
+    
+          <!-- Stats Section -->    
+          <div class="profile-stats">    
+            <div class="stat-card">    
+              <div class="stat-value">${formatNumber(data.publicPostCount || 0)}</div>    
+              <div class="stat-label">Public Posts</div>    
+            </div>    
+          </div>    
+        </div>    
+      `;    
+    
+      // Add share button functionality    
+      document.getElementById('shareBtn').addEventListener('click', () => {    
+        if(data.slug) {    
+          const shareUrl = `https://www.squadvertex.great-site.net/public_profile?=${data.slug}`;    
+          navigator.clipboard.writeText(shareUrl).then(() => {    
+            alert('Profile URL copied to clipboard!');    
+          }).catch(err => {    
+            console.error('Failed to copy: ', err);    
+            alert('Failed to copy URL. Please try again.');    
+          });    
+        } else {    
+          alert('No profile slug available for sharing.');    
+        }    
+      });    
+    }    
+    
+    // Render posts HTML    
+    async function renderPosts(posts) {    
+      if (posts.length === 0) {    
+        postsSection.innerHTML = '<div class="loading">No posts found.</div>';    
+        return;    
+      }    
+    
+      let postsHTML = `    
+        <div class="posts-section">    
+          <h2 class="section-title">Recent Posts</h2>    
+          <div class="posts-grid">    
+      `;    
+    
+      for (const post of posts) {    
+        // Load comments for this post    
+        const commentsQuery = await db.collection('posts').doc(post.id).collection('comments')    
+          .orderBy('createdAt', 'desc')    
+          .limit(3)    
+          .get();    
+    
+        const comments = [];    
+        commentsQuery.forEach(doc => {    
+          comments.push({ id: doc.id, ...doc.data() });    
+        });    
+    
+        postsHTML += `    
+          <div class="post-card">    
+            <h3 class="post-title">${post.title || 'Untitled Post'}</h3>    
+            <p class="post-body">${post.body || 'No content available.'}</p>    
+            <div class="post-meta">    
+              <span class="post-author">By ${post.authorName || 'Anonymous'}</span>    
+              <span class="post-time">${timeAgo(post.createdAt)}</span>    
+            </div>    
+            <div class="post-meta">    
+              <span>👍 ${formatNumber(post.upvotesCount || 0)}</span>    
+              <span>👎 ${formatNumber(post.downvotesCount || 0)}</span>    
+              <span>💬 ${formatNumber(post.commentsCount || 0)}</span>    
+            </div>    
+    
+            ${comments.length > 0 ? `    
+              <div class="comments-section">    
+                <h4>Recent Comments</h4>    
+                <div class="comments-grid">    
+                  ${comments.map(comment => `    
+                    <div class="comment-card">    
+                      <div class="comment-header">    
+                        <span class="comment-author">${comment.authorName || 'Anonymous'}</span>    
+                        <span class="comment-time">${timeAgo(comment.createdAt)}</span>    
+                      </div>    
+                      <p class="comment-body">${comment.body || ''}</p>    
+                    </div>    
+                  `).join('')}    
+                </div>    
+              </div>    
+            ` : ''}    
+          </div>    
+        `;    
+      }    
+    
+      postsHTML += `    
+          </div>    
+          <div class="post-actions">    
+            <button class="btn-post" id="explore-btn">Explore</button>    
+            <button class="btn-post" id="show-all-btn">Show All Posts</button>    
+          </div>    
+        </div>    
+      `;    
+    
+      postsSection.innerHTML = postsHTML;    
+    
+      // Add event listeners for buttons    
+      document.getElementById('explore-btn').addEventListener('click', () => {    
+        window.location.href = 'explore.html';    
+      });    
+    
+      document.getElementById('show-all-btn').addEventListener('click', () => {    
+        window.location.href = 'all-posts.html';    
+      });    
+    }    
+    
+    // Auth state listener    
+    auth.onAuthStateChanged((user) => {    
+      if (user) {    
+        loadProfile();    
+      } else {    
+        profileContent.innerHTML = '<div class="loading">Please log in to view your profile.</div>';    
+        postsSection.innerHTML = '';    
+      }    
+    });    
+    
+    // Logout functionality    
+    logoutBtn.addEventListener('click', () => {    
+      auth.signOut().then(() => {    
+        console.log('User signed out');    
+        window.location.href = 'index.html';    
+      }).catch((error) => {    
+        console.error('Sign out error:', error);    
+        alert('Error signing out. Please try again.');    
+      });    
+    });    
+    
+    // Settings functionality    
+    settingsBtn.addEventListener('click', () => {    
+      window.location.href = 'settings.html';    
+    });    
+    
+    // Initialize stars and handle loading overlay    
+    window.addEventListener('load', () => {    
+      createStars();    
+    
+      // Simulate a minimum 2 second load time    
+      setTimeout(() => {    
+        loadingOverlay.classList.add('hidden');    
+      }, 3000);    
+    });    
+  </script>
 </body>
-</html> 
+</html>
