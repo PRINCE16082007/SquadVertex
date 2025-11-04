@@ -133,6 +133,8 @@
       position: relative;
       z-index: 1;
       flex: 1;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     /* Create Post button styling */
@@ -162,6 +164,8 @@
       margin-bottom: 1.5rem;
       box-shadow: 0 10px 30px rgba(0,0,0,0.2);
       border: 1px solid var(--border);
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .meta {
@@ -411,12 +415,13 @@
     .skeleton-text {
       height: 0.875rem;
       margin-bottom: 0.5rem;
+      width: 100%;
     }
 
     .skeleton-title {
       height: 1.25rem;
       margin: 0.75rem 0;
-      width: 70%;
+      width: 100%;
     }
 
     .skeleton-tag {
@@ -462,6 +467,8 @@
     /* Post skeleton */
     .post-skeleton {
       padding: 1.5rem;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .post-skeleton .meta {
@@ -472,6 +479,8 @@
     .comment-skeleton {
       padding: 1rem;
       margin-bottom: 0.75rem;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     /* User info in header */
@@ -545,6 +554,7 @@
       border-top: 1px solid #5a4fcf;
       box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
       width: 100%;
+      flex-shrink: 0;
     }
 
     .footer-content {
@@ -621,24 +631,38 @@
         grid-template-columns: 1fr;
         gap: 2rem;
       }
-      
+
       .container {
         padding: 0 1rem;
       }
-      
+
       .comment-actions {
         flex-wrap: wrap;
       }
-      
+
       .comment-status {
         margin-left: 0;
         margin-top: 0.5rem;
       }
     }
+
+html, body { height: 100%; }   /* ensures flex/min-height math works */
+body { display: flex; flex-direction: column; min-height: 100vh; }
+
+.container { flex: 1 0 auto; }  /* container grows, footer stays below it */
+
+footer.footer {
+  position: relative;    /* ensure not fixed inside other rules */
+  display: block;
+  width: 100%;
+  min-height: 120px;     /* avoid 0x0 collapse */
+  z-index: 20;
+  box-sizing: border-box;
+}
   </style>
 </head>
 <body>
-    <!-- Header -->
+  <!-- Header -->
   <header class="header">
     <div class="logo">GalaxyWeb</div>
     <div class="header-buttons">
@@ -648,11 +672,12 @@
   </header>
 
   <div class="container">
-    <!-- Create Post button added here -->
+    <!-- Create Post button -->
     <div style="text-align: center; margin-bottom: 1.5rem;">
       <button class="create-post-btn">Create Post</button>
     </div>
 
+    <!-- FEED (main page) -->
     <div id="feedView" style="display:none">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -668,6 +693,7 @@
       <div class="center"><button id="loadMoreBtn" class="btn-ghost">Load more</button></div>
     </div>
 
+    <!-- SINGLE POST VIEW -->
     <div id="postView" style="display:none">
       <div style="margin-bottom:1rem;"><button id="backToFeed" class="link-like"><i class="fas fa-arrow-left"></i> Back to feed</button></div>
       <div id="postContainer"></div>
@@ -676,29 +702,31 @@
         <h3 style="margin:0 0 0.5rem 0">Comments</h3>
         <div id="commentsList" style="max-height:420px;overflow:auto;margin-bottom:0.5rem"></div>
 
-       <div id="commentFormWrap" class="comment-form-container">
-  <div class="comment-input-section">
-    <div class="small muted comment-label">Add a comment</div>
-    <div class="comment-input-wrapper">
-      <textarea id="commentInput" placeholder="Share your thoughts..."></textarea>
-      <div class="comment-actions">
-        <button id="submitComment" class="btn-primary comment-submit-btn">Post</button>
-        <button id="clearComment" class="btn-ghost comment-clear-btn">Clear</button>
-        <div id="commentStatus" class="comment-status" style="margin-left:auto"></div>
+        <div id="commentFormWrap" class="comment-form-container">
+          <div class="comment-input-section">
+            <div class="small muted comment-label">Add a comment</div>
+            <div class="comment-input-wrapper">
+              <textarea id="commentInput" placeholder="Share your thoughts..."></textarea>
+              <div class="comment-actions">
+                <button id="submitComment" class="btn-primary comment-submit-btn">Post</button>
+                <button id="clearComment" class="btn-ghost comment-clear-btn">Clear</button>
+                <div id="commentStatus" class="comment-status" style="margin-left:auto"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-    <!-- Dropdown menu (kept in container but positioned dynamically via JS) -->
+    <!-- Dropdown menu (kept in container but positioned via JS) -->
     <div id="dropdownMenu" class="dropdown" aria-hidden="true">
       <a href="#" class="dropdown-item" id="profileLink">Profile</a>
       <a href="#" class="dropdown-item" id="settingsLink">Settings</a>
       <a href="#" class="dropdown-item" id="signOutLink">Sign Out</a>
     </div>
-  </div>
+  </div> <!-- /.container -->
 
-  <!-- Footer -->
+  <!-- FOOTER (intentionally OUTSIDE .container and outside #postView/#feedView) -->
   <footer class="footer">
     <div class="footer-content">
       <div class="footer-left">
@@ -720,6 +748,40 @@
     </div>
   </footer>
 
+  <!-- Defensive JS: if footer accidentally ends up inside a hidden parent, move it to body -->
+  <script>
+    (function ensureFooterVisible(){
+      // run after DOM loaded (safe even if script already at bottom)
+      const tryMove = () => {
+        const footer = document.querySelector('footer.footer');
+        if(!footer) return;
+        // if any ancestor has display:none, move footer to body
+        let p = footer.parentElement;
+        let hiddenAncestor = null;
+        while(p && p !== document.body) {
+          if (getComputedStyle(p).display === 'none') { hiddenAncestor = p; break; }
+          p = p.parentElement;
+        }
+        if(hiddenAncestor) {
+          document.body.appendChild(footer);
+          // restore sane styles
+          footer.style.position = 'relative';
+          footer.style.display = 'block';
+          footer.style.width = '100%';
+          footer.style.minHeight = footer.style.minHeight || '120px';
+          footer.style.zIndex = '20';
+          // remove debug outline if any
+          footer.style.outline = footer.style.outline || 'none';
+          console.log('Footer moved out of hidden ancestor to <body>');
+        }
+      };
+
+      if (document.readyState === 'complete' || document.readyState === 'interactive') tryMove();
+      else document.addEventListener('DOMContentLoaded', tryMove);
+      // also try again after a short delay (in case your script toggles views after load)
+      setTimeout(tryMove, 400);
+    })();
+  </script>
   <script type="module">
     // ---------- CONFIG (do not change unless needed) ----------
     const firebaseConfig = {
