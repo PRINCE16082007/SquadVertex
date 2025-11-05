@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TeamGalaxy - Community Chat</title>
+  <title>TeamGalaxy - Community Chat (with typing)</title>
 
   <!-- Firebase (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
@@ -11,357 +11,48 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
 
   <style>
-    /* === Your exact styles with small adjustments === */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: #e0e0ff; min-height: 100vh; display:flex; flex-direction:column; padding:0; }
 
-    body {
-      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-      color: #e0e0ff;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      padding: 0;
-    }
-
-    .container {
-      max-width: 1000px;
-      margin: 0 auto;
-      width: 100%;
-      padding: 1rem;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
+    .container { max-width:1000px; margin:0 auto; width:100%; padding:1rem; flex:1; display:flex; flex-direction:column; }
 
     /* Header */
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem 2rem;
-      background: rgba(10, 10, 35, 0.95);
-      backdrop-filter: blur(15px);
-      border-radius: 15px;
-      border: 1px solid #5a4fcf;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-      margin-bottom: 2rem;
-    }
+    .header { display:flex; justify-content:space-between; align-items:center; padding:1rem 2rem; background:rgba(10,10,35,0.95); backdrop-filter:blur(15px); border-radius:15px; border:1px solid #5a4fcf; box-shadow:0 4px 20px rgba(0,0,0,0.4); margin-bottom:2rem; }
+    .logo { font-size:1.8rem; font-weight:700; background:linear-gradient(45deg,#8a7cff,#d66efd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:1px; }
+    .user-profile { display:flex; align-items:center; gap:0.8rem; }
+    .profile-photo { width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #8a7cff; background:linear-gradient(45deg,#6a5af9,#d66efd); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:1.2rem; overflow:hidden; }
 
-    .logo {
-      font-size: 1.8rem;
-      font-weight: bold;
-      background: linear-gradient(45deg, #8a7cff, #d66efd);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: 1px;
-    }
+    /* Chat container */
+    .chat-container { display:flex; flex-direction:column; flex:1; background:rgba(20,20,40,0.85); border-radius:20px; border:1px solid #5a4fcf; backdrop-filter:blur(10px); box-shadow:0 15px 35px rgba(0,0,0,0.4); overflow:hidden; margin-bottom:2rem; }
+    .messages-area { flex:1; padding:1.5rem; overflow-y:auto; display:flex; flex-direction:column; gap:1.2rem; scroll-behavior:smooth; }
+    .message-card { background:rgba(30,30,50,0.7); border-radius:15px; padding:1.2rem; border:1px solid #4a4a8a; transition:transform .3s, box-shadow .3s; animation:fadeIn .2s ease-out; display:flex; flex-direction:column; gap:0.5rem; }
+    .message-card:hover { transform:translateY(-3px); border-color:#8a7cff; box-shadow:0 5px 15px rgba(138,124,255,0.15); }
+    @keyframes fadeIn { from {opacity:0; transform:translateY(6px);} to {opacity:1; transform:translateY(0);} }
 
-    .user-profile {
-      display: flex;
-      align-items: center;
-      gap: 0.8rem;
-    }
+    .message-header { display:flex; align-items:center; gap:0.8rem; margin-bottom:0.4rem; }
+    .avatar { width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#6a5af9,#d66efd); color:#fff; font-weight:700; font-size:1rem; border:2px solid rgba(138,124,255,0.6); overflow:hidden; }
+    .avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+    .user-info { display:flex; flex-direction:column; }
+    .username { font-weight:600; color:#8a7cff; font-size:0.98rem; }
+    .timestamp { font-size:0.8rem; color:#a0a0d0; }
+    .message-content { color:#c0c0e0; line-height:1.6; font-size:1rem; word-break:break-word; white-space:pre-wrap; }
 
-    .profile-photo {
-      width: 45px;
-      height: 45px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid #8a7cff;
-      background: linear-gradient(45deg, #6a5af9, #d66efd);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: bold;
-      font-size: 1.2rem;
-      overflow: hidden;
-    }
+    .input-area { padding:1.5rem; background:rgba(30,30,50,0.7); border-top:1px solid #5a4fcf; display:flex; gap:0.8rem; align-items:flex-end; }
+    .typing-indicator { color:#a8caff; font-size:0.95rem; margin-bottom:6px; min-height:20px; }
+    .message-input { flex:1; padding:.9rem 1.2rem; border-radius:10px; border:1px solid #4a4a8a; background:rgba(20,20,40,0.5); color:#e0e0ff; font-size:1rem; outline:none; transition:border-color .3s, box-shadow .3s; backdrop-filter:blur(5px); }
+    .message-input:focus { border-color:#8a7cff; box-shadow:0 0 10px rgba(138,124,255,0.3); }
+    .send-button { padding:.9rem 1.5rem; border-radius:10px; border:none; background:linear-gradient(45deg,#6a5af9,#d66efd); color:white; font-weight:600; cursor:pointer; transition:transform .2s, box-shadow .2s; font-size:1rem; }
+    .send-button:disabled { opacity:.55; cursor:not-allowed; }
+    .send-button:hover:not(:disabled){ transform:scale(1.03); box-shadow:0 0 15px rgba(106,90,249,0.4); }
 
-    /* Chat Container */
-    .chat-container {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      background: rgba(20, 20, 40, 0.85);
-      border-radius: 20px;
-      border: 1px solid #5a4fcf;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
-      overflow: hidden;
-      margin-bottom: 2rem;
-    }
+    /* small bottom helpers */
+    .notification { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(106,90,249,0.9); color:white; padding:.8rem 1.5rem; border-radius:8px; font-weight:600; z-index:1000; opacity:0; pointer-events:none; transition:opacity .3s; }
+    .notification.show { opacity:1; pointer-events:auto; }
 
-    .messages-area {
-      flex: 1;
-      padding: 1.5rem;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column; /* old -> new: top to bottom */
-      gap: 1.2rem;
-      scroll-behavior: smooth;
-    }
-
-    .message-card {
-      background: rgba(30, 30, 50, 0.7);
-      border-radius: 15px;
-      padding: 1.2rem;
-      border: 1px solid #4a4a8a;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-      animation: fadeIn 0.2s ease-out;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .message-card:hover {
-      transform: translateY(-3px);
-      border-color: #8a7cff;
-      box-shadow: 0 5px 15px rgba(138, 124, 255, 0.15);
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .message-header {
-      display: flex;
-      align-items: center;
-      gap: 0.8rem;
-      margin-bottom: 0.4rem;
-    }
-
-    .avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      object-fit: cover;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(45deg, #6a5af9, #d66efd);
-      color: #fff;
-      font-weight: 700;
-      font-size: 1rem;
-      border: 2px solid rgba(138,124,255,0.6);
-      overflow: hidden;
-    }
-
-    .avatar img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .user-info {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .username {
-      font-weight: 600;
-      color: #8a7cff;
-      font-size: 0.98rem;
-    }
-
-    .timestamp {
-      font-size: 0.8rem;
-      color: #a0a0d0;
-    }
-
-    .message-content {
-      color: #c0c0e0;
-      line-height: 1.6;
-      font-size: 1rem;
-      word-break: break-word;
-      white-space: pre-wrap;
-    }
-
-    .input-area {
-      padding: 1.5rem;
-      background: rgba(30, 30, 50, 0.7);
-      border-top: 1px solid #5a4fcf;
-      display: flex;
-      gap: 0.8rem;
-    }
-
-    .message-input {
-      flex: 1;
-      padding: 0.9rem 1.2rem;
-      border-radius: 10px;
-      border: 1px solid #4a4a8a;
-      background: rgba(20, 20, 40, 0.5);
-      color: #e0e0ff;
-      font-size: 1rem;
-      outline: none;
-      transition: border-color 0.3s, box-shadow 0.3s;
-      backdrop-filter: blur(5px);
-    }
-
-    .message-input:focus {
-      border-color: #8a7cff;
-      box-shadow: 0 0 10px rgba(138, 124, 255, 0.3);
-    }
-
-    .send-button {
-      padding: 0.9rem 1.5rem;
-      border-radius: 10px;
-      border: none;
-      background: linear-gradient(45deg, #6a5af9, #d66efd);
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      font-size: 1rem;
-    }
-
-    .send-button:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    .send-button:hover:not(:disabled) {
-      transform: scale(1.03);
-      box-shadow: 0 0 15px rgba(106, 90, 249, 0.4);
-    }
-
-    /* Scrollbar */
-    .messages-area::-webkit-scrollbar {
-      width: 8px;
-    }
-    .messages-area::-webkit-scrollbar-track {
-      background: rgba(20, 20, 40, 0.5);
-      border-radius: 4px;
-    }
-    .messages-area::-webkit-scrollbar-thumb {
-      background: linear-gradient(45deg, #6a5af9, #d66efd);
-      border-radius: 4px;
-    }
-
-    /* Footer */
-    .footer {
-      background: rgba(10, 10, 35, 0.95);
-      padding: 3rem 2rem 2rem;
-      border-top: 1px solid #5a4fcf;
-      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-      margin-top: auto;
-    }
-
-    .footer-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-    }
-
-    .footer-about-title {
-      font-size: 1.1rem;
-      color: #8a7cff;
-      margin-bottom: 1rem;
-      font-weight: 600;
-    }
-
-    .footer-about-text {
-      color: #a0a0d0;
-      line-height: 1.6;
-      font-size: 0.9rem;
-    }
-
-    .footer-links {
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
-    }
-
-    .footer-links a {
-      color: #a0a0d0;
-      text-decoration: none;
-      font-size: 0.95rem;
-      transition: color 0.3s ease;
-    }
-
-    .footer-links a:hover {
-      color: #8a7cff;
-      text-decoration: underline;
-    }
-
-    .rocket-frame {
-      margin-top: 2rem;
-      padding: 1.5rem;
-      border: 2px solid #5a4fcf;
-      border-radius: 12px;
-      background: rgba(20, 20, 40, 0.5);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .rocket-text {
-      font-size: 1.8rem;
-      font-weight: bold;
-      color: #8a7cff;
-      text-align: center;
-      text-shadow: 0 0 15px rgba(138, 124, 255, 0.6);
-      background: linear-gradient(45deg, #8a7cff, #d66efd, #8a7cff);
-      background-size: 200% auto;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: shimmer 3s linear infinite;
-      font-family: 'Arial Rounded MT Bold', 'Segoe UI', sans-serif;
-    }
-
-    @keyframes shimmer {
-      0% { background-position: -200% center; }
-      100% { background-position: 200% center; }
-    }
-
-    /* Notification */
-    .notification {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(106, 90, 249, 0.9);
-      color: white;
-      padding: 0.8rem 1.5rem;
-      border-radius: 8px;
-      font-weight: 600;
-      z-index: 1000;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s;
-    }
-
-    .notification.show {
-      opacity: 1;
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .header {
-        flex-direction: column;
-        gap: 1rem;
-        padding: 1rem;
-      }
-      .footer-content {
-        grid-template-columns: 1fr;
-      }
-      .footer-right {
-        margin-top: 1.5rem;
-      }
-    }
+    @media (max-width:768px) { .header { flex-direction:column; gap:1rem; padding:1rem; } }
   </style>
 </head>
 <body>
-  <!-- Header -->
   <header class="header">
     <div class="logo">GalaxyWeb</div>
     <div class="user-profile">
@@ -372,10 +63,12 @@
   <div class="container">
     <main class="chat-container">
       <div class="messages-area" id="messages-area">
-        <!-- Messages will appear here -->
-        <div style="text-align: center; color: #a0a0d0; padding: 2rem;">
-          Loading messages...
-        </div>
+        <div style="text-align:center;color:#a0a0d0;padding:2rem;">Loading community chat...</div>
+      </div>
+
+      <!-- typing indicator sits above the input -->
+      <div style="padding:0 1.5rem;">
+        <div id="typing-indicator" class="typing-indicator"></div>
       </div>
 
       <div class="input-area">
@@ -385,29 +78,24 @@
     </main>
   </div>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="footer-content">
-      <div class="footer-left">
-        <div class="footer-about-title">About TeamGalaxy</div>
-        <div class="footer-about-text">
-          TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration. We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!
+  <footer style="background:rgba(10,10,35,0.95); padding:3rem 2rem 2rem; border-top:1px solid #5a4fcf;">
+    <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:3rem;">
+      <div>
+        <div style="font-size:1.1rem;color:#8a7cff;margin-bottom:1rem;font-weight:600;">About TeamGalaxy</div>
+        <div style="color:#a0a0d0;line-height:1.6;font-size:.9rem;">
+          TeamGalaxy is an innovative gaming and creative community. Join now to explore the Galaxy!
         </div>
       </div>
-      <div class="footer-right">
-        <div class="footer-links">
-          <a href="#">Privacy Policy</a>
-          <a href="#">Terms & Conditions</a>
-          <a href="#">About</a>
-        </div>
-        <div class="rocket-frame">
-          <div class="rocket-text">🚀 ROCKET 🚀</div>
+      <div>
+        <div style="display:flex;flex-direction:column;gap:.6rem;">
+          <a href="#" style="color:#a0a0d0;text-decoration:none">Privacy Policy</a>
+          <a href="#" style="color:#a0a0d0;text-decoration:none">Terms & Conditions</a>
+          <a href="#" style="color:#a0a0d0;text-decoration:none">About</a>
         </div>
       </div>
     </div>
   </footer>
 
-  <!-- Notification -->
   <div class="notification" id="notification">Message sent!</div>
 
   <script>
@@ -427,131 +115,78 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // DOM Elements
+    // DOM
     const messagesArea = document.getElementById('messages-area');
     const messageInput = document.getElementById('message-input');
     const sendButton = document.getElementById('send-button');
     const headerAvatar = document.getElementById('header-avatar');
     const notification = document.getElementById('notification');
+    const typingIndicator = document.getElementById('typing-indicator');
 
-    // Helper: notification
+    // State
+    let unsubscribeMessages = null;
+    let unsubscribeTyping = null;
+    let currentProfile = null; // { slug, name, photoUrl }
+    let typingTimeout = null;
+    let localTyping = false;
+
+    // Helpers
     function showNotification(msg) {
       notification.textContent = msg;
       notification.classList.add('show');
-      setTimeout(() => notification.classList.remove('show'), 2500);
+      setTimeout(()=>notification.classList.remove('show'), 2500);
     }
-
-    // Better escape function
-    function escapeHtml(str = '') {
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    // Format timestamp safely
+    function escapeHtml(str='') { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
     function formatTime(timestamp) {
       if (!timestamp) return 'Just now';
       try {
         const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-        return date.toLocaleString('en-IN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          day: '2-digit',
-          month: 'short'
-        });
-      } catch (e) {
-        return 'Just now';
-      }
+        return date.toLocaleString('en-IN',{ hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short' });
+      } catch(e) { return 'Just now'; }
     }
 
-    // Build message DOM safely (programmatic DOM to avoid odd HTML edge cases)
+    // Build a message DOM node (safe)
     function buildMessageElement(data, id) {
-      const card = document.createElement('div');
-      card.className = 'message-card';
-      card.dataset.docId = id || '';
+      const card = document.createElement('div'); card.className='message-card'; if(id) card.dataset.docId = id;
+      const header = document.createElement('div'); header.className='message-header';
+      const avatarWrap = document.createElement('div'); avatarWrap.className='avatar';
 
-      // header
-      const header = document.createElement('div');
-      header.className = 'message-header';
-
-      const avatarWrap = document.createElement('div');
-      avatarWrap.className = 'avatar';
-
-      // create fallback initials element (hidden if img shows)
-      const initials = document.createElement('div');
-      initials.textContent = (data.authorName || 'U').charAt(0).toUpperCase();
-      initials.style.display = 'flex';
-      initials.style.width = '100%';
-      initials.style.height = '100%';
-      initials.style.alignItems = 'center';
-      initials.style.justifyContent = 'center';
+      const initials = document.createElement('div'); initials.textContent = (data.authorName || 'U').charAt(0).toUpperCase();
+      initials.style.display = 'flex'; initials.style.width='100%'; initials.style.height='100%'; initials.style.alignItems='center'; initials.style.justifyContent='center';
 
       if (data.authorPhotoUrl) {
-        const img = document.createElement('img');
-        img.src = data.authorPhotoUrl;
-        img.alt = (data.authorName || 'Avatar').slice(0, 20);
-        img.onload = () => { /* show image */ };
-        img.onerror = () => {
-          // image failed — remove it and show initials
-          if (img.parentElement) img.parentElement.removeChild(img);
-          initials.style.display = 'flex';
-        };
-        avatarWrap.appendChild(img);
-        // keep initials as fallback but hidden initially
-        initials.style.display = 'none';
-        avatarWrap.appendChild(initials);
+        const img = document.createElement('img'); img.src = data.authorPhotoUrl; img.alt = (data.authorName || 'Avatar').slice(0,20);
+        img.onerror = () => { if (img.parentElement) img.parentElement.removeChild(img); initials.style.display='flex'; };
+        avatarWrap.appendChild(img); initials.style.display='none'; avatarWrap.appendChild(initials);
       } else {
-        // no photo — show initials
-        initials.style.display = 'flex';
-        avatarWrap.appendChild(initials);
+        initials.style.display='flex'; avatarWrap.appendChild(initials);
       }
 
-      const userInfo = document.createElement('div');
-      userInfo.className = 'user-info';
+      const userInfo = document.createElement('div'); userInfo.className='user-info';
+      const userName = document.createElement('div'); userName.className='username'; userName.innerHTML = escapeHtml(data.authorName || 'Anonymous');
+      const time = document.createElement('div'); time.className='timestamp'; time.textContent = formatTime(data.timestamp);
+      userInfo.appendChild(userName); userInfo.appendChild(time);
 
-      const userName = document.createElement('div');
-      userName.className = 'username';
-      userName.innerHTML = escapeHtml(data.authorName || 'Anonymous');
+      header.appendChild(avatarWrap); header.appendChild(userInfo);
 
-      const time = document.createElement('div');
-      time.className = 'timestamp';
-      time.textContent = formatTime(data.timestamp);
+      const content = document.createElement('div'); content.className='message-content'; content.innerHTML = escapeHtml(data.text || '');
 
-      userInfo.appendChild(userName);
-      userInfo.appendChild(time);
-
-      header.appendChild(avatarWrap);
-      header.appendChild(userInfo);
-
-      // content
-      const content = document.createElement('div');
-      content.className = 'message-content';
-      content.innerHTML = escapeHtml(data.text || '');
-
-      card.appendChild(header);
-      card.appendChild(content);
+      card.appendChild(header); card.appendChild(content);
       return card;
     }
 
-    // Render full snapshot (keeps correct ordering, no disappearing)
+    // Render snapshot in full (stable)
     function renderMessagesFromSnapshot(snapshot) {
-      // snapshot.docs already in the order used in query
       messagesArea.innerHTML = '';
       if (!snapshot.docs.length) {
-        messagesArea.innerHTML = `<div style="text-align:center;color:#a0a0d0;padding:2rem;">No messages yet. Say hi 👋</div>`;
+        messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem;">No messages yet. Say hi 👋</div>';
         return;
       }
-
       snapshot.docs.forEach(docSnap => {
-        const d = docSnap.data();
-        const el = buildMessageElement(d, docSnap.id);
+        const el = buildMessageElement(docSnap.data(), docSnap.id);
         messagesArea.appendChild(el);
       });
-
-      // scroll to bottom (latest message)
+      // scroll to bottom so newest visible
       messagesArea.scrollTop = messagesArea.scrollHeight;
     }
 
@@ -559,42 +194,35 @@
     async function sendMessage() {
       const text = messageInput.value.trim();
       if (!text) return;
-
       sendButton.disabled = true;
       try {
-        const user = auth.currentUser;
-        if (!user) throw new Error("Not signed in");
+        const user = auth.currentUser; if (!user) throw new Error('Not signed in');
 
-        // Fetch private doc to get slug
-        const privateDocRef = db.collection('usersPrivate').doc(user.uid);
-        const privateDoc = await privateDocRef.get();
-        if (!privateDoc.exists) throw new Error("User profile not found");
+        // get private doc for slug
+        const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
+        if (!privateDoc.exists) throw new Error('User private profile missing');
+        const udata = privateDoc.data(); const slug = udata.slug; if (!slug) throw new Error('User slug missing');
 
-        const userData = privateDoc.data();
-        const slug = userData.slug;
-        if (!slug) throw new Error("User slug missing");
-
-        // Public profile
-        const publicDocRef = db.collection('publicProfiles').doc(slug);
-        const publicDoc = await publicDocRef.get();
-        if (!publicDoc.exists) throw new Error("Public profile not found");
-
-        const publicData = publicDoc.data();
+        // get public profile
+        const publicDoc = await db.collection('publicProfiles').doc(slug).get();
+        if (!publicDoc.exists) throw new Error('Public profile missing');
+        const pd = publicDoc.data();
 
         const message = {
           text: text,
           authorSlug: slug,
-          authorName: publicData.name || (user.displayName || 'Anonymous'),
-          authorPhotoUrl: publicData.profilePhotoUrl || '',
+          authorName: pd.name || (user.displayName || 'Anonymous'),
+          authorPhotoUrl: pd.profilePhotoUrl || '',
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
           visibility: true,
           likes: 0
         };
 
         await db.collection('communityMessages').add(message);
-
         messageInput.value = '';
         showNotification('Message sent!');
+        // stop typing immediately after sending
+        stopTyping();
       } catch (err) {
         console.error('Send error:', err);
         showNotification('Error: ' + (err.message || 'Failed to send'));
@@ -603,98 +231,151 @@
       }
     }
 
-    // Real-time listener
-    let unsubscribeMessages = null;
+    // Realtime listener (order asc = oldest -> newest)
     function setupRealtimeListener() {
-      // Unsubscribe existing if any
       if (typeof unsubscribeMessages === 'function') unsubscribeMessages();
-
       messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem;">Loading community chat...</div>';
-
-      // Query: oldest -> newest (asc). That gives natural reading order.
-      const q = db.collection('communityMessages')
-        .where('visibility', '==', true)
-        .orderBy('timestamp', 'asc')
-        .limit(200);
-
+      const q = db.collection('communityMessages').where('visibility','==',true).orderBy('timestamp','asc').limit(500);
       unsubscribeMessages = q.onSnapshot(snapshot => {
-        // Re-render full list each update (simple and reliable)
         renderMessagesFromSnapshot(snapshot);
       }, err => {
         console.error('Listener error:', err);
         messagesArea.innerHTML = `<div style="text-align:center;color:red;padding:2rem;">Failed to load chat: ${escapeHtml(err.message || 'Unknown')}</div>`;
       });
-
-      return unsubscribeMessages;
     }
 
-    // Auth flow + header avatar setup
-    auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        // redirect to sign-up/login page
-        window.location.href = '/teamgalaxy/legal/sign_up.html';
+    // Typing presence functions
+    function startTypingLocal() {
+      if (!currentProfile) return;
+      if (localTyping) { // refresh timeout
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(stopTyping, 1700);
         return;
       }
+      localTyping = true;
+      // set typing true in communityTyping/{slug}
+      db.collection('communityTyping').doc(currentProfile.slug).set({
+        typing: true,
+        name: currentProfile.name || '',
+        photoUrl: currentProfile.photoUrl || '',
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(err => console.warn('typing set err', err));
+      typingTimeout = setTimeout(stopTyping, 1700);
+    }
 
-      // populate header avatar from public profile (if possible)
+    function stopTyping() {
+      if (!currentProfile) return;
+      localTyping = false;
+      clearTimeout(typingTimeout);
+      db.collection('communityTyping').doc(currentProfile.slug).set({
+        typing: false,
+        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(err => console.warn('typing clear err', err));
+    }
+
+    // Listen for who is typing
+    function setupTypingListener() {
+      if (typeof unsubscribeTyping === 'function') unsubscribeTyping();
+      unsubscribeTyping = db.collection('communityTyping').where('typing','==',true).onSnapshot(snapshot => {
+        const typingUsers = [];
+        snapshot.forEach(doc => {
+          const d = doc.data();
+          // exclude yourself
+          if (currentProfile && doc.id === currentProfile.slug) return;
+          if (d && d.name) typingUsers.push(d.name);
+        });
+        updateTypingIndicator(typingUsers);
+      }, err => {
+        console.warn('typing listener err', err);
+      });
+    }
+
+    function updateTypingIndicator(typingUsers) {
+      if (!typingUsers || typingUsers.length === 0) {
+        typingIndicator.textContent = '';
+        return;
+      }
+      if (typingUsers.length === 1) {
+        typingIndicator.textContent = `${typingUsers[0]} is typing…`;
+      } else if (typingUsers.length === 2) {
+        typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers[1]} are typing…`;
+      } else {
+        typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers.length - 1} others are typing…`;
+      }
+    }
+
+    // Auth & setup
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) { window.location.href = '/teamgalaxy/legal/sign_up.html'; return; }
+
+      // fetch private => slug => public
       try {
         const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
-        let initial = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
+        const initial = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
         if (privateDoc.exists) {
-          const udata = privateDoc.data();
-          if (udata && udata.slug) {
-            const pub = await db.collection('publicProfiles').doc(udata.slug).get();
-            if (pub.exists) {
-              const pd = pub.data();
-              if (pd.profilePhotoUrl) {
-                // set img inside header avatar
+          const pd = privateDoc.data();
+          const slug = pd.slug;
+          if (slug) {
+            const publicDoc = await db.collection('publicProfiles').doc(slug).get();
+            if (publicDoc.exists) {
+              const pub = publicDoc.data();
+              currentProfile = { slug, name: pub.name || (user.displayName || 'Anonymous'), photoUrl: pub.profilePhotoUrl || '' };
+              // set header avatar
+              if (currentProfile.photoUrl) {
                 headerAvatar.innerHTML = '';
                 const img = document.createElement('img');
-                img.src = pd.profilePhotoUrl;
-                img.alt = (pd.name || 'Profile').slice(0, 20);
-                img.style.width = '100%';
-                img.style.height = '100%';
-                img.style.objectFit = 'cover';
-                img.style.display = 'block';
-                img.onerror = () => {
-                  headerAvatar.textContent = (pd.name || initial).charAt(0).toUpperCase();
-                };
+                img.src = currentProfile.photoUrl;
+                img.alt = (currentProfile.name || 'Profile').slice(0, 20);
+                img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover';
+                img.onerror = () => { headerAvatar.textContent = (currentProfile.name || initial).charAt(0).toUpperCase(); };
                 headerAvatar.appendChild(img);
               } else {
-                headerAvatar.textContent = (pd.name || initial).charAt(0).toUpperCase();
+                headerAvatar.textContent = (currentProfile.name || initial).charAt(0).toUpperCase();
               }
             } else {
-              headerAvatar.textContent = initial;
+              currentProfile = { slug, name: user.displayName || 'Anonymous', photoUrl: '' };
+              headerAvatar.textContent = (user.displayName || initial).charAt(0).toUpperCase();
             }
           } else {
-            headerAvatar.textContent = initial;
+            currentProfile = { slug: null, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
+            headerAvatar.textContent = (user.displayName || initial).charAt(0).toUpperCase();
           }
         } else {
-          headerAvatar.textContent = initial;
+          currentProfile = { slug: null, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
+          headerAvatar.textContent = (user.displayName || initial).charAt(0).toUpperCase();
         }
       } catch (e) {
-        console.warn('Profile fetch err', e);
-        headerAvatar.textContent = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
+        console.warn('profile fetch err', e);
+        currentProfile = { slug: null, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
+        headerAvatar.textContent = (user.displayName || 'U').charAt(0).toUpperCase();
       }
 
-      // enable input & start listening
+      // Enable send UI
       messageInput.disabled = false;
       sendButton.disabled = false;
-      window.unsubMessages = setupRealtimeListener();
+
+      // start listeners
+      setupRealtimeListener();
+      setupTypingListener();
     });
 
-    // Events
+    // Input events -> typing
+    messageInput.addEventListener('input', () => {
+      // start typing on any input
+      startTypingLocal();
+    });
+
+    // Send events
     sendButton.addEventListener('click', () => sendMessage());
     messageInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
 
-    // Clean up on unload
+    // Clean up typing status on unload
     window.addEventListener('beforeunload', () => {
+      try { if (currentProfile && currentProfile.slug) db.collection('communityTyping').doc(currentProfile.slug).set({ typing:false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true }); } catch(e) {}
       if (typeof unsubscribeMessages === 'function') unsubscribeMessages();
+      if (typeof unsubscribeTyping === 'function') unsubscribeTyping();
     });
   </script>
 </body>
