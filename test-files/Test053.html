@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TeamGalaxy - Community Hub</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TeamGalaxy - Community Chat</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
+
   <style>
-    /* Your exact palette & styles */
+    /* === Your exact styles === */
     * {
       margin: 0;
       padding: 0;
@@ -90,7 +96,6 @@
       margin-bottom: 2rem;
     }
 
-    /* Messages Area */
     .messages-area {
       flex: 1;
       padding: 1.5rem;
@@ -100,7 +105,6 @@
       gap: 1.2rem;
     }
 
-    /* Message Card */
     .message-card {
       background: rgba(30, 30, 50, 0.7);
       border-radius: 15px;
@@ -163,7 +167,6 @@
       word-break: break-word;
     }
 
-    /* Input Area */
     .input-area {
       padding: 1.5rem;
       background: rgba(30, 30, 50, 0.7);
@@ -247,7 +250,7 @@
     .footer-about-text {
       color: #a0a0d0;
       line-height: 1.6;
-      font-size: 0.90rem;
+      font-size: 0.9rem;
     }
 
     .footer-links {
@@ -297,6 +300,27 @@
       100% { background-position: 200% center; }
     }
 
+    /* Notification */
+    .notification {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(106, 90, 249, 0.9);
+      color: white;
+      padding: 0.8rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .notification.show {
+      opacity: 1;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .header {
@@ -304,11 +328,9 @@
         gap: 1rem;
         padding: 1rem;
       }
-
       .footer-content {
         grid-template-columns: 1fr;
       }
-
       .footer-right {
         margin-top: 1.5rem;
       }
@@ -316,94 +338,31 @@
   </style>
 </head>
 <body>
+  <!-- Header -->
   <header class="header">
     <div class="logo">GalaxyWeb</div>
     <div class="user-profile">
-      <div class="profile-photo">U</div>
+      <div class="profile-photo" id="header-avatar">U</div>
     </div>
   </header>
 
   <div class="container">
     <main class="chat-container">
-      <div class="messages-area">
-        <!-- Message 1 -->
-        <div class="message-card">
-          <div class="message-header">
-            <div class="avatar">T</div>
-            <div class="user-info">
-              <div class="username">TankMaster_2023</div>
-              <div class="timestamp">Today at 2:45 PM</div>
-            </div>
-          </div>
-          <div class="message-content">
-            Just finished a crazy 1v5 win in WoTB! Anyone else pulling off impossible comebacks lately? Looking for a new clan with active players.
-          </div>
-        </div>
-
-        <!-- Message 2 -->
-        <div class="message-card">
-          <div class="message-header">
-            <div class="avatar">S</div>
-            <div class="user-info">
-              <div class="username">StrategicMind</div>
-              <div class="timestamp">Today at 2:50 PM</div>
-            </div>
-          </div>
-          <div class="message-content">
-            @TankMaster_2023 That's insane! What tank were you using? We're always looking for skilled players in our clan. Check out our pinned post!
-          </div>
-        </div>
-
-        <!-- Message 3 -->
-        <div class="message-card">
-          <div class="message-header">
-            <div class="avatar">W</div>
-            <div class="user-info">
-              <div class="username">WoTB_Insider</div>
-              <div class="timestamp">Today at 3:05 PM</div>
-            </div>
-          </div>
-          <div class="message-content">
-            New balance changes coming next week! The T-55A is getting a small buff. Also, don't forget the community tournament this weekend. Prizes include premium time and credits!
-          </div>
-        </div>
-
-        <!-- Message 4 -->
-        <div class="message-card">
-          <div class="message-header">
-            <div class="avatar">A</div>
-            <div class="user-info">
-              <div class="username">ArtilleryAce</div>
-              <div class="timestamp">Today at 3:12 PM</div>
-            </div>
-          </div>
-          <div class="message-content">
-            Anyone know a good build for the IS-7? I'm struggling with armor after the last patch. Would love some tips from experienced players!
-          </div>
-        </div>
-
-        <!-- Message 5 -->
-        <div class="message-card">
-          <div class="message-header">
-            <div class="avatar">C</div>
-            <div class="user-info">
-              <div class="username">ClanRecruit</div>
-              <div class="timestamp">Today at 3:20 PM</div>
-            </div>
-          </div>
-          <div class="message-content">
-            Hey community! We're hosting a new player friendly event this Saturday. Beginners welcome! PM for details. Let's grow the WoTB community together.
-          </div>
+      <div class="messages-area" id="messages-area">
+        <!-- Messages will appear here -->
+        <div style="text-align: center; color: #a0a0d0; padding: 2rem;">
+          Loading messages...
         </div>
       </div>
 
       <div class="input-area">
-        <input type="text" class="message-input" placeholder="Write your message here...">
-        <button class="send-button">Send</button>
+        <input type="text" class="message-input" id="message-input" placeholder="Write your message here..." maxlength="500" />
+        <button class="send-button" id="send-button">Send</button>
       </div>
     </main>
   </div>
 
+  <!-- Footer -->
   <footer class="footer">
     <div class="footer-content">
       <div class="footer-left">
@@ -424,5 +383,187 @@
       </div>
     </div>
   </footer>
+
+  <!-- Notification -->
+  <div class="notification" id="notification">Message sent!</div>
+
+  <script>
+    // === Firebase Config ===
+    const firebaseConfig = {
+      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+      authDomain: "teamgalaxy-77344.firebaseapp.com",
+      projectId: "teamgalaxy-77344",
+      storageBucket: "teamgalaxy-77344.firebasestorage.app",
+      messagingSenderId: "770256225320",
+      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+      measurementId: "G-6C2W9NSNCH"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // DOM Elements
+    const messagesArea = document.getElementById('messages-area');
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
+    const headerAvatar = document.getElementById('header-avatar');
+    const notification = document.getElementById('notification');
+
+    // Show notification
+    function showNotification(msg) {
+      notification.textContent = msg;
+      notification.classList.add('show');
+      setTimeout(() => notification.classList.remove('show'), 3000);
+    }
+
+    // Format timestamp
+    function formatTime(timestamp) {
+      if (!timestamp) return 'Just now';
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return date.toLocaleString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: 'short'
+      });
+    }
+
+    // Render message
+    function renderMessage(data, id) {
+      const div = document.createElement('div');
+      div.className = 'message-card';
+      const firstLetter = (data.authorName || 'U').charAt(0).toUpperCase();
+      div.innerHTML = `
+        <div class="message-header">
+          <div class="avatar">${firstLetter}</div>
+          <div class="user-info">
+            <div class="username">${data.authorName || 'Anonymous'}</div>
+            <div class="timestamp">${formatTime(data.timestamp)}</div>
+          </div>
+        </div>
+        <div class="message-content">${escapeHtml(data.text)}</div>
+      `;
+      messagesArea.prepend(div);
+    }
+
+    // Escape HTML
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '<',
+        '>': '>',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    // Send message
+    async function sendMessage() {
+      const text = messageInput.value.trim();
+      if (!text) return;
+
+      try {
+        const user = auth.currentUser;
+        if (!user) throw new Error("Not signed in");
+
+        // 1. Get user's private doc to get slug
+        const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
+        if (!privateDoc.exists) throw new Error("User profile not found");
+
+        const userData = privateDoc.data();
+        const slug = userData.slug;
+
+        if (!slug) throw new Error("User slug missing");
+
+        // 2. Get public profile for display data
+        const publicDoc = await db.collection('publicProfiles').doc(slug).get();
+        if (!publicDoc.exists) throw new Error("Public profile not found");
+
+        const publicData = publicDoc.data();
+
+        // 3. Prepare message (NO UID!)
+        const message = {
+          text: text,
+          authorSlug: slug,
+          authorName: publicData.name || 'Anonymous',
+          authorPhotoUrl: publicData.profilePhotoUrl || '',
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          visibility: true,
+          likes: 0
+        };
+
+        // 4. Add to Firestore
+        await db.collection('communityMessages').add(message);
+
+        // 5. Clear input
+        messageInput.value = '';
+        showNotification('Message sent!');
+
+      } catch (error) {
+        console.error("Send error:", error);
+        showNotification('Error: ' + (error.message || 'Failed to send'));
+      }
+    }
+
+    // Setup real-time listener
+    function setupRealtimeListener() {
+      messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem;">Loading community chat...</div>';
+
+      const unsubscribe = db
+        .collection('communityMessages')
+        .where('visibility', '==', true)
+        .orderBy('timestamp', 'desc')
+        .limit(50)
+        .onSnapshot((snapshot) => {
+          // Clear and re-render (simple approach for demo)
+          messagesArea.innerHTML = '';
+          if (snapshot.empty) {
+            messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem;">No messages yet. Be the first!</div>';
+            return;
+          }
+
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'added') {
+              renderMessage(change.doc.data(), change.doc.id);
+            }
+          });
+
+          // Scroll to bottom
+          messagesArea.scrollTop = messagesArea.scrollHeight;
+        }, (error) => {
+          console.error("Listener error:", error);
+          messagesArea.innerHTML = `<div style="text-align:center;color:red;padding:2rem;">Failed to load chat: ${error.message}</div>`;
+        });
+
+      return unsubscribe;
+    }
+
+    // Auth state change
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        // Set header avatar
+        headerAvatar.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U';
+
+        // Start listener
+        window.unsub = setupRealtimeListener();
+
+        // Enable input
+        messageInput.disabled = false;
+        sendButton.disabled = false;
+      } else {
+        // Redirect to sign-in (as per your preference)
+        window.location.href = '/teamgalaxy/legal/sign_up.html';
+      }
+    });
+
+    // Event Listeners
+    sendButton.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+  </script>
 </body>
 </html>
