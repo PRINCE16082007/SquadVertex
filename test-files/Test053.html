@@ -1,307 +1,428 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PDF Image Editor with Working Export (fixed)</title>
-<style>
-  body { font-family: system-ui, sans-serif; background:#f6f7fb; color:#111; padding:16px; }
-  #pdf-container { border: 1px solid #ccc; width: 600px; height: 800px; overflow: auto; position: relative; background:#fff; }
-  #pdf-canvas { display: block; margin: 0; width: 100%; height: auto; }
-  img.editable-image { position: absolute; cursor: move; border: 2px dashed #007bff; box-sizing: border-box; }
-  #controls { margin: 10px 0; }
-  label { margin-right: 10px; }
-  input[type=number] { width: 70px; margin-right: 12px; }
-  button { margin-right: 8px; padding: 8px 12px; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TeamGalaxy - Community Hub</title>
+  <style>
+    /* Your exact palette & styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #e0e0ff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 1rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      background: rgba(10, 10, 35, 0.95);
+      backdrop-filter: blur(15px);
+      border-radius: 15px;
+      border: 1px solid #5a4fcf;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      margin-bottom: 2rem;
+    }
+
+    .logo {
+      font-size: 1.8rem;
+      font-weight: bold;
+      background: linear-gradient(45deg, #8a7cff, #d66efd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 1px;
+    }
+
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .profile-photo {
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #8a7cff;
+      background: linear-gradient(45deg, #6a5af9, #d66efd);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+
+    /* Chat Container */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      background: rgba(20, 20, 40, 0.85);
+      border-radius: 20px;
+      border: 1px solid #5a4fcf;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    /* Messages Area */
+    .messages-area {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    /* Message Card */
+    .message-card {
+      background: rgba(30, 30, 50, 0.7);
+      border-radius: 15px;
+      padding: 1.2rem;
+      border: 1px solid #4a4a8a;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .message-card:hover {
+      transform: translateY(-3px);
+      border-color: #8a7cff;
+      box-shadow: 0 5px 15px rgba(138, 124, 255, 0.15);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.8rem;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(45deg, #6a5af9, #d66efd);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: white;
+      margin-right: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    .user-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .username {
+      font-weight: 600;
+      color: #8a7cff;
+    }
+
+    .timestamp {
+      font-size: 0.8rem;
+      color: #a0a0d0;
+    }
+
+    .message-content {
+      color: #c0c0e0;
+      line-height: 1.6;
+      font-size: 1rem;
+      word-break: break-word;
+    }
+
+    /* Input Area */
+    .input-area {
+      padding: 1.5rem;
+      background: rgba(30, 30, 50, 0.7);
+      border-top: 1px solid #5a4fcf;
+      display: flex;
+      gap: 0.8rem;
+    }
+
+    .message-input {
+      flex: 1;
+      padding: 0.9rem 1.2rem;
+      border-radius: 10px;
+      border: 1px solid #4a4a8a;
+      background: rgba(20, 20, 40, 0.5);
+      color: #e0e0ff;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      backdrop-filter: blur(5px);
+    }
+
+    .message-input:focus {
+      border-color: #8a7cff;
+      box-shadow: 0 0 10px rgba(138, 124, 255, 0.3);
+    }
+
+    .send-button {
+      padding: 0.9rem 1.5rem;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(45deg, #6a5af9, #d66efd);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      font-size: 1rem;
+    }
+
+    .send-button:hover {
+      transform: scale(1.03);
+      box-shadow: 0 0 15px rgba(106, 90, 249, 0.4);
+    }
+
+    /* Scrollbar */
+    .messages-area::-webkit-scrollbar {
+      width: 8px;
+    }
+    .messages-area::-webkit-scrollbar-track {
+      background: rgba(20, 20, 40, 0.5);
+      border-radius: 4px;
+    }
+    .messages-area::-webkit-scrollbar-thumb {
+      background: linear-gradient(45deg, #6a5af9, #d66efd);
+      border-radius: 4px;
+    }
+
+    /* Footer */
+    .footer {
+      background: rgba(10, 10, 35, 0.95);
+      padding: 3rem 2rem 2rem;
+      border-top: 1px solid #5a4fcf;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+      margin-top: auto;
+    }
+
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+    }
+
+    .footer-about-title {
+      font-size: 1.1rem;
+      color: #8a7cff;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+
+    .footer-about-text {
+      color: #a0a0d0;
+      line-height: 1.6;
+      font-size: 0.90rem;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .footer-links a {
+      color: #a0a0d0;
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: color 0.3s ease;
+    }
+
+    .footer-links a:hover {
+      color: #8a7cff;
+      text-decoration: underline;
+    }
+
+    .rocket-frame {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      border: 2px solid #5a4fcf;
+      border-radius: 12px;
+      background: rgba(20, 20, 40, 0.5);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .rocket-text {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #8a7cff;
+      text-align: center;
+      text-shadow: 0 0 15px rgba(138, 124, 255, 0.6);
+      background: linear-gradient(45deg, #8a7cff, #d66efd, #8a7cff);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 3s linear infinite;
+      font-family: 'Arial Rounded MT Bold', 'Segoe UI', sans-serif;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+      }
+
+      .footer-content {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-right {
+        margin-top: 1.5rem;
+      }
+    }
+  </style>
 </head>
 <body>
+  <header class="header">
+    <div class="logo">GalaxyWeb</div>
+    <div class="user-profile">
+      <div class="profile-photo">U</div>
+    </div>
+  </header>
 
-<h2>PDF Editor — fixed export & best-quality save</h2>
+  <div class="container">
+    <main class="chat-container">
+      <div class="messages-area">
+        <!-- Message 1 -->
+        <div class="message-card">
+          <div class="message-header">
+            <div class="avatar">T</div>
+            <div class="user-info">
+              <div class="username">TankMaster_2023</div>
+              <div class="timestamp">Today at 2:45 PM</div>
+            </div>
+          </div>
+          <div class="message-content">
+            Just finished a crazy 1v5 win in WoTB! Anyone else pulling off impossible comebacks lately? Looking for a new clan with active players.
+          </div>
+        </div>
 
-<input type="file" id="pdf-upload" accept="application/pdf"/>
-<input type="file" id="image-upload" accept="image/*"/>
-<div id="pdf-container">
-  <canvas id="pdf-canvas"></canvas>
-</div>
+        <!-- Message 2 -->
+        <div class="message-card">
+          <div class="message-header">
+            <div class="avatar">S</div>
+            <div class="user-info">
+              <div class="username">StrategicMind</div>
+              <div class="timestamp">Today at 2:50 PM</div>
+            </div>
+          </div>
+          <div class="message-content">
+            @TankMaster_2023 That's insane! What tank were you using? We're always looking for skilled players in our clan. Check out our pinned post!
+          </div>
+        </div>
 
-<div id="controls" style="display:none;">
-  <label>X: <input type="number" id="pos-x" value="50"/></label>
-  <label>Y: <input type="number" id="pos-y" value="50"/></label>
-  <label>Width: <input type="number" id="img-width" value="100"/></label>
-  <label>Height: <input type="number" id="img-height" value="100"/></label>
-  <button id="update-btn">Update Image</button>
-  <button id="save-pdf-btn">Save PDF with Image</button>
-</div>
+        <!-- Message 3 -->
+        <div class="message-card">
+          <div class="message-header">
+            <div class="avatar">W</div>
+            <div class="user-info">
+              <div class="username">WoTB_Insider</div>
+              <div class="timestamp">Today at 3:05 PM</div>
+            </div>
+          </div>
+          <div class="message-content">
+            New balance changes coming next week! The T-55A is getting a small buff. Also, don't forget the community tournament this weekend. Prizes include premium time and credits!
+          </div>
+        </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.19.0/pdf-lib.min.js"></script>
+        <!-- Message 4 -->
+        <div class="message-card">
+          <div class="message-header">
+            <div class="avatar">A</div>
+            <div class="user-info">
+              <div class="username">ArtilleryAce</div>
+              <div class="timestamp">Today at 3:12 PM</div>
+            </div>
+          </div>
+          <div class="message-content">
+            Anyone know a good build for the IS-7? I'm struggling with armor after the last patch. Would love some tips from experienced players!
+          </div>
+        </div>
 
-<script>
-  const pdfjsLib = window['pdfjs-dist/build/pdf'];
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.8.162/pdf.worker.min.js';
+        <!-- Message 5 -->
+        <div class="message-card">
+          <div class="message-header">
+            <div class="avatar">C</div>
+            <div class="user-info">
+              <div class="username">ClanRecruit</div>
+              <div class="timestamp">Today at 3:20 PM</div>
+            </div>
+          </div>
+          <div class="message-content">
+            Hey community! We're hosting a new player friendly event this Saturday. Beginners welcome! PM for details. Let's grow the WoTB community together.
+          </div>
+        </div>
+      </div>
 
-  let pdfDoc = null;
-  let currentPage = 1;
-  let scale = 1.5;
-  let originalPdfBytes = null;        // keep original bytes for saving
-  let uploadedImageFile = null;       // keep uploaded image file for reliable bytes
-  let imageElement = null;
+      <div class="input-area">
+        <input type="text" class="message-input" placeholder="Write your message here...">
+        <button class="send-button">Send</button>
+      </div>
+    </main>
+  </div>
 
-  const canvas = document.getElementById('pdf-canvas');
-  const ctx = canvas.getContext('2d');
-  const pdfContainer = document.getElementById('pdf-container');
-
-  document.getElementById('pdf-upload').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    originalPdfBytes = await file.arrayBuffer();
-    pdfDoc = await pdfjsLib.getDocument({ data: originalPdfBytes }).promise;
-    // render first page
-    currentPage = 1;
-    await renderPage(currentPage);
-  });
-
-  async function renderPage(pageNum) {
-    const page = await pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: scale });
-
-    // set canvas backing and CSS width to make coordinate mapping predictable
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    canvas.style.width = viewport.width + 'px'; // ensure bounding rect matches
-    canvas.style.height = viewport.height + 'px';
-
-    // hide/remove overlay image until user loads one
-    if (imageElement) {
-      try { pdfContainer.removeChild(imageElement); } catch(e){}
-      imageElement = null;
-      document.getElementById('controls').style.display = 'none';
-    }
-
-    const renderContext = {
-      canvasContext: ctx,
-      viewport: viewport,
-    };
-    await page.render(renderContext).promise;
-
-    // ensure container scroll region fits canvas
-    pdfContainer.style.width = Math.min(viewport.width, 900) + 'px';
-    pdfContainer.style.height = Math.min(viewport.height, 1100) + 'px';
-  }
-
-  // allow simple drag to move the image (UX helper)
-  function makeDraggable(img) {
-    let offsetX=0, offsetY=0, dragging=false;
-    img.addEventListener('mousedown', (ev) => {
-      dragging = true;
-      const rect = img.getBoundingClientRect();
-      offsetX = ev.clientX - rect.left;
-      offsetY = ev.clientY - rect.top;
-      ev.preventDefault();
-    });
-    window.addEventListener('mousemove', (ev) => {
-      if (!dragging) return;
-      const containerRect = pdfContainer.getBoundingClientRect();
-      const left = ev.clientX - containerRect.left - offsetX;
-      const top  = ev.clientY - containerRect.top - offsetY;
-      img.style.left = Math.max(0, Math.round(left)) + 'px';
-      img.style.top = Math.max(0, Math.round(top)) + 'px';
-      updateControlValues();
-    });
-    window.addEventListener('mouseup', () => { dragging = false; });
-  }
-
-  document.getElementById('image-upload').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file || !pdfDoc) {
-      alert('Please upload a PDF first!');
-      return;
-    }
-    uploadedImageFile = file;
-
-    const url = URL.createObjectURL(file);
-    if (imageElement) {
-      try { pdfContainer.removeChild(imageElement); } catch(e){}
-      URL.revokeObjectURL(imageElement.src);
-      imageElement = null;
-    }
-
-    imageElement = document.createElement('img');
-    imageElement.src = url;
-    imageElement.className = 'editable-image';
-    imageElement.style.left = '50px';
-    imageElement.style.top = '50px';
-    imageElement.style.width = '100px';
-    imageElement.style.height = '100px';
-    pdfContainer.appendChild(imageElement);
-
-    makeDraggable(imageElement);
-
-    document.getElementById('controls').style.display = 'block';
-    updateControlValues();
-  });
-
-  function updateControlValues() {
-    if (!imageElement) return;
-    document.getElementById('pos-x').value = parseInt(imageElement.style.left) || 0;
-    document.getElementById('pos-y').value = parseInt(imageElement.style.top) || 0;
-    document.getElementById('img-width').value = parseInt(imageElement.style.width) || 100;
-    document.getElementById('img-height').value = parseInt(imageElement.style.height) || 100;
-  }
-
-  document.getElementById('update-btn').addEventListener('click', () => {
-    if (!imageElement) return;
-    const x = parseInt(document.getElementById('pos-x').value) || 0;
-    const y = parseInt(document.getElementById('pos-y').value) || 0;
-    const w = parseInt(document.getElementById('img-width').value) || 100;
-    const h = parseInt(document.getElementById('img-height').value) || 100;
-    imageElement.style.left = x + 'px';
-    imageElement.style.top = y + 'px';
-    imageElement.style.width = w + 'px';
-    imageElement.style.height = h + 'px';
-  });
-
-  // Convert base64 dataURL to Uint8Array
-  function dataURLToUint8Array(dataURL) {
-    const base64 = dataURL.split(',')[1];
-    const binary = atob(base64);
-    const len = binary.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
-  }
-
-  // Convert arbitrary image file to PNG bytes with high resolution (for quality)
-  async function convertFileToPngBytes(file) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        // upscale canvas to preserve detail: use devicePixelRatio * 2
-        const scale = (window.devicePixelRatio || 1) * 2;
-        const c = document.createElement('canvas');
-        c.width = Math.max(1, Math.round(img.width * scale));
-        c.height = Math.max(1, Math.round(img.height * scale));
-        const cctx = c.getContext('2d');
-        cctx.drawImage(img, 0, 0, c.width, c.height);
-        const dataURL = c.toDataURL('image/png');
-        resolve(dataURLToUint8Array(dataURL));
-      };
-      img.onerror = (err) => reject(err);
-      img.src = URL.createObjectURL(file);
-    });
-  }
-
-  async function getImageBytesReliable() {
-    // Prefer uploadedImageFile (read directly), fallback to imageElement.src fetch
-    if (uploadedImageFile) {
-      const type = uploadedImageFile.type || '';
-      const ab = await uploadedImageFile.arrayBuffer();
-      // if PNG or JPEG already, return bytes directly
-      if (type === 'image/png' || type === 'image/jpeg' || type === 'image/jpg') {
-        return { bytes: new Uint8Array(ab), mime: type };
-      } else {
-        // convert to PNG bytes for quality
-        const pngBytes = await convertFileToPngBytes(uploadedImageFile);
-        return { bytes: pngBytes, mime: 'image/png' };
-      }
-    } else {
-      // fallback: try fetching imageElement.src
-      const src = imageElement.src;
-      if (src.startsWith('data:image')) {
-        const bytes = dataURLToUint8Array(src);
-        const mime = src.match(/^data:(image\/[^;]+);/)[1];
-        return { bytes, mime };
-      } else {
-        const resp = await fetch(src);
-        const blob = await resp.blob();
-        const mime = blob.type || 'image/png';
-        const ab = await blob.arrayBuffer();
-        if (mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/jpg') {
-          return { bytes: new Uint8Array(ab), mime };
-        } else {
-          // convert to PNG
-          const file = new File([blob], 'temp.img', { type: mime });
-          const pngBytes = await convertFileToPngBytes(file);
-          return { bytes: pngBytes, mime: 'image/png' };
-        }
-      }
-    }
-  }
-
-  document.getElementById('save-pdf-btn').addEventListener('click', async () => {
-    if (!pdfDoc || !imageElement || !originalPdfBytes) {
-      alert('Upload both PDF and image!');
-      return;
-    }
-
-    // load pdf-lib with original bytes to preserve quality
-    const pdfLibDoc = await PDFLib.PDFDocument.load(originalPdfBytes);
-
-    // get the page in pdf-lib coordinates
-    const pageIndex = currentPage - 1;
-    const page = pdfLibDoc.getPage(pageIndex);
-    const { width: pageWidth, height: pageHeight } = page.getSize();
-
-    // determine displayed (screen) canvas size for mapping
-    const canvasRect = canvas.getBoundingClientRect();
-    const displayWidth = canvasRect.width;
-    const displayHeight = canvasRect.height;
-
-    // displayed image metrics (css pixels relative to container)
-    const imgLeft = parseFloat(imageElement.style.left) || 0;
-    const imgTop  = parseFloat(imageElement.style.top)  || 0;
-    const imgW    = parseFloat(imageElement.style.width) || 100;
-    const imgH    = parseFloat(imageElement.style.height) || 100;
-
-    // Map display coords -> PDF points
-    // x_pdf = (imgLeft / displayWidth) * pageWidth
-    // y_pdf = pageHeight - ((imgTop + imgH) / displayHeight) * pageHeight
-    const x_pdf = (imgLeft / displayWidth) * pageWidth;
-    const width_pdf = (imgW / displayWidth) * pageWidth;
-    const y_pdf = pageHeight - ((imgTop + imgH) / displayHeight) * pageHeight;
-    const height_pdf = (imgH / displayHeight) * pageHeight;
-
-    // get reliable image bytes and mime
-    const { bytes: imgBytes, mime } = await getImageBytesReliable();
-
-    // embed appropriate image format (prefer PNG/JPG)
-    let embeddedImage;
-    if (mime === 'image/png') {
-      embeddedImage = await pdfLibDoc.embedPng(imgBytes);
-    } else if (mime === 'image/jpeg' || mime === 'image/jpg') {
-      embeddedImage = await pdfLibDoc.embedJpg(imgBytes);
-    } else {
-      // default to png embed as fallback
-      embeddedImage = await pdfLibDoc.embedPng(imgBytes);
-    }
-
-    // draw image on page using computed pdf coordinates
-    page.drawImage(embeddedImage, {
-      x: x_pdf,
-      y: y_pdf,
-      width: width_pdf,
-      height: height_pdf,
-    });
-
-    // Save PDF with reasonable options (preserve quality)
-    const pdfBytesNew = await pdfLibDoc.save({ useObjectStreams: false });
-
-    // trigger download
-    const blob = new Blob([pdfBytesNew], { type: 'application/pdf' });
-    const pdfUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = pdfUrl;
-    a.download = 'edited.pdf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(pdfUrl);
-
-    // cleanup any created object URLs for image
-    try { URL.revokeObjectURL(imageElement.src); } catch (e) {}
-    alert('Saved — check your downloads. PDF image placed at high quality.');
-  });
-</script>
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <div class="footer-about-title">About TeamGalaxy</div>
+        <div class="footer-about-text">
+          TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration. We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!
+        </div>
+      </div>
+      <div class="footer-right">
+        <div class="footer-links">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms & Conditions</a>
+          <a href="#">About</a>
+        </div>
+        <div class="rocket-frame">
+          <div class="rocket-text">🚀 ROCKET 🚀</div>
+        </div>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>
