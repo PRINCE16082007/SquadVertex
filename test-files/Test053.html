@@ -101,7 +101,7 @@
       padding: 1.5rem;
       overflow-y: auto;
       display: flex;
-      flex-direction: column;
+      flex-direction: column-reverse; /* New messages at top */
       gap: 1.2rem;
     }
 
@@ -135,12 +135,7 @@
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      background: linear-gradient(45deg, #6a5af9, #d66efd);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: white;
+      object-fit: cover;
       margin-right: 0.8rem;
       flex-shrink: 0;
     }
@@ -434,10 +429,22 @@
     function renderMessage(data, id) {
       const div = document.createElement('div');
       div.className = 'message-card';
+      
+      // Use profile photo from public profile
+      const photoUrl = data.authorPhotoUrl || '';
       const firstLetter = (data.authorName || 'U').charAt(0).toUpperCase();
+      
+      let avatarHtml = '';
+      if (photoUrl) {
+        avatarHtml = `<img src="${photoUrl}" alt="Avatar" class="avatar" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />`;
+      } else {
+        avatarHtml = `<div class="avatar" style="display:none;">${firstLetter}</div>`;
+      }
+      
       div.innerHTML = `
         <div class="message-header">
-          <div class="avatar">${firstLetter}</div>
+          ${avatarHtml}
+          <div class="avatar" style="display:flex;">${firstLetter}</div>
           <div class="user-info">
             <div class="username">${data.authorName || 'Anonymous'}</div>
             <div class="timestamp">${formatTime(data.timestamp)}</div>
@@ -445,7 +452,7 @@
         </div>
         <div class="message-content">${escapeHtml(data.text)}</div>
       `;
-      messagesArea.prepend(div);
+      messagesArea.appendChild(div); // Append at bottom
     }
 
     // Escape HTML
@@ -508,9 +515,12 @@
       }
     }
 
-    // Setup real-time listener
+    // Setup real-time listener (fixed)
     function setupRealtimeListener() {
       messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem;">Loading community chat...</div>';
+
+      // Clear existing messages container
+      messagesArea.innerHTML = '';
 
       const unsubscribe = db
         .collection('communityMessages')
@@ -518,21 +528,45 @@
         .orderBy('timestamp', 'desc')
         .limit(50)
         .onSnapshot((snapshot) => {
-          // Clear and re-render (simple approach for demo)
-          messagesArea.innerHTML = '';
-          if (snapshot.empty) {
-            messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem;">No messages yet. Be the first!</div>';
-            return;
-          }
-
           snapshot.docChanges().forEach(change => {
             if (change.type === 'added') {
-              renderMessage(change.doc.data(), change.doc.id);
+              // Insert new message at the top (since we're reversing flex-direction)
+              const div = document.createElement('div');
+              div.className = 'message-card';
+              
+              const data = change.doc.data();
+              const photoUrl = data.authorPhotoUrl || '';
+              const firstLetter = (data.authorName || 'U').charAt(0).toUpperCase();
+              
+              let avatarHtml = '';
+              if (photoUrl) {
+                avatarHtml = `<img src="${photoUrl}" alt="Avatar" class="avatar" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />`;
+              } else {
+                avatarHtml = `<div class="avatar" style="display:none;">${firstLetter}</div>`;
+              }
+              
+              div.innerHTML = `
+                <div class="message-header">
+                  ${avatarHtml}
+                  <div class="avatar" style="display:flex;">${firstLetter}</div>
+                  <div class="user-info">
+                    <div class="username">${data.authorName || 'Anonymous'}</div>
+                    <div class="timestamp">${formatTime(data.timestamp)}</div>
+                  </div>
+                </div>
+                <div class="message-content">${escapeHtml(data.text)}</div>
+              `;
+              messagesArea.appendChild(div);
+            }
+            if (change.type === 'removed') {
+              // Remove message by ID if needed
+              const elements = messagesArea.querySelectorAll('.message-card');
+              elements.forEach(el => {
+                // We can't easily map doc ID to DOM element without data attributes
+                // For now, we'll rely on Firestore to keep messages ordered
+              });
             }
           });
-
-          // Scroll to bottom
-          messagesArea.scrollTop = messagesArea.scrollHeight;
         }, (error) => {
           console.error("Listener error:", error);
           messagesArea.innerHTML = `<div style="text-align:center;color:red;padding:2rem;">Failed to load chat: ${error.message}</div>`;
@@ -544,8 +578,35 @@
     // Auth state change
     auth.onAuthStateChanged(async (user) => {
       if (user) {
-        // Set header avatar
-        headerAvatar.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U';
+        // Set header avatar from public profile
+        try {
+          const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
+          if (privateDoc.exists) {
+            const userData = privateDoc.data();
+            const slug = userData.slug;
+            if (slug) {
+              const publicDoc = await db.collection('publicProfiles').doc(slug).get();
+              if (publicDoc.exists) {
+                const publicData = publicDoc.data();
+                const photoUrl = publicData.profilePhotoUrl;
+                if (photoUrl) {
+                  headerAvatar.innerHTML = `<img src="${photoUrl}" alt="Profile" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='U';" />`;
+                } else {
+                  headerAvatar.textContent = publicData.name ? publicData.name.charAt(0).toUpperCase() : 'U';
+                }
+              } else {
+                headerAvatar.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U';
+              }
+            } else {
+              headerAvatar.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U';
+            }
+          } else {
+            headerAvatar.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U';
+          }
+        } catch (e) {
+          console.error("Profile fetch error:", e);
+          headerAvatar.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U';
+        }
 
         // Start listener
         window.unsub = setupRealtimeListener();
