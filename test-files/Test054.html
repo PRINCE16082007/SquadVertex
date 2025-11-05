@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>TeamGalaxy - Chat (no header/footer gaps)</title>
+  <title>TeamGalaxy — Chat (final)</title>
 
   <!-- Firebase compat -->
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
@@ -11,50 +11,85 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
 
   <style>
-    /* Basic reset + prevent horizontal overflow */
+    /* ===========================
+       THE ONLY PLACE TO ADD YOUR BACKGROUND IMAGE:
+       Replace the empty string value with your image url, for example:
+       --bg-image: url('https://example.com/your-purple-bg.jpg');
+       =========================== */
+    :root{
+      --bg-image: url(''); /* <-- paste your bg URL here between the quotes */
+      --bg-overlay: rgba(10,8,24,0.45); /* subtle dark overlay so text stays readable */
+      --accent-1: #8a7cff;
+      --accent-2: #d66efd;
+    }
+
+    /* Reset + avoid horizontal overflow */
     html,body { height:100%; }
     *,*::before,*::after { box-sizing: border-box; }
     body {
       margin: 0;
       padding: 0;
-      overflow-x: hidden; /* prevent horizontal scroll */
-      font-family: 'Segoe UI', system-ui, Roboto, Arial, sans-serif;
-      background: linear-gradient(135deg,#0f0c29,#302b63,#24243e);
-      color: #e0e0ff;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow-x: hidden; /* prevent horizontal scroll */
+      font-family: 'Segoe UI', system-ui, Roboto, Arial, sans-serif;
+      color: #e0e0ff;
+      background: linear-gradient(135deg,#0f0c29,#302b63,#24243e);
     }
 
-    /* Full-bleed header & footer with centered inner container */
+    /* Background image (fullscreen) + overlay.
+       Image is below everything (z-index -2), overlay above it (-1) */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background-image: var(--bg-image);
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      filter: none;
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background: var(--bg-overlay);
+      pointer-events: none;
+    }
+
+    /* Full-bleed header & footer wrappers (edge to edge) */
     .site-header, .site-footer {
       width: 100%;
       left: 0;
       right: 0;
       box-sizing: border-box;
       background: rgba(10,10,35,0.95);
-      border-top: 0;
-      border-bottom: 0;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-      z-index: 50;
+      border: 0;
+      z-index: 40;
     }
+
+    /* Inner content of header/footer centered with max-width */
     .site-header .container-inner,
     .site-footer .container-inner {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 0.9rem 1rem; /* inner padding for content */
+      padding: 0.9rem 1rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
+      box-sizing: border-box;
     }
 
     /* Header visuals */
-    .logo { font-weight:700; background:linear-gradient(45deg,#8a7cff,#d66efd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-size:1.35rem; }
-    .profile-photo { width:44px; height:44px; border-radius:50%; overflow:hidden; border:2px solid #8a7cff; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#6a5af9,#d66efd); font-weight:700; color:#fff; }
+    .logo { font-weight:700; background: linear-gradient(45deg,var(--accent-1),var(--accent-2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size:1.35rem; }
+    .profile-photo { width:44px; height:44px; border-radius:50%; overflow:hidden; border:2px solid var(--accent-1); display:flex; align-items:center; justify-content:center; background: linear-gradient(45deg,#6a5af9,#d66efd); color:#fff; font-weight:700; }
 
-    /* Main wrapper centers the app content */
-    .app-wrap { width:100%; display:flex; justify-content:center; }
+    /* App wrapper centers main content and keeps footer at bottom */
+    .app-wrap { width:100%; display:flex; justify-content:center; flex:1 0 auto; }
     .container {
       width:100%;
       max-width:1200px;
@@ -62,24 +97,25 @@
       display:flex;
       flex-direction:column;
       gap:1rem;
-      box-sizing: border-box;
-      flex: 1;
+      box-sizing:border-box;
+      flex: 1 0 auto; /* allows main to grow so footer sits at bottom */
     }
 
-    /* Chat container */
+    /* Chat container semi-transparent so bg shows but content readable */
     .chat-container {
       display:flex;
       flex-direction:column;
-      background: rgba(20,20,40,0.85);
-      border-radius:14px;
-      border:1px solid rgba(90,79,207,0.2);
-      overflow:hidden;
-      box-shadow:0 15px 35px rgba(0,0,0,0.35);
+      background: rgba(20,20,40,0.56); /* semi-transparent */
+      border-radius: 14px;
+      border: 1px solid rgba(90,79,207,0.12);
+      overflow: hidden;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.35);
       width:100%;
       min-height:480px;
+      backdrop-filter: blur(6px); /* subtle blur for readability */
     }
 
-    /* Messages area: stretch children full width of the container */
+    /* Messages */
     .messages-area {
       flex:1;
       padding:1.25rem;
@@ -87,186 +123,70 @@
       display:flex;
       flex-direction:column;
       gap:1rem;
-      align-items: stretch; /* makes messages fill available width */
+      align-items: stretch; /* messages fill width */
       scroll-behavior:smooth;
       width:100%;
     }
 
     .message-card {
-      background: rgba(30,30,50,0.75);
+      background: rgba(30,30,50,0.64); /* slightly more opaque so text reads on background */
       padding:1rem;
       border-radius:12px;
-      border:1px solid rgba(68,70,111,0.6);
+      border:1px solid rgba(68,70,111,0.12);
       display:flex;
       flex-direction:column;
       gap:0.5rem;
       width:100%;
-      max-width:100%;
       box-sizing:border-box;
       word-break:break-word;
+      backdrop-filter: none;
     }
 
     .message-header { display:flex; align-items:center; gap:0.75rem; }
-    .avatar { width:40px; height:40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#6a5af9,#d66efd); color:#fff; font-weight:700; border:2px solid rgba(138,124,255,0.35); overflow:hidden; }
-    .avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+    .avatar { width:40px; height:40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#6a5af9,#d66efd); color:#fff; font-weight:700; border:2px solid rgba(138,124,255,0.25); overflow:hidden; }
+    .avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
     .user-info { display:flex; flex-direction:column; }
-    .username { font-weight:600; color:#8a7cff; }
+    .username { font-weight:600; color:var(--accent-1); }
     .timestamp { font-size:.8rem; color:#a0a0d0; }
-    .reply-preview { background:rgba(255,255,255,0.03); padding:.5rem; border-left:3px solid rgba(138,124,255,0.6); border-radius:6px; font-size:.95rem; color:#cbd6ff; }
-    .message-content { white-space:pre-wrap; color:#cbd0f8; }
+    .reply-preview { background:rgba(255,255,255,0.03); padding:.5rem; border-left:3px solid rgba(138,124,255,0.4); border-radius:6px; font-size:.95rem; color:#cbd6ff; }
+    .message-content { white-space:pre-wrap; color:#e7e7ff; }
 
     .message-actions { display:flex; gap:.5rem; align-items:center; margin-top:.4rem; }
-    .btn-ghost { background:transparent; border:1px solid rgba(255,255,255,0.04); color:#a8caff; padding:.35rem .6rem; border-radius:8px; cursor:pointer; }
-    .btn-ghost:hover { border-color:#8a7cff; color:#fff; }
+    .btn-ghost { background:transparent; border:1px solid rgba(255,255,255,0.03); color:#cfe6ff; padding:.35rem .6rem; border-radius:8px; cursor:pointer; }
+    .btn-ghost:hover { border-color:var(--accent-1); color:#fff; }
     .heart-btn { display:inline-flex; align-items:center; gap:.35rem; }
     .heart-count { font-weight:700; color:#ff7b9b; }
 
-    .typing-indicator { padding:.5rem 0; color:#a8caff; min-height:20px; }
-
+    /* Typing + reply + input */
+    .typing-indicator { padding:.45rem 0; color:#a8caff; min-height:20px; }
     .reply-container { padding:0 0.75rem; }
     .reply-preview { display:block; background:rgba(255,255,255,0.03); padding:.6rem; border-left:3px solid rgba(138,124,255,0.6); border-radius:6px; color:#cbe3ff; }
 
-    .input-area { padding:1rem; display:flex; gap:.6rem; border-top:1px solid rgba(90,79,207,0.12); align-items:flex-end; background:rgba(30,30,50,0.7); }
-    .message-input { flex:1; padding:.9rem; border-radius:10px; border:1px solid rgba(68,70,111,0.6); background:rgba(12,12,24,0.35); color:#eef; font-size:1rem; outline:none; }
-    .message-input:focus { border-color:#8a7cff; box-shadow:0 0 10px rgba(138,124,255,0.18); }
+    .input-area { padding:1rem; display:flex; gap:.6rem; border-top:1px solid rgba(90,79,207,0.08); align-items:flex-end; background:transparent; }
+    .message-input { flex:1; padding:.9rem; border-radius:10px; border:1px solid rgba(68,70,111,0.12); background: rgba(12,12,24,0.28); color:#eef; font-size:1rem; outline:none; }
+    .message-input:focus { border-color:var(--accent-1); box-shadow:0 0 10px rgba(138,124,255,0.12); }
     .send-button { padding:.9rem 1.2rem; border-radius:10px; border:none; background:linear-gradient(45deg,#6a5af9,#d66efd); color:white; font-weight:700; cursor:pointer; }
     .send-button:disabled { opacity:.5; cursor:not-allowed; }
 
-    /* Footer inner design */
-    .footer-content { display:grid; grid-template-columns: 1fr 1fr; gap:1.25rem; align-items:start; max-width:1200px; margin:0 auto; padding:0.9rem 1rem; box-sizing:border-box; }
-    .footer-about-title { font-size:1.05rem; color:#8a7cff; margin-bottom:.6rem; font-weight:600; }
+    /* Footer layout (inner area) */
+    .footer-content { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; align-items:start; max-width:1200px; margin:0 auto; padding:0.9rem 1rem; box-sizing:border-box; }
+    .footer-about-title { font-size:1.05rem; color:var(--accent-1); margin-bottom:.6rem; font-weight:600; }
     .footer-about-text { color:#a0a0d0; line-height:1.6; font-size:.9rem; }
     .footer-links { display:flex; flex-direction:column; gap:.6rem; }
-    .footer-links a { color:#a0a0d0; text-decoration:none; transition: color .2s; }
-    .footer-links a:hover { color:#8a7cff; text-decoration:underline; }
+    .footer-links a { color:#a0a0d0; text-decoration:none; transition:color .15s; }
+    .footer-links a:hover { color:var(--accent-1); text-decoration:underline; }
 
-    /* Rocket frame */
-    .rocket-frame { margin-top: .75rem; padding: .9rem; border:2px solid #5a4fcf; border-radius:12px; background:rgba(20,20,40,0.5); overflow:hidden; max-width:420px; width:100%; display:inline-block; box-sizing:border-box; }
-    .rocket-text { font-size: clamp(1.05rem, 3vw, 1.4rem); font-weight:bold; background:linear-gradient(45deg,#8a7cff,#d66efd,#8a7cff); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: shimmer 3s linear infinite; text-align:center; line-height:1.2; }
+    /* Rocket shimmer */
+    .rocket-frame { margin-top: .75rem; padding: .9rem; border:2px solid #5a4fcf; border-radius:12px; background:rgba(20,20,40,0.35); overflow:hidden; max-width:420px; width:100%; display:inline-block; box-sizing:border-box; }
+    .rocket-text { font-size: clamp(1.05rem, 3vw, 1.4rem); font-weight:bold; background:linear-gradient(45deg,var(--accent-1),var(--accent-2),var(--accent-1)); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: shimmer 3s linear infinite; text-align:center; line-height:1.2; }
     @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
 
     /* Responsive */
-    @media (max-width: 768px) {
-      .footer-content { grid-template-columns:1fr; padding: .75rem 0.9rem; }
+    @media (max-width:768px){
+      .footer-content { grid-template-columns:1fr; padding:.75rem 0.9rem; }
+      .site-header .container-inner, .site-footer .container-inner { padding:.75rem .9rem; }
       .container { padding: .75rem; }
-      .site-header .container-inner, .site-footer .container-inner { padding: 0.75rem .9rem; }
     }
-
-/* Footer ke liye - bas yeh 2 lines add karo */
-.footer {
-  margin-top: auto; /* Ye footer ko niche push karega */
-  width: 100%;
-  /* ... existing styles ... */
-  padding: 3rem 2rem 2rem; /* Keep padding */
-  border-top: 1px solid #5a4fcf;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-}
-
-/* === Body & Layout Fixes === */
-body {
-  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-  color: #e0e0ff;
-  min-height: 100vh; /* Critical for full height */
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  margin: 0;
-}
-
-.container {
-  max-width: 1000px;
-  margin: 0 auto;
-  width: 100%;
-  padding: 1rem;
-  flex: 1; /* This makes container expand to fill space */
-  display: flex;
-  flex-direction: column;
-}
-
-/* === Footer (Now always at bottom) === */
-.footer {
-  background: rgba(10, 10, 35, 0.95);
-  padding: 3rem 2rem 2rem;
-  border-top: 1px solid #5a4fcf;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-  margin-top: auto; /* MAGIC LINE - pushes footer to bottom */
-  width: 100%;
-}
-
-.footer-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3rem;
-}
-
-.footer-about-title {
-  font-size: 1.1rem;
-  color: #8a7cff;
-  margin-bottom: 1rem;
-  font-weight: 600;
-}
-
-.footer-about-text {
-  color: #a0a0d0;
-  line-height: 1.6;
-  font-size: 0.90rem;
-}
-
-.footer-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-}
-
-.footer-links a {
-  color: #a0a0d0;
-  text-decoration: none;
-  font-size: 0.95rem;
-  transition: color 0.3s ease;
-}
-
-.footer-links a:hover {
-  color: #8a7cff;
-  text-decoration: underline;
-}
-
-.rocket-frame {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  border: 2px solid #5a4fcf;
-  border-radius: 12px;
-  background: rgba(20, 20, 40, 0.5);
-  position: relative;
-  overflow: hidden;
-}
-
-.rocket-text {
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: #8a7cff;
-  text-align: center;
-  text-shadow: 0 0 15px rgba(138, 124, 255, 0.6);
-  background: linear-gradient(45deg, #8a7cff, #d66efd, #8a7cff);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shimmer 3s linear infinite;
-  font-family: 'Arial Rounded MT Bold', 'Segoe UI', sans-serif;
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .footer-content {
-    grid-template-columns: 1fr;
-  }
-}
   </style>
 </head>
 <body>
@@ -299,15 +219,16 @@ body {
     </div>
   </div>
 
-  <!-- full-bleed footer -->
-  <footer class="site-footer" role="contentinfo">
-    <div class="footer-content">
+  <!-- full-bleed footer (no gap below) -->
+  <footer class="site-footer" role="contentinfo" aria-label="Site footer">
+    <div class="container-inner footer-content">
       <div class="footer-left">
         <div class="footer-about-title">About TeamGalaxy</div>
         <div class="footer-about-text">
           TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration. We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!
         </div>
       </div>
+
       <div class="footer-right">
         <div class="footer-links">
           <a href="#">Privacy Policy</a>
@@ -323,7 +244,7 @@ body {
   </footer>
 
   <script>
-    // FIREBASE CONFIG
+    // FIREBASE CONFIG (unchanged)
     const firebaseConfig = {
       apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
       authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -346,7 +267,7 @@ body {
     const replyPreviewWrap = document.getElementById('reply-preview-wrap');
     const replyPreview = document.getElementById('reply-preview');
 
-    // state
+    // State (same as before: hearts, reply, typing, etc.)
     let unsubscribeMessages = null;
     let unsubscribeTyping = null;
     let currentProfile = null;
@@ -357,12 +278,11 @@ body {
     const MAX_SNIPPET = 120;
     let latestSnapshotDocs = {};
 
-    // helpers
     function escapeHtml(s=''){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,"&#039;"); }
     function formatTime(ts){ if(!ts) return 'Just now'; try{ const d = ts.toDate?ts.toDate():new Date(ts); return d.toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}); }catch(e){return 'Just now'} }
     function snippet(s,n=MAX_SNIPPET){ if(!s) return ''; return s.length>n? s.slice(0,n)+'…': s; }
 
-    // build message element
+    // Build / render messages (same logic kept)
     function buildMessageElement(data, id){
       const card = document.createElement('div'); card.className = 'message-card'; card.dataset.docId = id;
       const header = document.createElement('div'); header.className = 'message-header';
@@ -393,13 +313,11 @@ body {
       const actions = document.createElement('div'); actions.className = 'message-actions';
       const replyBtn = document.createElement('button'); replyBtn.className = 'btn-ghost'; replyBtn.type = 'button'; replyBtn.textContent = 'Reply';
       replyBtn.addEventListener('click', ()=> setReplyTo({ id, authorName: data.authorName || 'Anonymous', snippet: snippet(data.text || '') }));
-
       const heartBtn = document.createElement('button'); heartBtn.className = 'btn-ghost heart-btn'; heartBtn.type = 'button';
       const heartIcon = document.createElement('span'); heartIcon.innerHTML = userHeartsSet.has(id) ? '❤️' : '🤍';
       const heartCount = document.createElement('span'); heartCount.className = 'heart-count'; heartCount.textContent = (data.heartsCount || 0);
       heartBtn.appendChild(heartIcon); heartBtn.appendChild(heartCount);
       heartBtn.addEventListener('click', async ()=> toggleHeart(id));
-
       actions.appendChild(replyBtn); actions.appendChild(heartBtn);
       card.appendChild(actions);
       return card;
@@ -420,22 +338,18 @@ body {
       messagesArea.scrollTop = messagesArea.scrollHeight;
     }
 
-    // send message
     async function sendMessage(){
       const text = messageInput.value.trim();
       if(!text) return;
       sendButton.disabled = true;
       try{
         const user = auth.currentUser; if(!user) throw new Error('Not signed in');
-
         const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
         if(!privateDoc.exists) throw new Error('Private profile not found');
         const p = privateDoc.data(); const slug = p.slug; if(!slug) throw new Error('Slug missing');
-
         const pub = await db.collection('publicProfiles').doc(slug).get();
         if(!pub.exists) throw new Error('Public profile not found');
         const pd = pub.data();
-
         const msg = {
           text,
           authorSlug: slug,
@@ -446,13 +360,11 @@ body {
           likes: 0,
           heartsCount: 0
         };
-
         if(replyTo && replyTo.id){
           msg.replyToId = replyTo.id;
           msg.replyToAuthorName = replyTo.authorName || (latestSnapshotDocs[replyTo.id] && latestSnapshotDocs[replyTo.id].authorName) || 'Unknown';
           msg.replyToSnippet = replyTo.snippet || (latestSnapshotDocs[replyTo.id] && snippet(latestSnapshotDocs[replyTo.id].text || '')) || '';
         }
-
         await db.collection('communityMessages').add(msg);
         messageInput.value = '';
         clearReply();
@@ -465,7 +377,6 @@ body {
       }
     }
 
-    // hearts (transaction)
     async function toggleHeart(messageId){
       const user = auth.currentUser;
       if(!user){ alert('Sign in to heart'); return; }
@@ -473,14 +384,12 @@ body {
       const heartDocId = `${messageId}_${uid}`;
       const heartDocRef = db.collection('messageHearts').doc(heartDocId);
       const msgRef = db.collection('communityMessages').doc(messageId);
-
       try{
         await db.runTransaction(async tx => {
           const heartSnap = await tx.get(heartDocRef);
           const msgSnap = await tx.get(msgRef);
           if(!msgSnap.exists) throw new Error('Message missing');
           let hearts = msgSnap.data().heartsCount || 0;
-
           if(!heartSnap.exists){
             tx.set(heartDocRef, { messageId, userId: uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
             tx.update(msgRef, { heartsCount: hearts + 1 });
@@ -497,7 +406,6 @@ body {
       }
     }
 
-    // typing presence
     function startTypingLocal(){
       if(!currentProfile || !currentProfile.slug) return;
       if(localTyping){ clearTimeout(typingTimeout); typingTimeout = setTimeout(stopTyping,1700); return; }
@@ -534,7 +442,6 @@ body {
       }, err => console.warn('typing listener err', err));
     }
 
-    // reply UI
     function setReplyTo(obj){
       replyTo = obj;
       replyPreviewWrap.style.display = 'block';
@@ -544,7 +451,6 @@ body {
     }
     function clearReply(){ replyTo = null; replyPreviewWrap.style.display = 'none'; replyPreview.innerHTML = ''; }
 
-    // realtime messages
     function setupRealtimeListener(){
       if(typeof unsubscribeMessages === 'function') unsubscribeMessages();
       messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem">Loading chat...</div>';
@@ -565,10 +471,8 @@ body {
       }catch(e){ console.warn('load hearts err',e); }
     }
 
-    // auth + init
     auth.onAuthStateChanged(async (user) => {
       if(!user){ window.location.href = '/teamgalaxy/legal/sign_up.html'; return; }
-
       try{
         const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
         const initial = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
@@ -610,12 +514,10 @@ body {
       setupTypingListener();
     });
 
-    // ui events
     messageInput.addEventListener('input', ()=> startTypingLocal());
     messageInput.addEventListener('keydown', (e)=> { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }});
     sendButton.addEventListener('click', ()=> sendMessage());
 
-    // cleanup on unload
     window.addEventListener('beforeunload', ()=> {
       try{ if(currentProfile && currentProfile.slug) db.collection('communityTyping').doc(currentProfile.slug).set({ typing:false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true }); }catch(e){}
       if(typeof unsubscribeMessages === 'function') unsubscribeMessages();
