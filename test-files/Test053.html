@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>TeamGalaxy - Chat (reply + hearts)</title>
+  <title>TeamGalaxy - Chat (reply + hearts + footer)</title>
 
   <!-- Firebase compat -->
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
@@ -11,67 +11,201 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
 
   <style>
-    *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,Roboto,Arial;}
-    body{background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);color:#e0e0ff;min-height:100vh;display:flex;flex-direction:column}
-    header.header{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;background:rgba(10,10,35,.95);border-radius:12px;margin:1rem}
-    .logo{font-weight:700;background:linear-gradient(45deg,#8a7cff,#d66efd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:1.4rem}
-    .profile-photo{width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid #8a7cff;display:flex;align-items:center;justify-content:center;background:linear-gradient(45deg,#6a5af9,#d66efd);font-weight:700}
-    .container{max-width:1000px;margin:0 auto;padding:1rem;flex:1;display:flex;flex-direction:column}
-    .chat-container{display:flex;flex-direction:column;flex:1;background:rgba(20,20,40,.85);border-radius:14px;border:1px solid #5a4fcf;overflow:hidden;margin-bottom:1rem}
-    .messages-area{flex:1;padding:1.25rem;overflow-y:auto;display:flex;flex-direction:column;gap:1rem;scroll-behavior:smooth}
-    .message-card{background:rgba(30,30,50,.75);padding:1rem;border-radius:12px;border:1px solid #44466f;display:flex;flex-direction:column;gap:0.5rem}
-    .message-header{display:flex;align-items:center;gap:0.75rem}
-    .avatar{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(45deg,#6a5af9,#d66efd);color:#fff;font-weight:700;border:2px solid rgba(138,124,255,.35);overflow:hidden}
-    .avatar img{width:100%;height:100%;object-fit:cover;display:block}
-    .user-info{display:flex;flex-direction:column}
-    .username{font-weight:600;color:#8a7cff}
-    .timestamp{font-size:.8rem;color:#a0a0d0}
-    .reply-preview{background:rgba(255,255,255,0.03);padding:.5rem;border-left:3px solid rgba(138,124,255,.6);border-radius:6px;color:#cbd6ff;font-size:.95rem}
-    .message-content{white-space:pre-wrap;color:#cbd0f8}
-    .message-actions{display:flex;gap:.5rem;align-items:center;margin-top:.4rem}
-    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:#a8caff;padding:.35rem .6rem;border-radius:8px;cursor:pointer}
-    .btn-ghost:hover{border-color:#8a7cff;color:#fff}
-    .heart-btn{display:inline-flex;align-items:center;gap:.35rem}
-    .heart-count{font-weight:700;color:#ff7b9b}
-    .typing-indicator{padding:.5rem 1.25rem;color:#a8caff;min-height:20px}
-    .input-area{padding:1rem;display:flex;gap:.6rem;border-top:1px solid rgba(90,79,207,.12);align-items:flex-end;background:rgba(30,30,50,.7)}
-    .reply-container{padding:0 1rem 0 1rem}
-    .message-input{flex:1;padding:.9rem;border-radius:10px;border:1px solid #44466f;background:rgba(12,12,24,.35);color:#eef;font-size:1rem;outline:none}
-    .send-button{padding:.9rem 1.2rem;border-radius:10px;border:none;background:linear-gradient(45deg,#6a5af9,#d66efd);color:white;font-weight:700;cursor:pointer}
-    .send-button:disabled{opacity:.5;cursor:not-allowed}
-    .small-muted{font-size:.9rem;color:#a0a0d0}
-    footer{padding:1.25rem;text-align:center;color:#a0a0d0}
-    @media (max-width:600px){header.header{padding:.75rem}.container{padding:.6rem}}
+    /* Global reset + safe box sizing + prevent horizontal scroll */
+    html,body { height:100%; }
+    html { box-sizing: border-box; }
+    *,*::before,*::after { box-sizing: inherit; }
+    body { margin:0; padding:0; overflow-x:hidden; font-family:'Segoe UI', system-ui, Roboto, Arial; background: linear-gradient(135deg,#0f0c29,#302b63,#24243e); color:#e0e0ff; min-height:100vh; display:flex; flex-direction:column; }
+
+    /* Container - center app, consistent max width */
+    .app-wrap { width:100%; display:flex; justify-content:center; }
+    .container {
+      max-width: 1200px; /* bigger so footer + content align with previous design */
+      width: 100%;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      flex: 1;
+    }
+
+    /* Header */
+    .header {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:1rem 1.25rem; background:rgba(10,10,35,0.95); border-radius:12px; border:1px solid #5a4fcf;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    }
+    .logo { font-weight:700; background:linear-gradient(45deg,#8a7cff,#d66efd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-size:1.35rem; }
+    .profile-photo { width:44px; height:44px; border-radius:50%; overflow:hidden; border:2px solid #8a7cff; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#6a5af9,#d66efd); font-weight:700; color:#fff; }
+
+    /* Chat area - full width of container */
+    .chat-container {
+      display:flex; flex-direction:column; background:rgba(20,20,40,0.85); border-radius:14px;
+      border:1px solid #5a4fcf; overflow:hidden; box-shadow:0 15px 35px rgba(0,0,0,0.35);
+      width: 100%;
+      min-height: 480px;
+    }
+
+    /* Messages list: make children stretch to full column width */
+    .messages-area {
+      flex:1; padding:1.25rem; overflow-y:auto; display:flex; flex-direction:column; gap:1rem;
+      align-items: stretch; /* ensures messages stretch full width */
+      scroll-behavior:smooth;
+      width:100%;
+    }
+
+    /* Each message should fill the column width */
+    .message-card {
+      background: rgba(30,30,50,0.75);
+      padding:1rem;
+      border-radius:12px;
+      border:1px solid #44466f;
+      display:flex;
+      flex-direction:column;
+      gap:0.5rem;
+      width:100%;            /* fill available width */
+      max-width: 100%;       /* never exceed parent */
+    }
+
+    .message-header { display:flex; align-items:center; gap:0.75rem; }
+    .avatar { width:40px; height:40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#6a5af9,#d66efd); color:#fff; font-weight:700; border:2px solid rgba(138,124,255,0.35); overflow:hidden; }
+    .avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .user-info{ display:flex; flex-direction:column; }
+    .username{ font-weight:600; color:#8a7cff; }
+    .timestamp{ font-size:.8rem; color:#a0a0d0; }
+    .reply-preview{ background:rgba(255,255,255,0.03); padding:.5rem; border-left:3px solid rgba(138,124,255,0.6); border-radius:6px; font-size:.95rem; color:#cbd6ff; }
+    .message-content{ white-space:pre-wrap; color:#cbd0f8; word-break:break-word; }
+
+    .message-actions{ display:flex; gap:.5rem; align-items:center; margin-top:.4rem; }
+    .btn-ghost{ background:transparent; border:1px solid rgba(255,255,255,0.04); color:#a8caff; padding:.35rem .6rem; border-radius:8px; cursor:pointer; }
+    .btn-ghost:hover{ border-color:#8a7cff; color:#fff; }
+
+    .heart-btn{ display:inline-flex; align-items:center; gap:.35rem; }
+    .heart-count{ font-weight:700; color:#ff7b9b; }
+
+    /* Typing + reply + input */
+    .typing-indicator { padding:.5rem 1.25rem; color:#a8caff; min-height:20px; }
+    .reply-container { padding:0 1rem 0 1rem; }
+    .reply-preview{ display:block; background:rgba(255,255,255,0.03); padding:.6rem; border-left:3px solid rgba(138,124,255,0.6); border-radius:6px; color:#cbe3ff; }
+    .input-area { padding:1rem; display:flex; gap:.6rem; border-top:1px solid rgba(90,79,207,0.12); align-items:flex-end; background:rgba(30,30,50,0.7); }
+    .message-input { flex:1; padding:.9rem; border-radius:10px; border:1px solid #44466f; background:rgba(12,12,24,0.35); color:#eef; font-size:1rem; outline:none; }
+    .message-input:focus{ border-color:#8a7cff; box-shadow:0 0 10px rgba(138,124,255,0.18); }
+    .send-button{ padding:.9rem 1.2rem; border-radius:10px; border:none; background:linear-gradient(45deg,#6a5af9,#d66efd); color:white; font-weight:700; cursor:pointer; }
+    .send-button:disabled{ opacity:.5; cursor:not-allowed; }
+
+    /* Footer (restored) */
+    footer.footer {
+      background: rgba(10, 10, 35, 0.95);
+      padding: 2.25rem 1.25rem;
+      border-top: 1px solid #5a4fcf;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+      width: 100%;
+    }
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    .footer-about-title { font-size:1.05rem; color:#8a7cff; margin-bottom:.6rem; font-weight:600; }
+    .footer-about-text { color:#a0a0d0; line-height:1.6; font-size:.9rem; }
+    .footer-links { display:flex; flex-direction:column; gap:.6rem; }
+    .footer-links a { color:#a0a0d0; text-decoration:none; transition: color .2s; }
+    .footer-links a:hover { color:#8a7cff; text-decoration:underline; }
+
+    /* Rocket frame + shimmer */
+    .rocket-frame {
+      margin-top: 1rem;
+      padding: 1rem;
+      border: 2px solid #5a4fcf;
+      border-radius: 12px;
+      background: rgba(20, 20, 40, 0.5);
+      position: relative;
+      overflow: hidden;
+      max-width: 420px;
+      width: 100%;
+      display: inline-block;
+      box-sizing: border-box;
+    }
+    .rocket-text {
+      font-size: clamp(1.1rem, 3.2vw, 1.6rem);
+      font-weight: bold;
+      color: #8a7cff;
+      text-align: center;
+      text-shadow: 0 0 12px rgba(138,124,255,0.6);
+      background: linear-gradient(45deg, #8a7cff, #d66efd, #8a7cff);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 3s linear infinite;
+      font-family: 'Arial Rounded MT Bold', 'Segoe UI', sans-serif;
+      word-break: break-word;
+      white-space: normal;
+      line-height: 1.25;
+    }
+    @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+
+    /* responsive tweaks */
+    @media (max-width: 768px) {
+      .footer-content { grid-template-columns: 1fr; gap:1rem; }
+      .container { padding: .75rem; }
+      .header { padding:.75rem; }
+    }
   </style>
 </head>
 <body>
-  <header class="header">
-    <div class="logo">GalaxyWeb</div>
-    <div class="profile-photo" id="header-avatar">U</div>
-  </header>
+  <div class="app-wrap">
+    <div class="container">
+      <header class="header">
+        <div class="logo">GalaxyWeb</div>
+        <div class="profile-photo" id="header-avatar">U</div>
+      </header>
 
-  <div class="container">
-    <main class="chat-container" role="main">
-      <div id="messages-area" class="messages-area">
-        <div class="small-muted" style="text-align:center;padding:2rem">Loading chat...</div>
-      </div>
+      <main class="chat-container" role="main">
+        <div id="messages-area" class="messages-area">
+          <div style="text-align:center;color:#a0a0d0;padding:2rem;">Loading chat...</div>
+        </div>
 
-      <!-- typing indicator -->
-      <div id="typing-indicator" class="typing-indicator"></div>
+        <!-- typing indicator -->
+        <div id="typing-indicator" class="typing-indicator"></div>
 
-      <!-- reply preview -->
-      <div id="reply-preview-wrap" class="reply-container" style="display:none">
-        <div class="reply-preview" id="reply-preview"></div>
-      </div>
+        <!-- reply preview -->
+        <div id="reply-preview-wrap" class="reply-container" style="display:none">
+          <div class="reply-preview" id="reply-preview"></div>
+        </div>
 
-      <div class="input-area">
-        <input id="message-input" class="message-input" placeholder="Write your message..." maxlength="1000" autocomplete="off" />
-        <button id="send-button" class="send-button" disabled>Send</button>
-      </div>
-    </main>
+        <div class="input-area">
+          <input id="message-input" class="message-input" placeholder="Write your message..." maxlength="1000" autocomplete="off" />
+          <button id="send-button" class="send-button" disabled>Send</button>
+        </div>
+      </main>
+
+      <!-- Footer (restored with rocket shimmer) -->
+      <footer class="footer">
+        <div class="footer-content">
+          <div class="footer-left">
+            <div class="footer-about-title">About TeamGalaxy</div>
+            <div class="footer-about-text">
+              TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration. We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!
+            </div>
+          </div>
+          <div class="footer-right">
+            <div class="footer-links">
+              <a href="#">Privacy Policy</a>
+              <a href="#">Terms & Conditions</a>
+              <a href="#">About</a>
+            </div>
+
+            <div class="rocket-frame" aria-hidden="true">
+              <div class="rocket-text">🚀 ROCKET 🚀</div>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
   </div>
-
-  <footer>TeamGalaxy — built with vibes</footer>
 
   <script>
     /***** FIREBASE CONFIG *****/
@@ -104,124 +238,87 @@
     let typingTimeout = null;
     let localTyping = false;
     let replyTo = null; // { id, authorName, snippet }
-    let userHeartsSet = new Set(); // messageIds this user hearted (cached)
+    let userHeartsSet = new Set();
     const MAX_SNIPPET = 120;
-    let latestSnapshotDocs = {}; // id => data (for quick lookups)
+    let latestSnapshotDocs = {}; // id => data
 
     /***** HELPERS *****/
     function escapeHtml(s=''){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,"&#039;"); }
     function formatTime(ts){ if(!ts) return 'Just now'; try{ const d = ts.toDate?ts.toDate():new Date(ts); return d.toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}); }catch(e){return 'Just now'} }
     function snippet(s,n=MAX_SNIPPET){ if(!s) return ''; return s.length>n? s.slice(0,n)+'…': s; }
-    function showNotification(msg){ console.log('note:',msg); /* minimal UI - you already have notif in prior flows */ }
 
-    /***** DOM BUILDERS *****/
+    /***** BUILD MESSAGE DOM *****/
     function buildMessageElement(data, id){
-      // container
-      const card = document.createElement('div');
-      card.className = 'message-card';
-      card.dataset.docId = id;
+      const card = document.createElement('div'); card.className = 'message-card'; card.dataset.docId = id;
+      const header = document.createElement('div'); header.className = 'message-header';
 
-      // header
-      const header = document.createElement('div');
-      header.className = 'message-header';
-
-      // avatar
-      const avatarWrap = document.createElement('div');
-      avatarWrap.className = 'avatar';
+      const avatarWrap = document.createElement('div'); avatarWrap.className = 'avatar';
       const initials = (data.authorName || 'U').charAt(0).toUpperCase();
 
       if(data.authorPhotoUrl){
-        const img = document.createElement('img');
-        img.src = data.authorPhotoUrl;
-        img.alt = (data.authorName || 'Avatar').slice(0,20);
+        const img = document.createElement('img'); img.src = data.authorPhotoUrl; img.alt = (data.authorName || 'Avatar').slice(0,20);
         img.onerror = ()=>{ if(img.parentElement) img.parentElement.removeChild(img); avatarWrap.textContent = initials; };
         avatarWrap.appendChild(img);
       } else {
         avatarWrap.textContent = initials;
       }
 
-      const userInfo = document.createElement('div'); userInfo.className='user-info';
-      const uname = document.createElement('div'); uname.className='username'; uname.innerHTML = escapeHtml(data.authorName || 'Anonymous');
-      const ts = document.createElement('div'); ts.className='timestamp'; ts.textContent = formatTime(data.timestamp);
-      userInfo.appendChild(uname); userInfo.appendChild(ts);
+      const userInfo = document.createElement('div'); userInfo.className = 'user-info';
+      const uname = document.createElement('div'); uname.className = 'username'; uname.innerHTML = escapeHtml(data.authorName || 'Anonymous');
+      const ts = document.createElement('div'); ts.className = 'timestamp'; ts.textContent = formatTime(data.timestamp);
 
+      userInfo.appendChild(uname); userInfo.appendChild(ts);
       header.appendChild(avatarWrap); header.appendChild(userInfo);
 
-      // reply preview inside message (if this message itself is a reply target show small snippet)
       if(data.replyToAuthorName || data.replyToSnippet){
-        const rp = document.createElement('div');
-        rp.className = 'reply-preview';
+        const rp = document.createElement('div'); rp.className = 'reply-preview';
         rp.style.fontSize = '.9rem';
         rp.innerHTML = `<strong style="color:#cbe3ff">${escapeHtml(data.replyToAuthorName || '')}</strong>: ${escapeHtml((data.replyToSnippet || '').slice(0,MAX_SNIPPET))}`;
+        card.appendChild(header);
         card.appendChild(rp);
+      } else {
+        card.appendChild(header);
       }
 
-      // content
-      const content = document.createElement('div');
-      content.className = 'message-content';
-      content.innerHTML = escapeHtml(data.text || '');
-
-      // actions: reply + heart
-      const actions = document.createElement('div');
-      actions.className = 'message-actions';
-
-      // reply button
-      const replyBtn = document.createElement('button');
-      replyBtn.className = 'btn-ghost';
-      replyBtn.type = 'button';
-      replyBtn.textContent = 'Reply';
-      replyBtn.addEventListener('click', () => {
-        setReplyTo({ id, authorName: data.authorName || 'Anonymous', snippet: snippet(data.text || '') });
-      });
-
-      // heart button
-      const heartBtn = document.createElement('button');
-      heartBtn.className = 'btn-ghost heart-btn';
-      heartBtn.type = 'button';
-
-      const heartIcon = document.createElement('span');
-      heartIcon.innerHTML = userHeartsSet.has(id) ? '❤️' : '🤍';
-      const heartCount = document.createElement('span');
-      heartCount.className = 'heart-count';
-      heartCount.textContent = (data.heartsCount || 0);
-
-      heartBtn.appendChild(heartIcon);
-      heartBtn.appendChild(heartCount);
-      heartBtn.addEventListener('click', async () => {
-        await toggleHeart(id);
-      });
-
-      actions.appendChild(replyBtn);
-      actions.appendChild(heartBtn);
-
-      card.appendChild(header);
+      const content = document.createElement('div'); content.className = 'message-content'; content.innerHTML = escapeHtml(data.text || '');
       card.appendChild(content);
+
+      const actions = document.createElement('div'); actions.className = 'message-actions';
+
+      // Reply button
+      const replyBtn = document.createElement('button'); replyBtn.className = 'btn-ghost'; replyBtn.type = 'button'; replyBtn.textContent = 'Reply';
+      replyBtn.addEventListener('click', ()=> setReplyTo({ id, authorName: data.authorName || 'Anonymous', snippet: snippet(data.text || '') }));
+
+      // Heart button
+      const heartBtn = document.createElement('button'); heartBtn.className = 'btn-ghost heart-btn'; heartBtn.type = 'button';
+      const heartIcon = document.createElement('span'); heartIcon.innerHTML = userHeartsSet.has(id) ? '❤️' : '🤍';
+      const heartCount = document.createElement('span'); heartCount.className = 'heart-count'; heartCount.textContent = (data.heartsCount || 0);
+      heartBtn.appendChild(heartIcon); heartBtn.appendChild(heartCount);
+      heartBtn.addEventListener('click', async ()=> toggleHeart(id));
+
+      actions.appendChild(replyBtn); actions.appendChild(heartBtn);
       card.appendChild(actions);
 
       return card;
     }
 
-    /***** RENDERING FROM SNAPSHOT *****/
+    /***** RENDER SNAPSHOT *****/
     function renderMessagesFromSnapshot(snapshot){
-      // cache docs map for lookups
       latestSnapshotDocs = {};
       snapshot.docs.forEach(d => latestSnapshotDocs[d.id] = d.data());
-
-      // full re-render (simple & reliable)
       messagesArea.innerHTML = '';
       if(!snapshot.docs.length){
-        messagesArea.innerHTML = '<div class="small-muted" style="text-align:center;padding:2rem">No messages yet. Say something!</div>';
+        messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem;">No messages yet. Say hi 👋</div>';
         return;
       }
       snapshot.docs.forEach(d => {
         const el = buildMessageElement(d.data(), d.id);
         messagesArea.appendChild(el);
       });
-      // scroll to bottom
       messagesArea.scrollTop = messagesArea.scrollHeight;
     }
 
-    /***** MESSAGING: SEND WITH OPTIONAL REPLY METADATA *****/
+    /***** SEND MESSAGE (+reply metadata if present) *****/
     async function sendMessage(){
       const text = messageInput.value.trim();
       if(!text) return;
@@ -229,17 +326,16 @@
       try{
         const user = auth.currentUser; if(!user) throw new Error('Not signed in');
 
-        // private profile for slug
+        // private doc -> slug
         const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
         if(!privateDoc.exists) throw new Error('Private profile not found');
         const p = privateDoc.data(); const slug = p.slug; if(!slug) throw new Error('Slug missing');
 
         // public profile
         const pub = await db.collection('publicProfiles').doc(slug).get();
-        if(!pub.exists) throw new Error('Public profile missing');
+        if(!pub.exists) throw new Error('Public profile not found');
         const pd = pub.data();
 
-        // prepare message
         const msg = {
           text,
           authorSlug: slug,
@@ -251,52 +347,46 @@
           heartsCount: 0
         };
 
-        // if replying, attach reply metadata
         if(replyTo && replyTo.id){
-          // try to get snippet/authorName from cached snapshot or fallback
-          const parent = latestSnapshotDocs[replyTo.id];
           msg.replyToId = replyTo.id;
-          msg.replyToAuthorName = replyTo.authorName || (parent && parent.authorName) || 'Unknown';
-          msg.replyToSnippet = replyTo.snippet || (parent && snippet(parent.text || '')) || '';
+          msg.replyToAuthorName = replyTo.authorName || (latestSnapshotDocs[replyTo.id] && latestSnapshotDocs[replyTo.id].authorName) || 'Unknown';
+          msg.replyToSnippet = replyTo.snippet || (latestSnapshotDocs[replyTo.id] && snippet(latestSnapshotDocs[replyTo.id].text || '')) || '';
         }
 
         await db.collection('communityMessages').add(msg);
-
-        // clear input + reply UI
         messageInput.value = '';
         clearReply();
-        showNotification('Message sent');
+        // stop typing
+        stopTyping();
       }catch(err){
         console.error('send error',err);
-        showNotification('Error: '+(err.message||'Failed to send'));
+        alert('Send failed: ' + (err.message || 'unknown'));
       }finally{
         sendButton.disabled = false;
       }
     }
 
-    /***** HEART TOGGLE (transactional) *****/
+    /***** HEART (transaction) *****/
     async function toggleHeart(messageId){
       const user = auth.currentUser;
-      if(!user) { showNotification('Sign in to heart'); return; }
+      if(!user){ alert('Sign in to heart'); return; }
       const uid = user.uid;
       const heartDocId = `${messageId}_${uid}`;
       const heartDocRef = db.collection('messageHearts').doc(heartDocId);
       const msgRef = db.collection('communityMessages').doc(messageId);
 
       try{
-        await db.runTransaction(async (tx) => {
+        await db.runTransaction(async tx => {
           const heartSnap = await tx.get(heartDocRef);
           const msgSnap = await tx.get(msgRef);
           if(!msgSnap.exists) throw new Error('Message missing');
           let hearts = msgSnap.data().heartsCount || 0;
 
           if(!heartSnap.exists){
-            // create heart doc
             tx.set(heartDocRef, { messageId, userId: uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
             tx.update(msgRef, { heartsCount: hearts + 1 });
             userHeartsSet.add(messageId);
           } else {
-            // remove heart
             tx.delete(heartDocRef);
             tx.update(msgRef, { heartsCount: Math.max(0, hearts - 1) });
             userHeartsSet.delete(messageId);
@@ -304,84 +394,83 @@
         });
       }catch(err){
         console.error('heart tx err',err);
-        showNotification('Heart failed');
+        alert('Heart action failed');
       }
     }
 
-    /***** TYPING PRESENCE (unchanged-ish) *****/
+    /***** TYPING PRESENCE *****/
     function startTypingLocal(){
       if(!currentProfile || !currentProfile.slug) return;
       if(localTyping){ clearTimeout(typingTimeout); typingTimeout = setTimeout(stopTyping,1700); return; }
       localTyping = true;
       db.collection('communityTyping').doc(currentProfile.slug).set({
-        typing:true,
+        typing: true,
         name: currentProfile.name || '',
         photoUrl: currentProfile.photoUrl || '',
         lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-      },{merge:true}).catch(e=>console.warn('typing set',e));
-      typingTimeout = setTimeout(stopTyping,1700);
+      }, { merge: true }).catch(e => console.warn('typing set', e));
+      typingTimeout = setTimeout(stopTyping, 1700);
     }
     function stopTyping(){
       if(!currentProfile || !currentProfile.slug) return;
       localTyping = false; clearTimeout(typingTimeout);
       db.collection('communityTyping').doc(currentProfile.slug).set({
-        typing:false,
+        typing: false,
         lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-      },{merge:true}).catch(e=>console.warn('typing clear',e));
+      }, { merge: true }).catch(e => console.warn('typing clear', e));
     }
     function setupTypingListener(){
       if(typeof unsubscribeTyping === 'function') unsubscribeTyping();
-      unsubscribeTyping = db.collection('communityTyping').where('typing','==',true).onSnapshot(snap=>{
-        const typingUsers=[];
+      unsubscribeTyping = db.collection('communityTyping').where('typing','==',true).onSnapshot(snap => {
+        const typingUsers = [];
         snap.forEach(doc => {
           if(currentProfile && doc.id === currentProfile.slug) return;
           const d = doc.data();
           if(d && d.name) typingUsers.push(d.name);
         });
-        if(!typingUsers.length) typingIndicator.textContent='';
-        else if(typingUsers.length===1) typingIndicator.textContent = `${typingUsers[0]} is typing…`;
-        else if(typingUsers.length===2) typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers[1]} are typing…`;
-        else typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers.length-1} others are typing…`;
-      }, err=> console.warn('typing listener err',err));
+        if(!typingUsers.length) typingIndicator.textContent = '';
+        else if(typingUsers.length === 1) typingIndicator.textContent = `${typingUsers[0]} is typing…`;
+        else if(typingUsers.length === 2) typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers[1]} are typing…`;
+        else typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers.length - 1} others are typing…`;
+      }, err => console.warn('typing listener err', err));
     }
 
-    /***** REALTIME MESSAGES LISTENER (order asc: old->new) *****/
-    function setupRealtimeListener(){
-      if(typeof unsubscribeMessages === 'function') unsubscribeMessages();
-      messagesArea.innerHTML = '<div class="small-muted" style="text-align:center;padding:2rem">Loading chat...</div>';
-      const q = db.collection('communityMessages').where('visibility','==',true).orderBy('timestamp','asc').limit(500);
-      unsubscribeMessages = q.onSnapshot(snapshot=>{
-        renderMessagesFromSnapshot(snapshot);
-      }, err=>{
-        console.error('messages listener err',err);
-        messagesArea.innerHTML = `<div class="small-muted" style="color:#f88;padding:1rem;text-align:center">Failed to load: ${escapeHtml(err.message||'unknown')}</div>`;
-      });
-    }
-
-    /***** LOAD WHICH MESSAGES THE USER HAS HEARTED (cache) *****/
-    async function loadUserHearts(uid){
-      userHeartsSet.clear();
-      try{
-        const snaps = await db.collection('messageHearts').where('userId','==',uid).get();
-        snaps.forEach(d=> userHeartsSet.add(d.data().messageId));
-      }catch(e){ console.warn('load hearts err',e); }
-    }
-
-    /***** REPLY UI HELPERS *****/
-    function setReplyTo(obj){ // obj: { id, authorName, snippet }
+    /***** REPLY UI *****/
+    function setReplyTo(obj){
       replyTo = obj;
       replyPreviewWrap.style.display = 'block';
-      replyPreview.innerHTML = `<strong style="color:#cbe3ff">${escapeHtml(obj.authorName||'')}</strong>: ${escapeHtml(obj.snippet||'')}&nbsp;&nbsp;<button class="btn-ghost" id="cancel-reply">Cancel</button>`;
+      replyPreview.innerHTML = `<strong style="color:#cbe3ff">${escapeHtml(obj.authorName||'')}</strong>: ${escapeHtml(obj.snippet||'')} &nbsp; <button class="btn-ghost" id="cancel-reply">Cancel</button>`;
       document.getElementById('cancel-reply').addEventListener('click', clearReply);
       messageInput.focus();
     }
     function clearReply(){ replyTo = null; replyPreviewWrap.style.display = 'none'; replyPreview.innerHTML = ''; }
 
-    /***** AUTH FLOW & SETUP *****/
-    auth.onAuthStateChanged(async (user) => {
-      if(!user){ window.location.href = '/teamgalaxy/legal/sign_up.html'; return; }
+    /***** REACTIVE LISTENERS *****/
+    function setupRealtimeListener(){
+      if(typeof unsubscribeMessages === 'function') unsubscribeMessages();
+      messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem">Loading chat...</div>';
+      const q = db.collection('communityMessages').where('visibility','==',true).orderBy('timestamp','asc').limit(500);
+      unsubscribeMessages = q.onSnapshot(snapshot => {
+        renderMessagesFromSnapshot(snapshot);
+      }, err => {
+        console.error('messages listener err', err);
+        messagesArea.innerHTML = `<div style="text-align:center;color:#f88;padding:2rem">Failed to load: ${escapeHtml(err.message || 'unknown')}</div>`;
+      });
+    }
 
-      // header avatar + currentProfile (private->public)
+    async function loadUserHearts(uid){
+      userHeartsSet.clear();
+      try{
+        const snaps = await db.collection('messageHearts').where('userId','==',uid).get();
+        snaps.forEach(d => userHeartsSet.add(d.data().messageId));
+      }catch(e){ console.warn('load hearts err', e); }
+    }
+
+    /***** AUTH & INIT *****/
+    auth.onAuthStateChanged(async (user) => {
+      if(!user) { window.location.href = '/teamgalaxy/legal/sign_up.html'; return; }
+
+      // load header avatar + profile
       try{
         const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
         const initial = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
@@ -392,10 +481,9 @@
             if(pub.exists){
               const pubd = pub.data();
               currentProfile = { slug: pd.slug, name: pubd.name || (user.displayName || 'Anonymous'), photoUrl: pubd.profilePhotoUrl || '' };
-              // set header avatar
               headerAvatar.innerHTML = '';
               if(currentProfile.photoUrl){
-                const img = document.createElement('img'); img.src = currentProfile.photoUrl; img.alt = currentProfile.name||'Profile'; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover';
+                const img = document.createElement('img'); img.src = currentProfile.photoUrl; img.alt = currentProfile.name || 'Profile'; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover';
                 img.onerror = ()=> headerAvatar.textContent = (currentProfile.name || initial).charAt(0);
                 headerAvatar.appendChild(img);
               } else headerAvatar.textContent = (currentProfile.name || initial).charAt(0);
@@ -411,34 +499,30 @@
           currentProfile = { slug: null, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
           headerAvatar.textContent = (user.displayName || initial).charAt(0);
         }
-      }catch(e){
-        console.warn('profile fetch err',e);
-        currentProfile = { slug:null, name:user.displayName||'Anonymous', photoUrl:user.photoURL||'' };
-        headerAvatar.textContent = (user.displayName||'U').charAt(0);
-      }
+      }catch(e){ console.warn('profile fetch err', e); currentProfile = { slug:null, name:user.displayName||'Anonymous', photoUrl:user.photoURL||'' }; headerAvatar.textContent = (user.displayName||'U').charAt(0); }
 
-      // enable input
+      // UI enable
       messageInput.disabled = false;
       sendButton.disabled = false;
 
-      // load hearts that belong to user (cache)
+      // load hearts cache for this user
       await loadUserHearts(user.uid);
 
-      // start listeners
+      // start realtime listeners
       setupRealtimeListener();
       setupTypingListener();
     });
 
     /***** UI EVENTS *****/
-    messageInput.addEventListener('input', ()=> { startTypingLocal(); });
-    messageInput.addEventListener('keydown', (e)=> { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); } });
+    messageInput.addEventListener('input', ()=> startTypingLocal());
+    messageInput.addEventListener('keydown', (e)=> { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }});
     sendButton.addEventListener('click', ()=> sendMessage());
 
-    // cleanup
+    // cleanup on unload
     window.addEventListener('beforeunload', ()=> {
-      try{ if(currentProfile && currentProfile.slug) db.collection('communityTyping').doc(currentProfile.slug).set({ typing:false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() },{merge:true}); }catch(e){}
-      if(typeof unsubscribeMessages==='function') unsubscribeMessages();
-      if(typeof unsubscribeTyping==='function') unsubscribeTyping();
+      try{ if(currentProfile && currentProfile.slug) db.collection('communityTyping').doc(currentProfile.slug).set({ typing:false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true }); }catch(e){}
+      if(typeof unsubscribeMessages === 'function') unsubscribeMessages();
+      if(typeof unsubscribeTyping === 'function') unsubscribeTyping();
     });
   </script>
 </body>
