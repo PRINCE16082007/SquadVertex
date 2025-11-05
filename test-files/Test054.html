@@ -1,105 +1,213 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TeamGalaxy - Community Chat (with typing)</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>TeamGalaxy - Chat (no header/footer gaps)</title>
 
-  <!-- Firebase (compat) -->
+  <!-- Firebase compat -->
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
 
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: #e0e0ff; min-height: 100vh; display:flex; flex-direction:column; padding:0; }
+    /* Basic reset + prevent horizontal overflow */
+    html,body { height:100%; }
+    *,*::before,*::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden; /* prevent horizontal scroll */
+      font-family: 'Segoe UI', system-ui, Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg,#0f0c29,#302b63,#24243e);
+      color: #e0e0ff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-    .container { max-width:1000px; margin:0 auto; width:100%; padding:1rem; flex:1; display:flex; flex-direction:column; }
+    /* Full-bleed header & footer with centered inner container */
+    .site-header, .site-footer {
+      width: 100%;
+      left: 0;
+      right: 0;
+      box-sizing: border-box;
+      background: rgba(10,10,35,0.95);
+      border-top: 0;
+      border-bottom: 0;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+      z-index: 50;
+    }
+    .site-header .container-inner,
+    .site-footer .container-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0.9rem 1rem; /* inner padding for content */
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
 
-    /* Header */
-    .header { display:flex; justify-content:space-between; align-items:center; padding:1rem 2rem; background:rgba(10,10,35,0.95); backdrop-filter:blur(15px); border-radius:15px; border:1px solid #5a4fcf; box-shadow:0 4px 20px rgba(0,0,0,0.4); margin-bottom:2rem; }
-    .logo { font-size:1.8rem; font-weight:700; background:linear-gradient(45deg,#8a7cff,#d66efd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:1px; }
-    .user-profile { display:flex; align-items:center; gap:0.8rem; }
-    .profile-photo { width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #8a7cff; background:linear-gradient(45deg,#6a5af9,#d66efd); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:1.2rem; overflow:hidden; }
+    /* Header visuals */
+    .logo { font-weight:700; background:linear-gradient(45deg,#8a7cff,#d66efd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-size:1.35rem; }
+    .profile-photo { width:44px; height:44px; border-radius:50%; overflow:hidden; border:2px solid #8a7cff; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#6a5af9,#d66efd); font-weight:700; color:#fff; }
+
+    /* Main wrapper centers the app content */
+    .app-wrap { width:100%; display:flex; justify-content:center; }
+    .container {
+      width:100%;
+      max-width:1200px;
+      padding: 1rem;
+      display:flex;
+      flex-direction:column;
+      gap:1rem;
+      box-sizing: border-box;
+      flex: 1;
+    }
 
     /* Chat container */
-    .chat-container { display:flex; flex-direction:column; flex:1; background:rgba(20,20,40,0.85); border-radius:20px; border:1px solid #5a4fcf; backdrop-filter:blur(10px); box-shadow:0 15px 35px rgba(0,0,0,0.4); overflow:hidden; margin-bottom:2rem; }
-    .messages-area { flex:1; padding:1.5rem; overflow-y:auto; display:flex; flex-direction:column; gap:1.2rem; scroll-behavior:smooth; }
-    .message-card { background:rgba(30,30,50,0.7); border-radius:15px; padding:1.2rem; border:1px solid #4a4a8a; transition:transform .3s, box-shadow .3s; animation:fadeIn .2s ease-out; display:flex; flex-direction:column; gap:0.5rem; }
-    .message-card:hover { transform:translateY(-3px); border-color:#8a7cff; box-shadow:0 5px 15px rgba(138,124,255,0.15); }
-    @keyframes fadeIn { from {opacity:0; transform:translateY(6px);} to {opacity:1; transform:translateY(0);} }
+    .chat-container {
+      display:flex;
+      flex-direction:column;
+      background: rgba(20,20,40,0.85);
+      border-radius:14px;
+      border:1px solid rgba(90,79,207,0.2);
+      overflow:hidden;
+      box-shadow:0 15px 35px rgba(0,0,0,0.35);
+      width:100%;
+      min-height:480px;
+    }
 
-    .message-header { display:flex; align-items:center; gap:0.8rem; margin-bottom:0.4rem; }
-    .avatar { width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#6a5af9,#d66efd); color:#fff; font-weight:700; font-size:1rem; border:2px solid rgba(138,124,255,0.6); overflow:hidden; }
+    /* Messages area: stretch children full width of the container */
+    .messages-area {
+      flex:1;
+      padding:1.25rem;
+      overflow-y:auto;
+      display:flex;
+      flex-direction:column;
+      gap:1rem;
+      align-items: stretch; /* makes messages fill available width */
+      scroll-behavior:smooth;
+      width:100%;
+    }
+
+    .message-card {
+      background: rgba(30,30,50,0.75);
+      padding:1rem;
+      border-radius:12px;
+      border:1px solid rgba(68,70,111,0.6);
+      display:flex;
+      flex-direction:column;
+      gap:0.5rem;
+      width:100%;
+      max-width:100%;
+      box-sizing:border-box;
+      word-break:break-word;
+    }
+
+    .message-header { display:flex; align-items:center; gap:0.75rem; }
+    .avatar { width:40px; height:40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#6a5af9,#d66efd); color:#fff; font-weight:700; border:2px solid rgba(138,124,255,0.35); overflow:hidden; }
     .avatar img { width:100%; height:100%; object-fit:cover; display:block; }
     .user-info { display:flex; flex-direction:column; }
-    .username { font-weight:600; color:#8a7cff; font-size:0.98rem; }
-    .timestamp { font-size:0.8rem; color:#a0a0d0; }
-    .message-content { color:#c0c0e0; line-height:1.6; font-size:1rem; word-break:break-word; white-space:pre-wrap; }
+    .username { font-weight:600; color:#8a7cff; }
+    .timestamp { font-size:.8rem; color:#a0a0d0; }
+    .reply-preview { background:rgba(255,255,255,0.03); padding:.5rem; border-left:3px solid rgba(138,124,255,0.6); border-radius:6px; font-size:.95rem; color:#cbd6ff; }
+    .message-content { white-space:pre-wrap; color:#cbd0f8; }
 
-    .input-area { padding:1.5rem; background:rgba(30,30,50,0.7); border-top:1px solid #5a4fcf; display:flex; gap:0.8rem; align-items:flex-end; }
-    .typing-indicator { color:#a8caff; font-size:0.95rem; margin-bottom:6px; min-height:20px; }
-    .message-input { flex:1; padding:.9rem 1.2rem; border-radius:10px; border:1px solid #4a4a8a; background:rgba(20,20,40,0.5); color:#e0e0ff; font-size:1rem; outline:none; transition:border-color .3s, box-shadow .3s; backdrop-filter:blur(5px); }
-    .message-input:focus { border-color:#8a7cff; box-shadow:0 0 10px rgba(138,124,255,0.3); }
-    .send-button { padding:.9rem 1.5rem; border-radius:10px; border:none; background:linear-gradient(45deg,#6a5af9,#d66efd); color:white; font-weight:600; cursor:pointer; transition:transform .2s, box-shadow .2s; font-size:1rem; }
-    .send-button:disabled { opacity:.55; cursor:not-allowed; }
-    .send-button:hover:not(:disabled){ transform:scale(1.03); box-shadow:0 0 15px rgba(106,90,249,0.4); }
+    .message-actions { display:flex; gap:.5rem; align-items:center; margin-top:.4rem; }
+    .btn-ghost { background:transparent; border:1px solid rgba(255,255,255,0.04); color:#a8caff; padding:.35rem .6rem; border-radius:8px; cursor:pointer; }
+    .btn-ghost:hover { border-color:#8a7cff; color:#fff; }
+    .heart-btn { display:inline-flex; align-items:center; gap:.35rem; }
+    .heart-count { font-weight:700; color:#ff7b9b; }
 
-    /* small bottom helpers */
-    .notification { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(106,90,249,0.9); color:white; padding:.8rem 1.5rem; border-radius:8px; font-weight:600; z-index:1000; opacity:0; pointer-events:none; transition:opacity .3s; }
-    .notification.show { opacity:1; pointer-events:auto; }
+    .typing-indicator { padding:.5rem 0; color:#a8caff; min-height:20px; }
 
-    @media (max-width:768px) { .header { flex-direction:column; gap:1rem; padding:1rem; } }
+    .reply-container { padding:0 0.75rem; }
+    .reply-preview { display:block; background:rgba(255,255,255,0.03); padding:.6rem; border-left:3px solid rgba(138,124,255,0.6); border-radius:6px; color:#cbe3ff; }
+
+    .input-area { padding:1rem; display:flex; gap:.6rem; border-top:1px solid rgba(90,79,207,0.12); align-items:flex-end; background:rgba(30,30,50,0.7); }
+    .message-input { flex:1; padding:.9rem; border-radius:10px; border:1px solid rgba(68,70,111,0.6); background:rgba(12,12,24,0.35); color:#eef; font-size:1rem; outline:none; }
+    .message-input:focus { border-color:#8a7cff; box-shadow:0 0 10px rgba(138,124,255,0.18); }
+    .send-button { padding:.9rem 1.2rem; border-radius:10px; border:none; background:linear-gradient(45deg,#6a5af9,#d66efd); color:white; font-weight:700; cursor:pointer; }
+    .send-button:disabled { opacity:.5; cursor:not-allowed; }
+
+    /* Footer inner design */
+    .footer-content { display:grid; grid-template-columns: 1fr 1fr; gap:1.25rem; align-items:start; max-width:1200px; margin:0 auto; padding:0.9rem 1rem; box-sizing:border-box; }
+    .footer-about-title { font-size:1.05rem; color:#8a7cff; margin-bottom:.6rem; font-weight:600; }
+    .footer-about-text { color:#a0a0d0; line-height:1.6; font-size:.9rem; }
+    .footer-links { display:flex; flex-direction:column; gap:.6rem; }
+    .footer-links a { color:#a0a0d0; text-decoration:none; transition: color .2s; }
+    .footer-links a:hover { color:#8a7cff; text-decoration:underline; }
+
+    /* Rocket frame */
+    .rocket-frame { margin-top: .75rem; padding: .9rem; border:2px solid #5a4fcf; border-radius:12px; background:rgba(20,20,40,0.5); overflow:hidden; max-width:420px; width:100%; display:inline-block; box-sizing:border-box; }
+    .rocket-text { font-size: clamp(1.05rem, 3vw, 1.4rem); font-weight:bold; background:linear-gradient(45deg,#8a7cff,#d66efd,#8a7cff); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: shimmer 3s linear infinite; text-align:center; line-height:1.2; }
+    @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .footer-content { grid-template-columns:1fr; padding: .75rem 0.9rem; }
+      .container { padding: .75rem; }
+      .site-header .container-inner, .site-footer .container-inner { padding: 0.75rem .9rem; }
+    }
   </style>
 </head>
 <body>
-  <header class="header">
-    <div class="logo">GalaxyWeb</div>
-    <div class="user-profile">
+  <!-- full-bleed header -->
+  <header class="site-header" role="banner">
+    <div class="container-inner">
+      <div class="logo">GalaxyWeb</div>
       <div class="profile-photo" id="header-avatar">U</div>
     </div>
   </header>
 
-  <div class="container">
-    <main class="chat-container">
-      <div class="messages-area" id="messages-area">
-        <div style="text-align:center;color:#a0a0d0;padding:2rem;">Loading community chat...</div>
-      </div>
+  <div class="app-wrap">
+    <div class="container">
+      <main class="chat-container" role="main">
+        <div id="messages-area" class="messages-area">
+          <div style="text-align:center;color:#a0a0d0;padding:2rem;">Loading chat...</div>
+        </div>
 
-      <!-- typing indicator sits above the input -->
-      <div style="padding:0 1.5rem;">
         <div id="typing-indicator" class="typing-indicator"></div>
-      </div>
 
-      <div class="input-area">
-        <input type="text" class="message-input" id="message-input" placeholder="Write your message here..." maxlength="500" />
-        <button class="send-button" id="send-button" disabled>Send</button>
-      </div>
-    </main>
+        <div id="reply-preview-wrap" class="reply-container" style="display:none">
+          <div class="reply-preview" id="reply-preview"></div>
+        </div>
+
+        <div class="input-area">
+          <input id="message-input" class="message-input" placeholder="Write your message..." maxlength="1000" autocomplete="off" />
+          <button id="send-button" class="send-button" disabled>Send</button>
+        </div>
+      </main>
+    </div>
   </div>
 
-  <footer style="background:rgba(10,10,35,0.95); padding:3rem 2rem 2rem; border-top:1px solid #5a4fcf;">
-    <div style="max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:3rem;">
-      <div>
-        <div style="font-size:1.1rem;color:#8a7cff;margin-bottom:1rem;font-weight:600;">About TeamGalaxy</div>
-        <div style="color:#a0a0d0;line-height:1.6;font-size:.9rem;">
-          TeamGalaxy is an innovative gaming and creative community. Join now to explore the Galaxy!
+  <!-- full-bleed footer -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-content">
+      <div class="footer-left">
+        <div class="footer-about-title">About TeamGalaxy</div>
+        <div class="footer-about-text">
+          TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration. We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!
         </div>
       </div>
-      <div>
-        <div style="display:flex;flex-direction:column;gap:.6rem;">
-          <a href="#" style="color:#a0a0d0;text-decoration:none">Privacy Policy</a>
-          <a href="#" style="color:#a0a0d0;text-decoration:none">Terms & Conditions</a>
-          <a href="#" style="color:#a0a0d0;text-decoration:none">About</a>
+      <div class="footer-right">
+        <div class="footer-links">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms & Conditions</a>
+          <a href="#">About</a>
+        </div>
+
+        <div class="rocket-frame" aria-hidden="true">
+          <div class="rocket-text">🚀 ROCKET 🚀</div>
         </div>
       </div>
     </div>
   </footer>
 
-  <div class="notification" id="notification">Message sent!</div>
-
   <script>
-    // === Firebase Config ===
+    // FIREBASE CONFIG
     const firebaseConfig = {
       apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
       authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -109,273 +217,293 @@
       appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
       measurementId: "G-6C2W9NSNCH"
     };
-
-    // Initialize Firebase (compat)
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // DOM
+    // DOM refs
     const messagesArea = document.getElementById('messages-area');
     const messageInput = document.getElementById('message-input');
     const sendButton = document.getElementById('send-button');
     const headerAvatar = document.getElementById('header-avatar');
-    const notification = document.getElementById('notification');
     const typingIndicator = document.getElementById('typing-indicator');
+    const replyPreviewWrap = document.getElementById('reply-preview-wrap');
+    const replyPreview = document.getElementById('reply-preview');
 
-    // State
+    // state
     let unsubscribeMessages = null;
     let unsubscribeTyping = null;
-    let currentProfile = null; // { slug, name, photoUrl }
+    let currentProfile = null;
     let typingTimeout = null;
     let localTyping = false;
+    let replyTo = null;
+    let userHeartsSet = new Set();
+    const MAX_SNIPPET = 120;
+    let latestSnapshotDocs = {};
 
-    // Helpers
-    function showNotification(msg) {
-      notification.textContent = msg;
-      notification.classList.add('show');
-      setTimeout(()=>notification.classList.remove('show'), 2500);
-    }
-    function escapeHtml(str='') { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
-    function formatTime(timestamp) {
-      if (!timestamp) return 'Just now';
-      try {
-        const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-        return date.toLocaleString('en-IN',{ hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short' });
-      } catch(e) { return 'Just now'; }
-    }
+    // helpers
+    function escapeHtml(s=''){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,"&#039;"); }
+    function formatTime(ts){ if(!ts) return 'Just now'; try{ const d = ts.toDate?ts.toDate():new Date(ts); return d.toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}); }catch(e){return 'Just now'} }
+    function snippet(s,n=MAX_SNIPPET){ if(!s) return ''; return s.length>n? s.slice(0,n)+'…': s; }
 
-    // Build a message DOM node (safe)
-    function buildMessageElement(data, id) {
-      const card = document.createElement('div'); card.className='message-card'; if(id) card.dataset.docId = id;
-      const header = document.createElement('div'); header.className='message-header';
-      const avatarWrap = document.createElement('div'); avatarWrap.className='avatar';
-
-      const initials = document.createElement('div'); initials.textContent = (data.authorName || 'U').charAt(0).toUpperCase();
-      initials.style.display = 'flex'; initials.style.width='100%'; initials.style.height='100%'; initials.style.alignItems='center'; initials.style.justifyContent='center';
-
-      if (data.authorPhotoUrl) {
+    // build message element
+    function buildMessageElement(data, id){
+      const card = document.createElement('div'); card.className = 'message-card'; card.dataset.docId = id;
+      const header = document.createElement('div'); header.className = 'message-header';
+      const avatarWrap = document.createElement('div'); avatarWrap.className = 'avatar';
+      const initials = (data.authorName || 'U').charAt(0).toUpperCase();
+      if(data.authorPhotoUrl){
         const img = document.createElement('img'); img.src = data.authorPhotoUrl; img.alt = (data.authorName || 'Avatar').slice(0,20);
-        img.onerror = () => { if (img.parentElement) img.parentElement.removeChild(img); initials.style.display='flex'; };
-        avatarWrap.appendChild(img); initials.style.display='none'; avatarWrap.appendChild(initials);
-      } else {
-        initials.style.display='flex'; avatarWrap.appendChild(initials);
-      }
-
-      const userInfo = document.createElement('div'); userInfo.className='user-info';
-      const userName = document.createElement('div'); userName.className='username'; userName.innerHTML = escapeHtml(data.authorName || 'Anonymous');
-      const time = document.createElement('div'); time.className='timestamp'; time.textContent = formatTime(data.timestamp);
-      userInfo.appendChild(userName); userInfo.appendChild(time);
-
+        img.onerror = ()=>{ if(img.parentElement) img.parentElement.removeChild(img); avatarWrap.textContent = initials; };
+        avatarWrap.appendChild(img);
+      } else { avatarWrap.textContent = initials; }
+      const userInfo = document.createElement('div'); userInfo.className = 'user-info';
+      const uname = document.createElement('div'); uname.className = 'username'; uname.innerHTML = escapeHtml(data.authorName || 'Anonymous');
+      const ts = document.createElement('div'); ts.className = 'timestamp'; ts.textContent = formatTime(data.timestamp);
+      userInfo.appendChild(uname); userInfo.appendChild(ts);
       header.appendChild(avatarWrap); header.appendChild(userInfo);
 
-      const content = document.createElement('div'); content.className='message-content'; content.innerHTML = escapeHtml(data.text || '');
+      if(data.replyToAuthorName || data.replyToSnippet){
+        const rp = document.createElement('div'); rp.className = 'reply-preview'; rp.style.fontSize = '.9rem';
+        rp.innerHTML = `<strong style="color:#cbe3ff">${escapeHtml(data.replyToAuthorName || '')}</strong>: ${escapeHtml((data.replyToSnippet || '').slice(0,MAX_SNIPPET))}`;
+        card.appendChild(header); card.appendChild(rp);
+      } else {
+        card.appendChild(header);
+      }
 
-      card.appendChild(header); card.appendChild(content);
+      const content = document.createElement('div'); content.className = 'message-content'; content.innerHTML = escapeHtml(data.text || '');
+      card.appendChild(content);
+
+      const actions = document.createElement('div'); actions.className = 'message-actions';
+      const replyBtn = document.createElement('button'); replyBtn.className = 'btn-ghost'; replyBtn.type = 'button'; replyBtn.textContent = 'Reply';
+      replyBtn.addEventListener('click', ()=> setReplyTo({ id, authorName: data.authorName || 'Anonymous', snippet: snippet(data.text || '') }));
+
+      const heartBtn = document.createElement('button'); heartBtn.className = 'btn-ghost heart-btn'; heartBtn.type = 'button';
+      const heartIcon = document.createElement('span'); heartIcon.innerHTML = userHeartsSet.has(id) ? '❤️' : '🤍';
+      const heartCount = document.createElement('span'); heartCount.className = 'heart-count'; heartCount.textContent = (data.heartsCount || 0);
+      heartBtn.appendChild(heartIcon); heartBtn.appendChild(heartCount);
+      heartBtn.addEventListener('click', async ()=> toggleHeart(id));
+
+      actions.appendChild(replyBtn); actions.appendChild(heartBtn);
+      card.appendChild(actions);
       return card;
     }
 
-    // Render snapshot in full (stable)
-    function renderMessagesFromSnapshot(snapshot) {
+    function renderMessagesFromSnapshot(snapshot){
+      latestSnapshotDocs = {};
+      snapshot.docs.forEach(d => latestSnapshotDocs[d.id] = d.data());
       messagesArea.innerHTML = '';
-      if (!snapshot.docs.length) {
+      if(!snapshot.docs.length){
         messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem;">No messages yet. Say hi 👋</div>';
         return;
       }
-      snapshot.docs.forEach(docSnap => {
-        const el = buildMessageElement(docSnap.data(), docSnap.id);
+      snapshot.docs.forEach(d => {
+        const el = buildMessageElement(d.data(), d.id);
         messagesArea.appendChild(el);
       });
-      // scroll to bottom so newest visible
       messagesArea.scrollTop = messagesArea.scrollHeight;
     }
 
-    // Send message
-    async function sendMessage() {
+    // send message
+    async function sendMessage(){
       const text = messageInput.value.trim();
-      if (!text) return;
+      if(!text) return;
       sendButton.disabled = true;
-      try {
-        const user = auth.currentUser; if (!user) throw new Error('Not signed in');
+      try{
+        const user = auth.currentUser; if(!user) throw new Error('Not signed in');
 
-        // get private doc for slug
         const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
-        if (!privateDoc.exists) throw new Error('User private profile missing');
-        const udata = privateDoc.data(); const slug = udata.slug; if (!slug) throw new Error('User slug missing');
+        if(!privateDoc.exists) throw new Error('Private profile not found');
+        const p = privateDoc.data(); const slug = p.slug; if(!slug) throw new Error('Slug missing');
 
-        // get public profile
-        const publicDoc = await db.collection('publicProfiles').doc(slug).get();
-        if (!publicDoc.exists) throw new Error('Public profile missing');
-        const pd = publicDoc.data();
+        const pub = await db.collection('publicProfiles').doc(slug).get();
+        if(!pub.exists) throw new Error('Public profile not found');
+        const pd = pub.data();
 
-        const message = {
-          text: text,
+        const msg = {
+          text,
           authorSlug: slug,
-          authorName: pd.name || (user.displayName || 'Anonymous'),
+          authorName: pd.name || user.displayName || 'Anonymous',
           authorPhotoUrl: pd.profilePhotoUrl || '',
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
           visibility: true,
-          likes: 0
+          likes: 0,
+          heartsCount: 0
         };
 
-        await db.collection('communityMessages').add(message);
+        if(replyTo && replyTo.id){
+          msg.replyToId = replyTo.id;
+          msg.replyToAuthorName = replyTo.authorName || (latestSnapshotDocs[replyTo.id] && latestSnapshotDocs[replyTo.id].authorName) || 'Unknown';
+          msg.replyToSnippet = replyTo.snippet || (latestSnapshotDocs[replyTo.id] && snippet(latestSnapshotDocs[replyTo.id].text || '')) || '';
+        }
+
+        await db.collection('communityMessages').add(msg);
         messageInput.value = '';
-        showNotification('Message sent!');
-        // stop typing immediately after sending
+        clearReply();
         stopTyping();
-      } catch (err) {
-        console.error('Send error:', err);
-        showNotification('Error: ' + (err.message || 'Failed to send'));
-      } finally {
+      }catch(err){
+        console.error('send error',err);
+        alert('Send failed: ' + (err.message || 'unknown'));
+      }finally{
         sendButton.disabled = false;
       }
     }
 
-    // Realtime listener (order asc = oldest -> newest)
-    function setupRealtimeListener() {
-      if (typeof unsubscribeMessages === 'function') unsubscribeMessages();
-      messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem;">Loading community chat...</div>';
-      const q = db.collection('communityMessages').where('visibility','==',true).orderBy('timestamp','asc').limit(500);
-      unsubscribeMessages = q.onSnapshot(snapshot => {
-        renderMessagesFromSnapshot(snapshot);
-      }, err => {
-        console.error('Listener error:', err);
-        messagesArea.innerHTML = `<div style="text-align:center;color:red;padding:2rem;">Failed to load chat: ${escapeHtml(err.message || 'Unknown')}</div>`;
-      });
+    // hearts (transaction)
+    async function toggleHeart(messageId){
+      const user = auth.currentUser;
+      if(!user){ alert('Sign in to heart'); return; }
+      const uid = user.uid;
+      const heartDocId = `${messageId}_${uid}`;
+      const heartDocRef = db.collection('messageHearts').doc(heartDocId);
+      const msgRef = db.collection('communityMessages').doc(messageId);
+
+      try{
+        await db.runTransaction(async tx => {
+          const heartSnap = await tx.get(heartDocRef);
+          const msgSnap = await tx.get(msgRef);
+          if(!msgSnap.exists) throw new Error('Message missing');
+          let hearts = msgSnap.data().heartsCount || 0;
+
+          if(!heartSnap.exists){
+            tx.set(heartDocRef, { messageId, userId: uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            tx.update(msgRef, { heartsCount: hearts + 1 });
+            userHeartsSet.add(messageId);
+          } else {
+            tx.delete(heartDocRef);
+            tx.update(msgRef, { heartsCount: Math.max(0, hearts - 1) });
+            userHeartsSet.delete(messageId);
+          }
+        });
+      }catch(err){
+        console.error('heart tx err',err);
+        alert('Heart action failed');
+      }
     }
 
-    // Typing presence functions
-    function startTypingLocal() {
-      if (!currentProfile) return;
-      if (localTyping) { // refresh timeout
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(stopTyping, 1700);
-        return;
-      }
+    // typing presence
+    function startTypingLocal(){
+      if(!currentProfile || !currentProfile.slug) return;
+      if(localTyping){ clearTimeout(typingTimeout); typingTimeout = setTimeout(stopTyping,1700); return; }
       localTyping = true;
-      // set typing true in communityTyping/{slug}
       db.collection('communityTyping').doc(currentProfile.slug).set({
         typing: true,
         name: currentProfile.name || '',
         photoUrl: currentProfile.photoUrl || '',
         lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true }).catch(err => console.warn('typing set err', err));
+      }, { merge: true }).catch(e => console.warn('typing set', e));
       typingTimeout = setTimeout(stopTyping, 1700);
     }
-
-    function stopTyping() {
-      if (!currentProfile) return;
-      localTyping = false;
-      clearTimeout(typingTimeout);
+    function stopTyping(){
+      if(!currentProfile || !currentProfile.slug) return;
+      localTyping = false; clearTimeout(typingTimeout);
       db.collection('communityTyping').doc(currentProfile.slug).set({
         typing: false,
         lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true }).catch(err => console.warn('typing clear err', err));
+      }, { merge: true }).catch(e => console.warn('typing clear', e));
+    }
+    function setupTypingListener(){
+      if(typeof unsubscribeTyping === 'function') unsubscribeTyping();
+      unsubscribeTyping = db.collection('communityTyping').where('typing','==',true).onSnapshot(snap => {
+        const typingUsers = [];
+        snap.forEach(doc => {
+          if(currentProfile && doc.id === currentProfile.slug) return;
+          const d = doc.data();
+          if(d && d.name) typingUsers.push(d.name);
+        });
+        if(!typingUsers.length) typingIndicator.textContent = '';
+        else if(typingUsers.length === 1) typingIndicator.textContent = `${typingUsers[0]} is typing…`;
+        else if(typingUsers.length === 2) typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers[1]} are typing…`;
+        else typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers.length - 1} others are typing…`;
+      }, err => console.warn('typing listener err', err));
     }
 
-    // Listen for who is typing
-    function setupTypingListener() {
-      if (typeof unsubscribeTyping === 'function') unsubscribeTyping();
-      unsubscribeTyping = db.collection('communityTyping').where('typing','==',true).onSnapshot(snapshot => {
-        const typingUsers = [];
-        snapshot.forEach(doc => {
-          const d = doc.data();
-          // exclude yourself
-          if (currentProfile && doc.id === currentProfile.slug) return;
-          if (d && d.name) typingUsers.push(d.name);
-        });
-        updateTypingIndicator(typingUsers);
+    // reply UI
+    function setReplyTo(obj){
+      replyTo = obj;
+      replyPreviewWrap.style.display = 'block';
+      replyPreview.innerHTML = `<strong style="color:#cbe3ff">${escapeHtml(obj.authorName||'')}</strong>: ${escapeHtml(obj.snippet||'')} &nbsp; <button class="btn-ghost" id="cancel-reply">Cancel</button>`;
+      document.getElementById('cancel-reply').addEventListener('click', clearReply);
+      messageInput.focus();
+    }
+    function clearReply(){ replyTo = null; replyPreviewWrap.style.display = 'none'; replyPreview.innerHTML = ''; }
+
+    // realtime messages
+    function setupRealtimeListener(){
+      if(typeof unsubscribeMessages === 'function') unsubscribeMessages();
+      messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem">Loading chat...</div>';
+      const q = db.collection('communityMessages').where('visibility','==',true).orderBy('timestamp','asc').limit(500);
+      unsubscribeMessages = q.onSnapshot(snapshot => {
+        renderMessagesFromSnapshot(snapshot);
       }, err => {
-        console.warn('typing listener err', err);
+        console.error('messages listener err', err);
+        messagesArea.innerHTML = `<div style="text-align:center;color:#f88;padding:2rem">Failed to load: ${escapeHtml(err.message || 'unknown')}</div>`;
       });
     }
 
-    function updateTypingIndicator(typingUsers) {
-      if (!typingUsers || typingUsers.length === 0) {
-        typingIndicator.textContent = '';
-        return;
-      }
-      if (typingUsers.length === 1) {
-        typingIndicator.textContent = `${typingUsers[0]} is typing…`;
-      } else if (typingUsers.length === 2) {
-        typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers[1]} are typing…`;
-      } else {
-        typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers.length - 1} others are typing…`;
-      }
+    async function loadUserHearts(uid){
+      userHeartsSet.clear();
+      try{
+        const snaps = await db.collection('messageHearts').where('userId','==',uid).get();
+        snaps.forEach(d=> userHeartsSet.add(d.data().messageId));
+      }catch(e){ console.warn('load hearts err',e); }
     }
 
-    // Auth & setup
+    // auth + init
     auth.onAuthStateChanged(async (user) => {
-      if (!user) { window.location.href = '/teamgalaxy/legal/sign_up.html'; return; }
+      if(!user){ window.location.href = '/teamgalaxy/legal/sign_up.html'; return; }
 
-      // fetch private => slug => public
-      try {
+      try{
         const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
         const initial = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
-        if (privateDoc.exists) {
+        if(privateDoc.exists){
           const pd = privateDoc.data();
-          const slug = pd.slug;
-          if (slug) {
-            const publicDoc = await db.collection('publicProfiles').doc(slug).get();
-            if (publicDoc.exists) {
-              const pub = publicDoc.data();
-              currentProfile = { slug, name: pub.name || (user.displayName || 'Anonymous'), photoUrl: pub.profilePhotoUrl || '' };
-              // set header avatar
-              if (currentProfile.photoUrl) {
-                headerAvatar.innerHTML = '';
-                const img = document.createElement('img');
-                img.src = currentProfile.photoUrl;
-                img.alt = (currentProfile.name || 'Profile').slice(0, 20);
-                img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover';
-                img.onerror = () => { headerAvatar.textContent = (currentProfile.name || initial).charAt(0).toUpperCase(); };
+          if(pd && pd.slug){
+            const pub = await db.collection('publicProfiles').doc(pd.slug).get();
+            if(pub.exists){
+              const pubd = pub.data();
+              currentProfile = { slug: pd.slug, name: pubd.name || (user.displayName || 'Anonymous'), photoUrl: pubd.profilePhotoUrl || '' };
+              headerAvatar.innerHTML = '';
+              if(currentProfile.photoUrl){
+                const img = document.createElement('img'); img.src = currentProfile.photoUrl; img.alt = currentProfile.name || 'Profile'; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover';
+                img.onerror = ()=> headerAvatar.textContent = (currentProfile.name || initial).charAt(0);
                 headerAvatar.appendChild(img);
-              } else {
-                headerAvatar.textContent = (currentProfile.name || initial).charAt(0).toUpperCase();
-              }
+              } else headerAvatar.textContent = (currentProfile.name || initial).charAt(0);
             } else {
-              currentProfile = { slug, name: user.displayName || 'Anonymous', photoUrl: '' };
-              headerAvatar.textContent = (user.displayName || initial).charAt(0).toUpperCase();
+              currentProfile = { slug: pd.slug, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
+              headerAvatar.textContent = (user.displayName || initial).charAt(0);
             }
           } else {
             currentProfile = { slug: null, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
-            headerAvatar.textContent = (user.displayName || initial).charAt(0).toUpperCase();
+            headerAvatar.textContent = (user.displayName || initial).charAt(0);
           }
         } else {
           currentProfile = { slug: null, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
-          headerAvatar.textContent = (user.displayName || initial).charAt(0).toUpperCase();
+          headerAvatar.textContent = (user.displayName || initial).charAt(0);
         }
-      } catch (e) {
+      }catch(e){
         console.warn('profile fetch err', e);
-        currentProfile = { slug: null, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
-        headerAvatar.textContent = (user.displayName || 'U').charAt(0).toUpperCase();
+        currentProfile = { slug:null, name:user.displayName||'Anonymous', photoUrl:user.photoURL||'' };
+        headerAvatar.textContent = (user.displayName||'U').charAt(0);
       }
 
-      // Enable send UI
       messageInput.disabled = false;
       sendButton.disabled = false;
-
-      // start listeners
+      await loadUserHearts(user.uid);
       setupRealtimeListener();
       setupTypingListener();
     });
 
-    // Input events -> typing
-    messageInput.addEventListener('input', () => {
-      // start typing on any input
-      startTypingLocal();
-    });
+    // ui events
+    messageInput.addEventListener('input', ()=> startTypingLocal());
+    messageInput.addEventListener('keydown', (e)=> { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }});
+    sendButton.addEventListener('click', ()=> sendMessage());
 
-    // Send events
-    sendButton.addEventListener('click', () => sendMessage());
-    messageInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-    });
-
-    // Clean up typing status on unload
-    window.addEventListener('beforeunload', () => {
-      try { if (currentProfile && currentProfile.slug) db.collection('communityTyping').doc(currentProfile.slug).set({ typing:false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true }); } catch(e) {}
-      if (typeof unsubscribeMessages === 'function') unsubscribeMessages();
-      if (typeof unsubscribeTyping === 'function') unsubscribeTyping();
+    // cleanup on unload
+    window.addEventListener('beforeunload', ()=> {
+      try{ if(currentProfile && currentProfile.slug) db.collection('communityTyping').doc(currentProfile.slug).set({ typing:false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true }); }catch(e){}
+      if(typeof unsubscribeMessages === 'function') unsubscribeMessages();
+      if(typeof unsubscribeTyping === 'function') unsubscribeTyping();
     });
   </script>
 </body>
