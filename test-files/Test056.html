@@ -1,390 +1,1549 @@
-<!doctype html>
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="theme-color" content="#000000">
-  <title>TeamGalaxy — Entry (Upgraded)</title>  <!-- anime.js (already requested) -->  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>  <style>
-    :root{
-      --bg:#02020b;
-      --accent-1: #ffd166;
-      --accent-2: #ff8c42;
-      --muted: #9aa4b2;
-      --glass: rgba(255,255,255,0.06);
-      --card-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    }
-
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%}
-    body{
-      font-family: Inter, 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial;
-      background: radial-gradient(1200px 600px at 10% 10%, rgba(48,39,88,0.35), transparent),
-                  radial-gradient(900px 400px at 90% 90%, rgba(2,12,36,0.45), transparent),
-                  var(--bg);
-      color:#fff;overflow:hidden;
-    }
-
-    /* full-screen canvas layers */
-    .layer {
-      position:fixed;inset:0;pointer-events:none;z-index:0;
-    }
-
-    #starsCanvas{z-index:0}
-    #nebulaCanvas{z-index:0;mix-blend-mode:screen;opacity:0.35}
-    #particlesCanvas{z-index:5}
-
-    .ui{
-      position:relative;z-index:10;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;
-    }
-
-    .card{
-      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-      border-radius:16px;padding:28px 36px;backdrop-filter:blur(6px);box-shadow:var(--card-shadow);max-width:980px;width:100%;display:flex;flex-direction:column;align-items:center;gap:14px
-    }
-
-    .logo{font-weight:800;font-size:clamp(28px,6vw,44px);letter-spacing:2px;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 6px 24px rgba(255,140,66,0.06)}
-    .subtitle{color:var(--muted);max-width:760px;line-height:1.45;margin-top:6px}
-
-    /* fancy button */
-    .enter-btn{
-      --w:140px;position:relative;display:inline-grid;place-items:center;padding:14px 28px;border-radius:999px;cursor:pointer;border:0;font-weight:700;font-size:14px;min-width:var(--w);background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));color:#000;/* will be overridden by inner */
-      box-shadow:0 6px 30px rgba(0,0,0,0.6), 0 0 40px rgba(255,200,70,0.06);overflow:hidden
-    }
-
-    .enter-inner{display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:999px;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));color:#061219}
-    .enter-inner .label{font-weight:800;letter-spacing:1px}
-
-    .hint{font-size:13px;color:var(--muted);margin-top:6px}
-
-    /* spaceship container sits visually below card but in DOM it's here */
-    .spaceship-wrap{position:relative;height:260px;width:260px;margin-top:18px}
-
-    /* pure CSS base for spaceship (we will animate with anime.js) */
-    .spaceship{width:120px;height:180px;position:relative;margin:0 auto;transform-origin:center bottom}
-
-    /* spaceship pieces similar to original but cleaned */
-    .nose{position:absolute;left:50%;transform:translateX(-50%);top:-10px;width:0;height:0;border-left:30px solid transparent;border-right:30px solid transparent;border-bottom:48px solid #7fb8ff;border-radius:6px}
-    .nose-spot{position:absolute;left:50%;transform:translateX(-50%);top:2px;width:16px;height:16px;background:rgba(255,255,255,0.9);border-radius:50%;box-shadow:0 0 16px rgba(163,212,255,0.9)}
-    .body{position:absolute;left:50%;transform:translateX(-50%);top:30px;width:64px;height:120px;background:linear-gradient(180deg,#3c8fe6,#1f6fbf);border-radius:36px 36px 28px 28px;box-shadow:inset 0 -12px 30px rgba(0,0,0,0.35)}
-    .window{position:absolute;left:50%;transform:translateX(-50%);top:50px;width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 30% 25%,#ffffff,#bfe7ff 30%,#7fb7e6 70%);box-shadow:0 0 20px rgba(163,212,255,0.9),inset 0 6px 12px rgba(255,255,255,0.2)}
-    .fin{position:absolute;top:86px;width:0;height:0;border-top:36px solid transparent;border-bottom:36px solid transparent}
-    .fin.left{left:-24px;border-right:30px solid #e14b3b;transform:rotate(-12deg)}
-    .fin.right{right:-24px;border-left:30px solid #e14b3b;transform:rotate(12deg)}
-    .engine{position:absolute;left:50%;transform:translateX(-50%);bottom:-6px;width:44px;height:36px;background:linear-gradient(180deg,#2b3b4f,#18212b);border-radius:12px}
-    .flame{position:absolute;left:50%;transform:translateX(-50%);bottom:-70px;width:28px;height:90px;border-radius:50%;filter:blur(6px);opacity:0.95;background:linear-gradient(to top,#ff3b30,#ff8a00,#ffd400,#fff8d6)}
-
-    /* particles placeholder for CSS when JS is disabled */
-    .particles-fallback{position:absolute;inset:0;pointer-events:none}
-
-    /* accessibility focus */
-    button:focus{outline:3px solid rgba(255,200,70,0.28);outline-offset:4px}
-
-    /* small screen tweaks */
-    @media (max-width:700px){
-      .card{padding:20px}
-      .spaceship-wrap{height:180px;width:180px}
-      .spaceship{width:80px;height:120px}
-    }
-
-    /* reduced motion honors */
-    @media (prefers-reduced-motion:reduce){
-      .enter-btn{transition:none}
-      *{animation:none!important}
-    }
-  </style></head>
-<body>  <!-- CANVASES: stars, nebula and particle trails --><canvas id="starsCanvas" class="layer" aria-hidden="true"></canvas> <canvas id="nebulaCanvas" class="layer" aria-hidden="true"></canvas> <canvas id="particlesCanvas" class="layer" aria-hidden="true"></canvas>
-
-  <main class="ui" role="main">
-    <div class="card" id="card">
-      <div class="logo" id="logo">TEAMGALAXY</div>
-      <div class="subtitle" id="subtitle">Where gamers unite, creators spark and communities level up — you in?</div><div class="spaceship-wrap" aria-hidden="true">
-    <div class="spaceship" id="spaceship">
-      <div class="nose"></div>
-      <div class="nose-spot"></div>
-      <div class="body"></div>
-      <div class="window"></div>
-      <div class="fin left"></div>
-      <div class="fin right"></div>
-      <div class="engine"></div>
-      <div class="flame" id="flame" style="opacity:0"></div>
-    </div>
-  </div>
-
-  <button class="enter-btn" id="enterBtn" aria-label="Enter TeamGalaxy">
-    <div class="enter-inner" aria-hidden="true">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="transform:translateY(1px)"><path d="M5 12h14M12 5l7 7-7 7" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span class="label">ENTER</span>
-    </div>
-  </button>
-
-  <div class="hint" id="hint">Press <strong>Enter</strong> or click to launch · Or wait for auto-launch</div>
-
-</div>
-
-  </main>  <script>
-    // ---- CONFIG
-    const AUTO_LAUNCH_MS = 5000; // auto launch delay
-    const STARS = 220; // number of stars
-    const canvasStars = document.getElementById('starsCanvas');
-    const canvasNebula = document.getElementById('nebulaCanvas');
-    const canvasParticles = document.getElementById('particlesCanvas');
-    const ctxStars = canvasStars.getContext('2d');
-    const ctxNeb = canvasNebula.getContext('2d');
-    const ctxParts = canvasParticles.getContext('2d');
-
-    let w = innerWidth, h = innerHeight;
-    [canvasStars, canvasNebula, canvasParticles].forEach(c=>{c.width=w;c.height=h});
-
-    // Respect reduced motion
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    // Responsive resize
-    window.addEventListener('resize', () => {
-      w = innerWidth; h = innerHeight;
-      [canvasStars, canvasNebula, canvasParticles].forEach(c=>{c.width=w;c.height=h});
-      generateStars(); drawNebula();
-    });
-
-    // ---- STARS (canvas) - twinkle & parallax
-    let stars = [];
-    function random(min,max){return Math.random()*(max-min)+min}
-    function generateStars(){
-      stars = [];
-      for(let i=0;i<STARS;i++){
-        stars.push({
-          x: Math.random()*w,
-          y: Math.random()*h,
-          r: Math.random()*1.6 + 0.4,
-          alpha: Math.random()*0.8 + 0.2,
-          twinkleSpeed: Math.random()*0.03 + 0.005,
-          phase: Math.random()*Math.PI*2
-        });
-      }
-    }
-
-    function drawStars(delta){
-      ctxStars.clearRect(0,0,w,h);
-      for(let s of stars){
-        s.phase += s.twinkleSpeed * (delta/16);
-        const a = s.alpha * (0.6 + 0.4*Math.sin(s.phase));
-        ctxStars.beginPath();
-        ctxStars.fillStyle = `rgba(255,255,255,${a})`;
-        ctxStars.arc(s.x, s.y, s.r, 0, Math.PI*2);
-        ctxStars.fill();
-      }
-    }
-
-    // ---- NEBULA (soft gradient blobs)
-    function drawNebula(){
-      ctxNeb.clearRect(0,0,w,h);
-      // draw a couple of soft radial gradients
-      const blobs = [
-        {x: w*0.12, y: h*0.18, r: Math.max(w,h)*0.6, c1: 'rgba(98,46,191,0.12)', c2:'rgba(108,54,170,0.02)'},
-        {x: w*0.9, y: h*0.85, r: Math.max(w,h)*0.5, c1: 'rgba(6,18,67,0.12)', c2:'rgba(22,46,78,0.02)'}
-      ];
-      for(const b of blobs){
-        const g = ctxNeb.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);
-        g.addColorStop(0,b.c1); g.addColorStop(1,b.c2);
-        ctxNeb.fillStyle = g; ctxNeb.fillRect(0,0,w,h);
-      }
-    }
-
-    // ---- PARTICLE TRAIL (behind ship)
-    let particles = [];
-    function emitParticle(x,y){
-      particles.push({x,y, vx: (Math.random()-0.5)*1.2, vy: - (Math.random()*1.6+1.6), life: random(500,1100), born: performance.now(), alpha:1, size: random(2,6)});
-    }
-
-    function drawParticles(now){
-      ctxParts.clearRect(0,0,w,h);
-      const gravity = 0.0012 * (h/800);
-      for(let i=particles.length-1;i>=0;i--){
-        const p = particles[i];
-        const t = now - p.born;
-        if(t>p.life){ particles.splice(i,1); continue; }
-        // simple physics
-        p.vy += gravity;
-        p.x += p.vx; p.y += p.vy;
-        p.alpha = 1 - (t/p.life);
-        const g1 = ctxParts.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size*3);
-        g1.addColorStop(0, `rgba(255,200,70,${p.alpha*0.95})`);
-        g1.addColorStop(0.5, `rgba(255,120,40,${p.alpha*0.55})`);
-        g1.addColorStop(1, `rgba(255,40,20,0)`);
-        ctxParts.fillStyle = g1; ctxParts.beginPath(); ctxParts.arc(p.x,p.y,p.size,0,Math.PI*2); ctxParts.fill();
-      }
-    }
-
-    // ---- animation loop
-    let last = performance.now();
-    function raf(now){
-      const delta = now - last; last = now;
-      drawStars(delta);
-      drawParticles(now);
-      if(!reduced) requestAnimationFrame(raf);
-    }
-
-    // ---- spaceship DOM element tracking for emission
-    const shipEl = document.getElementById('spaceship');
-    function shipPosition(){
-      const rect = shipEl.getBoundingClientRect();
-      // bottom center point for engine
-      return {x: rect.left + rect.width/2, y: rect.bottom - 18};
-    }
-
-    // Emit particles while engine is on
-    let emitInterval = null;
-    function startEmitting(){
-      if(emitInterval) return;
-      emitInterval = setInterval(()=>{
-        const pos = shipPosition();
-        for(let i=0;i<3;i++) emitParticle(pos.x + (Math.random()-0.5)*18, pos.y + random(-6,6));
-      }, 55);
-    }
-    function stopEmitting(){ clearInterval(emitInterval); emitInterval=null; }
-
-    // ---- Sound (web audio) - small ascending launch rumble
-    const AudioCtx = (window.AudioContext || window.webkitAudioContext);
-    let audioCtx, master;
-    function playLaunchSound(){
-      if(!AudioCtx) return;
-      audioCtx = new AudioCtx();
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      o.type = 'sawtooth';
-      o.frequency.setValueAtTime(80, audioCtx.currentTime);
-      o.frequency.linearRampToValueAtTime(520, audioCtx.currentTime + 2.6);
-      g.gain.setValueAtTime(0, audioCtx.currentTime);
-      g.gain.linearRampToValueAtTime(0.18, audioCtx.currentTime + 0.14);
-      g.gain.linearRampToValueAtTime(0.06, audioCtx.currentTime + 2.6);
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start(); o.stop(audioCtx.currentTime + 3);
-    }
-
-    // ---- anime.js timeline for launch
-    let launchTimeline = null;
-    function launchSequence({auto=false} = {}){
-      if(reduced) return simpleLaunchFallback();
-      if(launchTimeline) return; // already launched
-
-      // small haptic-like visual bump
-      anime.timeline({}).add({
-        targets: '#card', scale:[1,0.985], duration:140, easing:'easeOutQuad'
-      }).add({
-        targets: '#card', scale:[0.985,1], duration:240, easing:'easeOutElastic', elasticity:350
-      });
-
-      // start flame visible and engine emission
-      anime({targets:'#flame', opacity:[0,1], duration:260, easing:'easeInOutQuad'});
-      startEmitting();
-      playLaunchSound();
-
-      // spaceship lift-off
-      const startY = 0; // relative
-      launchTimeline = anime.timeline({
-        easing:'easeInOutCubic',
-        duration: 2800,
-        complete(){
-          // upon leaving, fade everything
-          anime({targets:['#card','.ui'], opacity:[1,0], duration:800, easing:'linear', delay:140});
-          stopEmitting();
-          // nothing forced — user can choose redirect; here we add a subtle confetti or final burst
-          finalBurst();
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamGalaxy - Entry Portal</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-      });
 
-      // wobble + tilt then ascend rapidly
-      launchTimeline.add({
-        targets: '#spaceship',
-        translateY: [-8,-30], rotate:[0,-6], duration:260, easing:'easeOutSine'
-      }).add({
-        targets:'#spaceship',rotate:[-6,8],duration:260,easing:'easeInOutSine'
-      }).add({
-        targets:'#spaceship',translateY: [0, - (innerHeight + 260)], rotate: [8, 6], duration: 2100, easing:'cubicBezier(.11,.7,.22,.98)'
-      }, '+=80');
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            position: relative;
+        }
 
-      // flame scale pulse while ascending
-      anime({
-        targets:'#flame',
-        height:[90,140],duration:400,loop:true, direction:'alternate', easing:'easeInOutSine'
-      });
+        #starfield {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: radial-gradient(ellipse at center, #0a0e2a 0%, #000000 70%);
+        }
 
-      // subtle ship scale up while leaving
-      anime({targets:'#spaceship', scale:[1,1.06], duration:1400, easing:'easeOutSine'});
+        .nebula {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            opacity: 0.3;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 100, 124, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(100, 200, 255, 0.2) 0%, transparent 50%);
+            animation: nebulaPulse 15s infinite alternate;
+        }
 
-      // starfield parallax push (zoom blur)
-      anime({targets:canvasStars, scale:[1,1.06], opacity:[1,0.12], duration:2400, easing:'easeInOutQuad'});
+        .particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+        }
 
-      // emit more particles quickly for the big burst
-      const burstInterval = setInterval(()=>{
-        const pos = shipPosition(); for(let i=0;i<6;i++) emitParticle(pos.x + (Math.random()-0.5)*38, pos.y + random(-12,12));
-      }, 60);
-      setTimeout(()=>clearInterval(burstInterval), 900);
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #fff;
+            border-radius: 50%;
+            will-change: transform;
+        }
 
-      // small timeline to animate the logo text (glow)
-      anime({targets:'#logo', textShadow: ['0 6px 24px rgba(255,140,66,0.06)','0 14px 46px rgba(255,140,66,0.18)'], duration:1600, easing:'easeOutCirc'});
-    }
+        .asteroid {
+            position: absolute;
+            background: #333;
+            border-radius: 50%;
+            z-index: 4;
+            will-change: transform;
+        }
 
-    function finalBurst(){
-      // tiny camera shake on body
-      anime({targets:'body', translateY:[0,-6,0], duration:900, easing:'easeOutCubic'});
-    }
+        .asteroid::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #222;
+            border-radius: 50%;
+            transform: scale(0.7);
+        }
 
-    function simpleLaunchFallback(){
-      // reduced motion fallback: fade & small translate
-      anime({targets:'#spaceship', translateY:[0,-160], opacity:[1,0], duration:700, easing:'easeOutCubic'});
-      anime({targets:'#card', opacity:[1,0], duration:800});
-    }
+        .content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+            padding: 20px;
+            transition: opacity 0.5s ease;
+        }
 
-    // keyboard enter
-    document.addEventListener('keydown', e=>{
-      if(e.key === 'Enter') doLaunch({auto:false});
-    });
+        .logo-container {
+            margin-bottom: 30px;
+            perspective: 1000px;
+        }
 
-    // click handler & UX
-    const enterBtn = document.getElementById('enterBtn');
-    let autoTimer = null; let interacted = false;
-    enterBtn.addEventListener('click', ()=>{ interacted=true; doLaunch({auto:false}); });
+        .logo {
+            font-size: 4rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, #FFD700, #FF8C00, #FF4500, #FFD700);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+            animation: gradientShift 3s ease infinite, float 6s ease-in-out infinite;
+            letter-spacing: 3px;
+            position: relative;
+        }
 
-    function doLaunch(opts){
-      if(interacted && opts.auto) return; // ignore auto if user interacted
-      launchSequence(opts);
-      clearTimeout(autoTimer);
-    }
+        .logo::before {
+            content: 'TEAMGALAXY';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #FFD700, #FF8C00, #FF4500, #FFD700);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: blur(10px);
+            opacity: 0.5;
+            z-index: -1;
+            animation: gradientShift 3s ease infinite;
+        }
 
-    // set auto-launch with ability to cancel by interaction
-    autoTimer = setTimeout(()=>{
-      if(!interacted) doLaunch({auto:true});
-    }, AUTO_LAUNCH_MS);
+        .glitch {
+            position: relative;
+        }
 
-    // small 'enter' pulse to hint
-    anime({
-      targets:'.enter-inner', scale:[0.98,1], direction:'alternate', loop:true, duration:1200, easing:'easeInOutSine'
-    });
+        .glitch::before,
+        .glitch::after {
+            content: 'TEAMGALAXY';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
 
-    // star generation + raf start
-    generateStars(); drawNebula(); if(!reduced) requestAnimationFrame(raf);
+        .glitch::before {
+            left: 2px;
+            text-shadow: -2px 0 #ff00ff;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim 5s infinite linear alternate-reverse;
+        }
 
-    // emit idle particles behind ship for visual life
-    let idle = setInterval(()=>{ const pos = shipPosition(); emitParticle(pos.x + (Math.random()-0.5)*22, pos.y + random(-8,8)); }, 300);
+        .glitch::after {
+            left: -2px;
+            text-shadow: -2px 0 #00ffff;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim2 5s infinite linear alternate-reverse;
+        }
 
-    // stop idle when user interacts heavily
-    ['click','touchstart','mousemove','keydown'].forEach(ev=> document.addEventListener(ev, ()=>{ interacted=true; if(idle){ clearInterval(idle); idle=null; } }));
+        .tagline {
+            font-size: 1.3rem;
+            margin-bottom: 40px;
+            color: #f0f0f0;
+            max-width: 80%;
+            line-height: 1.5;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            animation: fadeInUp 1s 0.8s forwards, textGlow 3s ease-in-out infinite alternate;
+            opacity: 0;
+            transform: translateY(30px);
+        }
 
-    // small helper for random used in audio and elsewhere
-    function random(min,max){return Math.random()*(max-min)+min}
+        .control-panel {
+            background: rgba(10, 15, 30, 0.7);
+            border: 1px solid rgba(100, 150, 255, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(65, 105, 225, 0.3);
+            max-width: 500px;
+            width: 90%;
+        }
 
-    // initialize sizes properly
-    (function init(){
-      canvasStars.width = w; canvasStars.height = h;
-      canvasNebula.width = w; canvasNebula.height = h;
-      canvasParticles.width = w; canvasParticles.height = h;
-      generateStars(); drawNebula();
-      // subtle logo intro using anime.js
-      anime.timeline({}).add({targets:'#logo', translateY:[20,0], opacity:[0,1], duration:900, easing:'spring(1,80,10,0)'}).add({targets:'#subtitle', translateY:[14,0], opacity:[0,1], duration:720, easing:'easeOutQuad'}, '-=300');
-    })();
+        .status-indicators {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+        }
 
-    // ensure we stop heavy loops on pagehide
-    window.addEventListener('pagehide', ()=>{ stopEmitting(); if(!reduced) cancelAnimationFrame(raf); });
-  </script></body>
+        .status {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-bottom: 5px;
+        }
+
+        .status.online .status-dot {
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        .status.ready .status-dot {
+            background: #ffff00;
+            box-shadow: 0 0 10px #ffff00;
+        }
+
+        .status.active .status-dot {
+            background: #ff4500;
+            box-shadow: 0 0 10px #ff4500;
+        }
+
+        .status-text {
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #FFD700, #FF8C00);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .enter-btn {
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            background: linear-gradient(45deg, #FFD700, #FF8C00);
+            color: #000;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
+            font-weight: bold;
+            letter-spacing: 1px;
+            min-width: 150px;
+            position: relative;
+            overflow: hidden;
+            z-index: 10;
+        }
+
+        .enter-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.9);
+        }
+
+        .enter-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: 0.5s;
+        }
+
+        .enter-btn:hover::before {
+            left: 100%;
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #aaa;
+            opacity: 0;
+            animation: fadeIn 0.5s 2.5s forwards;
+        }
+
+        .subtext {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #777;
+            opacity: 0;
+            animation: fadeIn 0.5s 2.7s forwards;
+        }
+
+        .countdown {
+            font-size: 1.5rem;
+            margin-top: 20px;
+            color: #FFD700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
+            opacity: 0;
+            animation: fadeIn 0.5s 1s forwards;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #666;
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+
+        .footer.show {
+            opacity: 1;
+        }
+
+        /* Hyper-Realistic Spaceship */
+        .spaceship-container {
+            position: absolute;
+            bottom: -200px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            opacity: 0;
+            transition: transform 0.1s;
+            will-change: transform;
+        }
+
+        .spaceship {
+            width: 120px;
+            height: 180px;
+            position: relative;
+            transform-style: preserve-3d;
+        }
+
+        /* Nose Cone */
+        .nose-cone {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 30px solid transparent;
+            border-right: 30px solid transparent;
+            border-bottom: 50px solid #6bb3ff;
+            top: -45px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3;
+            filter: drop-shadow(0 0 5px rgba(107, 179, 255, 0.7));
+        }
+
+        /* Nose Cone Highlight */
+        .nose-highlight {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: #a3d4ff;
+            border-radius: 50%;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 4;
+            box-shadow: 0 0 15px rgba(174, 214, 241, 1);
+            animation: nosePulse 2s infinite alternate;
+        }
+
+        /* Main Body */
+        .ship-body {
+            position: absolute;
+            width: 60px;
+            height: 120px;
+            background: linear-gradient(to right, #4a90e2, #357abd, #2980b9);
+            border-radius: 50% 50% 40% 40%;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            box-shadow: 
+                inset 0 0 20px rgba(0, 0, 0, 0.7),
+                0 0 20px rgba(74, 144, 226, 0.5);
+        }
+
+        /* Body Panels */
+        .panel-1, .panel-2, .panel-3 {
+            position: absolute;
+            height: 8px;
+            background: linear-gradient(to right, #2980b9, #3498db);
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px;
+            z-index: 3;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+        }
+
+        .panel-1 {
+            width: 45px;
+            top: 20px;
+        }
+
+        .panel-2 {
+            width: 50px;
+            top: 45px;
+        }
+
+        .panel-3 {
+            width: 45px;
+            top: 70px;
+        }
+
+        /* Cockpit Window */
+        .cockpit {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: radial-gradient(circle at 30% 30%, #ffffff, #aed6f1);
+            border-radius: 50%;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 
+                0 0 25px rgba(174, 214, 241, 1),
+                inset 0 0 15px rgba(255, 255, 255, 0.7);
+            z-index: 4;
+            animation: cockpitGlow 3s infinite alternate;
+        }
+
+        /* Cockpit Frame */
+        .cockpit-frame {
+            position: absolute;
+            width: 35px;
+            height: 35px;
+            border: 3px solid #34495e;
+            border-radius: 50%;
+            top: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3;
+        }
+
+        /* Antenna */
+        .antenna {
+            position: absolute;
+            width: 2px;
+            height: 18px;
+            background: #7f8c8d;
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+        }
+
+        .antenna-tip {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            background: #e74c3c;
+            border-radius: 50%;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.7);
+            animation: antennaPulse 1.5s infinite alternate;
+        }
+
+        /* Fins */
+        .fin-left, .fin-right {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-top: 50px solid transparent;
+            border-bottom: 50px solid transparent;
+            border-left: 30px solid #e74c3c;
+            top: 85px;
+            z-index: 1;
+            filter: drop-shadow(0 0 5px rgba(231, 76, 60, 0.5));
+        }
+
+        .fin-left {
+            left: -20px;
+            transform: rotate(-15deg);
+        }
+
+        .fin-right {
+            right: -20px;
+            transform: rotate(15deg);
+            border-left: none;
+            border-right: 30px solid #e74c3c;
+        }
+
+        /* Fin Details */
+        .fin-detail-left, .fin-detail-right {
+            position: absolute;
+            width: 18px;
+            height: 50px;
+            background: linear-gradient(to right, #c0392b, #e74c3c);
+            top: 85px;
+            z-index: 2;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .fin-detail-left {
+            left: -15px;
+            transform: rotate(-15deg);
+        }
+
+        .fin-detail-right {
+            right: -15px;
+            transform: rotate(15deg);
+            border-radius: 5px 0 0 5px;
+        }
+
+        /* Engine Section */
+        .engine-section {
+            position: absolute;
+            width: 50px;
+            height: 35px;
+            background: linear-gradient(to bottom, #34495e, #2c3e50);
+            border-radius: 0 0 15px 15px;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.7);
+        }
+
+        /* Engine Nozzles */
+        .engine-left, .engine-right {
+            position: absolute;
+            width: 15px;
+            height: 30px;
+            background: linear-gradient(to bottom, #3d566e, #2c3e50);
+            bottom: -30px;
+            z-index: 2;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .engine-left {
+            left: 10px;
+        }
+
+        .engine-right {
+            right: 10px;
+        }
+
+        /* Main Engine Flame */
+        .main-engine {
+            position: absolute;
+            top: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 80px;
+            background: linear-gradient(to top, #e74c3c, #f39c12, #f1c40f, #ffffff);
+            border-radius: 50% 50% 40% 40%;
+            filter: blur(5px);
+            z-index: 1;
+            opacity: 0;
+        }
+
+        /* Side Engine Flames */
+        .side-engine-left, .side-engine-right {
+            position: absolute;
+            top: 150px;
+            width: 12px;
+            height: 60px;
+            background: linear-gradient(to top, #e74c3c, #f39c12);
+            border-radius: 50% 50% 40% 40%;
+            filter: blur(3px);
+            z-index: 1;
+            opacity: 0;
+        }
+
+        .side-engine-left {
+            left: 30%;
+            transform: translateX(-50%);
+        }
+
+        .side-engine-right {
+            right: 30%;
+            transform: translateX(50%);
+        }
+
+        /* Landing Struts */
+        .strut-left, .strut-right {
+            position: absolute;
+            width: 3px;
+            height: 25px;
+            background: #7f8c8d;
+            top: 95px;
+            z-index: 1;
+        }
+
+        .strut-left {
+            left: 15px;
+            transform: rotate(20deg);
+        }
+
+        .strut-right {
+            right: 15px;
+            transform: rotate(-20deg);
+        }
+
+        /* Landing Pads */
+        .pad-left, .pad-right {
+            position: absolute;
+            width: 18px;
+            height: 6px;
+            background: #7f8c8d;
+            top: 120px;
+            border-radius: 3px;
+            z-index: 2;
+        }
+
+        .pad-left {
+            left: 8px;
+        }
+
+        .pad-right {
+            right: 8px;
+        }
+
+        /* Exhaust Particles */
+        .exhaust-particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #f39c12;
+            border-radius: 50%;
+            filter: blur(1px);
+            z-index: 0;
+            will-change: transform;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes textGlow {
+            0% {
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            }
+            100% {
+                text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 215, 0, 0.5);
+            }
+        }
+
+        @keyframes nebulaPulse {
+            0% {
+                opacity: 0.2;
+            }
+            100% {
+                opacity: 0.4;
+            }
+        }
+
+        @keyframes nosePulse {
+            0% {
+                opacity: 0.7;
+                transform: translateX(-50%) scale(1);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1.2);
+            }
+        }
+
+        @keyframes cockpitGlow {
+            0% {
+                box-shadow: 0 0 20px rgba(174, 214, 241, 0.8);
+            }
+            100% {
+                box-shadow: 0 0 30px rgba(174, 214, 241, 1), 0 0 40px rgba(174, 214, 241, 0.6);
+            }
+        }
+
+        @keyframes antennaPulse {
+            0% {
+                opacity: 0.7;
+                transform: translateX(-50%) scale(1);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1.3);
+            }
+        }
+
+        @keyframes glitch-anim {
+            0% {
+                clip: rect(42px, 9999px, 44px, 0);
+            }
+            5% {
+                clip: rect(12px, 9999px, 59px, 0);
+            }
+            10% {
+                clip: rect(48px, 9999px, 29px, 0);
+            }
+            15% {
+                clip: rect(42px, 9999px, 73px, 0);
+            }
+            20% {
+                clip: rect(63px, 9999px, 27px, 0);
+            }
+            25% {
+                clip: rect(34px, 9999px, 55px, 0);
+            }
+            30% {
+                clip: rect(86px, 9999px, 73px, 0);
+            }
+            35% {
+                clip: rect(20px, 9999px, 20px, 0);
+            }
+            40% {
+                clip: rect(26px, 9999px, 60px, 0);
+            }
+            45% {
+                clip: rect(25px, 9999px, 66px, 0);
+            }
+            50% {
+                clip: rect(57px, 9999px, 98px, 0);
+            }
+            55% {
+                clip: rect(5px, 9999px, 46px, 0);
+            }
+            60% {
+                clip: rect(82px, 9999px, 31px, 0);
+            }
+            65% {
+                clip: rect(54px, 9999px, 27px, 0);
+            }
+            70% {
+                clip: rect(28px, 9999px, 99px, 0);
+            }
+            75% {
+                clip: rect(45px, 9999px, 69px, 0);
+            }
+            80% {
+                clip: rect(23px, 9999px, 85px, 0);
+            }
+            85% {
+                clip: rect(54px, 9999px, 84px, 0);
+            }
+            90% {
+                clip: rect(45px, 9999px, 47px, 0);
+            }
+            95% {
+                clip: rect(37px, 9999px, 20px, 0);
+            }
+            100% {
+                clip: rect(4px, 9999px, 91px, 0);
+            }
+        }
+
+        @keyframes glitch-anim2 {
+            0% {
+                clip: rect(65px, 9999px, 100px, 0);
+            }
+            5% {
+                clip: rect(52px, 9999px, 74px, 0);
+            }
+            10% {
+                clip: rect(79px, 9999px, 85px, 0);
+            }
+            15% {
+                clip: rect(75px, 9999px, 5px, 0);
+            }
+            20% {
+                clip: rect(67px, 9999px, 61px, 0);
+            }
+            25% {
+                clip: rect(14px, 9999px, 79px, 0);
+            }
+            30% {
+                clip: rect(1px, 9999px, 66px, 0);
+            }
+            35% {
+                clip: rect(86px, 9999px, 30px, 0);
+            }
+            40% {
+                clip: rect(23px, 9999px, 98px, 0);
+            }
+            45% {
+                clip: rect(85px, 9999px, 72px, 0);
+            }
+            50% {
+                clip: rect(71px, 9999px, 75px, 0);
+            }
+            55% {
+                clip: rect(2px, 9999px, 48px, 0);
+            }
+            60% {
+                clip: rect(30px, 9999px, 16px, 0);
+            }
+            65% {
+                clip: rect(59px, 9999px, 50px, 0);
+            }
+            70% {
+                clip: rect(41px, 9999px, 62px, 0);
+            }
+            75% {
+                clip: rect(2px, 9999px, 82px, 0);
+            }
+            80% {
+                clip: rect(47px, 9999px, 73px, 0);
+            }
+            85% {
+                clip: rect(3px, 9999px, 27px, 0);
+            }
+            90% {
+                clip: rect(26px, 9999px, 55px, 0);
+            }
+            95% {
+                clip: rect(42px, 9999px, 97px, 0);
+            }
+            100% {
+                clip: rect(38px, 9999px, 49px, 0);
+            }
+        }
+
+        /* Media Queries for Responsiveness */
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 2.5rem;
+            }
+            
+            .tagline {
+                font-size: 1.1rem;
+            }
+            
+            .enter-btn {
+                padding: 12px 30px;
+                font-size: 1rem;
+            }
+            
+            .spaceship {
+                width: 90px;
+                height: 135px;
+            }
+            
+            .nose-cone {
+                border-left: 22px solid transparent;
+                border-right: 22px solid transparent;
+                border-bottom: 38px solid #6bb3ff;
+                top: -35px;
+            }
+            
+            .nose-highlight {
+                width: 14px;
+                height: 14px;
+                top: -23px;
+            }
+            
+            .ship-body {
+                width: 45px;
+                height: 90px;
+            }
+            
+            .panel-1, .panel-2, .panel-3 {
+                height: 6px;
+            }
+            
+            .panel-1 {
+                width: 34px;
+                top: 15px;
+            }
+            
+            .panel-2 {
+                width: 38px;
+                top: 34px;
+            }
+            
+            .panel-3 {
+                width: 34px;
+                top: 53px;
+            }
+            
+            .cockpit {
+                width: 22px;
+                height: 22px;
+                top: 22px;
+            }
+            
+            .cockpit-frame {
+                width: 26px;
+                height: 26px;
+                top: 21px;
+            }
+            
+            .antenna {
+                height: 14px;
+                top: -14px;
+            }
+            
+            .antenna-tip {
+                width: 5px;
+                height: 5px;
+                top: -18px;
+            }
+            
+            .fin-left, .fin-right {
+                border-top: 38px solid transparent;
+                border-bottom: 38px solid transparent;
+                border-left: 22px solid #e74c3c;
+                top: 64px;
+            }
+            
+            .fin-right {
+                border-left: none;
+                border-right: 22px solid #e74c3c;
+            }
+            
+            .fin-detail-left, .fin-detail-right {
+                width: 14px;
+                height: 38px;
+                top: 64px;
+            }
+            
+            .fin-detail-left {
+                left: -11px;
+            }
+            
+            .fin-detail-right {
+                right: -11px;
+            }
+            
+            .engine-section {
+                width: 38px;
+                height: 26px;
+                top: 90px;
+            }
+            
+            .engine-left, .engine-right {
+                width: 11px;
+                height: 23px;
+                bottom: -23px;
+            }
+            
+            .engine-left {
+                left: 7px;
+            }
+            
+            .engine-right {
+                right: 7px;
+            }
+            
+            .main-engine {
+                width: 22px;
+                height: 60px;
+                top: 112px;
+            }
+            
+            .side-engine-left, .side-engine-right {
+                height: 45px;
+                top: 112px;
+            }
+            
+            .strut-left, .strut-right {
+                height: 19px;
+                top: 71px;
+            }
+            
+            .pad-left, .pad-right {
+                width: 14px;
+                height: 5px;
+                top: 90px;
+            }
+            
+            .pad-left {
+                left: 6px;
+            }
+            
+            .pad-right {
+                right: 6px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .logo {
+                font-size: 2rem;
+            }
+            
+            .tagline {
+                font-size: 1rem;
+                margin-bottom: 25px;
+            }
+            
+            .enter-btn {
+                padding: 10px 25px;
+                font-size: 0.9rem;
+                min-width: 120px;
+            }
+            
+            .loading-text, .subtext {
+                font-size: 0.8rem;
+            }
+            
+            .spaceship {
+                width: 70px;
+                height: 105px;
+            }
+            
+            .nose-cone {
+                border-left: 17px solid transparent;
+                border-right: 17px solid transparent;
+                border-bottom: 28px solid #6bb3ff;
+                top: -26px;
+            }
+            
+            .nose-highlight {
+                width: 10px;
+                height: 10px;
+                top: -17px;
+            }
+            
+            .ship-body {
+                width: 35px;
+                height: 70px;
+            }
+            
+            .panel-1, .panel-2, .panel-3 {
+                height: 5px;
+            }
+            
+            .panel-1 {
+                width: 26px;
+                top: 12px;
+            }
+            
+            .panel-2 {
+                width: 29px;
+                top: 26px;
+            }
+            
+            .panel-3 {
+                width: 26px;
+                top: 40px;
+            }
+            
+            .cockpit {
+                width: 17px;
+                height: 17px;
+                top: 17px;
+            }
+            
+            .cockpit-frame {
+                width: 20px;
+                height: 20px;
+                top: 16px;
+            }
+            
+            .antenna {
+                height: 10px;
+                top: -10px;
+            }
+            
+            .antenna-tip {
+                width: 4px;
+                height: 4px;
+                top: -13px;
+            }
+            
+            .fin-left, .fin-right {
+                border-top: 28px solid transparent;
+                border-bottom: 28px solid transparent;
+                border-left: 17px solid #e74c3c;
+                top: 49px;
+            }
+            
+            .fin-right {
+                border-left: none;
+                border-right: 17px solid #e74c3c;
+            }
+            
+            .fin-detail-left, .fin-detail-right {
+                width: 10px;
+                height: 28px;
+                top: 49px;
+            }
+            
+            .fin-detail-left {
+                left: -8px;
+            }
+            
+            .fin-detail-right {
+                right: -8px;
+            }
+            
+            .engine-section {
+                width: 29px;
+                height: 20px;
+                top: 70px;
+            }
+            
+            .engine-left, .engine-right {
+                width: 8px;
+                height: 17px;
+                bottom: -17px;
+            }
+            
+            .engine-left {
+                left: 5px;
+            }
+            
+            .engine-right {
+                right: 5px;
+            }
+            
+            .main-engine {
+                width: 17px;
+                height: 45px;
+                top: 87px;
+            }
+            
+            .side-engine-left, .side-engine-right {
+                height: 34px;
+                top: 87px;
+            }
+            
+            .strut-left, .strut-right {
+                height: 14px;
+                top: 55px;
+            }
+            
+            .pad-left, .pad-right {
+                width: 11px;
+                height: 4px;
+                top: 70px;
+            }
+            
+            .pad-left {
+                left: 4px;
+            }
+            
+            .pad-right {
+                right: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="starfield"></div>
+    <div class="nebula"></div>
+    <div class="particles" id="particles"></div>
+    <div class="content" id="content">
+        <div class="logo-container">
+            <div class="logo glitch">TEAMGALAXY</div>
+        </div>
+        <p class="tagline">Where Gamers Unite and Communities Thrive</p>
+        
+        <div class="control-panel">
+            <div class="status-indicators">
+                <div class="status online">
+                    <div class="status-dot"></div>
+                    <div class="status-text">ONLINE</div>
+                </div>
+                <div class="status ready">
+                    <div class="status-dot"></div>
+                    <div class="status-text">READY</div>
+                </div>
+                <div class="status active">
+                    <div class="status-dot"></div>
+                    <div class="status-text">ACTIVE</div>
+                </div>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+        
+        <button class="enter-btn" id="enterBtn">INITIATE LAUNCH</button>
+        <div class="countdown" id="countdown">AUTO-LAUNCH IN: 5</div>
+        <p class="loading-text">Initializing experience...</p>
+        <p class="subtext">Powered by innovation and collaboration</p>
+    </div>
+    
+    <!-- Spaceship Element -->
+    <div class="spaceship-container" id="spaceship">
+        <div class="spaceship">
+            <div class="antenna"></div>
+            <div class="antenna-tip"></div>
+            <div class="nose-highlight"></div>
+            <div class="nose-cone"></div>
+            <div class="ship-body"></div>
+            <div class="panel-1"></div>
+            <div class="panel-2"></div>
+            <div class="panel-3"></div>
+            <div class="cockpit-frame"></div>
+            <div class="cockpit"></div>
+            <div class="strut-left"></div>
+            <div class="strut-right"></div>
+            <div class="pad-left"></div>
+            <div class="pad-right"></div>
+            <div class="fin-left"></div>
+            <div class="fin-right"></div>
+            <div class="fin-detail-left"></div>
+            <div class="fin-detail-right"></div>
+            <div class="engine-section"></div>
+            <div class="engine-left"></div>
+            <div class="engine-right"></div>
+            <div class="main-engine"></div>
+            <div class="side-engine-left"></div>
+            <div class="side-engine-right"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer" id="footer">Powered by SquadVertex</div>
+
+    <script>
+        // Performance optimizations
+        let animationFrameId;
+        let isRedirecting = false;
+
+        // Create optimized starfield with fewer layers
+        const starfield = document.getElementById('starfield');
+        const layers = 2; // Reduced from 3
+        const starsPerLayer = 70; // Reduced from 100
+
+        for (let layer = 0; layer < layers; layer++) {
+            const starLayer = document.createElement('div');
+            starLayer.style.position = 'absolute';
+            starLayer.style.width = '100%';
+            starLayer.style.height = '100%';
+            starLayer.style.top = '0';
+            starLayer.style.left = '0';
+            starLayer.style.zIndex = layer + 1;
+            
+            for (let i = 0; i < starsPerLayer; i++) {
+                const star = document.createElement('div');
+                const size = (layer + 1) * (Math.random() * 1.5 + 0.5); // Smaller stars
+                star.style.position = 'absolute';
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.backgroundColor = '#fff';
+                star.style.borderRadius = '50%';
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.opacity = Math.random() * 0.5 + 0.2; // Lower opacity
+                
+                // Different animation speeds based on layer (parallax effect)
+                const duration = (layers - layer) * (Math.random() * 3 + 2);
+                star.style.animation = `twinkle ${duration}s infinite alternate`;
+                
+                starLayer.appendChild(star);
+            }
+            
+            starfield.appendChild(starLayer);
+        }
+
+        // Add keyframes for twinkling animation
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes twinkle {
+                0% { opacity: 0.2; transform: scale(0.8); }
+                100% { opacity: 1; transform: scale(1.1); } // Less scaling for performance
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Create fewer floating asteroids for better performance
+        const createAsteroids = () => {
+            const asteroidCount = 8; // Reduced from 15
+            for (let i = 0; i < asteroidCount; i++) {
+                const asteroid = document.createElement('div');
+                asteroid.className = 'asteroid';
+                const size = Math.random() * 30 + 10; // Smaller asteroids
+                asteroid.style.width = `${size}px`;
+                asteroid.style.height = `${size}px`;
+                asteroid.style.left = `${Math.random() * 100}%`;
+                asteroid.style.top = `${Math.random() * 100}%`;
+                asteroid.style.opacity = Math.random() * 0.4 + 0.1; // Lower opacity
+                
+                // Optimized asteroid animation with longer duration
+                anime({
+                    targets: asteroid,
+                    translateX: () => anime.random(-50, 50),
+                    translateY: () => anime.random(-30, 30),
+                    duration: () => anime.random(15000, 25000), // Longer duration
+                    easing: 'easeInOutSine',
+                    loop: true,
+                    direction: 'alternate'
+                });
+                
+                document.body.appendChild(asteroid);
+            }
+        };
+
+        createAsteroids();
+
+        // Optimized interactive particles
+        const particlesContainer = document.getElementById('particles');
+        const particles = [];
+        const particleCount = 30; // Reduced from 50
+
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = `${Math.random() * 100}%`;
+            particle.style.top = `${Math.random() * 100}%`;
+            particle.style.opacity = Math.random() * 0.3 + 0.1; // Lower opacity
+            particlesContainer.appendChild(particle);
+            particles.push(particle);
+        }
+
+        // Optimized mouse move handler with throttling
+        let mouseX = 0, mouseY = 0;
+        let lastMoveTime = 0;
+        const moveThrottle = 16; // ~60fps
+
+        document.addEventListener('mousemove', (e) => {
+            const now = Date.now();
+            if (now - lastMoveTime < moveThrottle) return;
+            lastMoveTime = now;
+            
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
+            // Update particles in animation frame for better performance
+            if (!animationFrameId) {
+                animationFrameId = requestAnimationFrame(updateParticles);
+            }
+        });
+
+        function updateParticles() {
+            animationFrameId = null;
+            
+            particles.forEach(particle => {
+                const particleRect = particle.getBoundingClientRect();
+                const particleX = particleRect.left + particleRect.width / 2;
+                const particleY = particleRect.top + particleRect.height / 2;
+                
+                const distanceX = mouseX - particleX;
+                const distanceY = mouseY - particleY;
+                const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+                
+                if (distance < 120) { // Reduced interaction radius
+                    const force = (120 - distance) / 120;
+                    // Use transform3d for better performance
+                    particle.style.transform = `translate3d(${distanceX * force * 0.05}px, ${distanceY * force * 0.05}px, 0)`;
+                }
+            });
+        }
+
+        // Auto-launch countdown
+        let countdownValue = 5;
+        const countdownElement = document.getElementById('countdown');
+        const countdownInterval = setInterval(() => {
+            countdownValue--;
+            countdownElement.textContent = `AUTO-LAUNCH IN: ${countdownValue}`;
+            
+            if (countdownValue <= 0) {
+                clearInterval(countdownInterval);
+                launchSpaceship();
+            }
+        }, 1000);
+
+        // Progress bar animation
+        const progressBar = document.getElementById('progressBar');
+        anime({
+            targets: progressBar,
+            width: '100%',
+            duration: 5000,
+            easing: 'linear'
+        });
+
+        // Spaceship launch function
+        function launchSpaceship() {
+            if (isRedirecting) return;
+            isRedirecting = true;
+            
+            const spaceship = document.getElementById('spaceship');
+            const content = document.getElementById('content');
+            const starfield = document.getElementById('starfield');
+            const nebula = document.querySelector('.nebula');
+            const particlesContainer = document.getElementById('particles');
+            const footer = document.getElementById('footer');
+            
+            // Clear the auto-launch countdown
+            clearInterval(countdownInterval);
+            countdownElement.style.display = 'none';
+            
+            // Hide the enter button
+            const enterBtn = document.getElementById('enterBtn');
+            enterBtn.style.display = 'none';
+            
+            // Show spaceship
+            anime({
+                targets: spaceship,
+                opacity: 1,
+                duration: 500,
+                easing: 'easeOutQuad'
+            });
+
+            // Engine ignition sequence
+            setTimeout(() => {
+                // Main engine flame
+                anime({
+                    targets: '.main-engine',
+                    opacity: 1,
+                    height: [
+                        { value: 70, duration: 150, easing: 'easeInOutQuad' },
+                        { value: 90, duration: 150, easing: 'easeInOutQuad' }
+                    ],
+                    loop: true,
+                    easing: 'linear'
+                });
+                
+                // Side engine flames
+                anime({
+                    targets: ['.side-engine-left', '.side-engine-right'],
+                    opacity: 1,
+                    height: [
+                        { value: 50, duration: 200, easing: 'easeInOutQuad' },
+                        { value: 70, duration: 200, easing: 'easeInOutQuad' }
+                    ],
+                    loop: true,
+                    easing: 'linear'
+                });
+                
+                // Exhaust particles
+                const createExhaustParticle = () => {
+                    const particle = document.createElement('div');
+                    particle.className = 'exhaust-particle';
+                    particle.style.left = '50%';
+                    particle.style.bottom = '150px';
+                    document.body.appendChild(particle);
+                    
+                    anime({
+                        targets: particle,
+                        translateY: () => anime.random(-100, -300),
+                        translateX: () => anime.random(-50, 50),
+                        opacity: [1, 0],
+                        scale: [1, 0],
+                        duration: () => anime.random(500, 1500),
+                        easing: 'easeOutQuad',
+                        complete: () => {
+                            document.body.removeChild(particle);
+                        }
+                    });
+                };
+                
+                // Create exhaust particles continuously
+                const exhaustInterval = setInterval(createExhaustParticle, 80); // Reduced frequency
+                
+                // Camera shake effect
+                anime({
+                    targets: 'body',
+                    translateX: [0, -5, 5, -3, 3, 0],
+                    translateY: [0, -2, 2, -1, 1, 0],
+                    duration: 300,
+                    easing: 'easeInOutQuad'
+                });
+                
+                // Launch spaceship with Anime.js
+                anime({
+                    targets: spaceship,
+                    bottom: '100vh',
+                    duration: 3000,
+                    easing: 'easeOutCubic',
+                    begin: function() {
+                        // Start fading content as spaceship moves
+                        anime({
+                            targets: [content, starfield, nebula, particlesContainer],
+                            opacity: 0,
+                            duration: 1200,
+                            easing: 'easeInOutQuad',
+                            delay: 1000,
+                            complete: function() {
+                                // Stop creating exhaust particles
+                                clearInterval(exhaustInterval);
+                                
+                                // Show footer
+                                footer.classList.add('show');
+                                
+                                // Redirect after a brief delay to show the footer
+                                setTimeout(() => {
+                                    window.location.href = '/dashboard';
+                                }, 1000);
+                            }
+                        });
+                    }
+                });
+            }, 500);
+        }
+
+        // Handle button click
+        document.getElementById('enterBtn').addEventListener('click', () => {
+            clearInterval(countdownInterval);
+            countdownElement.style.display = 'none';
+            launchSpaceship();
+        });
+
+        // Clean up animation frame on page unload
+        window.addEventListener('beforeunload', () => {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+        });
+    </script>
+</body>
 </html>
