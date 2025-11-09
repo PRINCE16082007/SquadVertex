@@ -493,390 +493,594 @@
   <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
 
   <!-- ===== REPLACEMENT SCRIPT: paste in place of your old script ===== -->
-  <script>
-    /***** QUICK NOTES
-     - Profile button: immediate redirect (signed-in -> profile, else -> sign up).
-     - Skeleton: rendered instantly using DocumentFragment for faster paint.
-     - Star generation: done in small batches to avoid blocking render.
-    *****/
+ <script>
+/*
+  Complete replacement script — paste this in place of your existing scripts.
+  Changes made:
+  - Profile dropdown restored. Clicking Profile button:
+      • if NOT signed in -> redirect to /teamgalaxy/legal/sign_up.html
+      • if signed in -> toggle dropdown
+    "Profile" link in dropdown now navigates to:
+      /teamgalaxy/user_management/user_profile.html
+  - Skeletons rendered quickly with DocumentFragment for instant paint.
+  - Firebase init deferred / non-blocking where possible.
+  - Star generation batched to avoid main-thread jank.
+  - Modal/gallery functions included and defensive.
+  - RECAPTCHA_SITE_KEY defined to avoid undefined errors in grecaptcha calls.
+*/
 
-    // ----- DOM helpers -----
-    const $ = (sel, root = document) => root.querySelector(sel);
-    const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+/* ---------- CONFIG ---------- */
+const RECAPTCHA_SITE_KEY = '6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx';
 
-    // ----- Initial skeleton render (fast) -----
-    function renderSkeletonCards(count = 3) {
-      const listEl = document.getElementById('portfolioList');
-      if (!listEl) return;
-      const frag = document.createDocumentFragment();
-      for (let i = 0; i < count; i++) {
-        const skeletonRow = document.createElement('div');
-        skeletonRow.className = 'skeleton-card';
-        if (i % 2 === 1) skeletonRow.classList.add('reverse');
+const firebaseConfig = {
+  apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+  authDomain: "teamgalaxy-77344.firebaseapp.com",
+  projectId: "teamgalaxy-77344",
+  storageBucket: "teamgalaxy-77344.firebasestorage.app",
+  messagingSenderId: "770256225320",
+  appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+  measurementId: "G-6C2W9NSNCH"
+};
 
-        const skeletonText = document.createElement('div');
-        skeletonText.className = 'skeleton-text';
-        const skeletonTitle = document.createElement('div');
-        skeletonTitle.className = 'skeleton-title';
-        const skeletonDesc1 = document.createElement('div');
-        skeletonDesc1.className = 'skeleton-desc';
-        const skeletonDesc2 = document.createElement('div');
-        skeletonDesc2.className = 'skeleton-desc short';
+/* ---------- DOM SHORTCUTS ---------- */
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-        skeletonText.appendChild(skeletonTitle);
-        skeletonText.appendChild(skeletonDesc1);
-        skeletonText.appendChild(skeletonDesc2);
+/* ---------- FAST SKELETON RENDER ---------- */
+function renderSkeletonCards(count = 3) {
+  const listEl = document.getElementById('portfolioList');
+  if (!listEl) return;
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < count; i++) {
+    const skeletonRow = document.createElement('div');
+    skeletonRow.className = 'skeleton-card';
+    if (i % 2 === 1) skeletonRow.classList.add('reverse');
 
-        const skeletonCover = document.createElement('div');
-        skeletonCover.className = 'skeleton-cover';
-        const skeletonImage = document.createElement('div');
-        skeletonImage.className = 'skeleton-image';
+    const skeletonText = document.createElement('div');
+    skeletonText.className = 'skeleton-text';
+    const skeletonTitle = document.createElement('div');
+    skeletonTitle.className = 'skeleton-title';
+    const skeletonDesc1 = document.createElement('div');
+    skeletonDesc1.className = 'skeleton-desc';
+    const skeletonDesc2 = document.createElement('div');
+    skeletonDesc2.className = 'skeleton-desc short';
 
-        skeletonCover.appendChild(skeletonImage);
+    skeletonText.appendChild(skeletonTitle);
+    skeletonText.appendChild(skeletonDesc1);
+    skeletonText.appendChild(skeletonDesc2);
 
-        skeletonRow.appendChild(skeletonText);
-        skeletonRow.appendChild(skeletonCover);
-        frag.appendChild(skeletonRow);
-      }
-      listEl.innerHTML = ''; // clear quickly
-      listEl.appendChild(frag);
+    const skeletonCover = document.createElement('div');
+    skeletonCover.className = 'skeleton-cover';
+    const skeletonImage = document.createElement('div');
+    skeletonImage.className = 'skeleton-image';
+
+    skeletonCover.appendChild(skeletonImage);
+
+    skeletonRow.appendChild(skeletonText);
+    skeletonRow.appendChild(skeletonCover);
+    frag.appendChild(skeletonRow);
+  }
+  listEl.innerHTML = '';
+  listEl.appendChild(frag);
+}
+
+/* ---------- FIREBASE INIT (deferred) ---------- */
+function initFirebaseSafely() {
+  try {
+    if (!window.firebase) {
+      console.error("Firebase SDK missing. Make sure compat scripts were included.");
+      return;
+    }
+    if (!firebase.apps || !firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+      console.log("Firebase initialized (compat)");
+    } else {
+      console.log("Firebase already initialized - skipping re-init");
     }
 
-    // Call skeleton render asap so user sees something right away
-    document.addEventListener('DOMContentLoaded', () => {
-      renderSkeletonCards(3); // instant paint
+    // App Check
+    try {
+      const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider(RECAPTCHA_SITE_KEY);
+      firebase.appCheck().activate(appCheckProvider, true);
+    } catch (e) {
+      console.warn("App Check activation failed:", e);
+    }
+  } catch (err) {
+    console.error("Firebase init failed:", err);
+  }
+}
+
+function scheduleInit() {
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(initFirebaseSafely, { timeout: 1000 });
+  } else {
+    setTimeout(initFirebaseSafely, 60);
+  }
+}
+
+/* ---------- FIREBASE REFS & AUTH HANDLING ---------- */
+let auth = null;
+let db = null;
+let currentUser = null;
+
+function wireFirebaseRefs() {
+  if (!window.firebase || !firebase.auth) return;
+  auth = firebase.auth();
+  db = firebase.firestore();
+
+  try {
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.warn('persistence err', e));
+  } catch (e) {}
+
+  if (!auth._ourOnAuthAttached) {
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      updateProfileButtonUI();
+      // optional: reload categories or other UI updates here
     });
+    auth._ourOnAuthAttached = true;
+  }
+}
 
-    // ----- Firebase config & init (unchanged logic but wrapped) -----
-    const firebaseConfig = {
-      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-      authDomain: "teamgalaxy-77344.firebaseapp.com",
-      projectId: "teamgalaxy-77344",
-      storageBucket: "teamgalaxy-77344.firebasestorage.app",
-      messagingSenderId: "770256225320",
-      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-      measurementId: "G-6C2W9NSNCH"
-    };
+/* ---------- PROFILE DROPDOWN + BUTTON BEHAVIOR ---------- */
+const profileBtn = document.getElementById('profileBtn');
+const profileMenu = document.getElementById('profileMenu');
+const logoutLink = document.getElementById('logoutLink');
+const profileLink = document.getElementById('profileLink');
+const moreOptions = document.getElementById('moreOptions');
 
-    function initFirebaseSafely() {
-      try {
-        if (!window.firebase) {
-          console.error("Firebase SDK not loaded.");
-          return;
-        }
-        if (!firebase.apps || !firebase.apps.length) {
-          firebase.initializeApp(firebaseConfig);
-          console.log("Firebase initialized (compat)");
-        } else {
-          console.log("Firebase already initialized - skipping re-init");
-        }
+function closeOtherDropdowns() {
+  if (moreOptions && moreOptions.querySelector('.dropdown-content')) {
+    moreOptions.querySelector('.dropdown-content').style.display = 'none';
+  }
+}
 
-        try {
-          const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider("6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx");
-          firebase.appCheck().activate(appCheckProvider, true);
-        } catch (e) {
-          console.warn("App Check activation failed:", e);
-        }
-      } catch (err) {
-        console.error("Firebase init failed:", err);
-      }
+// UI update for profile button (show avatar or text)
+function updateProfileButtonUI() {
+  if (!profileBtn || !auth) return;
+  const u = auth.currentUser;
+  if (u) {
+    if (u.photoURL) profileBtn.innerHTML = `<img src="${u.photoURL}" alt="Profile" style="width:36px;height:36px;border-radius:50%;">`;
+    else profileBtn.innerHTML = `<i class="fa-solid fa-user"></i>`;
+    profileBtn.title = u.displayName || u.email || "Profile";
+  } else {
+    profileBtn.innerHTML = "Sign In";
+    profileBtn.title = "Sign In";
+  }
+}
+
+// Clicking the profile button:
+// - if NOT signed in -> redirect to sign_up
+// - if signed in -> toggle dropdown menu
+function onProfileBtnClick(e) {
+  e && e.preventDefault && e.preventDefault();
+  e && e.stopPropagation && e.stopPropagation();
+
+  try {
+    // if auth not ready or user not signed in, fallback to sign-up
+    if (!auth || !auth.currentUser) {
+      window.location.href = "/teamgalaxy/legal/sign_up.html";
+      return;
     }
 
-    // We'll init firebase after paint (non-blocking)
-    function scheduleInit() {
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(initFirebaseSafely, { timeout: 1000 });
-      } else {
-        setTimeout(initFirebaseSafely, 60);
-      }
-    }
+    if (!profileMenu) return;
+    const isOpen = profileMenu.style.display === 'block';
+    closeOtherDropdowns();
+    profileMenu.style.display = isOpen ? 'none' : 'block';
+  } catch (err) {
+    console.error('onProfileBtnClick error:', err);
+    window.location.href = "/teamgalaxy/legal/sign_up.html";
+  }
+}
 
-    // ----- Variables & refs (will be set after firebase init) -----
-    let auth = null;
-    let db = null;
-    let currentUser = null;
+// Attach handler once
+if (profileBtn && !profileBtn._profileAttached) {
+  profileBtn.addEventListener('click', onProfileBtnClick);
+  profileBtn._profileAttached = true;
+}
 
-    function wireFirebaseRefs() {
-      if (!window.firebase) return;
-      auth = firebase.auth();
-      db = firebase.firestore();
-
-      // set persistence defensively
-      try {
-        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.warn('persistence err', e));
-      } catch (e) { /* ignore */ }
-
-      // single onAuthStateChanged
-      if (!auth._ourOnAuthAttached) {
-        auth.onAuthStateChanged(user => {
-          currentUser = user;
-          updateProfileButton();
-          // optional: if you want to auto-refresh categories when auth changes:
-          // if (typeof loadCategories === 'function') loadCategories();
-        });
-        auth._ourOnAuthAttached = true;
-      }
-    }
-
-    // ----- Profile button behavior (direct redirect) -----
-    const profileBtn = document.getElementById('profileBtn');
-    const profileMenu = document.getElementById('profileMenu');
-    const logoutLink = document.getElementById('logoutLink');
-    const profileLink = document.getElementById('profileLink');
-
-    function updateProfileButton() {
-      if (!profileBtn || !auth) return;
-      const u = auth.currentUser;
-      if (u) {
-        if (u.photoURL) profileBtn.innerHTML = `<img src="${u.photoURL}" alt="Profile" style="width:36px;height:36px;border-radius:50%;">`;
-        else profileBtn.innerHTML = `<i class="fa-solid fa-user"></i>`;
-        profileBtn.title = u.displayName || u.email || "Profile";
-      } else {
-        profileBtn.innerHTML = "Sign In";
-        profileBtn.title = "Sign In";
-      }
-    }
-
-    function onProfileBtnClick(e) {
-      e && e.preventDefault && e.preventDefault();
-      e && e.stopPropagation && e.stopPropagation();
-      try {
-        // If firebase not ready yet, be conservative and go to sign-up
-        if (!auth || !auth.currentUser) {
-          window.location.href = "/teamgalaxy/legal/sign_up.html";
-          return;
-        }
-        // signed in -> redirect to profile page
-        window.location.href = "/teamgalaxy/user/profile.html";
-      } catch (err) {
-        console.error('profile button failed', err);
+// Wire dropdown items
+if (profileLink && !profileLink._attached) {
+  profileLink.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    try {
+      if (!auth || !auth.currentUser) {
         window.location.href = "/teamgalaxy/legal/sign_up.html";
+        return;
       }
-    }
-
-    // attach profile btn handler once (defensive)
-    if (profileBtn && !profileBtn._attachedRedirect) {
-      profileBtn.addEventListener('click', onProfileBtnClick);
-      profileBtn._attachedRedirect = true;
-    }
-
-    // Wire logout & profileLink safely (if present)
-    if (logoutLink && !logoutLink._attached) {
-      logoutLink.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        if (auth) auth.signOut().catch(err => console.warn('signout err', err));
-        if (profileMenu) profileMenu.style.display = 'none';
-      });
-      logoutLink._attached = true;
-    }
-    if (profileLink && !profileLink._attached) {
-      profileLink.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        if (!auth || !auth.currentUser) {
-          window.location.href = "/teamgalaxy/legal/sign_up.html"; return;
-        }
-        window.location.href = "/teamgalaxy/user/profile.html";
-        if (profileMenu) profileMenu.style.display = 'none';
-      });
-      profileLink._attached = true;
-    }
-
-    // clicking outside closes profileMenu but won't block redirect because redirect happens synchronously
-    window.addEventListener('click', () => {
+      window.location.href = "/teamgalaxy/user_management/user_profile.html";
       if (profileMenu) profileMenu.style.display = 'none';
+    } catch (err) {
+      console.warn('profileLink click error', err);
+      window.location.href = "/teamgalaxy/user_management/user_profile.html";
+    }
+  });
+  profileLink._attached = true;
+}
+
+if (logoutLink && !logoutLink._attached) {
+  logoutLink.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (auth) {
+      auth.signOut().catch(err => console.warn('signout err', err));
+    }
+    if (profileMenu) profileMenu.style.display = 'none';
+  });
+  logoutLink._attached = true;
+}
+
+// clicking outside closes dropdowns
+window.addEventListener('click', (e) => {
+  if (profileMenu && profileBtn && !profileMenu.contains(e.target) && !profileBtn.contains(e.target)) {
+    profileMenu.style.display = 'none';
+  }
+  if (moreOptions && moreOptions.querySelector('.dropdown-content') && !moreOptions.contains(e.target)) {
+    moreOptions.querySelector('.dropdown-content').style.display = 'none';
+  }
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (profileMenu) profileMenu.style.display = 'none';
+    if (moreOptions && moreOptions.querySelector('.dropdown-content')) {
+      moreOptions.querySelector('.dropdown-content').style.display = 'none';
+    }
+  }
+});
+
+/* ---------- MORE DROPDOWN FIX ---------- */
+if (moreOptions) {
+  const moreDropdown = moreOptions.querySelector('.dropdown-content');
+  const moreBtn = moreOptions.querySelector('.nav-btn');
+  if (moreBtn && !moreBtn._attached) {
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!moreDropdown) return;
+      moreDropdown.style.display = moreDropdown.style.display === 'block' ? 'none' : 'block';
+    });
+    moreBtn._attached = true;
+  }
+}
+
+/* ---------- STARFIELD (batched) ---------- */
+function generateStarsBatched(total = 150, batchSize = 25, batchDelay = 30) {
+  const starsContainer = document.getElementById('stars');
+  if (!starsContainer) return;
+  let created = 0;
+
+  function createStar() {
+    const star = document.createElement('div');
+    star.classList.add('star');
+
+    const posX = Math.random() * 100;
+    const posY = Math.random() * 100;
+    const size = Math.random() * 1.8 + 0.4;
+    const duration = Math.random() * 6 + 3;
+    const driftX = (Math.random() - 0.5) * 20;
+    const driftY = (Math.random() - 0.5) * 10;
+
+    star.style.left = `${posX}%`;
+    star.style.top = `${posY}%`;
+    star.style.width = `${size}px`;
+    star.style.height = `${size}px`;
+    star.style.setProperty('--duration', `${duration}s`);
+    star.style.setProperty('--driftX', `${driftX}px`);
+    star.style.setProperty('--driftY', `${driftY}px`);
+    star.style.animationDelay = `${Math.random() * 6}s`;
+
+    return star;
+  }
+
+  function addBatch() {
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < batchSize && created < total; i++, created++) {
+      frag.appendChild(createStar());
+    }
+    starsContainer.appendChild(frag);
+    if (created < total) setTimeout(addBatch, batchDelay);
+  }
+  addBatch();
+
+  // occasional shooting stars
+  setInterval(() => {
+    if (Math.random() < 0.25) {
+      const s = document.createElement('div');
+      s.className = 'shooting-star';
+      const startLeft = Math.random() * 80;
+      const startTop = Math.random() * 40;
+      const angle = -20 - Math.random() * 40;
+      const dur = 0.7 + Math.random() * 0.9;
+      s.style.left = `${startLeft}%`;
+      s.style.top = `${startTop}%`;
+      s.style.transform = `rotate(${angle}deg)`;
+      s.style.animation = `shoot ${dur}s linear forwards`;
+      s.style.width = `${1 + Math.random()*2}px`;
+      document.getElementById('stars').appendChild(s);
+      s.addEventListener('animationend', () => s.remove());
+    }
+  }, 1200);
+}
+
+/* ---------- PORTFOLIO: loadCategories + render ---------- */
+async function loadCategories() {
+  const listEl = document.getElementById('portfolioList');
+  if (!listEl) return;
+  // ensure skeleton visible
+  renderSkeletonCards(3);
+  try {
+    if (!db) wireFirebaseRefs();
+    const snap = await db.collection('portfolioFolders').orderBy('folderOrder', 'asc').get();
+    const docs = [];
+    snap.docs.forEach(doc => {
+      const data = doc.data() || {};
+      const folder = {
+        id: doc.id,
+        title: data.title || doc.id,
+        description: data.description || '',
+        coverUrl: ''
+      };
+      if (data.images && Array.isArray(data.images) && data.images.length) {
+        const sorted = data.images.slice().sort((a,b) => (a.orderBy||0) - (b.orderBy||0));
+        folder.coverUrl = sorted[0] && sorted[0].url ? sorted[0].url : '';
+      }
+      docs.push(folder);
     });
 
-    // ----- More options dropdown fix (was using event incorrectly) -----
-    const moreOptions = document.getElementById('moreOptions');
-    if (moreOptions) {
-      const moreDropdown = moreOptions.querySelector('.dropdown-content');
-      const moreBtn = moreOptions.querySelector('.nav-btn');
-      if (moreBtn) {
-        moreBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (!moreDropdown) return;
-          moreDropdown.style.display = moreDropdown.style.display === 'block' ? 'none' : 'block';
-        });
-      }
-      window.addEventListener('click', (event) => {
-        if (!moreOptions.contains(event.target) && moreOptions.querySelector('.dropdown-content')) {
-          moreOptions.querySelector('.dropdown-content').style.display = 'none';
-        }
+    setTimeout(() => {
+      listEl.innerHTML = '';
+      docs.forEach((cat, idx) => {
+        const row = document.createElement('div');
+        row.className = 'portfolio-row';
+        if (idx % 2 === 1) row.classList.add('reverse');
+
+        const text = document.createElement('div');
+        text.className = 'row-text';
+        const ttl = document.createElement('div');
+        ttl.className = 'row-title';
+        ttl.textContent = cat.title;
+        const desc = document.createElement('div');
+        desc.className = 'row-desc';
+        desc.textContent = cat.description || 'No description provided.';
+        const openBtn = document.createElement('button');
+        openBtn.textContent = 'View Gallery';
+        openBtn.style.marginTop = '16px';
+        openBtn.className = 'nav-btn';
+        openBtn.onclick = () => openModal(idx);
+        text.appendChild(ttl);
+        text.appendChild(desc);
+        text.appendChild(openBtn);
+
+        const coverWrap = document.createElement('div');
+        coverWrap.className = 'row-cover';
+        const im = document.createElement('img');
+        im.alt = cat.title;
+        im.loading = 'lazy';
+        im.onclick = () => openModal(idx);
+        im.src = cat.coverUrl || 'https://dummyimage.com/1200x800/121824/99a7bf.png&text=No+Cover';
+        if (!cat.coverUrl) im.style.opacity = 0.36;
+        coverWrap.appendChild(im);
+
+        row.appendChild(text);
+        row.appendChild(coverWrap);
+        listEl.appendChild(row);
       });
-    }
 
-    // ----- Non-blocking star generation (batches) -----
-    function generateStarsBatched(total = 150, batchSize = 25, batchDelay = 30) {
-      const starsContainer = document.getElementById('stars');
-      if (!starsContainer) return;
-      let created = 0;
-
-      function createStar() {
-        const star = document.createElement('div');
-        star.classList.add('star');
-
-        const posX = Math.random() * 100;
-        const posY = Math.random() * 100;
-        const size = Math.random() * 1.8 + 0.4;
-        const duration = Math.random() * 6 + 3;
-        const driftX = (Math.random() - 0.5) * 20;
-        const driftY = (Math.random() - 0.5) * 10;
-
-        star.style.left = `${posX}%`;
-        star.style.top = `${posY}%`;
-        star.style.width = `${size}px`;
-        star.style.height = `${size}px`;
-        star.style.setProperty('--duration', `${duration}s`);
-        star.style.setProperty('--driftX', `${driftX}px`);
-        star.style.setProperty('--driftY', `${driftY}px`);
-        star.style.animationDelay = `${Math.random() * 6}s`;
-
-        return star;
+      if (!docs.length) {
+        listEl.innerHTML = '<div style="color:#bfe1ff; padding: 18px;">No portfolio folders yet.</div>';
       }
+    }, 60);
+  } catch (e) {
+    console.error('Failed to load categories', e);
+    listEl.innerHTML = '<div style="color:#ffb4b4">Failed to load portfolio. Check console.</div>';
+  }
+}
 
-      function addBatch() {
-        const frag = document.createDocumentFragment();
-        for (let i = 0; i < batchSize && created < total; i++, created++) {
-          frag.appendChild(createStar());
-        }
-        starsContainer.appendChild(frag);
-        if (created < total) setTimeout(addBatch, batchDelay);
+/* ---------- MODAL / GALLERY (self-contained) ---------- */
+let categoryDocs = []; // filled by loadCategories (note: if you want, sync both places)
+let categoriesFetchedImages = {}; // catIdx -> [urls]
+let currentCatIdx = 0;
+let currentImageIdx = 0;
+
+function escapeHtml(str){ if(!str) return ''; return String(str).replace(/&/g,'&amp;').replace(/</g,'<').replace(/>/g,'>'); }
+function escapeAttr(str){ if(!str) return ''; return String(str).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+async function openModal(catIdx, selectedImageUrl) {
+  currentCatIdx = catIdx;
+  const modalWrap = document.getElementById('portfolioModal');
+  modalWrap.style.display = 'block';
+
+  // reCAPTCHA optional signal
+  if (window.grecaptcha && grecaptcha.execute) {
+    try {
+      grecaptcha.ready(() => {
+        grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: 'open_modal'}).then(token => {
+          /* token available for backend if needed */
+        }).catch(e => console.warn('grecaptcha exec failed', e));
+      });
+    } catch (e) { /* ignore */ }
+  }
+
+  // Ensure folder data is available: try to fetch full doc if needed
+  if (!categoriesFetchedImages[catIdx]) {
+    try {
+      // Try fetching doc by id if we have categoryDocs list; otherwise use portfolioFolders collection by index
+      let docId;
+      if (categoryDocs && categoryDocs[catIdx] && categoryDocs[catIdx].id) {
+        docId = categoryDocs[catIdx].id;
+      } else {
+        // fallback: find by order via query (less efficient)
+        const snap = await db.collection('portfolioFolders').orderBy('folderOrder','asc').get();
+        if (snap.docs[catIdx]) docId = snap.docs[catIdx].id;
       }
-      addBatch();
-
-      // occasional shooting stars (non-blocking)
-      setInterval(() => {
-        if (Math.random() < 0.25) {
-          const s = document.createElement('div');
-          s.className = 'shooting-star';
-          const startLeft = Math.random() * 80;
-          const startTop = Math.random() * 40;
-          const angle = -20 - Math.random() * 40;
-          const dur = 0.7 + Math.random() * 0.9;
-          const travel = 400 + Math.random() * 900;
-
-          s.style.left = `${startLeft}%`;
-          s.style.top = `${startTop}%`;
-          s.style.transform = `rotate(${angle}deg)`;
-          s.style.animation = `shoot ${dur}s linear forwards`;
-          s.style.width = `${1 + Math.random()*2}px`;
-
-          starsContainer.appendChild(s);
-          s.addEventListener('animationend', () => s.remove());
-        }
-      }, 1200);
-    }
-
-    // ----- Load categories & rendering (keeps skeleton until images ready) -----
-    // (Uses the renderSkeletonCards() shown earlier)
-    async function loadCategories() {
-      const listEl = document.getElementById('portfolioList');
-      if (!listEl) return;
-
-      // show skeleton fast (already done on DOMContentLoaded) but ensure it
-      renderSkeletonCards(3);
-
-      try {
-        if (!db) {
-          // if db not ready yet, try to wire refs then continue
-          wireFirebaseRefs();
-        }
-        const snap = await db.collection('portfolioFolders').orderBy('folderOrder', 'asc').get();
-        const docs = [];
-        snap.docs.forEach(doc => {
-          const data = doc.data() || {};
-          const folder = {
-            id: doc.id,
-            title: data.title || doc.id,
-            description: data.description || '',
-            coverUrl: ''
-          };
-          if (data.images && Array.isArray(data.images) && data.images.length) {
-            const sorted = data.images.slice().sort((a,b) => (a.orderBy||0) - (b.orderBy||0));
-            folder.coverUrl = sorted[0] && sorted[0].url ? sorted[0].url : '';
-          }
-          docs.push(folder);
-        });
-
-        // Quick micro-delay to allow skeleton paint then replace
-        setTimeout(() => {
-          // replace skeleton with actual rows
-          listEl.innerHTML = '';
-          docs.forEach((cat, idx) => {
-            const row = document.createElement('div');
-            row.className = 'portfolio-row';
-            if (idx % 2 === 1) row.classList.add('reverse');
-
-            const text = document.createElement('div');
-            text.className = 'row-text';
-            const ttl = document.createElement('div');
-            ttl.className = 'row-title';
-            ttl.textContent = cat.title;
-            const desc = document.createElement('div');
-            desc.className = 'row-desc';
-            desc.textContent = cat.description || 'No description provided.';
-            const openBtn = document.createElement('button');
-            openBtn.textContent = 'View Gallery';
-            openBtn.style.marginTop = '16px';
-            openBtn.className = 'nav-btn';
-            openBtn.onclick = () => openModal(idx);
-            text.appendChild(ttl);
-            text.appendChild(desc);
-            text.appendChild(openBtn);
-
-            const coverWrap = document.createElement('div');
-            coverWrap.className = 'row-cover';
-            const im = document.createElement('img');
-            im.alt = cat.title;
-            im.loading = 'lazy';
-            im.onclick = () => openModal(idx);
-            im.src = cat.coverUrl || 'https://dummyimage.com/1200x800/121824/99a7bf.png&text=No+Cover';
-            if (!cat.coverUrl) im.style.opacity = 0.36;
-            coverWrap.appendChild(im);
-
-            row.appendChild(text);
-            row.appendChild(coverWrap);
-            listEl.appendChild(row);
-          });
-
-          // if no docs, show a small friendly message
-          if (!docs.length) {
-            listEl.innerHTML = '<div style="color:#bfe1ff; padding: 18px;">No portfolio folders yet.</div>';
-          }
-        }, 60); // tiny pause to let the skeleton show briefly
-      } catch (e) {
-        console.error('Failed to load categories', e);
-        listEl.innerHTML = '<div style="color:#ffb4b4">Failed to load portfolio. Check console.</div>';
+      if (docId) {
+        const docSnap = await db.collection('portfolioFolders').doc(docId).get();
+        const folderData = docSnap.data();
+        if (folderData && folderData.images && Array.isArray(folderData.images)) {
+           const sortedImages = folderData.images.slice().sort((a,b) => (a.orderBy||0) - (b.orderBy||0));
+           categoriesFetchedImages[catIdx] = sortedImages.map(imgObj => imgObj.url).filter(Boolean);
+        } else categoriesFetchedImages[catIdx] = [];
+      } else {
+        categoriesFetchedImages[catIdx] = [];
       }
+    } catch (e) {
+      console.warn('failed to load images for', catIdx, e);
+      categoriesFetchedImages[catIdx] = [];
     }
+  }
 
-    // ----- Modal & helpers (kept as-is, relying on your other functions) -----
-    // (Assumes openModal, showModalContent, etc. are present in your existing script)
-    // For brevity, we keep those functions defined in your current script (you already provided them).
+  showModalContent(catIdx, selectedImageUrl);
+  window.addEventListener('keydown', modalKeyHandler);
+}
 
-    // ----- Startup sequence: fast paint first, then init heavy tasks -----
-    document.addEventListener('DOMContentLoaded', () => {
-      // skeleton already rendered above; now schedule heavier/async startup
-      scheduleInit(); // init firebase in idle
-      // wire firebase refs shortly after init attempt
-      setTimeout(() => {
-        wireFirebaseRefs();
-        // attach profile UI update if auth is already available
-        if (auth) updateProfileButton();
-      }, 120);
+function showModalContent(catIdx, selectedImageUrl) {
+  currentCatIdx = catIdx;
+  const modalWrap = document.getElementById('portfolioModal');
+  const cat = (categoryDocs && categoryDocs[catIdx]) || { title: 'Gallery', description: '' };
+  const images = categoriesFetchedImages[catIdx] || [];
+  const prevDisabled = catIdx <= 0;
+  const nextDisabled = catIdx >= (categoryDocs.length - 1);
 
-      // start star generation in batches but after a tiny delay to allow first paint
-      setTimeout(() => generateStarsBatched(150, 25, 25), 40);
+  if (selectedImageUrl) {
+    currentImageIdx = images.indexOf(selectedImageUrl);
+    if (currentImageIdx === -1) currentImageIdx = 0;
+  } else currentImageIdx = 0;
 
-      // load categories after a tiny delay so skeleton is visible first
-      setTimeout(() => {
-        // ensure db and auth were wired if possible
-        if (!db) wireFirebaseRefs();
-        // if db is still missing, loadCategories will handle the error gracefully
-        loadCategories();
-      }, 80);
+  const mainImgHtml = images.length ? `<img data-src="${escapeAttr(images[currentImageIdx])}" alt="${escapeAttr(cat.title)}" class="modal-main-img">` : '<div style="color:#cfe4ff;">No images in this category.</div>';
+
+  modalWrap.innerHTML = `
+    <div class="modal-bg" onclick="closeModal(event)">
+      <div class="modal-gallery" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div>
+            <div class="modal-gallery-title">${escapeHtml(cat.title)}</div>
+            <div class="modal-subtitle">${escapeHtml(cat.description || '')}</div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn modal-prev" ${prevDisabled? 'disabled': ''} onclick="goToCategory(${catIdx-1})">← Previous</button>
+            <button class="modal-btn modal-next" ${nextDisabled? 'disabled': ''} onclick="goToCategory(${catIdx+1})">Next →</button>
+            <button class="modal-close" onclick="closeModal(event)">&times;</button>
+          </div>
+        </div>
+
+        <div class="modal-main">
+          <div class="modal-main-image">
+            ${ mainImgHtml }
+          </div>
+          <div class="modal-thumbs">
+            ${ images.length ? images.map((url, i) => `<img src="${escapeAttr(url)}" loading="lazy" onclick="onThumbClick('${escapeAttr(url)}', ${i})">`).join('') : '<div style="color:#d6e4ff">No thumbnails.</div>' }
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  // ensure main image loads lazily
+  attachMainImageObserver();
+}
+
+function attachMainImageObserver(){
+  const container = document.getElementById('portfolioModal');
+  const img = container.querySelector('.modal-main-img');
+  if (!img) return;
+  const src = img.getAttribute('data-src');
+  const obs = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        img.src = src;
+        observer.disconnect();
+      }
     });
-  </script>
+  }, { root: null, threshold: 0.1 });
+  obs.observe(img);
+}
+
+function onThumbClick(url, idx) {
+  currentImageIdx = idx || 0;
+  const container = document.getElementById('portfolioModal');
+  const mainWrap = container.querySelector('.modal-main-image');
+  if (!mainWrap) return;
+  const nextImg = mainWrap.querySelector('img.modal-main-img');
+  if (nextImg) {
+    nextImg.src = url;
+  } else {
+    mainWrap.innerHTML = `<img src="${escapeAttr(url)}" class="modal-main-img">`;
+  }
+}
+
+function nextImage(){
+  const imgs = categoriesFetchedImages[currentCatIdx] || [];
+  if (!imgs.length) return;
+  currentImageIdx = (currentImageIdx + 1) % imgs.length;
+  onThumbClick(imgs[currentImageIdx], currentImageIdx);
+}
+function prevImage(){
+  const imgs = categoriesFetchedImages[currentCatIdx] || [];
+  if (!imgs.length) return;
+  currentImageIdx = (currentImageIdx - 1 + imgs.length) % imgs.length;
+  onThumbClick(imgs[currentImageIdx], currentImageIdx);
+}
+
+function modalKeyHandler(e){
+  const modalWrap = document.getElementById('portfolioModal');
+  if (!modalWrap || modalWrap.style.display === 'none') return;
+  if (e.key === 'Escape') { closeModal(e); return; }
+  if (e.key === 'ArrowLeft' && !e.ctrlKey) { prevImage(); }
+  else if (e.key === 'ArrowRight' && !e.ctrlKey) { nextImage(); }
+  else if (e.key === 'ArrowLeft' && e.ctrlKey) { goToCategory(currentCatIdx - 1); }
+  else if (e.key === 'ArrowRight' && e.ctrlKey) { goToCategory(currentCatIdx + 1); }
+}
+
+function closeModal(e){
+  e && e.stopPropagation && e.stopPropagation();
+  const modalWrap = document.getElementById('portfolioModal');
+  if (!modalWrap) return;
+  modalWrap.style.display = 'none';
+  modalWrap.innerHTML = '';
+  window.removeEventListener('keydown', modalKeyHandler);
+}
+
+async function goToCategory(newIdx) {
+  if (newIdx < 0 || newIdx >= (categoryDocs.length || 0)) return;
+  currentCatIdx = newIdx;
+  if (!categoriesFetchedImages[newIdx]) {
+    try {
+      const docSnap = await db.collection('portfolioFolders').doc(categoryDocs[newIdx].id).get();
+      const folderData = docSnap.data();
+      if (folderData && folderData.images && Array.isArray(folderData.images)) {
+         const sortedImages = folderData.images.slice().sort((a,b) => (a.orderBy||0) - (b.orderBy||0));
+         categoriesFetchedImages[newIdx] = sortedImages.map(imgObj => imgObj.url).filter(Boolean);
+      } else categoriesFetchedImages[newIdx] = [];
+    } catch (e) { categoriesFetchedImages[newIdx] = []; }
+  }
+  showModalContent(newIdx);
+}
+
+/* ---------- STARTUP SEQUENCE ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+  // fast skeleton paint
+  renderSkeletonCards(3);
+
+  // schedule firebase init (idle)
+  scheduleInit();
+
+  // wire refs after a small delay so firebase may have initialized
+  setTimeout(() => {
+    try {
+      wireFirebaseRefs();
+      if (auth) updateProfileButtonUI();
+    } catch (e) {}
+  }, 120);
+
+  // start star generation in batches after first paint
+  setTimeout(() => generateStarsBatched(150, 25, 25), 40);
+
+  // attempt to load categories after tiny pause so user sees skeleton
+  setTimeout(() => {
+    if (!db) wireFirebaseRefs();
+    loadCategories();
+  }, 80);
+});
+</script>
   <!-- ===== END REPLACEMENT SCRIPT ===== -->
 </body>
 </html>
