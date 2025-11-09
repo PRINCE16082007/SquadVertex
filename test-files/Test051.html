@@ -1,322 +1,589 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>TeamGalaxy — Chat (bg + corrected footer)</title>
-
-  <!-- fontawesome for social icons in footer -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
-
-  <!-- Firebase compat -->
-  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore-compat.js"></script>
-
+  <meta charset="UTF-8" />
+  <title>Galaxy Design Studio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href=" https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css  " />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-check-compat.js"></script>
   <style>
-    /* ===========================
-       BACKGROUND IMAGE: inserted by request
-       =========================== */
-    :root{
-      --bg-image: url('https://dl.dropboxusercontent.com/scl/fi/7vp6uxrkls3o0e4325kir/IMG_20251105_161000.png?rlkey=uh7nftac6l80vtlvqjnm6kwfq&st=qvii34oe&dl=0');
-      --bg-overlay: rgba(10,8,24,0.45);
-      --accent-1: #8a7cff;
-      --accent-2: #d66efd;
-    }
-
-    /* Reset + safe sizing + prevent horizontal scroll */
-    html,body { height:100%; }
-    *,*::before,*::after { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 0;
+    body { 
+      background: #181f2b; 
+      color: #fff; 
+      margin: 0; 
+      font-family: Arial, sans-serif; 
+      position: relative;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
       overflow-x: hidden;
-      font-family: 'Segoe UI', system-ui, Roboto, Arial, sans-serif;
-      color: #e0e0ff;
-      background: linear-gradient(135deg,#0f0c29,#302b63,#24243e);
     }
 
-    /* Fullscreen background image + overlay */
-    body::before {
-      content: "";
+    /* Star background */
+    .stars {
       position: fixed;
-      inset: 0;
-      z-index: -2;
-      background-image: var(--bg-image);
-      background-size: cover;
-      background-position: center center;
-      background-repeat: no-repeat;
-      filter: none;
-    }
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      z-index: -1;
-      background: var(--bg-overlay);
-      pointer-events: none;
-    }
-
-    /* Full-bleed header & footer */
-    .site-header, .site-footer {
-      width: 100%;
+      top: 0;
       left: 0;
-      right: 0;
-      box-sizing: border-box;
-      background: rgba(10,10,35,0.95);
-      z-index: 40;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
     }
 
-    /* Inner content of header/footer centered */
-    .site-header .container-inner,
-    .site-footer .container-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0.85rem 1rem;
+    .star {
+      position: absolute;
+      background-color: white;
+      border-radius: 50%;
+      animation: twinkle var(--duration, 5s) infinite ease-in-out;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 1; }
+    }
+
+    /* Header */
+    .top-bar {
       display: flex;
       align-items: center;
+      /* Desktop: Use space-between to align logo-title to left and nav-buttons to right */
       justify-content: space-between;
-      gap: 1rem;
+      height: 80px;
+      background: rgba(16, 23, 36, 0.85);
+      padding: 0 20px; /* Maintain padding */
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      width: 100%;
       box-sizing: border-box;
     }
 
-    /* Header visuals */
-    .logo { font-weight:700; background: linear-gradient(45deg,var(--accent-1),var(--accent-2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-size:1.35rem; }
-    .profile-photo { width:44px; height:44px; border-radius:50%; overflow:hidden; border:2px solid var(--accent-1); display:flex; align-items:center; justify-content:center; background: linear-gradient(45deg,#6a5af9,#d66efd); color:#fff; font-weight:700; }
-
-    /* App wrapper centers main content and keeps footer at bottom */
-    .app-wrap { width:100%; display:flex; justify-content:center; flex:1 0 auto; }
-    .container {
-      width:100%;
-      max-width:1200px;
-      padding: 1rem;
-      display:flex;
-      flex-direction:column;
-      gap:1rem;
-      box-sizing:border-box;
-      flex: 1 0 auto;
-    }
-
-    /* Chat container: semi-transparent so bg shows through but remains readable */
-    .chat-container {
-      display:flex;
-      flex-direction:column;
-      background: rgba(20,20,40,0.56);
-      border-radius: 14px;
-      border: 1px solid rgba(90,79,207,0.12);
+    .logo-title {
+      /* Desktop: Keep it on the left */
+      margin-left: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      font-family: 'Montserrat', sans-serif;
+      color: #fff;
+      white-space: nowrap;
       overflow: hidden;
-      box-shadow: 0 15px 35px rgba(0,0,0,0.35);
-      width:100%;
-      min-height:480px;
-      backdrop-filter: blur(6px);
+      text-overflow: ellipsis;
+      /* Ensure it doesn't grow */
+      flex: 0 0 auto;
     }
 
-    /* Messages area */
-    .messages-area {
-      flex:1;
-      padding:1.25rem;
-      overflow-y:auto;
-      display:flex;
-      flex-direction:column;
-      gap:1rem;
+    .logo-title img {
+      height: 60px;
+      filter: drop-shadow(0 0 8px rgba(97, 218, 251, 0.7));
+      flex-shrink: 0;
+    }
+
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: #e0e0e0;
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 8px;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+
+    .nav-buttons {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      font-size: 1rem;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .nav-btn,
+    .profile-btn {
+      background: none;
+      border: none;
+      color: #e0e0e0;
+      cursor: pointer;
+      font-size: 0.95rem;
+      position: relative;
+      font-family: 'Poppins', sans-serif;
+      font-weight: 500;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .nav-btn:hover, .profile-btn:hover {
+      color: #64c2ff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .profile-btn img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #64c2ff;
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background: rgba(29, 35, 54, 0.95);
+      min-width: 140px;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      top: 50px;
+      z-index: 1000;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+    }
+
+    .dropdown-content a {
+      color: #e0e0e0;
+      padding: 10px 14px;
+      text-decoration: none;
+      display: block;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.2s ease;
+      font-size: 0.95rem;
+    }
+
+    .dropdown-content a:last-child { border-bottom: none; }
+
+    .dropdown-content a:hover {
+      background: rgba(100, 194, 255, 0.1);
+      color: #64c2ff;
+    }
+
+    /* Updated: Removed the old hover-triggered display */
+    /* .nav-buttons .more-options:hover .dropdown-content,
+    .nav-buttons .profile-btn.show-menu + .dropdown-content {
+      display: block;
+    } */
+
+
+    /* Mobile-specific fixes */
+    @media (max-width: 768px) {
+      .logo-title {
+        font-size: 1.2rem;
+      }
+      .logo-title img {
+        height: 40px;
+      }
+      .hamburger {
+        display: block;
+      }
+      /* Mobile: Change justify-content to flex-end to push logo-title to the right */
+      .top-bar {
+        justify-content: flex-end; /* Aligns content to the right */
+      }
+      /* Mobile: Add margin-left to push the logo-title to the right */
+      .logo-title {
+        margin-left: auto; /* Pushes the logo-title to the right */
+      }
+      .nav-buttons {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background: rgba(16, 23, 36, 0.95);
+        flex-direction: column;
+        padding: 20px;
+        gap: 10px;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        z-index: 100;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .nav-buttons.show {
+        display: flex;
+      }
+    }
+
+    /* Banner Section - Updated Height */
+    .banner-space {
+      height: 300px; /* Reduced height from 400px */
+      width: 100%;
+      background: linear-gradient(90deg, #222435, #232e40 80%);
+      display: flex; 
+      align-items: flex-end;
+      justify-content: flex-start;
+      position: relative;
+      overflow: hidden; /* Ensure image doesn't overflow */
+    }
+
+    /* Added: Image behind the title */
+    .banner-image {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* Cover the entire area */
+      opacity: 0.4; /* Make it semi-transparent */
+      z-index: 1;
+    }
+
+    .banner-title {
+      font-size: 3rem;
+      font-weight: bold;
+      color: #fab84f;
+      margin-left: 56px;
+      margin-bottom: 44px;
+      letter-spacing: 1px;
+      z-index: 10; /* Ensure title is above the image */
+      text-shadow: 0 5px 32px #232e408c;
+    }
+
+    /* Main Content */
+    .main-content {
+      max-width: 780px;
+      margin: 0 auto 60px auto;
+      padding: 18px 18px 0 18px;
+    }
+    .main-content h2 {
+      color: #fab84f;
+      margin-top: 32px;
+      font-size: 2rem;
+      font-weight: bold;
+    }
+    .main-content p {
+      font-size: 1.18rem;
+      margin: 18px 0 28px 0;
+      line-height: 1.6;
+      color: #e4ecf7;
+    }
+    .main-content ul { margin: 10px 0 24px 22px;  }
+    .main-content ul li { font-size: 1.09rem; margin-bottom: 10px; color: #bee7ff; }
+    /* Button styles - Updated */
+    .btn-row { display: flex; gap: 22px; margin: 34px 0 48px 0; flex-wrap: wrap; justify-content: center; } /* Centered buttons */
+    .big-btn {
+      padding: 16px 42px; /* Increased padding for a bigger feel */
+      font-size: 1.2rem; /* Increased font size */
+      font-weight: 600;
+      background: linear-gradient(135deg, #6cdbf7 0%, #fab84f 100%); /* Changed gradient direction for a more dynamic look */
+      color: #181f2b;
+      border: none;
+      border-radius: 12px; /* Increased border radius for a smoother look */
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(250, 184, 79, 0.3); /* Added inner glow effect */
+      cursor: pointer;
+      transition: all 0.3s ease, box-shadow 0.3s ease; /* Added transition for all properties */
+      position: relative; /* Needed for pseudo-element */
+      overflow: hidden; /* Hide the overflow for the hover effect */
+    }
+
+    .big-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      transition: left 0.5s;
+    }
+
+    .big-btn:hover::before {
+      left: 100%;
+    }
+
+    .big-btn:hover {
+      background: linear-gradient(135deg, #fab84f 0%, #6cdbf7 100%); /* Inverted gradient on hover */
+      transform: translateY(-3px); /* Lift the button slightly */
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4), 0 0 0 3px rgba(108, 219, 247, 0.4); /* Enhanced shadow on hover */
+    }
+
+    .big-btn:active {
+      transform: translateY(1px); /* Press down effect */
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(250, 184, 79, 0.3); /* Shadow when pressed */
+    }
+
+
+    /* Footer */
+    .footer {
+      min-height: 300px;
+      background: linear-gradient(90deg, #181f2b 60%, #232e44 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: row;
+      gap: 30px;
       align-items: stretch;
-      scroll-behavior:smooth;
-      width:100%;
-    }
-
-    .message-card {
-      background: rgba(30,30,50,0.64);
-      padding:1rem;
-      border-radius:12px;
-      border:1px solid rgba(68,70,111,0.12);
-      display:flex;
-      flex-direction:column;
-      gap:0.5rem;
-      width:100%;
-      box-sizing:border-box;
-      word-break:break-word;
-    }
-
-    .message-header { display:flex; align-items:center; gap:0.75rem; }
-    .avatar { width:40px; height:40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(45deg,#6a5af9,#d66efd); color:#fff; font-weight:700; border:2px solid rgba(138,124,255,0.25); overflow:hidden; }
-    .avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
-    .user-info { display:flex; flex-direction:column; min-width:0; }
-    .username { font-weight:600; color:var(--accent-1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .timestamp { font-size:.8rem; color:#a0a0d0; white-space:nowrap; }
-
-    .reply-preview { background:rgba(255,255,255,0.03); padding:.5rem; border-left:3px solid rgba(138,124,255,0.4); border-radius:6px; font-size:.95rem; color:#cbd6ff; }
-    .message-content { white-space:pre-wrap; color:#e7e7ff; }
-
-    .message-actions { display:flex; gap:.5rem; align-items:center; margin-top:.4rem; }
-    .btn-ghost { background:transparent; border:1px solid rgba(255,255,255,0.03); color:#cfe6ff; padding:.35rem .6rem; border-radius:8px; cursor:pointer; }
-    .btn-ghost:hover { border-color:var(--accent-1); color:#fff; }
-    .heart-btn { display:inline-flex; align-items:center; gap:.35rem; }
-    .heart-count { font-weight:700; color:#ff7b9b; }
-
-    .typing-indicator { padding:.45rem 0; color:#a8caff; min-height:20px; }
-    .reply-container { padding:0 0.75rem; }
-    .reply-preview { display:block; background:rgba(255,255,255,0.03); padding:.6rem; border-left:3px solid rgba(138,124,255,0.6); border-radius:6px; color:#cbe3ff; }
-
-    .input-area { padding:1rem; display:flex; gap:.6rem; border-top:1px solid rgba(90,79,207,0.08); align-items:flex-end; background:transparent; }
-    .message-input { flex:1; padding:.9rem; border-radius:10px; border:1px solid rgba(68,70,111,0.12); background: rgba(12,12,24,0.28); color:#eef; font-size:1rem; outline:none; }
-    .message-input:focus { border-color:var(--accent-1); box-shadow:0 0 10px rgba(138,124,255,0.12); }
-    .send-button { padding:.9rem 1.2rem; border-radius:10px; border:none; background:linear-gradient(45deg,#6a5af9,#d66efd); color:white; font-weight:700; cursor:pointer; }
-    .send-button:disabled { opacity:.5; cursor:not-allowed; }
-
-    /* Footer: fixed layout where LEFT and RIGHT each take 50% width */
-    .site-footer { /* keep visual flush with bottom; layout done below */ }
-    .site-footer .container-inner { padding: 0; } /* we will use footer-content for padding */
-    .footer-content {
-      width:100%;
-      display:flex;
-      gap:1.5rem;
-      align-items:start;
-      box-sizing:border-box;
-      padding: .9rem 1rem;
-    }
-    .footer-left, .footer-right {
-      flex: 1 1 50%;
-      min-width: 0; /* important so flex items can shrink on small screens */
+      justify-content: space-between;
+      padding: 30px 50px 20px 50px;
+      border-top: 2px solid #163053;
       box-sizing: border-box;
+      flex-wrap: wrap;
     }
-    .footer-left { padding-right: .5rem; }
-    .footer-right { padding-left: .5rem; display:flex; flex-direction:column; gap:.75rem; }
-
-    .footer-about-title { font-size:1.05rem; color:var(--accent-1); margin-bottom:.6rem; font-weight:600; }
-    .footer-about-text { color:#a0a0d0; line-height:1.6; font-size:.9rem; }
-    .footer-links { display:flex; flex-direction:column; gap:.6rem; }
-    .footer-links a { color:#a0a0d0; text-decoration:none; transition:color .15s; }
-    .footer-links a:hover { color:var(--accent-1); text-decoration:underline; }
-
-    .rocket-frame { margin-top: .5rem; padding: .8rem; border:2px solid #5a4fcf; border-radius:12px; background:rgba(20,20,40,0.35); overflow:hidden; max-width:420px; width:100%; box-sizing:border-box; }
-    .rocket-text { font-size: clamp(1.05rem, 3vw, 1.4rem); font-weight:bold; background:linear-gradient(45deg,var(--accent-1),var(--accent-2),var(--accent-1)); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: shimmer 3s linear infinite; text-align:center; line-height:1.2; }
-    @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-
-    /* Responsive: stack footer columns on small screens */
-    @media (max-width:768px){
-      .footer-content { flex-direction: column; padding:.75rem; gap: .75rem; }
-      .footer-left, .footer-right { flex: none; width:100%; padding: 0; }
-      .container { padding: .75rem; }
-      .site-header .container-inner, .site-footer .container-inner { padding: .75rem .9rem; }
-    }
-
-    /* ensure footer sits at bottom with no gap (if page short) */
-    /* body is flex column; footer naturally sits after content. No extra space caused. */
-
-    /* ---------- Loading overlay styles (kept minimal & non-intrusive) ---------- */
-    #loadingOverlay {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(180deg, rgba(4,10,20,0.85), rgba(8,12,25,0.85));
-      backdrop-filter: blur(6px);
-      color: #dbeeff;
-      flex-direction: column;
-      gap: 12px;
-      padding: 24px;
-    }
-    #loadingOverlay .overlay-card {
+    .footer-col {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      align-items: center;
-      max-width: 720px;
-      text-align: center;
+      justify-content: space-between;
+      flex: 1 1 45%;
     }
-    #loadingOverlay .overlay-title { font-size: 1.4rem; font-weight:700; color:#fff; }
-    #loadingOverlay .overlay-sub { font-size: 1rem; color:#cfeaff; opacity:0.95; }
-    .dots { display:inline-flex; gap:8px; align-items:center; padding-top:4px; }
-    .dot { width:10px; height:10px; border-radius:50%; background:linear-gradient(90deg,#64c2ff,#8a7cff); box-shadow: 0 0 8px rgba(100,194,255,0.18); transform: translateY(0); animation: dotUp 1.1s infinite ease-in-out; opacity:0.95; }
-    .dot.d2 { animation-delay: 0.15s; } .dot.d3 { animation-delay:0.3s; }
-    @keyframes dotUp { 0%{transform:translateY(0);opacity:0.5;}40%{transform:translateY(-8px);opacity:1;}100%{transform:translateY(0);opacity:0.5;} }
-    #loadingOverlay.hidden { display:none !important; }
+    .footer-links {
+      margin-bottom: 24px;
+    }
+    .footer-links a {
+      font-size: 1.13rem;
+      color: #aaa;
+      text-decoration: none;
+      margin-bottom: 12px;
+      font-weight: 600;
+      transition: color 0.2s;
+      display: block;
+    }
+    .footer-links a:hover {
+      color: #fab84f;
+    }
+    .footer-about-title {
+      font-size: 1.46rem;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #fab84f;
+    }
+    .footer-about-text {
+      font-size: 1rem;
+      color: #e5e5e5;
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+    .footer-social {
+      margin-top: auto;
+      display: flex;
+      gap: 21px;
+    }
+    .footer-social a {
+      color: #fff;
+      font-size: 2rem;
+      text-decoration: none;
+      transition: color 0.22s;
+    }
+    .footer-social a:hover {
+      color: #fab84f;
+    }
+    .footer-contact-row {
+      margin-bottom: 8px;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .footer-contact-label {
+      color: #fab84f;
+      margin-right: 4px;
+      font-weight: 500;
+      font-size: 1rem;
+    }
+    .footer-contact {
+      margin-top: 12px;
+      font-size: 1.02rem;
+      color: #fff;
+    }
+    .footer-contact-icon {
+      font-size: 1.18rem;
+      vertical-align: middle;
+      color: #afeafd;
+      margin-right: 7px;
+    }
+    @media (max-width: 900px) {
+      .footer {
+        flex-direction: column;
+        padding: 30px 20px 20px 20px;
+        gap: 30px;
+      }
+      .footer-col {
+        flex: 1 1 100%;
+      }
+      .main-content { padding: 0 10px;}
+    }
+    @media (max-width: 600px) {
+      .banner-title { font-size: 1.6rem; margin-left:18px;}
+      .footer-col { min-width: 90vw; }
+      .btn-row { flex-direction: column; align-items: center; } /* Stack buttons on small screens */
+      .big-btn { width: 100%; max-width: 300px; } /* Make buttons full width but capped */
+    }
+
   </style>
 </head>
 <body>
-  <!-- Loading overlay (related copy inside) -->
-  <div id="loadingOverlay" class="hidden" role="status" aria-live="polite">
-    <div class="overlay-card">
-      <div class="overlay-title">Connecting to the cosmic chat…</div>
-      <div class="overlay-sub">Fetching live messages and preparing the community space — this helps keep the feed fresh and safe.</div>
-      <div class="dots" aria-hidden="true">
-        <span class="dot d1"></span>
-        <span class="dot d2"></span>
-        <span class="dot d3"></span>
+  <!-- Star Background -->
+  <div class="stars" id="stars"></div>
+
+  <!-- Header -->
+  <div class="top-bar">
+    <button class="hamburger" id="hamburgerBtn">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="logo-title">
+      <img
+        src=" https://dl.dropboxusercontent.com/scl/fi/ulfs6ygkeyvr4mar8bkuz/galaxwbewh.png?rlkey=jq9buj80ny6et6jfbfpiuf14l&st=lwkqobqi&dl=0"
+        height="46"
+        alt="Logo"
+      />
+      GalaxyWeb
+    </div>
+
+    <div class="nav-buttons" id="navButtons">
+      <button class="nav-btn" onclick="window.location.href='index.html';">Home</button>
+      <button class="nav-btn" onclick="window.location.href='about_us.html';">Team Galaxy</button>
+      <div class="more-options" id="moreOptions">
+        <button class="nav-btn">More ▼</button>
+        <div class="dropdown-content">
+          <a href="galaxy_blogs.html">Blog</a>
+          <a href="galaxy_portfolio.html">Portfolio</a>
+          <a href="posts.html">Posts</a>
+          <a href="community_chat.html">Community Chat</a>
+          <a href="galaxy_studio.html">Galaxy Design</a>
+        </div>
       </div>
-      <div style="font-size:.9rem;color:rgba(200,220,255,0.75);max-width:640px">
-        Tip: if loading takes longer than a few seconds check your connection or try refreshing. Messages are synced in real time.
+
+      <button id="profileBtn" class="profile-btn" aria-haspopup="true" aria-expanded="false">
+        <i class="fa-solid fa-user"></i>
+      </button>
+      <div id="profileMenu" class="dropdown-content" style="right: 30px; display:none;">
+        <!-- keep href so middle-click/ctrl-click still works in browsers that allow it,
+             but we wire up onclick to correctly navigate and close the menu -->
+        <a href="/teamgalaxy/user_management/user_profile.html" id="profileLink">Profile</a>
+        <a href="#" id="logoutLink">Logout</a>
       </div>
     </div>
   </div>
 
-  <!-- full-bleed header -->
-  <header class="site-header" role="banner">
-    <div class="container-inner">
-      <div class="logo">GalaxyWeb</div>
-      <div class="profile-photo" id="header-avatar">U</div>
+  <!-- Banner section -->
+  <section class="banner-space">
+    <!-- Updated: Added the image -->
+    <img src="https://www.dropbox.com/scl/fi/a2fkm3joq1re84pbkxclo/1761577613723-02B91580-8615-42CB-9A0B-2D7C78896F96.jpg?rlkey=wbw92qde23xcweh4hfunmqk2f&raw=1" alt="Banner Background" class="banner-image">
+    <div class="banner-title">Galaxy Design</div>
+  </section>
+
+  <main class="main-content">
+
+    <p>
+      <strong>Galaxy Design</strong> is a creative studio that blends style and function to deliver stunning visuals for gaming communities and brands. From logos and banners to social media content, web design, and merchandise, we craft designs that stand out and tell your story.
+      <br><br>
+      We don’t just “make graphics” — we create identities. Each project reflects the spirit, values, and energy of your brand or community, making it shine like a star in the galaxy.
+      <br><br>
+      Imagine. Create. Shine. ✨
+    </p>
+
+    <h2>Galaxy Design Portfolio</h2>
+    <p>
+      Our portfolio showcases the full range of what Galaxy Design can create — from sleek esports jerseys and team logos to dynamic social media graphics and merchandise designs. Every piece reflects our dedication to quality, creativity, and the unique identity of each client.<br>
+      You can browse the complete portfolio here to see our past projects, get inspired, and discover what we can create for you.
+    </p>
+    <div class="btn-row">
+      <button class="big-btn" onclick="location.href='galaxy_portfolio.html'">Portfolio</button>
     </div>
-  </header>
 
-  <div class="app-wrap">
-    <div class="container">
-      <main class="chat-container" role="main">
-        <div id="messages-area" class="messages-area">
-          <div style="text-align:center;color:#a0a0d0;padding:2rem;">Loading chat...</div>
-        </div>
-
-        <div id="typing-indicator" class="typing-indicator"></div>
-
-        <div id="reply-preview-wrap" class="reply-container" style="display:none">
-          <div class="reply-preview" id="reply-preview"></div>
-        </div>
-
-        <div class="input-area">
-          <input id="message-input" class="message-input" placeholder="Write your message..." maxlength="1000" autocomplete="off" />
-          <button id="send-button" class="send-button" disabled>Send</button>
-        </div>
-      </main>
+    <h2>How to Order</h2>
+    <p>
+      <ul>
+        <li><strong>Via Discord Only</strong> – All orders are placed through our Discord server. Open a “Design Order” ticket to share your ideas, discuss details, receive a quote, and get updates directly from our design team.</li>
+      </ul>
+      <br>
+      <strong>Payments & Delivery:</strong><br>
+      <ul>
+        <li>Payments are accepted via PayPal, credit card, or other supported methods.</li>
+        <li>Delivery times vary depending on the complexity of the project and will be confirmed before payment.</li>
+        <li>All designs are delivered in high-resolution formats, suitable for both digital and print use.</li>
+      </ul>
+      <br>
+      Your brand deserves to shine — let Galaxy Design make it unforgettable.
+    </p>
+    <div class="btn-row">
+      <button class="big-btn" onclick="location.href='https://discord.gg/yMzkybxSxV'">Order Now</button>
     </div>
-  </div>
 
-  <!-- REPLACED FOOTER: exact same content as earlier 'Galaxy' footer -->
-  <footer class="site-footer" role="contentinfo" aria-label="Site footer">
-    <div class="container-inner">
-      <div class="footer-content">
-        <!-- Left: About + Social -->
-        <div class="footer-left">
-          <div>
-            <div class="footer-about-title">About TeamGalaxy</div>
-            <div class="footer-about-text">
-              TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration.
-              We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!
-            </div>
-          </div>
+    <h2>How To Apply?</h2>
+    <p>
+      Think you’ve got the skills and creativity to join Galaxy Design? We’re always on the lookout for talented designers who can bring fresh ideas to our team.<br>
+      <br>
+      To apply, all you need is your portfolio — your best work that showcases your style and abilities.
+      <br><br>
+      You can apply in two ways:
+      <ul>
+        <li>Click the button below to go to our Application Page and submit your portfolio directly there.</li>
+        <li>Join our Discord and apply through the Application section by sharing your portfolio link or files.</li>
+      </ul>
+      <br>
+      📌 <strong>Tip:</strong> Make sure your portfolio includes a variety of your designs so we can see your full range of skills.
+    </p>
+    <div class="btn-row">
+      <button class="big-btn" onclick="location.href='https://discord.gg/yMzkybxSxV'">Apply</button>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <!-- Left: About + Social -->
+    <div class="footer-col footer-left">
+      <div>
+        <div class="footer-about-title">About TeamGalaxy</div>
+        <div class="footer-about-text">
+          TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration. We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!
         </div>
+      </div>
+      <div class="footer-social">
+        <a href="  https://twitter.com  " title="Twitter"><i class="fab fa-twitter"></i></a>
+        <a href="https://facebook.com  " title="Facebook"><i class="fab fa-facebook"></i></a>
+        <a href="https://instagram.com  " title="Instagram"><i class="fab fa-instagram"></i></a>
+        <a href="https://youtube.com  " title="YouTube"><i class="fab fa-youtube"></i></a>
+        <a href="https://discord.com  " title="Discord"><i class="fab fa-discord"></i></a>
+      </div>
+    </div>
 
-        <!-- Right: Links + Address -->
-        <div class="footer-right">
-          <div class="footer-links">
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms & Conditions</a>
-            <a href="#">About</a>
-          </div>
-
-          <div class="rocket-frame" aria-hidden="true" style="margin-top:12px;">
-            <div class="rocket-text">🚀 ROCKET 🚀</div>
-          </div>
+    <!-- Right: Links + Address -->
+    <div class="footer-col footer-right">
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms & Conditions</a>
+        <a href="#">About</a>
+      </div>
+      <div>
+        <div class="footer-contact-row">
+          <span class="footer-contact-label">
+            <i class="fa-solid fa-location-dot footer-contact-icon"></i>Address:
+          </span>
+          44 Galaxy St, Universe City, WebLand
+        </div>
+        <div class="footer-contact-row">
+          <span class="footer-contact-label">
+            <i class="fa-solid fa-phone footer-contact-icon"></i>Phone:
+          </span>
+          +91-9876543210
+        </div>
+        <div class="footer-contact-row">
+          <span class="footer-contact-label">
+            <i class="fa-solid fa-envelope footer-contact-icon"></i>Email:
+          </span>
+          support@gmail.com
+        </div>
+        <div class="footer-contact">
+          <span class="footer-contact-label">
+            <i class="fa-regular fa-clock footer-contact-icon"></i>Working Hours:
+          </span>
+          Mon-Sat 10am - 10pm
         </div>
       </div>
     </div>
   </footer>
 
   <script>
-    // FIREBASE CONFIG (unchanged)
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
       authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -326,305 +593,192 @@
       appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
       measurementId: "G-6C2W9NSNCH"
     };
-    firebase.initializeApp(firebaseConfig);
+
+    // Initialize Firebase
+    if (!window.firebase || !firebase.apps) {
+      console.error('Firebase compat not loaded correctly.');
+    } else {
+      try {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      } catch (e) { console.warn('firebase init skipped or failed', e); }
+    }
+
+    // Activate App Check
+    try {
+      const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider(
+        "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"
+      );
+      firebase.appCheck().activate(appCheckProvider, true);
+      console.log(
+        "App Check (compat) activated — reCaptcha v3 provider attached."
+      );
+    } catch (e) {
+      console.warn("App Check activation failed (compat):", e);
+    }
+
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // DOM refs
-    const messagesArea = document.getElementById('messages-area');
-    const messageInput = document.getElementById('message-input');
-    const sendButton = document.getElementById('send-button');
-    const headerAvatar = document.getElementById('header-avatar');
-    const typingIndicator = document.getElementById('typing-indicator');
-    const replyPreviewWrap = document.getElementById('reply-preview-wrap');
-    const replyPreview = document.getElementById('reply-preview');
+    // Hamburger menu functionality
+    const hamburgerBtn = document.getElementById("hamburgerBtn");
+    const navButtons = document.getElementById("navButtons");
 
-    const loadingOverlay = document.getElementById('loadingOverlay');
+    hamburgerBtn.addEventListener('click', function() {
+      navButtons.classList.toggle('show');
+    });
 
-    // helper to show/hide overlay
-    function showLoadingOverlay(title, sub) {
-      if (title) {
-        const t = loadingOverlay.querySelector('.overlay-title');
-        if (t) t.textContent = title;
+    // Close hamburger menu if clicked outside
+    window.addEventListener("click", function(event) {
+      if (!hamburgerBtn.contains(event.target) && !navButtons.contains(event.target)) {
+        navButtons.classList.remove('show');
       }
-      if (sub) {
-        const s = loadingOverlay.querySelector('.overlay-sub');
-        if (s) s.textContent = sub;
+    });
+
+    // More Options dropdown functionality
+    const moreOptions = document.getElementById("moreOptions");
+    const moreDropdown = moreOptions.querySelector(".dropdown-content");
+
+    moreOptions.querySelector(".nav-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      moreDropdown.style.display = moreDropdown.style.display === "block" ? "none" : "block";
+    });
+
+    window.addEventListener("click", (event) => {
+      if (!moreOptions.contains(event.target)) {
+        moreDropdown.style.display = "none";
       }
-      loadingOverlay.classList.remove('hidden');
-    }
-    function hideLoadingOverlay() {
-      loadingOverlay.classList.add('hidden');
-    }
+    });
 
-    // show overlay initially
-    showLoadingOverlay('Connecting to the chat…', 'Syncing messages and preparing the community feed');
+    // Profile dropdown functionality
+    const profileBtn = document.getElementById("profileBtn");
+    const profileMenu = document.getElementById("profileMenu");
+    const profileLink = document.getElementById("profileLink");
+    const logoutLink = document.getElementById("logoutLink");
 
-    // State (same as previous logic)
-    let unsubscribeMessages = null;
-    let unsubscribeTyping = null;
-    let currentProfile = null;
-    let typingTimeout = null;
-    let localTyping = false;
-    let replyTo = null;
-    let userHeartsSet = new Set();
-    const MAX_SNIPPET = 120;
-    let latestSnapshotDocs = {};
+    profileBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      // close hamburger if open
+      navButtons.classList.remove('show');
 
-    function escapeHtml(s=''){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,"&#039;"); }
-    function formatTime(ts){ if(!ts) return 'Just now'; try{ const d = ts.toDate?ts.toDate():new Date(ts); return d.toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}); }catch(e){return 'Just now'} }
-    function snippet(s,n=MAX_SNIPPET){ if(!s) return ''; return s.length>n? s.slice(0,n)+'…': s; }
-
-    function buildMessageElement(data, id){
-      const card = document.createElement('div'); card.className = 'message-card'; card.dataset.docId = id;
-      const header = document.createElement('div'); header.className = 'message-header';
-      const avatarWrap = document.createElement('div'); avatarWrap.className = 'avatar';
-      const initials = (data.authorName || 'U').charAt(0).toUpperCase();
-      if(data.authorPhotoUrl){
-        const img = document.createElement('img'); img.src = data.authorPhotoUrl; img.alt = (data.authorName || 'Avatar').slice(0,20);
-        img.onerror = ()=>{ if(img.parentElement) img.parentElement.removeChild(img); avatarWrap.textContent = initials; };
-        avatarWrap.appendChild(img);
-      } else { avatarWrap.textContent = initials; }
-      const userInfo = document.createElement('div'); userInfo.className = 'user-info';
-      const uname = document.createElement('div'); uname.className = 'username'; uname.innerHTML = escapeHtml(data.authorName || 'Anonymous');
-      const ts = document.createElement('div'); ts.className = 'timestamp'; ts.textContent = formatTime(data.timestamp);
-      userInfo.appendChild(uname); userInfo.appendChild(ts);
-      header.appendChild(avatarWrap); header.appendChild(userInfo);
-
-      if(data.replyToAuthorName || data.replyToSnippet){
-        const rp = document.createElement('div'); rp.className = 'reply-preview'; rp.style.fontSize = '.9rem';
-        rp.innerHTML = `<strong style="color:#cbe3ff">${escapeHtml(data.replyToAuthorName || '')}</strong>: ${escapeHtml((data.replyToSnippet || '').slice(0,MAX_SNIPPET))}`;
-        card.appendChild(header); card.appendChild(rp);
-      } else {
-        card.appendChild(header);
-      }
-
-      const content = document.createElement('div'); content.className = 'message-content'; content.innerHTML = escapeHtml(data.text || '');
-      card.appendChild(content);
-
-      const actions = document.createElement('div'); actions.className = 'message-actions';
-      const replyBtn = document.createElement('button'); replyBtn.className = 'btn-ghost'; replyBtn.type = 'button'; replyBtn.textContent = 'Reply';
-      replyBtn.addEventListener('click', ()=> setReplyTo({ id, authorName: data.authorName || 'Anonymous', snippet: snippet(data.text || '') }));
-      const heartBtn = document.createElement('button'); heartBtn.className = 'btn-ghost heart-btn'; heartBtn.type = 'button';
-      const heartIcon = document.createElement('span'); heartIcon.innerHTML = userHeartsSet.has(id) ? '❤️' : '🤍';
-      const heartCount = document.createElement('span'); heartCount.className = 'heart-count'; heartCount.textContent = (data.heartsCount || 0);
-      heartBtn.appendChild(heartIcon); heartBtn.appendChild(heartCount);
-      heartBtn.addEventListener('click', async ()=> toggleHeart(id));
-      actions.appendChild(replyBtn); actions.appendChild(heartBtn);
-      card.appendChild(actions);
-      return card;
-    }
-
-    function renderMessagesFromSnapshot(snapshot){
-      latestSnapshotDocs = {};
-      snapshot.docs.forEach(d => latestSnapshotDocs[d.id] = d.data());
-      messagesArea.innerHTML = '';
-      if(!snapshot.docs.length){
-        messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem;">No messages yet. Say hi 👋</div>';
-        hideLoadingOverlay();
+      // If not signed in, redirect to sign-up immediately
+      if (!auth.currentUser) {
+        window.location.href = "/teamgalaxy/legal/sign_up.html";
         return;
       }
-      snapshot.docs.forEach(d => {
-        const el = buildMessageElement(d.data(), d.id);
-        messagesArea.appendChild(el);
+
+      // signed in -> toggle menu
+      const showing = profileMenu.style.display === "block";
+      profileMenu.style.display = showing ? "none" : "block";
+    });
+
+    // Close profile menu if clicked outside
+    window.addEventListener("click", (event) => {
+      if (!profileBtn.contains(event.target) && !profileMenu.contains(event.target)) {
+        profileMenu.style.display = "none";
+      }
+    });
+
+    // Sign-Out Function
+    async function signOut() {
+      try {
+        await auth.signOut();
+        // hide menu after sign-out
+        profileMenu.style.display = "none";
+        // after sign-out show default icon
+        profileBtn.innerHTML = '<i class="fa-solid fa-user"></i>';
+      } catch (error) {
+        alert("Sign-out failed: " + (error && error.message ? error.message : error));
+      }
+    }
+
+    // Fix: ensure the Profile menu item actually navigates to the correct path.
+    // We keep href for normal navigation, but also set onclick to ensure SPA-friendly navigation and close the menu.
+    function safeNavigateToProfile(e) {
+      e && e.preventDefault && e.preventDefault();
+      e && e.stopPropagation && e.stopPropagation();
+      // prefer the explicit path you requested
+      const path = '/teamgalaxy/user_management/user_profile.html';
+      // hide menu quickly (visual)
+      profileMenu.style.display = 'none';
+      // if user is signed in go to profile, else redirect to sign up
+      if (!auth.currentUser) {
+        window.location.href = '/teamgalaxy/legal/sign_up.html';
+      } else {
+        window.location.href = path;
+      }
+    }
+
+    // Wire up logout and profile click handlers once
+    if (logoutLink && !logoutLink._attached) {
+      logoutLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        signOut();
       });
-      messagesArea.scrollTop = messagesArea.scrollHeight;
-      hideLoadingOverlay();
+      logoutLink._attached = true;
     }
 
-    async function sendMessage(){
-      const text = messageInput.value.trim();
-      if(!text) return;
-      sendButton.disabled = true;
-      try{
-        const user = auth.currentUser; if(!user) throw new Error('Not signed in');
-        const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
-        if(!privateDoc.exists) throw new Error('Not set up');
-        const p = privateDoc.data(); const slug = p.slug; if(!slug) throw new Error('Slug missing');
-        const pub = await db.collection('publicProfiles').doc(slug).get();
-        if(!pub.exists) throw new Error('Public profile not found');
-        const pd = pub.data();
-        const msg = {
-          text,
-          authorSlug: slug,
-          authorName: pd.name || user.displayName || 'Anonymous',
-          authorPhotoUrl: pd.profilePhotoUrl || '',
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          visibility: true,
-          likes: 0,
-          heartsCount: 0
-        };
-        if(replyTo && replyTo.id){
-          msg.replyToId = replyTo.id;
-          msg.replyToAuthorName = replyTo.authorName || (latestSnapshotDocs[replyTo.id] && latestSnapshotDocs[replyTo.id].authorName) || 'Unknown';
-          msg.replyToSnippet = replyTo.snippet || (latestSnapshotDocs[replyTo.id] && snippet(latestSnapshotDocs[replyTo.id].text || '')) || '';
-        }
-        await db.collection('communityMessages').add(msg);
-        messageInput.value = '';
-        clearReply();
-        stopTyping();
-      }catch(err){
-        console.error('send error',err);
-        alert('Send failed: ' + (err.message || 'unknown'));
-      }finally{
-        sendButton.disabled = false;
-      }
+    // Attach profile link handler
+    if (profileLink && !profileLink._attached) {
+      profileLink.addEventListener('click', safeNavigateToProfile);
+      profileLink._attached = true;
     }
 
-    async function toggleHeart(messageId){
-      const user = auth.currentUser;
-      if(!user){ alert('Sign in to heart'); return; }
-      const uid = user.uid;
-      const heartDocId = `${messageId}_${uid}`;
-      const heartDocRef = db.collection('messageHearts').doc(heartDocId);
-      const msgRef = db.collection('communityMessages').doc(messageId);
-      try{
-        await db.runTransaction(async tx => {
-          const heartSnap = await tx.get(heartDocRef);
-          const msgSnap = await tx.get(msgRef);
-          if(!msgSnap.exists) throw new Error('Message missing');
-          let hearts = msgSnap.data().heartsCount || 0;
-          if(!heartSnap.exists){
-            tx.set(heartDocRef, { messageId, userId: uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-            tx.update(msgRef, { heartsCount: hearts + 1 });
-            userHeartsSet.add(messageId);
-          } else {
-            tx.delete(heartDocRef);
-            tx.update(msgRef, { heartsCount: Math.max(0, hearts - 1) });
-            userHeartsSet.delete(messageId);
-          }
-        });
-      }catch(err){
-        console.error('heart tx err',err);
-        alert('Heart action failed');
-      }
-    }
-
-    function startTypingLocal(){
-      if(!currentProfile || !currentProfile.slug) return;
-      if(localTyping){ clearTimeout(typingTimeout); typingTimeout = setTimeout(stopTyping,1700); return; }
-      localTyping = true;
-      db.collection('communityTyping').doc(currentProfile.slug).set({
-        typing: true,
-        name: currentProfile.name || '',
-        photoUrl: currentProfile.photoUrl || '',
-        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true }).catch(e => console.warn('typing set', e));
-      typingTimeout = setTimeout(stopTyping, 1700);
-    }
-    function stopTyping(){
-      if(!currentProfile || !currentProfile.slug) return;
-      localTyping = false; clearTimeout(typingTimeout);
-      db.collection('communityTyping').doc(currentProfile.slug).set({
-        typing: false,
-        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true }).catch(e => console.warn('typing clear', e));
-    }
-    function setupTypingListener(){
-      if(typeof unsubscribeTyping === 'function') unsubscribeTyping();
-      unsubscribeTyping = db.collection('communityTyping').where('typing','==',true).onSnapshot(snap => {
-        const typingUsers = [];
-        snap.forEach(doc => {
-          if(currentProfile && doc.id === currentProfile.slug) return;
-          const d = doc.data();
-          if(d && d.name) typingUsers.push(d.name);
-        });
-        if(!typingUsers.length) typingIndicator.textContent = '';
-        else if(typingUsers.length === 1) typingIndicator.textContent = `${typingUsers[0]} is typing…`;
-        else if(typingUsers.length === 2) typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers[1]} are typing…`;
-        else typingIndicator.textContent = `${typingUsers[0]} and ${typingUsers.length - 1} others are typing…`;
-      }, err => console.warn('typing listener err', err));
-    }
-
-    function setReplyTo(obj){
-      replyTo = obj;
-      replyPreviewWrap.style.display = 'block';
-      replyPreview.innerHTML = `<strong style="color:#cbe3ff">${escapeHtml(obj.authorName||'')}</strong>: ${escapeHtml(obj.snippet||'')} &nbsp; <button class="btn-ghost" id="cancel-reply">Cancel</button>`;
-      document.getElementById('cancel-reply').addEventListener('click', clearReply);
-      messageInput.focus();
-    }
-    function clearReply(){ replyTo = null; replyPreviewWrap.style.display = 'none'; replyPreview.innerHTML = ''; }
-
-    function setupRealtimeListener(){
-      if(typeof unsubscribeMessages === 'function') unsubscribeMessages();
-      messagesArea.innerHTML = '<div style="text-align:center;color:#a0a0d0;padding:2rem">Loading chat...</div>';
-      const q = db.collection('communityMessages').where('visibility','==',true).orderBy('timestamp','asc').limit(500);
-      unsubscribeMessages = q.onSnapshot(snapshot => {
-        renderMessagesFromSnapshot(snapshot);
-      }, err => {
-        console.error('messages listener err', err);
-        messagesArea.innerHTML = `<div style="text-align:center;color:#f88;padding:2rem">Failed to load: ${escapeHtml(err.message || 'unknown')}</div>`;
-        hideLoadingOverlay();
-      });
-    }
-
-    async function loadUserHearts(uid){
-      userHeartsSet.clear();
-      try{
-        const snaps = await db.collection('messageHearts').where('userId','==',uid).get();
-        snaps.forEach(d=> userHeartsSet.add(d.data().messageId));
-      }catch(e){ console.warn('load hearts err',e); }
-    }
-
-    auth.onAuthStateChanged(async (user) => {
-      if(!user){ 
-        // If not signed in, keep overlay visible briefly and then redirect
-        showLoadingOverlay('Redirecting to sign up…', 'You need an account to use the community chat');
-        setTimeout(()=> window.location.href = '/teamgalaxy/legal/sign_up.html', 900);
-        return; 
-      }
-      try{
-        const privateDoc = await db.collection('usersPrivate').doc(user.uid).get();
-        const initial = (user.displayName || user.email || 'U').charAt(0).toUpperCase();
-        if(privateDoc.exists){
-          const pd = privateDoc.data();
-          if(pd && pd.slug){
-            const pub = await db.collection('publicProfiles').doc(pd.slug).get();
-            if(pub.exists){
-              const pubd = pub.data();
-              currentProfile = { slug: pd.slug, name: pubd.name || (user.displayName || 'Anonymous'), photoUrl: pubd.profilePhotoUrl || '' };
-              headerAvatar.innerHTML = '';
-              if(currentProfile.photoUrl){
-                const img = document.createElement('img'); img.src = currentProfile.photoUrl; img.alt = currentProfile.name || 'Profile'; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover';
-                img.onerror = ()=> headerAvatar.textContent = (currentProfile.name || initial).charAt(0);
-                headerAvatar.appendChild(img);
-              } else headerAvatar.textContent = (currentProfile.name || initial).charAt(0);
-            } else {
-              currentProfile = { slug: pd.slug, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
-              headerAvatar.textContent = (user.displayName || initial).charAt(0);
-            }
-          } else {
-            currentProfile = { slug: null, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
-            headerAvatar.textContent = (user.displayName || initial).charAt(0);
-          }
+    // Update profile button (photo or icon) on auth state change and ensure handlers remain wired
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        // show photo if available
+        if (user.photoURL) {
+          profileBtn.innerHTML = `<img src="${user.photoURL}" alt="Profile" style="width:36px;height:36px;border-radius:50%;">`;
         } else {
-          currentProfile = { slug: null, name: user.displayName || 'Anonymous', photoUrl: user.photoURL || '' };
-          headerAvatar.textContent = (user.displayName || initial).charAt(0);
+          profileBtn.innerHTML = '<i class="fa-solid fa-user"></i>';
         }
-      }catch(e){
-        console.warn('profile fetch err', e);
-        currentProfile = { slug:null, name:user.displayName||'Anonymous', photoUrl:user.photoURL||'' };
-        headerAvatar.textContent = (user.displayName||'U').charAt(0);
+        // ensure logout/profile handlers remain
+        if (logoutLink && !logoutLink._attached) {
+          logoutLink.addEventListener('click', (e) => {
+            e.preventDefault(); e.stopPropagation(); signOut();
+          });
+          logoutLink._attached = true;
+        }
+        if (profileLink && !profileLink._attached) {
+          profileLink.addEventListener('click', safeNavigateToProfile);
+          profileLink._attached = true;
+        }
+      } else {
+        // signed out state: reset UI (icon) and keep profile button redirect behaviour on click
+        profileBtn.innerHTML = '<i class="fa-solid fa-user"></i>';
       }
-
-      messageInput.disabled = false;
-      sendButton.disabled = false;
-      await loadUserHearts(user.uid);
-      setupRealtimeListener();
-      setupTypingListener();
-      // hide overlay once listeners set
-      hideLoadingOverlay();
     });
 
-    messageInput.addEventListener('input', ()=> startTypingLocal());
-    messageInput.addEventListener('keydown', (e)=> { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }});
-    sendButton.addEventListener('click', ()=> sendMessage());
+    // Create star background
+    const starsContainer = document.getElementById('stars');
+    const starCount = 150; // Adjust number of stars as needed
 
-    window.addEventListener('beforeunload', ()=> {
-      try{ if(currentProfile && currentProfile.slug) db.collection('communityTyping').doc(currentProfile.slug).set({ typing:false, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true }); }catch(e){}
-      if(typeof unsubscribeMessages === 'function') unsubscribeMessages();
-      if(typeof unsubscribeTyping === 'function') unsubscribeTyping();
-    });
+    for (let i = 0; i < starCount; i++) {
+      const star = document.createElement('div');
+      star.classList.add('star');
+
+      // Random position
+      const posX = Math.random() * 100;
+      const posY = Math.random() * 100;
+
+      // Random size (0.5px to 2px)
+      const size = Math.random() * 1.5 + 0.5;
+
+      // Random animation duration (2s to 8s)
+      const duration = Math.random() * 6 + 2;
+
+      star.style.left = `${posX}%`;
+      star.style.top = `${posY}%`;
+      star.style.width = `${size}px`;
+      star.style.height = `${size}px`;
+      star.style.setProperty('--duration', `${duration}s`);
+
+      // Random delay for animation
+      star.style.animationDelay = `${Math.random() * 5}s`;
+
+      starsContainer.appendChild(star);
+    }
   </script>
 </body>
 </html>
