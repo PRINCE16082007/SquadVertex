@@ -10,7 +10,7 @@
     html, body { padding:0; margin:0; background: #181f2b; color: #fff; font-family: Arial, sans-serif; }
     body { box-sizing: border-box; position: relative; min-height: 100vh; overflow-x: hidden; display: flex; flex-direction: column; }
 
-    /* Star background */
+    /* Star background (improved) */
     .stars {
       position: fixed;
       top: 0;
@@ -19,29 +19,56 @@
       height: 100%;
       pointer-events: none;
       z-index: -1;
+      overflow: hidden;
     }
 
     .star {
       position: absolute;
       background-color: white;
       border-radius: 50%;
-      animation: twinkle var(--duration, 5s) infinite ease-in-out;
+      opacity: 0.85;
+      box-shadow: 0 0 6px rgba(255,255,255,0.6);
+      transform: translate3d(0,0,0);
+      animation: twinkle var(--duration, 5s) infinite ease-in-out, drift var(--driftDur, 60s) linear infinite;
+      will-change: transform, opacity;
     }
 
     @keyframes twinkle {
-      0%, 100% { opacity: 0.2; }
-      50% { opacity: 1; }
+      0%, 100% { opacity: 0.15; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
+
+    @keyframes drift {
+      0% { transform: translate3d(0,0,0); }
+      100% { transform: translate3d(var(--driftX, 10px), var(--driftY, 6px), 0); }
+    }
+
+    /* Shooting star */
+    .shooting-star {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(255,255,255,1), rgba(255,255,255,0));
+      box-shadow: 0 0 8px rgba(255,255,255,0.95);
+      opacity: 0;
+      transform-origin: 0 50%;
+      z-index: -1;
+      pointer-events: none;
+    }
+    @keyframes shoot {
+      0% { opacity: 0; transform: translateX(0) scaleX(1); }
+      10% { opacity: 1; }
+      100% { opacity: 0; transform: translateX(var(--travel, 600px)) scaleX(1); }
     }
 
     /* Header */
     .top-bar {
       display: flex;
       align-items: center;
-      /* Desktop: Use space-between to align logo-title to left and nav-buttons to right */
       justify-content: space-between;
       height: 80px;
       background: rgba(16, 23, 36, 0.85);
-      padding: 0 20px; /* Maintain padding */
+      padding: 0 20px;
       backdrop-filter: blur(10px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       position: sticky;
@@ -52,7 +79,6 @@
     }
 
     .logo-title {
-      /* Desktop: Keep it on the left */
       margin-left: 0;
       display: flex;
       align-items: center;
@@ -64,7 +90,6 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      /* Ensure it doesn't grow */
       flex: 0 0 auto;
     }
 
@@ -172,13 +197,11 @@
       .hamburger {
         display: block;
       }
-      /* Mobile: Change justify-content to flex-end to push logo-title to the right */
       .top-bar {
-        justify-content: flex-end; /* Aligns content to the right */
+        justify-content: flex-end;
       }
-      /* Mobile: Add margin-left to push the logo-title to the right */
       .logo-title {
-        margin-left: auto; /* Pushes the logo-title to the right */
+        margin-left: auto;
       }
       .nav-buttons {
         display: none;
@@ -240,14 +263,13 @@
         transform: translateY(0);
       }
     }
-    .blog-card:hover { box-shadow: 0 12px 26px #232746cc; transform: translateY(-3px); } /* Added subtle lift on hover */
+    .blog-card:hover { box-shadow: 0 12px 26px #232746cc; transform: translateY(-3px); }
     .blog-card-image { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s; }
     .blog-card:hover .blog-card-image { transform: scale(1.04);}
     .blog-card-info {
       position: absolute;
       left: 16px;
       bottom: 16px;
-      /* no background! */
       display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
       color: #fff;
       z-index: 2;
@@ -271,6 +293,7 @@
       display: flex;
       align-items: stretch;
       justify-content: stretch;
+      transition: opacity .28s, transform .28s;
     }
     .skeleton-blog-card-image {
       width: 100%;
@@ -303,6 +326,14 @@
     @keyframes skeleton-shimmer {
       0% { background-position: -200% 0; }
       100% { background-position: 200% 0; }
+    }
+
+    /* skeleton fade helper (we fade skeletons before replacing) */
+    .skeleton-fade {
+      animation: skeletonFade 0.32s forwards;
+    }
+    @keyframes skeletonFade {
+      to { opacity: 0; transform: translateY(8px); }
     }
 
     /* Overlap first row */
@@ -439,7 +470,6 @@
       GalaxyWeb
     </div>
     <div class="nav-buttons" id="navButtons">
-      <!-- Updated: Added the requested links -->
       <button class="nav-btn" onclick="window.location.href='index.html';">Home</button>
       <button class="nav-btn" onclick="window.location.href='about_us.html';">Team Galaxy</button>
       <div class="more-options" id="moreOptions">
@@ -465,9 +495,23 @@
     <img src="    https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=1200&q=80" alt="Banner" />
   </section>
   <main>
-    <!-- Updated: Added skeleton cards -->
+    <!-- Updated: Added skeleton cards (8 now) -->
     <section class="blogs-grid" id="blogsGrid">
-      <!-- Skeleton Cards -->
+      <!-- Skeleton Cards (keep until real cards fully loaded) -->
+      <div class="skeleton-blog-card">
+        <div class="skeleton-blog-card-image"></div>
+        <div class="skeleton-blog-card-info">
+          <div class="skeleton-info-row"></div>
+          <div class="skeleton-info-row"></div>
+        </div>
+      </div>
+      <div class="skeleton-blog-card">
+        <div class="skeleton-blog-card-image"></div>
+        <div class="skeleton-blog-card-info">
+          <div class="skeleton-info-row"></div>
+          <div class="skeleton-info-row"></div>
+        </div>
+      </div>
       <div class="skeleton-blog-card">
         <div class="skeleton-blog-card-image"></div>
         <div class="skeleton-blog-card-info">
@@ -589,9 +633,8 @@
 
     // Close hamburger menu if clicked outside
     window.addEventListener("click", function(event) {
-        // Check if the click was outside the hamburger button and the nav menu
         if (!hamburgerBtn.contains(event.target) && !navButtons.contains(event.target)) {
-            navButtons.classList.remove('show'); // Close the menu
+            navButtons.classList.remove('show');
         }
     });
 
@@ -599,13 +642,11 @@
     const moreOptions = document.getElementById("moreOptions");
     const moreDropdown = moreOptions.querySelector(".dropdown-content");
 
-    // Toggle dropdown on button click
     moreOptions.querySelector(".nav-btn").addEventListener("click", (e) => {
-      e.stopPropagation(); // Prevent immediate closing if clicking the button itself
+      e.stopPropagation();
       moreDropdown.style.display = moreDropdown.style.display === "block" ? "none" : "block";
     });
 
-    // Close 'More' dropdown if clicked outside
     window.addEventListener("click", (event) => {
         if (!moreOptions.contains(event.target)) {
             moreDropdown.style.display = "none";
@@ -623,7 +664,6 @@
       measurementId: "G-6C2W9NSNCH"
     };
 
-    // ===== Initialize Firebase (compat) safely - only once =====
     if (!window.firebase) {
       console.error("Firebase SDK not loaded. Make sure compat scripts are included.");
     } else {
@@ -635,8 +675,7 @@
       }
     }
 
-    // ===== Activate App Check (compat) - safe try/catch =====
-    try {
+   try {
       const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider("6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx");
       firebase.appCheck().activate(appCheckProvider, true);
       console.log("App Check (compat) activated");
@@ -644,11 +683,9 @@
       console.warn("App Check activation failed (compat):", e);
     }
 
-    // ===== compat services =====
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // ===== Ensure auth persistence is LOCAL so sessions survive reloads =====
     try {
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
         .then(() => console.log("Auth persistence set to LOCAL"))
@@ -657,14 +694,12 @@
       console.warn("Could not set persistence (maybe compat API mismatch):", err);
     }
 
-    // ===== DOM refs (guarded) =====
     const profileBtn = document.getElementById("profileBtn");
     const profileMenu = document.getElementById("profileMenu");
     const logoutLink = document.getElementById("logoutLink");
     const profileLink = document.getElementById("profileLink");
-    const cardsContainer = document.getElementById("cardsContainer");
+    const cardsContainer = document.getElementById("cardsContainer"); // kept as in original
 
-    // ===== collaborator boxes (unchanged) =====
     document.querySelectorAll('.collaborator-logo-box').forEach(box => {
       box.addEventListener('click', () => {
         const url = box.getAttribute('data-url');
@@ -672,18 +707,15 @@
       });
     });
 
-    // ===== Single click handler that checks live auth state =====
     function handleProfileBtnClick(e) {
       e && e.stopPropagation();
       try {
         const liveUser = auth.currentUser;
-        // Redirect path updated per your request
         if (!liveUser) {
           console.log("Profile clicked while not signed in — redirecting to /teamgalaxy/legal/sign_up.html");
           window.location.href = "/teamgalaxy/legal/sign_up.html";
           return;
         }
-        // Signed in -> toggle menu
         if (!profileMenu) return;
         profileMenu.style.display = profileMenu.style.display === "block" ? "none" : "block";
       } catch (err) {
@@ -691,18 +723,15 @@
       }
     }
 
-    // Attach once defensively
     if (profileBtn && !profileBtn._attached) {
       profileBtn.addEventListener("click", handleProfileBtnClick);
       profileBtn._attached = true;
     }
 
-    // Close profile menu if clicking outside (but don't auto-signout)
     window.addEventListener("click", () => {
       if (profileMenu) profileMenu.style.display = "none";
     });
 
-    // ===== Sign in / Sign out functions =====
     async function signIn() {
       const provider = new firebase.auth.GoogleAuthProvider();
       try {
@@ -725,7 +754,6 @@
       }
     }
 
-    // Wire logout link safely (only once)
     if (logoutLink && !logoutLink._attached) {
       logoutLink.addEventListener("click", (e) => {
         e.preventDefault();
@@ -735,7 +763,6 @@
       logoutLink._attached = true;
     }
 
-    // Wire profileLink safely (only once)
     if (profileLink && !profileLink._attached) {
       profileLink.addEventListener("click", (e) => {
         e.preventDefault();
@@ -744,27 +771,25 @@
           window.location.href = "/teamgalaxy/legal/sign_up.html";
           return;
         }
-        window.location.href = "/teamgalaxy/user/profile.html"; // Redirect to profile page
+        window.location.href = "/teamgalaxy/user/profile.html";
         if (profileMenu) profileMenu.style.display = "none";
       });
       profileLink._attached = true;
     }
 
-    // ===== Keep a single onAuthStateChanged listener (prevent duplicates) =====
     if (!auth._ourOnAuthAttached) {
       auth.onAuthStateChanged((user) => {
         console.log("onAuthStateChanged fired. user:", !!user);
-        currentUser = user; // keep compatibility with other code using `currentUser`
+        currentUser = user;
         updateProfileButton();
-        // load cards when auth state changes (safe)
-        if (typeof loadCards === "function") loadCards();
+        // try to load blogs if auth changes; using loadBlogs below
+        if (typeof loadBlogs === "function") loadBlogs();
       });
       auth._ourOnAuthAttached = true;
     } else {
       console.log("Auth listener already attached - skipping re-attach");
     }
 
-    // ===== Update the profile button UI (no event re-binding here) =====
     let currentUser = null;
     function updateProfileButton() {
       if (!profileBtn) return;
@@ -785,7 +810,6 @@
       }
     }
 
-
     function formatPublishedAt(ts) {
       if (!ts) return "";
       const date = ts.toDate ? ts.toDate() : new Date(ts);
@@ -797,13 +821,25 @@
       }
       return date.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric'});
     }
+
+    // ===== Load blogs but keep skeleton until images ready =====
     async function loadBlogs() {
       const grid = document.getElementById("blogsGrid");
-      // Clear skeleton cards before loading real data
-      grid.innerHTML = "";
+      // DO NOT clear skeleton immediately — let user see skeleton until content actually ready.
 
       try {
         const snapshot = await db.collection("cards").orderBy("publishedAt", "desc").limit(8).get();
+
+        if (snapshot.empty) {
+          // no content — keep skeleton for a short moment then show message
+          setTimeout(() => {
+            grid.innerHTML = `<p style="color: #ff6b6b; text-align: center; width: 100%;">No posts yet. Check back later.</p>`;
+          }, 500);
+          return;
+        }
+
+        const cards = [];
+        const imgLoadPromises = [];
 
         snapshot.docs.forEach((doc, index) => {
           const data = doc.data(); const id = doc.id;
@@ -811,73 +847,136 @@
           card.className = "blog-card";
           card.tabIndex = 0; card.setAttribute("role", "button");
 
-          // Updated: Relative path with proper ID encoding
           card.onclick = () => window.location.href = `/teamgalaxy/card_showcase.html?id=${encodeURIComponent(id)}`;
-
           card.onkeydown = (e) => { if (e.key==="Enter") card.click(); };
+
+          // create img and prepare load promise
           const img = document.createElement("img");
           img.className = "blog-card-image";
-          img.src = data.imageUrl || "    https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=500&q=80";
           img.alt = data.heading || "Blog Post";
+
+          // set up promise that resolves on load or error (so one broken image doesn't hang)
+          const p = new Promise((resolve) => {
+            img.onload = () => resolve({ok:true, img, card});
+            img.onerror = () => resolve({ok:false, img, card});
+          });
+          imgLoadPromises.push(p);
+
+          // start loading (assign src after promise set)
+          img.src = data.imageUrl || "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=500&q=80";
+
           card.appendChild(img);
+
           const info = document.createElement("div");
           info.className = "blog-card-info";
-          // Views + Published direct on image, no container
+
           const viewsRow = document.createElement("div");
           viewsRow.className = "blog-info-row";
           viewsRow.innerHTML = `<i class="fa-regular fa-eye"></i> ${data.views || 0}`;
+
           const publishedRow = document.createElement("div");
           publishedRow.className = "blog-info-row";
           publishedRow.innerHTML = `<i class="fa-regular fa-clock"></i> ${formatPublishedAt(data.publishedAt)}`;
+
           info.appendChild(viewsRow);
           info.appendChild(publishedRow);
           card.appendChild(info);
 
-          // Add the card to the grid immediately but keep it hidden
-          grid.appendChild(card);
-
-          // Trigger the animation after a short delay to ensure DOM rendering
-          setTimeout(() => {
-            card.classList.add('loaded');
-          }, 10); // Small delay to ensure element is in DOM before animation starts
+          cards.push(card);
         });
+
+        // Wait for all images to either load or error
+        await Promise.all(imgLoadPromises);
+
+        // Fade out skeletons
+        const skeletons = Array.from(grid.querySelectorAll('.skeleton-blog-card'));
+        skeletons.forEach(s => s.classList.add('skeleton-fade'));
+
+        // After fade, replace skeletons with real cards
+        setTimeout(() => {
+          grid.innerHTML = ''; // remove skeletons cleanly
+          // append cards and stagger animation
+          cards.forEach((c, idx) => {
+            grid.appendChild(c);
+            setTimeout(() => c.classList.add('loaded'), 20 + idx * 80); // small stagger
+          });
+        }, 320); // matches skeleton fade duration
+
       } catch (error) {
         console.error("Error loading blogs:", error);
-        grid.innerHTML = `<p style="color: #ff6b6b; text-align: center; width: 100%;">Error loading content. Please try again later.</p>`;
+        // keep existing skeletons and show soft error message inline
+        if (grid) {
+          grid.innerHTML = `<p style="color: #ff6b6b; text-align: center; width: 100%;">Error loading content. Please try again later.</p>`;
+        }
       }
     }
 
+    // ===== Star field generation (realistic) =====
+    (function generateStars() {
+      const starsContainer = document.getElementById('stars');
+      if (!starsContainer) return;
 
-    // Create star background
-    const starsContainer = document.getElementById('stars');
-    const starCount = 150; // Adjust number of stars as needed
+      const starCount = 150;
+      for (let i = 0; i < starCount; i++) {
+        const star = document.createElement('div');
+        star.classList.add('star');
 
-    for (let i = 0; i < starCount; i++) {
-      const star = document.createElement('div');
-      star.classList.add('star');
+        const posX = Math.random() * 100;
+        const posY = Math.random() * 100;
+        const size = Math.random() * 1.8 + 0.4; // 0.4px - 2.2px
+        const duration = Math.random() * 6 + 3; // twinkle duration
+        const driftDur = 40 + Math.random() * 120; // slow drift
+        const driftX = (Math.random() - 0.5) * 20; // small horizontal drift
+        const driftY = (Math.random() - 0.5) * 10; // small vertical drift
 
-      // Random position
-      const posX = Math.random() * 100;
-      const posY = Math.random() * 100;
+        star.style.left = `${posX}%`;
+        star.style.top = `${posY}%`;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.setProperty('--duration', `${duration}s`);
+        star.style.setProperty('--driftDur', `${driftDur}s`);
+        star.style.setProperty('--driftX', `${driftX}px`);
+        star.style.setProperty('--driftY', `${driftY}px`);
+        // small random delay so twinkles don't sync
+        star.style.animationDelay = `${Math.random() * 6}s`;
 
-      // Random size (0.5px to 2px)
-      const size = Math.random() * 1.5 + 0.5;
+        starsContainer.appendChild(star);
+      }
 
-      // Random animation duration (2s to 8s)
-      const duration = Math.random() * 6 + 2;
+      // occasional shooting stars
+      function shoot() {
+        const s = document.createElement('div');
+        s.className = 'shooting-star';
+        // random start near top-left-ish to top-right area (so it crosses content nicely)
+        const startLeft = Math.random() * 80; // percent
+        const startTop = Math.random() * 40; // percent (top half more likely)
+        const angle = -20 - Math.random() * 40; // -20 to -60 degrees
+        const dur = 0.7 + Math.random() * 0.9; // 0.7 - 1.6s
+        const travel = 400 + Math.random() * 900; // px
 
-      star.style.left = `${posX}%`;
-      star.style.top = `${posY}%`;
-      star.style.width = `${size}px`;
-      star.style.height = `${size}px`;
-      star.style.setProperty('--duration', `${duration}s`);
+        s.style.left = `${startLeft}%`;
+        s.style.top = `${startTop}%`;
+        s.style.setProperty('--angle', `${angle}deg`);
+        s.style.setProperty('--dur', `${dur}s`);
+        s.style.setProperty('--travel', `${travel}px`);
+        s.style.setProperty('--travelY', `${travel * 0.2}px`);
+        s.style.transform = `rotate(${angle}deg)`;
+        s.style.animation = `shoot ${dur}s linear forwards`;
+        // make it a little longer tail by skewing width (visual)
+        s.style.width = `${1 + Math.random()*2}px`;
 
-      // Random delay for animation
-      star.style.animationDelay = `${Math.random() * 5}s`;
+        starsContainer.appendChild(s);
+        // remove after animation completes
+        s.addEventListener('animationend', () => s.remove());
+      }
 
-      starsContainer.appendChild(star);
-    }
+      // random interval for shooting stars
+      setInterval(() => {
+        if (Math.random() < 0.25) shoot(); // 25% chance every interval => occasional
+      }, 1200);
+    })();
 
+    // Kick off initial load
     window.onload = loadBlogs;
   </script>
 </body>
