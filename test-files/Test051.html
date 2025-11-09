@@ -720,606 +720,733 @@
 </footer>
 
   <script type="module">
-    // ---------- CONFIG (do not change unless needed) ----------
-    const firebaseConfig = {
-      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-      authDomain: "teamgalaxy-77344.firebaseapp.com",
-      projectId: "teamgalaxy-77344",
-      storageBucket: "teamgalaxy-77344.firebasestorage.app",
-      messagingSenderId: "770256225320",
-      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-      measurementId: "G-6C2W9NSNCH"
-    };
-    const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
+/*
+  Complete replacement script for your page.
+  - Removes skeletons entirely.
+  - Adds a full-page loading overlay (with nice text + spinner + subtle animated dots).
+  - Adds a realistic starfield animation (batched, non-blocking).
+  - Restores profile dropdown behavior; removed "Settings" entry from dropdown (DOM-level removal).
+  - Profile dropdown "Profile" navigates to /teamgalaxy/user_management/user_profile.html
+  - Keeps all other behavior & styles intact.
+*/
 
-    // ---------- Firebase imports (v11.9.0) ----------
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js ';
-    import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js ';
-    import {
-      getFirestore, collection, query, orderBy, limit, startAfter, getDocs,
-      doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
-      where, serverTimestamp, runTransaction, increment
-    } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js ';
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js ';
+/* ---------- CONFIG ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+  authDomain: "teamgalaxy-77344.firebaseapp.com",
+  projectId: "teamgalaxy-77344",
+  storageBucket: "teamgalaxy-77344.firebasestorage.app",
+  messagingSenderId: "770256225320",
+  appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+  measurementId: "G-6C2W9NSNCH"
+};
+const RECAPTCHA_SITE_KEY = "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx";
 
-    // ---------- initialize ----------
-    const app = initializeApp(firebaseConfig);
-    try {
-      initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
-        isTokenAutoRefreshEnabled: true
-      });
-      console.log('App Check initialized');
-    } catch(e) { console.warn('App Check problem', e); }
+/* ---------- FIREBASE IMPORTS (v11.9.0) ---------- */
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js';
+import {
+  getFirestore, collection, query, orderBy, limit, startAfter, getDocs,
+  doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  where, serverTimestamp, runTransaction, increment
+} from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js';
 
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
+/* ---------- APP INIT ---------- */
+const app = initializeApp(firebaseConfig);
+try {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+    isTokenAutoRefreshEnabled: true
+  });
+  console.log('App Check initialized');
+} catch(e) { console.warn('App Check problem', e); }
 
-    // ---------- page-state ----------
-    const postsListEl = document.getElementById('postsList');
-    const feedView = document.getElementById('feedView');
-    const postView = document.getElementById('postView');
-    const postContainer = document.getElementById('postContainer');
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const backToFeed = document.getElementById('backToFeed');
-    const signInBtn = document.getElementById('signInBtn');
-    const authArea = document.getElementById('authArea');
-    const commentInput = document.getElementById('commentInput');
-    const submitComment = document.getElementById('submitComment');
-    const commentsList = document.getElementById('commentsList');
-    const commentStatus = document.getElementById('commentStatus');
-    const clearComment = document.getElementById('clearComment');
-    const createPostBtn = document.querySelector('.create-post-btn');
-    const dropdownMenu = document.getElementById('dropdownMenu');
-    const profileLink = document.getElementById('profileLink');
-    const settingsLink = document.getElementById('settingsLink');
-    const signOutLink = document.getElementById('signOutLink');
+const db = getFirestore(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 
-    let lastVisible = null;
-    const PAGE_SIZE = 8;
-    let currentUser = null;
-    let currentUserProfile = null; // from /users/{uid} if exists
-    let currentPostId = null;
-    let commentsUnsub = null;
-    let isVoting = false; // Track if a vote is in progress
+/* ---------- DOM REFS ---------- */
+const postsListEl = document.getElementById('postsList');
+const feedView = document.getElementById('feedView');
+const postView = document.getElementById('postView');
+const postContainer = document.getElementById('postContainer');
+const loadMoreBtn = document.getElementById('loadMoreBtn');
+const refreshBtn = document.getElementById('refreshBtn');
+const backToFeed = document.getElementById('backToFeed');
+const signInBtn = document.getElementById('signInBtn');
+const authArea = document.getElementById('authArea');
+const commentInput = document.getElementById('commentInput');
+const submitComment = document.getElementById('submitComment');
+const commentsList = document.getElementById('commentsList');
+const commentStatus = document.getElementById('commentStatus');
+const clearComment = document.getElementById('clearComment');
+const createPostBtn = document.querySelector('.create-post-btn');
+const dropdownMenu = document.getElementById('dropdownMenu');
+const profileLink = document.getElementById('profileLink');
+const settingsLink = document.getElementById('settingsLink');
+const signOutLink = document.getElementById('signOutLink');
 
-    // ---------- small helpers ----------
-    function timeAgo(ts) {
-      if (!ts) return '';
-      const d = ts.toDate ? ts.toDate() : new Date(ts);
-      const diff = Math.floor((Date.now() - d.getTime())/1000);
-      if (diff < 60) return diff + 's';
-      if (diff < 3600) return Math.floor(diff/60) + 'm';
-      if (diff < 86400) return Math.floor(diff/3600) + 'h';
-      return Math.floor(diff/86400) + 'd';
+let lastVisible = null;
+const PAGE_SIZE = 8;
+let currentUser = null;
+let currentUserProfile = null;
+let currentPostId = null;
+let commentsUnsub = null;
+let isVoting = false;
+
+/* ---------- UTILS ---------- */
+function timeAgo(ts) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = Math.floor((Date.now() - d.getTime())/1000);
+  if (diff < 60) return diff + 's';
+  if (diff < 3600) return Math.floor(diff/60) + 'm';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h';
+  return Math.floor(diff/86400) + 'd';
+}
+function snippet(text, n=220){ return (text||'').length>n ? text.slice(0,n)+'…' : (text||''); }
+function escapeHTML(s){
+  return String(s||'')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#039;');
+}
+function getInitials(name) {
+  return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'U';
+}
+
+/* ---------- DYNAMIC CSS FOR OVERLAY + STARS ---------- */
+(function injectOverlayAndStarStyles(){
+  const css = `
+    /* Loading overlay */
+    #loadingOverlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      background: linear-gradient(180deg, rgba(4,10,20,0.85), rgba(8,12,25,0.85));
+      backdrop-filter: blur(6px);
+      color: #dbeeff;
+      flex-direction: column;
+      gap: 12px;
+      padding: 24px;
     }
-    function snippet(text, n=220){ return text.length>n ? text.slice(0,n)+'…' : text; }
-
-    // Escape HTML to prevent XSS
-    function escapeHTML(s){
-      return String(s)
-        .replaceAll('&','&amp;')
-        .replaceAll('<','<')
-        .replaceAll('>','>')
-        .replaceAll('"','&quot;')
-        .replaceAll("'",'&#039;');
+    #loadingOverlay .overlay-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      max-width: 680px;
+      text-align: center;
+    }
+    #loadingOverlay .overlay-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: #ffffff;
+      text-shadow: 0 4px 18px rgba(100,194,255,0.06);
+    }
+    #loadingOverlay .overlay-sub {
+      font-size: 0.98rem;
+      color: #cfeaff;
+      opacity: 0.95;
+    }
+    /* animated dot loader */
+    .dots {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding-top: 4px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(90deg,#64c2ff,#8a7cff);
+      box-shadow: 0 0 8px rgba(100,194,255,0.18);
+      transform: translateY(0);
+      animation: dotUp 1.1s infinite ease-in-out;
+      opacity: 0.95;
+    }
+    .dot.d2 { animation-delay: 0.15s; }
+    .dot.d3 { animation-delay: 0.3s; }
+    @keyframes dotUp {
+      0% { transform: translateY(0); opacity: 0.5; }
+      40% { transform: translateY(-8px); opacity: 1; }
+      100% { transform: translateY(0); opacity: 0.5; }
     }
 
-    // Generate initials from name
-    function getInitials(name) {
-      return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'U';
+    /* small caption under overlay */
+    #loadingOverlay .overlay-caption {
+      margin-top: 6px;
+      font-size: 0.85rem;
+      color: rgba(190,220,255,0.7);
     }
 
-    // Show skeleton loading for posts
-    function renderPostSkeletons(count) {
-      let skeletonsHtml = '';
-      for (let i = 0; i < count; i++) {
-        skeletonsHtml += `
-          <div class="card post-skeleton">
-            <div class="meta">
-              <div class="skeleton skeleton-circle"></div>
-              <div class="skeleton skeleton-text" style="width: 120px;"></div>
-            </div>
-            <div class="skeleton skeleton-title"></div>
-            <div class="skeleton skeleton-text"></div>
-            <div class="skeleton skeleton-text" style="width: 80%;"></div>
-            <div class="tags">
-              <span class="skeleton-tag"></span>
-              <span class="skeleton-tag"></span>
-            </div>
-            <div class="actions">
-              <div class="skeleton skeleton-text" style="width: 80px; height: 30px;"></div>
-              <div style="margin-left: auto;">
-                <div class="skeleton skeleton-text" style="width: 120px; height: 30px;"></div>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-      postsListEl.innerHTML = skeletonsHtml;
+    /* star layer */
+    .js-stars-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      overflow: hidden;
+    }
+    .js-star {
+      position: absolute;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(255,255,255,0.8);
+      opacity: 0.85;
+      transform: translate3d(0,0,0);
+      animation: js-twinkle var(--d,4s) ease-in-out infinite;
+      will-change: opacity, transform;
+    }
+    @keyframes js-twinkle {
+      0%,100% { opacity: 0.1; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+    .js-shooting {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(255,255,255,1), rgba(255,255,255,0));
+      box-shadow: 0 0 10px rgba(255,255,255,0.9);
+      transform-origin: 0 50%;
+      opacity: 0;
+    }
+    @keyframes js-shoot {
+      0% { opacity: 0; transform: translateX(0) rotate(var(--angle, -30deg)) scaleX(1); }
+      10% { opacity: 1; }
+      100% { opacity: 0; transform: translateX(var(--travel, 700px)) rotate(var(--angle, -30deg)) scaleX(1); }
     }
 
-    // Show skeleton loading for comments
-    function renderCommentSkeletons(count) {
-      let skeletonsHtml = '';
-      for (let i = 0; i < count; i++) {
-        skeletonsHtml += `
-          <div class="comment-skeleton">
-            <div class="skeleton skeleton-text" style="width: 100px; margin-bottom: 0.5rem;"></div>
-            <div class="skeleton skeleton-text"></div>
-            <div class="skeleton skeleton-text" style="width: 80%;"></div>
-          </div>
-        `;
-      }
-      commentsList.innerHTML = skeletonsHtml;
+    /* ensure overlay isn't visible by default (we'll control via inline style) */
+    #loadingOverlay[hidden] { display: none !important; }
+  `;
+  const s = document.createElement('style');
+  s.appendChild(document.createTextNode(css));
+  document.head.appendChild(s);
+})();
+
+/* ---------- CREATE LOADING OVERLAY ---------- */
+const loadingOverlay = document.createElement('div');
+loadingOverlay.id = 'loadingOverlay';
+loadingOverlay.setAttribute('aria-hidden','true');
+loadingOverlay.innerHTML = `
+  <div class="overlay-card" role="status" aria-live="polite">
+    <div class="overlay-title">Connecting you to the Galaxy...</div>
+    <div class="overlay-sub">Fetching freshest posts and preparing the cosmic feed</div>
+    <div class="dots" aria-hidden="true">
+      <span class="dot d1"></span>
+      <span class="dot d2"></span>
+      <span class="dot d3"></span>
+    </div>
+    <div class="overlay-caption">If this takes longer than a few seconds, check your connection or try refreshing.</div>
+  </div>
+`;
+document.body.appendChild(loadingOverlay);
+loadingOverlay.hidden = true; // start hidden; controlled by show/hide functions
+
+function showLoadingOverlay(title, sub) {
+  if (title) loadingOverlay.querySelector('.overlay-title').textContent = title;
+  if (sub) loadingOverlay.querySelector('.overlay-sub').textContent = sub;
+  loadingOverlay.hidden = false;
+  loadingOverlay.setAttribute('aria-hidden','false');
+}
+function hideLoadingOverlay() {
+  loadingOverlay.hidden = true;
+  loadingOverlay.setAttribute('aria-hidden','true');
+}
+
+/* ---------- STARFIELD (batched, non-blocking) ---------- */
+(function createStarLayer() {
+  const layer = document.createElement('div');
+  layer.className = 'js-stars-layer';
+  document.body.appendChild(layer);
+
+  const TOTAL = 140;
+  const BATCH = 20;
+  let created = 0;
+
+  function createStar() {
+    const el = document.createElement('div');
+    el.className = 'js-star';
+    const x = Math.random() * 100;
+    const y = Math.random() * 100;
+    const size = Math.random() * 1.8 + 0.4;
+    const dur = (Math.random() * 6 + 3).toFixed(2);
+    const driftX = (Math.random() - 0.5) * 20;
+    const driftY = (Math.random() - 0.5) * 10;
+    el.style.left = x + '%';
+    el.style.top = y + '%';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    el.style.setProperty('--d', dur + 's');
+    el.style.setProperty('--driftX', driftX + 'px');
+    el.style.setProperty('--driftY', driftY + 'px');
+    // small random animation delay so twinkles don't sync
+    el.style.animationDelay = (Math.random() * 6) + 's';
+    return el;
+  }
+
+  function addBatch() {
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < BATCH && created < TOTAL; i++, created++) {
+      frag.appendChild(createStar());
     }
+    layer.appendChild(frag);
+    if (created < TOTAL) setTimeout(addBatch, 40);
+  }
+  addBatch();
 
-    // Show skeleton for post view
-    function renderPostViewSkeleton() {
-      postContainer.innerHTML = `
-        <div class="card post-skeleton">
-          <div class="meta">
-            <div class="skeleton skeleton-circle"></div>
-            <div class="skeleton skeleton-text" style="width: 120px;"></div>
-          </div>
-          <div class="skeleton skeleton-title" style="width: 80%;"></div>
-          <div class="skeleton skeleton-text"></div>
-          <div class="skeleton skeleton-text"></div>
-          <div class="skeleton skeleton-text" style="width: 60%;"></div>
-          <div class="tags">
-            <span class="skeleton-tag"></span>
-            <span class="skeleton-tag"></span>
-          </div>
-          <div class="actions">
-            <div class="skeleton skeleton-text" style="width: 80px; height: 30px;"></div>
-          </div>
-        </div>
-      `;
-
-      // Also render comment skeletons
-      renderCommentSkeletons(3);
+  // occasional shooting stars
+  setInterval(() => {
+    if (Math.random() < 0.28) {
+      const s = document.createElement('div');
+      s.className = 'js-shooting';
+      const startLeft = Math.random() * 80;
+      const startTop = Math.random() * 50;
+      const angle = -20 - Math.random() * 40;
+      const dur = 0.8 + Math.random() * 0.9;
+      const travel = 400 + Math.random() * 900;
+      s.style.left = startLeft + '%';
+      s.style.top = startTop + '%';
+      s.style.setProperty('--angle', angle + 'deg');
+      s.style.setProperty('--travel', travel + 'px');
+      s.style.animation = `js-shoot ${dur}s linear forwards`;
+      s.style.transform = `rotate(${angle}deg)`;
+      layer.appendChild(s);
+      s.addEventListener('animationend', () => s.remove());
     }
+  }, 1100);
+})();
 
-    // ---------- auth ----------
-    async function signIn() {
-      try { await signInWithPopup(auth, provider); }
-      catch(e){ console.error('Signin error', e); alert('Signin failed'); }
-    }
-    signInBtn.addEventListener('click', signIn);
+/* ---------- TIDYUP: remove settings link from dropdown DOM per request ---------- */
+if (settingsLink && settingsLink.parentElement) {
+  settingsLink.parentElement.removeChild(settingsLink);
+}
 
-    onAuthStateChanged(auth, async (user) => {
-      currentUser = user;
-      if (user) {
-        // try read existing users/{uid} doc for name/email
-        try {
-          const udocRef = doc(db,'users', user.uid);
-          const uSnap = await getDoc(udocRef);
-          if (uSnap.exists()) {
-            currentUserProfile = uSnap.data();
-          } else {
-            currentUserProfile = { name: user.displayName || null, email: user.email || null, photoURL: user.photoURL || null };
-          }
-        } catch(e) {
-          console.warn('users read failed', e);
-          currentUserProfile = { name: user.displayName || null, email: user.email || null, photoURL: user.photoURL || null };
-        }
+/* ---------- AUTH UI & PROFILE DROPDOWN ---------- */
+function attachAvatarDropdown(avatarEl) {
+  // safe single attachment
+  if (avatarEl._dropdownAttached) return;
+  avatarEl._dropdownAttached = true;
 
-        // place avatar image (use photoURL if available, else placeholder initials image)
-        const avatarSrc = user.photoURL || (`https://via.placeholder.com/80/444444/ffffff?text=${encodeURIComponent(getInitials(currentUserProfile?.name || user.email))}`);
-        authArea.innerHTML = `
-          <div class="user-info">
-            <img class="avatar" id="headerAvatar" src="${escapeHTML(avatarSrc)}" alt="Profile">
-          </div>
-        `;
-        // Add event listener to avatar for dropdown, and position dropdown under avatar
-        const avatarEl = document.getElementById('headerAvatar');
-        avatarEl.addEventListener('click', (e) => {
-          e.stopPropagation();
+  avatarEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willShow = !dropdownMenu.classList.contains('show');
+    dropdownMenu.classList.remove('show');
 
-          // toggle
-          const willShow = !dropdownMenu.classList.contains('show');
-          dropdownMenu.classList.remove('show');
-          dropdownMenu.style.position = 'fixed'; // use fixed so it doesn't depend on container positioning
-          dropdownMenu.style.right = 'auto';
+    dropdownMenu.style.position = 'fixed';
+    dropdownMenu.style.right = 'auto';
 
-          if (willShow) {
-            // compute coords
-            const rect = avatarEl.getBoundingClientRect();
-            // estimate menu width (fallback to 200)
-            const estimatedWidth = dropdownMenu.offsetWidth || 200;
-            // position so right edge of menu aligns with right edge of avatar
-            let left = Math.round(rect.right - estimatedWidth);
-            if (left < 8) left = 8;
-            const top = Math.round(rect.bottom + 8);
-            dropdownMenu.style.left = left + 'px';
-            dropdownMenu.style.top = top + 'px';
-            dropdownMenu.classList.add('show');
-            dropdownMenu.setAttribute('aria-hidden','false');
-          } else {
-            dropdownMenu.classList.remove('show');
-            dropdownMenu.setAttribute('aria-hidden','true');
-          }
-        });
-      } else {
-        authArea.innerHTML = `<button id="signInBtn" class="btn-primary">Sign in</button>`;
-        document.getElementById('signInBtn').addEventListener('click', signIn);
-        currentUserProfile = null;
-      }
-      // re-render vote buttons to reflect current user's votes if viewing feed/post
-      if (currentPostId) renderPostView(currentPostId);
-      else { refreshFeed(true); }
-    });
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!dropdownMenu.contains(e.target) && !e.target.classList.contains('avatar') && !e.target.id === 'headerAvatar') {
-        dropdownMenu.classList.remove('show');
-        dropdownMenu.setAttribute('aria-hidden','true');
-      }
-    });
-
-    // Dropdown item event listeners
-    profileLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      alert('Navigate to profile page');
-      dropdownMenu.classList.remove('show');
-    });
-
-    settingsLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      alert('Navigate to settings page');
-      dropdownMenu.classList.remove('show');
-    });
-
-    signOutLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      signOut(auth);
-      dropdownMenu.classList.remove('show');
-    });
-
-    // Create Post button functionality
-    createPostBtn.addEventListener('click', () => {
-      if (!currentUser) {
-        alert('Sign in to create a post');
-        return;
-      }
-      window.location.href = '/teamgalaxy/tools/create_post.html';
-    });
-
-    // ---------- routing: if ?postId=... show single post view ----------
-    const urlParams = new URLSearchParams(window.location.search);
-    const requestedPostId = urlParams.get('postId');
-
-    if (requestedPostId) {
-      // show single post page
-      feedView.style.display = 'none';
-      postView.style.display = 'block';
-      currentPostId = requestedPostId;
-      renderPostView(requestedPostId);
+    if (willShow) {
+      // compute coords
+      const rect = avatarEl.getBoundingClientRect();
+      const estimatedWidth = dropdownMenu.offsetWidth || 200;
+      let left = Math.round(rect.right - estimatedWidth);
+      if (left < 8) left = 8;
+      const top = Math.round(rect.bottom + 8);
+      dropdownMenu.style.left = left + 'px';
+      dropdownMenu.style.top = top + 'px';
+      dropdownMenu.classList.add('show');
+      dropdownMenu.setAttribute('aria-hidden','false');
     } else {
-      feedView.style.display = 'block';
-      postView.style.display = 'none';
-      refreshFeed(true);
+      dropdownMenu.classList.remove('show');
+      dropdownMenu.setAttribute('aria-hidden','true');
+    }
+  });
+}
+
+// Update auth area UI on sign-in/out
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
+  if (user) {
+    // try to read profile doc
+    try {
+      const uSnap = await getDoc(doc(db,'users', user.uid));
+      if (uSnap.exists()) currentUserProfile = uSnap.data();
+      else currentUserProfile = { name: user.displayName || null, email: user.email || null, photoURL: user.photoURL || null };
+    } catch(e){
+      console.warn('users read failed', e);
+      currentUserProfile = { name: user.displayName || null, email: user.email || null, photoURL: user.photoURL || null };
     }
 
-    // ---------- FEED: fetch posts (paged) ----------
-    async function refreshFeed(reset=false) {
-      if (reset) {
-        lastVisible = null;
-        renderPostSkeletons(4); // Show 4 skeleton loaders
-      }
+    const avatarSrc = user.photoURL || (`https://via.placeholder.com/80/444444/ffffff?text=${encodeURIComponent(getInitials(currentUserProfile?.name || user.email))}`);
+    authArea.innerHTML = `<div class="user-info"><img class="avatar" id="headerAvatar" src="${escapeHTML(avatarSrc)}" alt="Profile"></div>`;
 
-      // query
-      const postsRef = collection(db, 'posts');
-      let q;
-      if (!lastVisible) q = query(postsRef, orderBy('createdAt','desc'), limit(PAGE_SIZE));
-      else q = query(postsRef, orderBy('createdAt','desc'), startAfter(lastVisible), limit(PAGE_SIZE));
+    const avatarEl = document.getElementById('headerAvatar');
+    attachAvatarDropdown(avatarEl);
 
-      try {
-        const snaps = await getDocs(q);
-        if (snaps.docs.length === 0) {
-          if (!lastVisible) postsListEl.innerHTML = '<div class="card small muted">No posts yet — be the first.</div>';
-          loadMoreBtn.style.display = 'none';
-          return;
-        }
+    // ensure profileLink goes to requested URL
+    profileLink.addEventListener('click', profileNavHandler);
+  } else {
+    // signed out
+    authArea.innerHTML = `<button id="signInBtn" class="btn-primary">Sign in</button>`;
+    document.getElementById('signInBtn').addEventListener('click', signInHandler);
+    currentUserProfile = null;
+  }
 
-        postsListEl.innerHTML = ''; // Clear skeletons
-        for (const d of snaps.docs) {
-          renderPostCard(d.id, d.data());
-        }
-        lastVisible = snaps.docs[snaps.docs.length - 1];
-        // show load more only if returned PAGE_SIZE items
-        loadMoreBtn.style.display = snaps.docs.length === PAGE_SIZE ? 'inline-block' : 'none';
-      } catch(e){
-        console.error('feed fetch error', e);
-        postsListEl.innerHTML = '<div class="card small muted">Failed to load posts</div>';
-      }
+  // Refresh feed or post view on auth change (but show overlay)
+  if (currentPostId) {
+    showLoadingOverlay('Loading post...');
+    renderPostView(currentPostId).finally(()=> hideLoadingOverlay());
+  } else {
+    showLoadingOverlay('Loading feed...');
+    refreshFeed(true).finally(()=> hideLoadingOverlay());
+  }
+});
+
+// Prevent clicks outside from leaving menu open
+document.addEventListener('click', (e) => {
+  if (!dropdownMenu.contains(e.target) && !e.target.classList.contains('avatar') && e.target.id !== 'headerAvatar') {
+    dropdownMenu.classList.remove('show');
+    dropdownMenu.setAttribute('aria-hidden','true');
+  }
+});
+
+// PROFILE nav handler (navigates to correct path)
+function profileNavHandler(e) {
+  e && e.preventDefault && e.preventDefault();
+  dropdownMenu.classList.remove('show');
+  dropdownMenu.setAttribute('aria-hidden','true');
+  // direct navigation per user's requested path
+  window.location.href = '/teamgalaxy/user_management/user_profile.html';
+}
+
+// SETTINGS was removed from DOM; ensure no event attached
+
+// SIGN OUT handler
+if (signOutLink) {
+  signOutLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    signOut(auth).catch(err => console.warn('signOut failed', err));
+    dropdownMenu.classList.remove('show');
+  });
+}
+
+/* ---------- SIGN IN (popup) ---------- */
+async function signInHandler() {
+  try { await signInWithPopup(auth, provider); }
+  catch(e){ console.error('Signin error', e); alert('Signin failed'); }
+}
+
+/* ---------- FEED: fetch posts (overlay-based) ---------- */
+async function refreshFeed(reset=false) {
+  if (reset) lastVisible = null;
+
+  // show overlay while loading
+  showLoadingOverlay('Loading feed...', 'Gathering posts from across the Galaxy');
+
+  const postsRef = collection(db, 'posts');
+  let q;
+  if (!lastVisible) q = query(postsRef, orderBy('createdAt','desc'), limit(PAGE_SIZE));
+  else q = query(postsRef, orderBy('createdAt','desc'), startAfter(lastVisible), limit(PAGE_SIZE));
+
+  try {
+    const snaps = await getDocs(q);
+    if (snaps.docs.length === 0) {
+      if (!lastVisible) postsListEl.innerHTML = '<div class="card small muted">No posts yet — be the first.</div>';
+      loadMoreBtn.style.display = 'none';
+      return;
     }
 
-    refreshBtn.addEventListener('click', ()=> {
-      lastVisible=null;
-      refreshFeed(true);
-    });
+    postsListEl.innerHTML = ''; // Replace any previous state (no skeletons)
+    for (const d of snaps.docs) {
+      renderPostCard(d.id, d.data());
+    }
+    lastVisible = snaps.docs[snaps.docs.length - 1];
+    loadMoreBtn.style.display = snaps.docs.length === PAGE_SIZE ? 'inline-block' : 'none';
+  } catch(e){
+    console.error('feed fetch error', e);
+    postsListEl.innerHTML = '<div class="card small muted">Failed to load posts</div>';
+  } finally {
+    // hide overlay once finished (even if error)
+    hideLoadingOverlay();
+  }
+}
 
-    loadMoreBtn.addEventListener('click', ()=> refreshFeed(false));
+refreshBtn.addEventListener('click', ()=> {
+  lastVisible = null;
+  refreshFeed(true);
+});
+loadMoreBtn.addEventListener('click', ()=> refreshFeed(false));
 
-    // Helper to choose avatar for posts/comments
-    function avatarHtmlFor(author, data) {
-      // Check for photoUrl first, then other possible fields
-      const photo = (data && (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.photoURL || data.authorAvatar)) || null;
-      // Google default avatar fallback (public-ish)
-      const googleDefault = ' https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png ';
-      if (photo) {
-        return `<img class="avatar small" src="${escapeHTML(photo)}" alt="${escapeHTML(author)}">`;
+/* ---------- RENDER POST CARD ---------- */
+function avatarHtmlFor(author, data) {
+  const photo = (data && (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.photoURL || data.authorAvatar)) || null;
+  const googleDefault = 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png';
+  if (photo) return `<img class="avatar small" src="${escapeHTML(photo)}" alt="${escapeHTML(author)}">`;
+  return `<img class="avatar small" src="${googleDefault}" alt="avatar">`;
+}
+
+function renderPostCard(postId, data) {
+  const el = document.createElement('div');
+  el.className = 'card';
+  const author = data.authorName || data.authorEmail || 'Unknown';
+  const created = data.createdAt ? timeAgo(data.createdAt) : '';
+
+  const avatarHtml = avatarHtmlFor(author, data);
+
+  el.innerHTML = `
+    <div class="meta">
+      ${avatarHtml}
+      <span style="margin-left:8px">${escapeHTML(author)} · <span class="muted">${created}</span></span>
+    </div>
+    <div class="title">${escapeHTML(data.title || 'Untitled')}</div>
+    <div class="snippet">${escapeHTML(snippet(data.body || ''))}</div>
+    <div class="tags">${(data.tags || []).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>
+    <div class="actions">
+      <div class="vote">
+        <button class="link-like upvote" data-id="${postId}">▲</button>
+        <div class="count" id="up_${postId}">${data.upvotesCount||0}</div>
+        <button class="link-like downvote" data-id="${postId}">▼</button>
+        <div class="count" id="down_${postId}">${data.downvotesCount||0}</div>
+      </div>
+      <div style="margin-left:auto">
+        <button class="btn-ghost commentBtn" data-id="${postId}"><i class="far fa-comment"></i> Comments (${data.commentsCount||0})</button>
+        <button class="btn-primary viewBtn" data-id="${postId}">View Post</button>
+      </div>
+    </div>
+  `;
+  postsListEl.appendChild(el);
+
+  el.querySelector('.viewBtn').addEventListener('click', ()=> openPostPage(postId));
+  el.querySelector('.commentBtn').addEventListener('click', ()=> openPostPage(postId));
+  el.querySelector('.upvote').addEventListener('click', ()=> handleVoteClick(postId, 1));
+  el.querySelector('.downvote').addEventListener('click', ()=> handleVoteClick(postId, -1));
+}
+
+/* ---------- NAV: single post ---------- */
+function openPostPage(postId) {
+  const base = window.location.href.split('?')[0];
+  window.location.href = base + '?postId=' + postId;
+}
+
+/* ---------- VOTING (transactional) ---------- */
+async function handleVoteClick(postId, delta) {
+  if (isVoting) return;
+  if (!currentUser) { alert('Sign in to vote'); return; }
+
+  const uid = currentUser.uid;
+  const voteDocRef = doc(db, 'votes', `${postId}_${uid}`);
+  const postRef = doc(db, 'posts', postId);
+
+  isVoting = true;
+  const voteButtons = document.querySelectorAll(`.upvote[data-id="${postId}"], .downvote[data-id="${postId}"]`);
+  voteButtons.forEach(btn => {
+    btn.classList.add('vote-loading');
+    btn.innerHTML = delta === 1 && btn.classList.contains('upvote') ? '<span class="spinner"></span> ▲' : (delta === -1 && btn.classList.contains('downvote') ? '<span class="spinner"></span> ▼' : btn.innerHTML);
+  });
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const voteSnap = await tx.get(voteDocRef);
+      const postSnap = await tx.get(postRef);
+      if (!postSnap.exists()) throw 'Post not found';
+      let up = postSnap.data().upvotesCount || 0;
+      let down = postSnap.data().downvotesCount || 0;
+
+      if (!voteSnap.exists()) {
+        tx.set(voteDocRef, { postId, userId: uid, vote: delta, createdAt: serverTimestamp() });
+        if (delta === 1) up++; else down++;
       } else {
-        // Use googleDefault if you want a consistent "google-like" fallback
-        return `<img class="avatar small" src="${googleDefault}" alt="avatar">`;
+        const prev = voteSnap.data().vote || 0;
+        if (prev === delta) {
+          tx.delete(voteDocRef);
+          if (delta === 1) up = Math.max(0, up-1); else down = Math.max(0, down-1);
+        } else {
+          tx.update(voteDocRef, { vote: delta, updatedAt: serverTimestamp() });
+          if (delta === 1) { up++; down = Math.max(0, down-1); }
+          else { down++; up = Math.max(0, up-1); }
+        }
       }
+      tx.update(postRef, { upvotesCount: up, downvotesCount: down });
+    });
+    if (currentPostId === postId) renderPostView(postId);
+    else refreshFeed(true);
+  } catch(e) {
+    console.error('vote failed', e);
+    alert('Vote failed');
+  } finally {
+    isVoting = false;
+    voteButtons.forEach(btn => {
+      btn.classList.remove('vote-loading');
+      btn.innerHTML = btn.classList.contains('upvote') ? '▲' : '▼';
+    });
+  }
+}
+
+/* ---------- POST VIEW (overlay-based) ---------- */
+backToFeed.addEventListener('click', ()=> {
+  const base = window.location.href.split('?')[0];
+  window.location.href = base;
+});
+
+async function renderPostView(postId) {
+  currentPostId = postId;
+  showLoadingOverlay('Opening post...', 'Loading content and comments');
+
+  try {
+    const postRef = doc(db,'posts',postId);
+    const pSnap = await getDoc(postRef);
+    if (!pSnap.exists()) {
+      postContainer.innerHTML = '<div class="card small muted">Post not found</div>';
+      return;
     }
 
-    function renderPostCard(postId, data) {
-      const el = document.createElement('div');
-      el.className = 'card';
-      const author = data.authorName || data.authorEmail || 'Unknown';
-      const created = data.createdAt ? timeAgo(data.createdAt) : '';
+    const data = pSnap.data();
+    const author = data.authorName || data.authorEmail || 'Unknown';
+    const created = data.createdAt ? timeAgo(data.createdAt) : '';
 
-      // build avatar (image if available else google default image)
-      const avatarHtml = avatarHtmlFor(author, data);
+    const avatarForPost = (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.authorAvatar || data.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png';
 
-      el.innerHTML = `
+    postContainer.innerHTML = `
+      <div class="card">
         <div class="meta">
-          ${avatarHtml}
-          <span style="margin-left:8px">${escapeHTML(author)} · <span class="muted">${created}</span></span>
+          <img class="avatar small" src="${escapeHTML(avatarForPost)}" alt="${escapeHTML(author)}">
+          ${escapeHTML(author)} · <span class="muted">${created}</span>
         </div>
         <div class="title">${escapeHTML(data.title || 'Untitled')}</div>
-        <div class="snippet">${escapeHTML(snippet(data.body || ''))}</div>
-        <div class="tags">${(data.tags || []).map(t => `<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>
-        <div class="actions">
+        <div style="margin-top:0.75rem; line-height: 1.8;">${escapeHTML(data.body || '').replace(/\n/g, '<br>')}</div>
+        <div class="tags">${(data.tags||[]).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>
+
+        <div style="margin-top:1rem" class="actions">
           <div class="vote">
-            <button class="link-like upvote" data-id="${postId}">▲</button>
-            <div class="count" id="up_${postId}">${data.upvotesCount||0}</div>
-            <button class="link-like downvote" data-id="${postId}">▼</button>
-            <div class="count" id="down_${postId}">${data.downvotesCount||0}</div>
-          </div>
-          <div style="margin-left:auto">
-            <button class="btn-ghost commentBtn" data-id="${postId}"><i class="far fa-comment"></i> Comments (${data.commentsCount||0})</button>
-            <button class="btn-primary viewBtn" data-id="${postId}">View Post</button>
+            <button id="pvUp" class="link-like">▲</button>
+            <div id="pvUpCount" class="count">${data.upvotesCount||0}</div>
+            <button id="pvDown" class="link-like">▼</button>
+            <div id="pvDownCount" class="count">${data.downvotesCount||0}</div>
           </div>
         </div>
-      `;
-      postsListEl.appendChild(el);
+      </div>
+    `;
 
-      // attach handlers
-      el.querySelector('.viewBtn').addEventListener('click', ()=> openPostPage(postId));
-      el.querySelector('.commentBtn').addEventListener('click', ()=> openPostPage(postId));
-      el.querySelector('.upvote').addEventListener('click', ()=> handleVoteClick(postId, 1));
-      el.querySelector('.downvote').addEventListener('click', ()=> handleVoteClick(postId, -1));
-    }
+    document.getElementById('pvUp').addEventListener('click', ()=> handleVoteClick(postId, 1));
+    document.getElementById('pvDown').addEventListener('click', ()=> handleVoteClick(postId, -1));
 
-    function openPostPage(postId) {
-      // navigate to same file with ?postId
-      const base = window.location.href.split('?')[0];
-      window.location.href = base + '?postId=' + postId;
-    }
-
-    // ---------- Voting logic (safe per-user using 'votes' collection) ----------
-    async function handleVoteClick(postId, delta) {
-      if (isVoting) return; // Prevent multiple simultaneous votes
-      if (!currentUser) { alert('Sign in to vote'); return; }
-
-      const uid = currentUser.uid;
-      const voteDocRef = doc(db, 'votes', `${postId}_${uid}`);
-      const postRef = doc(db, 'posts', postId);
-
-      // Set voting state and update UI
-      isVoting = true;
-      const voteButtons = document.querySelectorAll(`.upvote[data-id="${postId}"], .downvote[data-id="${postId}"]`);
-      voteButtons.forEach(btn => {
-        btn.classList.add('vote-loading');
-        btn.innerHTML = delta === 1 && btn.classList.contains('upvote') ?
-          '<span class="spinner"></span> ▲' :
-          (delta === -1 && btn.classList.contains('downvote') ?
-          '<span class="spinner"></span> ▼' : btn.innerHTML);
-      });
-
+    if (currentUser) {
       try {
-        await runTransaction(db, async (tx) => {
-          const voteSnap = await tx.get(voteDocRef);
-          const postSnap = await tx.get(postRef);
-          if (!postSnap.exists()) throw 'Post not found';
-          let up = postSnap.data().upvotesCount || 0;
-          let down = postSnap.data().downvotesCount || 0;
+        const voteSnap = await getDoc(doc(db,'votes', `${postId}_${currentUser.uid}`));
+        const prev = voteSnap.exists() ? (voteSnap.data().vote||0) : 0;
+        highlightVoteButtons(prev);
+      } catch(e){ console.warn('vote read failed', e); }
+    } else highlightVoteButtons(0);
 
-                    if (!voteSnap.exists()) {
-            // create vote
-            tx.set(voteDocRef, { postId, userId: uid, vote: delta, createdAt: serverTimestamp() });
-            if (delta === 1) up++; else down++;
-          } else {
-            const prev = voteSnap.data().vote || 0;
-            if (prev === delta) {
-              // undo
-              tx.delete(voteDocRef);
-              if (delta === 1) up = Math.max(0, up-1); else down = Math.max(0, down-1);
-            } else {
-              // switch
-              tx.update(voteDocRef, { vote: delta, updatedAt: serverTimestamp() });
-              if (delta === 1) { up++; down = Math.max(0, down-1); }
-              else { down++; up = Math.max(0, up-1); }
-            }
-          }
-          tx.update(postRef, { upvotesCount: up, downvotesCount: down });
-        });
-        // update UI quickly by refetching either the single post view or the feed counts
-        if (currentPostId === postId) renderPostView(postId);
-        else refreshFeed(true);
-      } catch(e) {
-        console.error('vote failed', e);
-        alert('Vote failed');
-      } finally {
-        isVoting = false;
-        // Reset UI state
-        voteButtons.forEach(btn => {
-          btn.classList.remove('vote-loading');
-          btn.innerHTML = btn.classList.contains('upvote') ? '▲' : '▼';
-        });
+    // subscribe to comments (real-time)
+    const commentsRef = collection(db, 'posts', postId, 'comments');
+    const commentsQuery = query(commentsRef, orderBy('createdAt','asc'));
+    if (commentsUnsub) commentsUnsub();
+    commentsUnsub = onSnapshot(commentsQuery, (snap) => {
+      commentsList.innerHTML = '';
+      if (snap.empty) {
+        commentsList.innerHTML = '<div class="small muted" style="padding: 1rem; text-align: center;">No comments yet</div>';
+        return;
       }
-    }
-
-    // ---------- POST VIEW (single post + comments) ----------
-    backToFeed.addEventListener('click', ()=> {
-      const base = window.location.href.split('?')[0];
-      window.location.href = base; // go back to feed
-    });
-
-    async function renderPostView(postId) {
-      currentPostId = postId;
-      // Show skeleton while loading
-      renderPostViewSkeleton();
-
-      try {
-        const postRef = doc(db,'posts',postId);
-        const pSnap = await getDoc(postRef);
-        if (!pSnap.exists()) {
-          postContainer.innerHTML = '<div class="card small muted">Post not found</div>';
-          return;
-        }
-
-        const data = pSnap.data();
-        const author = data.authorName || data.authorEmail || 'Unknown';
-        const created = data.createdAt ? timeAgo(data.createdAt) : '';
-
-        // Use image avatar if present in post data; fallback to google default
-        const avatarForPost = (data.photoUrl || data.authorPhotoUrl || data.authorPhoto || data.authorAvatar || data.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png ';
-
-        postContainer.innerHTML = `
-          <div class="card">
-            <div class="meta">
-              <img class="avatar small" src="${escapeHTML(avatarForPost)}" alt="${escapeHTML(author)}">
-              ${escapeHTML(author)} · <span class="muted">${created}</span>
-            </div>
-            <div class="title">${escapeHTML(data.title || 'Untitled')}</div>
-            <div style="margin-top:0.75rem; line-height: 1.8;">${escapeHTML(data.body || '').replace(/\n/g, '<br>')}</div>
-            <div class="tags">${(data.tags||[]).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div>
-
-            <div style="margin-top:1rem" class="actions">
-              <div class="vote">
-                <button id="pvUp" class="link-like">▲</button>
-                <div id="pvUpCount" class="count">${data.upvotesCount||0}</div>
-                <button id="pvDown" class="link-like">▼</button>
-                <div id="pvDownCount" class="count">${data.downvotesCount||0}</div>
-              </div>
-            </div>
+      snap.forEach(docSnap => {
+        const c = docSnap.data();
+        const authorC = c.authorName || 'Anonymous';
+        const cAvatar = (c.photoUrl || c.authorPhotoUrl || c.authorPhoto || c.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png';
+        const cEl = document.createElement('div');
+        cEl.className = 'comment';
+        cEl.innerHTML = `
+          <div class="meta">
+            <img class="avatar small" src="${escapeHTML(cAvatar)}" alt="${escapeHTML(authorC)}">
+            ${escapeHTML(authorC)} · <span class="muted">${c.createdAt ? timeAgo(c.createdAt) : ''}</span>
           </div>
-        `;
-
-        // bind vote handlers and show user's current vote visually
-        document.getElementById('pvUp').addEventListener('click', ()=> handleVoteClick(postId, 1));
-        document.getElementById('pvDown').addEventListener('click', ()=> handleVoteClick(postId, -1));
-
-        // fetch and highlight user's vote (if logged in)
-        if (currentUser) {
-          try {
-            const voteSnap = await getDoc(doc(db,'votes', `${postId}_${currentUser.uid}`));
-            const prev = voteSnap.exists() ? (voteSnap.data().vote||0) : 0;
-            highlightVoteButtons(prev);
-          } catch(e){ console.warn('vote read failed', e); }
-        } else highlightVoteButtons(0);
-
-        // subscribe to comments in real-time
-        const commentsRef = collection(db, 'posts', postId, 'comments');
-        const commentsQuery = query(commentsRef, orderBy('createdAt','asc'));
-        commentsUnsub = onSnapshot(commentsQuery, (snap) => {
-          commentsList.innerHTML = '';
-          if (snap.empty) {
-            commentsList.innerHTML = '<div class="small muted" style="padding: 1rem; text-align: center;">No comments yet</div>';
-            return;
-          }
-
-          snap.forEach(docSnap => {
-            const c = docSnap.data();
-            const authorC = c.authorName || 'Anonymous';
-            // choose avatar for comment: check comment data for photo fields, prioritizing photoUrl
-            const cAvatar = (c.photoUrl || c.authorPhotoUrl || c.authorPhoto || c.photoURL) || 'https://www.gstatic.com/images/branding/product/2x/avatar_square_64dp.png ';
-            const cEl = document.createElement('div');
-            cEl.className = 'comment';
-            cEl.innerHTML = `
-              <div class="meta">
-                <img class="avatar small" src="${escapeHTML(cAvatar)}" alt="${escapeHTML(authorC)}">
-                ${escapeHTML(authorC)} · <span class="muted">${c.createdAt ? timeAgo(c.createdAt) : ''}</span>
-              </div>
-              <div style="margin-top:0.5rem">${escapeHTML(c.body||'').replace(/\n/g, '<br>')}</div>`;
-            commentsList.appendChild(cEl);
-          });
-        }, (error) => {
-          console.error('Comments subscription error:', error);
-          commentsList.innerHTML = '<div class="small muted" style="padding: 1rem;">Failed to load comments</div>';
-        });
-
-      } catch(e) {
-        console.error('render post error', e);
-        postContainer.innerHTML = '<div class="card small muted">Failed to load post</div>';
-      }
-    }
-
-    function highlightVoteButtons(v) {
-      const up = document.getElementById('pvUp');
-      const down = document.getElementById('pvDown');
-      if (!up || !down) return;
-
-      up.style.color = v === 1 ? 'var(--accent1)' : 'var(--muted)';
-      down.style.color = v === -1 ? 'var(--accent1)' : 'var(--muted)';
-      up.style.fontWeight = v === 1 ? '900' : '600';
-      down.style.fontWeight = v === -1 ? '900' : '600';
-    }
-
-    // ---------- comments: add ----------
-    clearComment.addEventListener('click', ()=> commentInput.value='');
-
-    submitComment.addEventListener('click', async () => {
-      if (!currentUser) { alert('Sign in to comment'); return; }
-      const text = (commentInput.value || '').trim();
-      if (!text) { commentStatus.textContent = 'Type your comment'; return; }
-
-      commentStatus.textContent = 'Posting...';
-      submitComment.disabled = true;
-
-      try {
-        const commentsRef = collection(db, 'posts', currentPostId, 'comments');
-        await addDoc(commentsRef, {
-          body: text,
-          authorId: currentUser.uid,
-          authorName: currentUserProfile?.name || currentUser.email || null,
-          photoUrl: currentUserProfile?.photoURL || currentUser.photoURL || null, // Add photoUrl to comment
-          createdAt: serverTimestamp(),
-          upvotesCount: 0
-        });
-        // increment commentsCount on post
-        await updateDoc(doc(db,'posts',currentPostId), { commentsCount: increment(1) });
-        commentInput.value = '';
-        commentStatus.textContent = 'Posted';
-      } catch(e) {
-        console.error('post comment failed', e);
-        commentStatus.textContent = 'Failed';
-      } finally {
-        submitComment.disabled = false;
-        setTimeout(()=>commentStatus.textContent='',1200);
-      }
+          <div style="margin-top:0.5rem">${escapeHTML(c.body||'').replace(/\n/g, '<br>')}</div>`;
+        commentsList.appendChild(cEl);
+      });
+    }, (error) => {
+      console.error('Comments subscription error:', error);
+      commentsList.innerHTML = '<div class="small muted" style="padding: 1rem;">Failed to load comments</div>';
     });
 
-    // ---------- initial render for feed view ----------
-    function showFeed() {
-      feedView.style.display = 'block';
-      postView.style.display = 'none';
-    }
-    function showPost() {
-      feedView.style.display = 'none';
-      postView.style.display = 'block';
-    }
-    // ensure proper view shown depending on currentPostId
-    if (currentPostId) { showPost(); } else { showFeed(); }
+  } catch(e) {
+    console.error('render post error', e);
+    postContainer.innerHTML = '<div class="card small muted">Failed to load post</div>';
+  } finally {
+    hideLoadingOverlay();
+  }
+}
 
-  </script>
+function highlightVoteButtons(v) {
+  const up = document.getElementById('pvUp');
+  const down = document.getElementById('pvDown');
+  if (!up || !down) return;
+  up.style.color = v === 1 ? 'var(--accent1)' : 'var(--muted)';
+  down.style.color = v === -1 ? 'var(--accent1)' : 'var(--muted)';
+  up.style.fontWeight = v === 1 ? '900' : '600';
+  down.style.fontWeight = v === -1 ? '900' : '600';
+}
+
+/* ---------- COMMENTS: add ---------- */
+clearComment.addEventListener('click', ()=> commentInput.value='');
+submitComment.addEventListener('click', async () => {
+  if (!currentUser) { alert('Sign in to comment'); return; }
+  const text = (commentInput.value || '').trim();
+  if (!text) { commentStatus.textContent = 'Type your comment'; return; }
+
+  commentStatus.textContent = 'Posting...';
+  submitComment.disabled = true;
+
+  try {
+    const commentsRef = collection(db, 'posts', currentPostId, 'comments');
+    await addDoc(commentsRef, {
+      body: text,
+      authorId: currentUser.uid,
+      authorName: currentUserProfile?.name || currentUser.email || null,
+      photoUrl: currentUserProfile?.photoURL || currentUser.photoURL || null,
+      createdAt: serverTimestamp(),
+      upvotesCount: 0
+    });
+    await updateDoc(doc(db,'posts',currentPostId), { commentsCount: increment(1) });
+    commentInput.value = '';
+    commentStatus.textContent = 'Posted';
+  } catch(e) {
+    console.error('post comment failed', e);
+    commentStatus.textContent = 'Failed';
+  } finally {
+    submitComment.disabled = false;
+    setTimeout(()=>commentStatus.textContent='',1200);
+  }
+});
+
+/* ---------- CREATE POST BTN ---------- */
+createPostBtn.addEventListener('click', () => {
+  if (!currentUser) { alert('Sign in to create a post'); return; }
+  window.location.href = '/teamgalaxy/tools/create_post.html';
+});
+
+/* ---------- INITIAL ROUTING / LAUNCH ---------- */
+const urlParams = new URLSearchParams(window.location.search);
+const requestedPostId = urlParams.get('postId');
+
+async function initialLaunch(){
+  // show overlay
+  showLoadingOverlay('Preparing your Galaxy feed...', 'Hang tight — connecting to the network of creators');
+  if (requestedPostId) {
+    feedView.style.display = 'none';
+    postView.style.display = 'block';
+    currentPostId = requestedPostId;
+    await renderPostView(requestedPostId);
+  } else {
+    feedView.style.display = 'block';
+    postView.style.display = 'none';
+    await refreshFeed(true);
+  }
+  hideLoadingOverlay();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // start initial launch (overlay shown inside function)
+  initialLaunch();
+});
+</script>
 </body>
 </html>
