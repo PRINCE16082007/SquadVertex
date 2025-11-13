@@ -1,784 +1,734 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Galaxy Design Studio</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href=" https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css  " />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-<!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-check-compat.js"></script>
-  <style>
-    body { 
-      background: #181f2b; 
-      color: #fff; 
-      margin: 0; 
-      font-family: Arial, sans-serif; 
-      position: relative;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Repository Analyzer - TeamGalaxy</title>
+    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    /* Star background */
-    .stars {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: -1;
-    }
+    <style>
+        :root {
+            --primary: #00d4ff;
+            --dark-bg: #0f0c29;
+            --darker-bg: #1a1a2e;
+            --card-bg: rgba(25, 25, 35, 0.9);
+            --border: rgba(255, 255, 255, 0.08);
+            --muted: #a0aec0;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --error: #f87171;
+            --glass: rgba(255,255,255,0.03);
+            --max-container: 1400px;
+        }
 
-    .star {
-      position: absolute;
-      background-color: white;
-      border-radius: 50%;
-      animation: twinkle var(--duration, 5s) infinite ease-in-out;
-    }
+        * { margin:0; padding:0; box-sizing: border-box; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+        html,body { height:100%; }
 
-    @keyframes twinkle {
-      0%, 100% { opacity: 0.2; }
-      50% { opacity: 1; }
-    }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--dark-bg), #302b63, #24243e);
+            color: #fff;
+            min-height:100vh;
+            overflow-x:hidden;
+            position:relative;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    /* Header */
-    .top-bar {
-      display: flex;
-      align-items: center;
-      /* Desktop: Use space-between to align logo-title to left and nav-buttons to right */
-      justify-content: space-between;
-      height: 80px;
-      background: rgba(16, 23, 36, 0.85);
-      padding: 0 20px; /* Maintain padding */
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      width: 100%;
-      box-sizing: border-box;
-    }
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed; inset:0;
+            background: rgba(15,12,41,0.95);
+            display:flex;flex-direction:column;align-items:center;justify-content:center;
+            z-index:1000; transition: opacity .45s ease;
+        }
+        .loading-spinner { width:50px;height:50px;border:4px solid rgba(255,255,255,0.08);border-top:4px solid var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:14px;}
+        @keyframes spin {0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+        .loading-text { color:var(--primary); font-size:1.05rem; }
 
-    .logo-title {
-      /* Desktop: Keep it on the left */
-      margin-left: 0;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 1.5rem;
-      font-weight: bold;
-      font-family: 'Montserrat', sans-serif;
-      color: #fff;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      /* Ensure it doesn't grow */
-      flex: 0 0 auto;
-    }
+        /* Stars */
+        .stars { position:fixed; inset:0; pointer-events:none; z-index:0; opacity:0.9; }
 
-    .logo-title img {
-      height: 60px;
-      filter: drop-shadow(0 0 8px rgba(97, 218, 251, 0.7));
-      flex-shrink: 0;
-    }
+        /* Layout container */
+        .container {
+            max-width: var(--max-container);
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 10;
+            display: none; /* shown after auth */
+        }
 
-    .hamburger {
-      display: none;
-      background: none;
-      border: none;
-      color: #e0e0e0;
-      cursor: pointer;
-      font-size: 1.2rem;
-      padding: 8px;
-      margin-right: 10px;
-      flex-shrink: 0;
-    }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:18px 0; margin-bottom:24px; border-bottom:1px solid var(--border); }
+        .back-btn { background: rgba(255,255,255,0.06); border: none; color: white; padding:10px 18px; border-radius:20px; cursor:pointer; font-size:0.95rem; }
+        .back-btn:hover{ background: rgba(0,212,255,0.12); }
 
-    .nav-buttons {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      font-size: 1rem;
-      position: relative;
-      flex-shrink: 0;
-    }
+        .card {
+            background: var(--card-bg);
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 6px 20px rgba(3,6,23,0.3);
+        }
 
-    .nav-btn,
-    .profile-btn {
-      background: none;
-      border: none;
-      color: #e0e0e0;
-      cursor: pointer;
-      font-size: 0.95rem;
-      position: relative;
-      font-family: 'Poppins', sans-serif;
-      font-weight: 500;
-      padding: 6px 10px;
-      border-radius: 6px;
-      transition: all 0.3s ease;
-      white-space: nowrap;
-    }
+        /* Controls layout responsive */
+        .controls { display:grid; grid-template-columns: 1fr 320px; gap: 18px; align-items:start; }
+        /* On narrow screens stack */
+        @media (max-width: 920px) {
+            .controls { grid-template-columns: 1fr; }
+            .cards-inline { display:flex; flex-direction:column; gap:12px; }
+        }
 
-    .nav-btn:hover, .profile-btn:hover {
-      color: #64c2ff;
-      background: rgba(255, 255, 255, 0.05);
-    }
+        .input { width:100%; padding:10px 12px; background:var(--glass); border:1px solid var(--border); border-radius:8px; color:#fff; margin-bottom:8px; font-size:0.95rem; }
+        .btn { background: linear-gradient(45deg,var(--primary),#0077ff); color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-size:0.95rem; transition:all .18s ease; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,212,255,0.12); }
+        .btn.small { padding:7px 10px; font-size:0.85rem; }
 
-    .profile-btn img {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid #64c2ff;
-    }
+        /* Stats grid */
+        .stats-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; margin-bottom:12px; align-items:stretch; }
+        @media (max-width:600px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
 
-    .dropdown-content {
-      display: none;
-      position: absolute;
-      right: 0;
-      background: rgba(29, 35, 54, 0.95);
-      min-width: 140px;
-      border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-      top: 50px;
-      z-index: 1000;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      overflow: hidden;
-    }
+        .stat { text-align:center; padding:12px; background: rgba(255,255,255,0.02); border-radius:8px; min-height:64px; display:flex; flex-direction:column; justify-content:center; }
+        .v { font-size:1.3rem; font-weight:700; color:var(--primary); display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .label { color:var(--muted); font-size:0.85rem; margin-top:6px; }
 
-    .dropdown-content a {
-      color: #e0e0e0;
-      padding: 10px 14px;
-      text-decoration: none;
-      display: block;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      transition: all 0.2s ease;
-      font-size: 0.95rem;
-    }
+        .footer-note { margin-top:10px; padding:10px; background: rgba(255,165,0,0.06); border:1px solid rgba(255,165,0,0.14); border-radius:8px; font-size:0.85rem; color:var(--muted); }
 
-    .dropdown-content a:last-child { border-bottom: none; }
+        /* Tabs */
+        .tabs { display:flex; gap:8px; border-bottom:1px solid var(--border); margin-bottom:16px; flex-wrap:wrap; }
+        .tab { padding:10px 14px; cursor:pointer; border-bottom:2px solid transparent; color: #e6eef8; }
+        .tab.active { border-bottom:2px solid var(--primary); color:var(--primary); }
 
-    .dropdown-content a:hover {
-      background: rgba(100, 194, 255, 0.1);
-      color: #64c2ff;
-    }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; }
 
-    /* Updated: Removed the old hover-triggered display */
-    /* .nav-buttons .more-options:hover .dropdown-content,
-    .nav-buttons .profile-btn.show-menu + .dropdown-content {
-      display: block;
-    } */
+        /* Table + truncation safety */
+        .table { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+        table { width:100%; border-collapse:collapse; table-layout: auto; min-width:700px; } /* min-width ensures horizontal scroll on small screens */
+        th, td { padding:10px 12px; text-align:left; border-bottom:1px solid var(--border); vertical-align:middle; font-size:0.92rem; }
+        th { background: rgba(255,255,255,0.02); font-weight:600; color:#dbe9ff; position:sticky; top:0; z-index:2; }
+        /* Force ellipsis and block for problematic long names/paths */
+        .cell-truncate { max-width: 280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle; }
+        .path-cell { max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; }
+        .name-cell { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; }
+        .actions-cell { white-space:nowrap; }
 
+        /* Tree view */
+        .tree-view { background: rgba(0,0,0,0.18); padding:12px; border-radius:8px; max-height:420px; overflow-y:auto; }
+        .tree-item { margin-bottom:6px; line-height:1.35; }
+        .tree-folder { cursor:pointer; font-weight:700; color:var(--primary); }
+        .tree-file { color:var(--muted); }
 
-    /* Mobile-specific fixes */
-    @media (max-width: 768px) {
-      .logo-title {
-        font-size: 1.2rem;
-      }
-      .logo-title img {
-        height: 40px;
-      }
-      .hamburger {
-        display: block;
-      }
-      /* Mobile: Change justify-content to flex-end to push logo-title to the right */
-      .top-bar {
-        justify-content: flex-end; /* Aligns content to the right */
-      }
-      /* Mobile: Add margin-left to push the logo-title to the right */
-      .logo-title {
-        margin-left: auto; /* Pushes the logo-title to the right */
-      }
-      .nav-buttons {
-        display: none;
-        position: absolute;
-        top: 100%;
-        right: 0;
-        background: rgba(16, 23, 36, 0.95);
-        flex-direction: column;
-        padding: 20px;
-        gap: 10px;
-        border-radius: 8px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-        z-index: 100;
-        width: 100%;
-        box-sizing: border-box;
-      }
-      .nav-buttons.show {
-        display: flex;
-      }
-    }
+        /* Messages */
+        .loading, .error { padding:12px 14px; text-align:center; border-radius:8px; margin-top:10px; display:block; }
+        .loading { background: rgba(0,212,255,0.06); color:var(--primary); }
+        .error { background: rgba(248,113,113,0.06); color:var(--error); }
 
-    /* Banner Section - Updated Height */
-    .banner-space {
-      height: 300px; /* Reduced height from 400px */
-      width: 100%;
-      background: linear-gradient(90deg, #222435, #232e40 80%);
-      display: flex; 
-      align-items: flex-end;
-      justify-content: flex-start;
-      position: relative;
-      overflow: hidden; /* Ensure image doesn't overflow */
-    }
+        /* Overview right column smaller on tiny screens */
+        #overview { display:block; }
+        #overview .summary, #overview .topfiles { padding:6px 0; color:var(--muted); }
 
-    /* Added: Image behind the title */
-    .banner-image {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover; /* Cover the entire area */
-      opacity: 0.4; /* Make it semi-transparent */
-      z-index: 1;
-    }
+        /* charts responsiveness */
+        #charts .chart-wrap { background:rgba(0,0,0,0.22); padding:12px; border-radius:8px; }
+        @media (max-width:820px) {
+            #charts > div { grid-template-columns: 1fr; }
+            table { min-width:680px; }
+        }
 
-    .banner-title {
-      font-size: 3rem;
-      font-weight: bold;
-      color: #fab84f;
-      margin-left: 56px;
-      margin-bottom: 44px;
-      letter-spacing: 1px;
-      z-index: 10; /* Ensure title is above the image */
-      text-shadow: 0 5px 32px #232e408c;
-    }
-
-    /* Main Content */
-    .main-content {
-      max-width: 780px;
-      margin: 0 auto 60px auto;
-      padding: 18px 18px 0 18px;
-    }
-    .main-content h2 {
-      color: #fab84f;
-      margin-top: 32px;
-      font-size: 2rem;
-      font-weight: bold;
-    }
-    .main-content p {
-      font-size: 1.18rem;
-      margin: 18px 0 28px 0;
-      line-height: 1.6;
-      color: #e4ecf7;
-    }
-    .main-content ul { margin: 10px 0 24px 22px;  }
-    .main-content ul li { font-size: 1.09rem; margin-bottom: 10px; color: #bee7ff; }
-    /* Button styles - Updated */
-    .btn-row { display: flex; gap: 22px; margin: 34px 0 48px 0; flex-wrap: wrap; justify-content: center; } /* Centered buttons */
-    .big-btn {
-      padding: 16px 42px; /* Increased padding for a bigger feel */
-      font-size: 1.2rem; /* Increased font size */
-      font-weight: 600;
-      background: linear-gradient(135deg, #6cdbf7 0%, #fab84f 100%); /* Changed gradient direction for a more dynamic look */
-      color: #181f2b;
-      border: none;
-      border-radius: 12px; /* Increased border radius for a smoother look */
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(250, 184, 79, 0.3); /* Added inner glow effect */
-      cursor: pointer;
-      transition: all 0.3s ease, box-shadow 0.3s ease; /* Added transition for all properties */
-      position: relative; /* Needed for pseudo-element */
-      overflow: hidden; /* Hide the overflow for the hover effect */
-    }
-
-    .big-btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-      transition: left 0.5s;
-    }
-
-    .big-btn:hover::before {
-      left: 100%;
-    }
-
-    .big-btn:hover {
-      background: linear-gradient(135deg, #fab84f 0%, #6cdbf7 100%); /* Inverted gradient on hover */
-      transform: translateY(-3px); /* Lift the button slightly */
-      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4), 0 0 0 3px rgba(108, 219, 247, 0.4); /* Enhanced shadow on hover */
-    }
-
-    .big-btn:active {
-      transform: translateY(1px); /* Press down effect */
-      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(250, 184, 79, 0.3); /* Shadow when pressed */
-    }
-
-
-    /* Footer */
-    .footer {
-      min-height: 300px;
-      background: linear-gradient(90deg, #181f2b 60%, #232e44 100%);
-      color: #fff;
-      display: flex;
-      flex-direction: row;
-      gap: 30px;
-      align-items: stretch;
-      justify-content: space-between;
-      padding: 30px 50px 20px 50px;
-      border-top: 2px solid #163053;
-      box-sizing: border-box;
-      flex-wrap: wrap;
-    }
-    .footer-col {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      flex: 1 1 45%;
-    }
-    .footer-links {
-      margin-bottom: 24px;
-    }
-    .footer-links a {
-      font-size: 1.13rem;
-      color: #aaa;
-      text-decoration: none;
-      margin-bottom: 12px;
-      font-weight: 600;
-      transition: color 0.2s;
-      display: block;
-    }
-    .footer-links a:hover {
-      color: #fab84f;
-    }
-    .footer-about-title {
-      font-size: 1.46rem;
-      font-weight: bold;
-      margin-bottom: 8px;
-      color: #fab84f;
-    }
-    .footer-about-text {
-      font-size: 1rem;
-      color: #e5e5e5;
-      margin-bottom: 18px;
-      line-height: 1.5;
-    }
-    .footer-social {
-      margin-top: auto;
-      display: flex;
-      gap: 21px;
-    }
-    .footer-social a {
-      color: #fff;
-      font-size: 2rem;
-      text-decoration: none;
-      transition: color 0.22s;
-    }
-    .footer-social a:hover {
-      color: #fab84f;
-    }
-    .footer-contact-row {
-      margin-bottom: 8px;
-      font-size: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .footer-contact-label {
-      color: #fab84f;
-      margin-right: 4px;
-      font-weight: 500;
-      font-size: 1rem;
-    }
-    .footer-contact {
-      margin-top: 12px;
-      font-size: 1.02rem;
-      color: #fff;
-    }
-    .footer-contact-icon {
-      font-size: 1.18rem;
-      vertical-align: middle;
-      color: #afeafd;
-      margin-right: 7px;
-    }
-    @media (max-width: 900px) {
-      .footer {
-        flex-direction: column;
-        padding: 30px 20px 20px 20px;
-        gap: 30px;
-      }
-      .footer-col {
-        flex: 1 1 100%;
-      }
-      .main-content { padding: 0 10px;}
-    }
-    @media (max-width: 600px) {
-      .banner-title { font-size: 1.6rem; margin-left:18px;}
-      .footer-col { min-width: 90vw; }
-      .btn-row { flex-direction: column; align-items: center; } /* Stack buttons on small screens */
-      .big-btn { width: 100%; max-width: 300px; } /* Make buttons full width but capped */
-    }
-
-  </style>
+        /* small helpers */
+        .muted { color:var(--muted); font-size:0.92rem; }
+        .truncate { display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; }
+    </style>
 </head>
 <body>
-  <!-- Star Background -->
-  <div class="stars" id="stars"></div>
-
-  <!-- Header -->
-  <div class="top-bar">
-    <button class="hamburger" id="hamburgerBtn">
-      <i class="fa-solid fa-bars"></i>
-    </button>
-    <div class="logo-title">
-      <img
-        src=" https://dl.dropboxusercontent.com/scl/fi/ulfs6ygkeyvr4mar8bkuz/galaxwbewh.png?rlkey=jq9buj80ny6et6jfbfpiuf14l&st=lwkqobqi&dl=0"
-        height="46"
-        alt="Logo"
-      />
-      GalaxyWeb
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Verifying admin access...</div>
     </div>
 
-    <div class="nav-buttons" id="navButtons">
-      <button class="nav-btn" onclick="window.location.href='index.html';">Home</button>
-      <button class="nav-btn" onclick="window.location.href='about_us.html';">Team Galaxy</button>
-      <div class="more-options" id="moreOptions">
-        <button class="nav-btn">More ▼</button>
-        <div class="dropdown-content">
-          <a href="galaxy_blogs.html">Blog</a>
-          <a href="galaxy_portfolio.html">Portfolio</a>
-          <a href="posts.html">Posts</a>
-          <a href="community_chat.html">Community Chat</a>
-          <a href="galaxy_studio.html">Galaxy Design</a>
+    <div class="stars" id="stars"></div>
+
+    <div class="container" id="mainContainer">
+        <div class="header">
+            <button class="back-btn" onclick="goBack()">
+                ← Back to Dashboard
+            </button>
+            <div style="font-size:0.95rem;color:var(--muted)">TeamGalaxy Repo Analyzer</div>
         </div>
-      </div>
 
-      <button id="profileBtn" class="profile-btn" aria-haspopup="true" aria-expanded="false">
-        <i class="fa-solid fa-user"></i>
-      </button>
-      <div id="profileMenu" class="dropdown-content" style="right: 30px; display:none;">
-        <!-- keep href so middle-click/ctrl-click still works in browsers that allow it,
-             but we wire up onclick to correctly navigate and close the menu -->
-        <a href="/teamgalaxy/user_management/user_profile.html" id="profileLink">Profile</a>
-        <a href="#" id="logoutLink">Logout</a>
-      </div>
-    </div>
-  </div>
-
-  <!-- Banner section -->
-  <section class="banner-space">
-    <!-- Updated: Added the image -->
-    <img src="https://www.dropbox.com/scl/fi/a2fkm3joq1re84pbkxclo/1761577613723-02B91580-8615-42CB-9A0B-2D7C78896F96.jpg?rlkey=wbw92qde23xcweh4hfunmqk2f&raw=1" alt="Banner Background" class="banner-image">
-    <div class="banner-title">Galaxy Design</div>
-  </section>
-
-  <main class="main-content">
-
-    <p>
-      <strong>Galaxy Design</strong> is a creative studio that blends style and function to deliver stunning visuals for gaming communities and brands. From logos and banners to social media content, web design, and merchandise, we craft designs that stand out and tell your story.
-      <br><br>
-      We don’t just “make graphics” — we create identities. Each project reflects the spirit, values, and energy of your brand or community, making it shine like a star in the galaxy.
-      <br><br>
-      Imagine. Create. Shine. ✨
-    </p>
-
-    <h2>Galaxy Design Portfolio</h2>
-    <p>
-      Our portfolio showcases the full range of what Galaxy Design can create — from sleek esports jerseys and team logos to dynamic social media graphics and merchandise designs. Every piece reflects our dedication to quality, creativity, and the unique identity of each client.<br>
-      You can browse the complete portfolio here to see our past projects, get inspired, and discover what we can create for you.
-    </p>
-    <div class="btn-row">
-      <button class="big-btn" onclick="location.href='galaxy_portfolio.html'">Portfolio</button>
-    </div>
-
-    <h2>How to Order</h2>
-    <p>
-      <ul>
-        <li><strong>Via Discord Only</strong> – All orders are placed through our Discord server. Open a “Design Order” ticket to share your ideas, discuss details, receive a quote, and get updates directly from our design team.</li>
-      </ul>
-      <br>
-      <strong>Payments & Delivery:</strong><br>
-      <ul>
-        <li>Payments are accepted via PayPal, credit card, or other supported methods.</li>
-        <li>Delivery times vary depending on the complexity of the project and will be confirmed before payment.</li>
-        <li>All designs are delivered in high-resolution formats, suitable for both digital and print use.</li>
-      </ul>
-      <br>
-      Your brand deserves to shine — let Galaxy Design make it unforgettable.
-    </p>
-    <div class="btn-row">
-      <button class="big-btn" onclick="location.href='https://discord.gg/yMzkybxSxV'">Order Now</button>
-    </div>
-
-    <h2>How To Apply?</h2>
-    <p>
-      Think you’ve got the skills and creativity to join Galaxy Design? We’re always on the lookout for talented designers who can bring fresh ideas to our team.<br>
-      <br>
-      To apply, all you need is your portfolio — your best work that showcases your style and abilities.
-      <br><br>
-      You can apply in two ways:
-      <ul>
-        <li>Click the button below to go to our Application Page and submit your portfolio directly there.</li>
-        <li>Join our Discord and apply through the Application section by sharing your portfolio link or files.</li>
-      </ul>
-      <br>
-      📌 <strong>Tip:</strong> Make sure your portfolio includes a variety of your designs so we can see your full range of skills.
-    </p>
-    <div class="btn-row">
-      <button class="big-btn" onclick="location.href='https://discord.gg/yMzkybxSxV'">Apply</button>
-    </div>
-  </main>
-
-  <!-- Footer -->
-  <footer class="footer">
-    <!-- Left: About + Social -->
-    <div class="footer-col footer-left">
-      <div>
-        <div class="footer-about-title">About TeamGalaxy</div>
-        <div class="footer-about-text">
-          TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration. We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!
+        <div class="card">
+            <h1 style="margin:0 0 6px 0">🚀 GitHub Repository Analyzer</h1>
+            <div style="color:var(--muted);font-size:0.95rem">Analyze GitHub repositories with detailed insights — safe, rate-aware, and on-demand content fetch.</div>
         </div>
-      </div>
-      <div class="footer-social">
-        <a href="  https://twitter.com  " title="Twitter"><i class="fab fa-twitter"></i></a>
-        <a href="https://facebook.com  " title="Facebook"><i class="fab fa-facebook"></i></a>
-        <a href="https://instagram.com  " title="Instagram"><i class="fab fa-instagram"></i></a>
-        <a href="https://youtube.com  " title="YouTube"><i class="fab fa-youtube"></i></a>
-        <a href="https://discord.com  " title="Discord"><i class="fab fa-discord"></i></a>
-      </div>
+
+        <div class="controls">
+            <div class="card">
+                <div style="margin-bottom:10px"><strong>Repository</strong></div>
+                <input id="owner" class="input" placeholder="owner" value="teamgalaxyinteractive-cmd">
+                <input id="repo" class="input" placeholder="repo" value="teamgalaxy">
+                <input id="branch" class="input" placeholder="branch" value="main">
+                <input id="root" class="input" placeholder="root path (optional)" value="">
+
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <input id="extensions" class="input" style="flex:1" placeholder=".js,.py" value=".js,.ts,.py,.html,.css,.json,.md">
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+                    <input id="minSize" class="input" style="width:140px" type="number" placeholder="min size bytes" value="0">
+                    <input id="maxContentFetch" class="input" style="width:140px" type="number" placeholder="content fetch N" value="10" title="Max files to fetch content for (0 = none)">
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <input id="ghToken" class="input" placeholder="GitHub token (optional)" title="Use a personal token to increase rate limit">
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                    <button id="analyzeBtn" class="btn">🔄 Analyze</button>
+                    <button id="fetchTopContentBtn" class="btn small" style="background:linear-gradient(45deg,#60a5fa,#3b82f6)">📄 Fetch top N</button>
+                    <button id="exportBtn" class="btn small" style="background:linear-gradient(45deg,#4ade80,#22c55e)">📥 Export</button>
+                </div>
+
+                <div class="footer-note">
+                    Tip: By default we do NOT fetch each file’s content (lazy). Use "Fetch top N" or click a file to load content — saves API tokens & bandwidth.
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="margin-bottom:6px"><strong>Quick stats</strong></div>
+                <div class="stats-grid" id="quickStats">
+                    <div class="stat">
+                        <div class="v" id="totalFiles">0</div>
+                        <div class="label">Files</div>
+                    </div>
+                    <div class="stat">
+                        <div class="v" id="totalSize">0 Bytes</div>
+                        <div class="label">Total size</div>
+                    </div>
+                    <div class="stat">
+                        <!-- Largest file: truncated nicely -->
+                        <div class="v"><span id="largestFile" class="truncate" title="—">—</span></div>
+                        <div class="label">Largest</div>
+                    </div>
+                    <div class="stat">
+                        <div class="v" id="avgSize">—</div>
+                        <div class="label">Average</div>
+                    </div>
+                </div>
+
+                <div style="margin-top:8px"><strong>Search / Filter</strong></div>
+                <input id="searchFilter" class="input" placeholder="Filter by filename or path">
+
+                <div style="margin-top:10px"><strong>Charts</strong></div>
+                <div style="display:flex;gap:8px">
+                    <button id="showChartsBtn" class="btn small">Show charts</button>
+                    <button id="loadCacheBtn" class="btn small" style="background:linear-gradient(45deg,#f59e0b,#f97316)">Load cache</button>
+                </div>
+
+                <div id="rateInfo" class="footer-note" style="margin-top:8px;color:var(--muted)"></div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="card">
+            <div class="tabs">
+                <div class="tab active" data-tab="overview">📈 Overview</div>
+                <div class="tab" data-tab="files">📁 Files</div>
+                <div class="tab" data-tab="charts">📊 Charts</div>
+                <div class="tab" data-tab="tree">🌳 Tree View</div>
+                <div class="tab" data-tab="details">📋 Details</div>
+            </div>
+
+            <!-- Overview -->
+            <div id="overview" class="tab-content active">
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                    <div style="flex:1; min-width:220px;">
+                        <h3 style="margin-bottom:8px">Summary</h3>
+                        <div id="summaryText" class="summary" style="color:var(--muted)">No analysis run yet.</div>
+
+                        <div style="margin-top:12px">
+                            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                                <button id="openFilesTab" class="btn small">Open Files</button>
+                                <button id="openTreeTab" class="btn small" style="background:linear-gradient(45deg,#7c3aed,#4f46e5)">Open Tree</button>
+                                <button id="refreshBtn" class="btn small" style="background:linear-gradient(45deg,#06b6d4,#0ea5e9)">Re-run</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="width:360px; min-width:220px;">
+                        <h3 style="margin-bottom:8px">Top files</h3>
+                        <div id="topFilesList" class="topfiles" style="color:var(--muted)">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Files table -->
+            <div id="files" class="tab-content">
+                <div class="table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:18%;">Name</th>
+                                <th style="width:48%;">Path</th>
+                                <th style="width:12%;">Size</th>
+                                <th style="width:10%;">Type</th>
+                                <th style="width:7%;">Lines</th>
+                                <th style="width:15%;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="filesTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="filesNote" class="muted" style="margin-top:8px">Click 🔍 to load file content (this will perform a single request for that file).</div>
+            </div>
+
+            <!-- Charts -->
+            <div id="charts" class="tab-content">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div class="chart-wrap"><canvas id="typeChart"></canvas></div>
+                    <div class="chart-wrap"><canvas id="sizeChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Tree View -->
+            <div id="tree" class="tab-content">
+                <div class="tree-view" id="treeView"></div>
+            </div>
+
+            <!-- Details -->
+            <div id="details" class="tab-content">
+                <div id="fileDetailsInner" style="color:var(--muted)">Select a file to view details.</div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading hidden" style="display:none;"></div>
+        <div id="error" class="error hidden" style="display:none;"></div>
     </div>
 
-    <!-- Right: Links + Address -->
-    <div class="footer-col footer-right">
-      <div class="footer-links">
-        <a href="#">Privacy Policy</a>
-        <a href="#">Terms & Conditions</a>
-        <a href="#">About</a>
-      </div>
-      <div>
-        <div class="footer-contact-row">
-          <span class="footer-contact-label">
-            <i class="fa-solid fa-location-dot footer-contact-icon"></i>Address:
-          </span>
-          44 Galaxy St, Universe City, WebLand
-        </div>
-        <div class="footer-contact-row">
-          <span class="footer-contact-label">
-            <i class="fa-solid fa-phone footer-contact-icon"></i>Phone:
-          </span>
-          +91-9876543210
-        </div>
-        <div class="footer-contact-row">
-          <span class="footer-contact-label">
-            <i class="fa-solid fa-envelope footer-contact-icon"></i>Email:
-          </span>
-          support@gmail.com
-        </div>
-        <div class="footer-contact">
-          <span class="footer-contact-label">
-            <i class="fa-regular fa-clock footer-contact-icon"></i>Working Hours:
-          </span>
-          Mon-Sat 10am - 10pm
-        </div>
-      </div>
-    </div>
-  </footer>
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+          apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+          authDomain: "teamgalaxy-77344.firebaseapp.com",
+          projectId: "teamgalaxy-77344",
+          storageBucket: "teamgalaxy-77344.firebasestorage.app",
+          messagingSenderId: "770256225320",
+          appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+          measurementId: "G-6C2W9NSNCH"
+        };
 
-  <script>
-    // Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-      authDomain: "teamgalaxy-77344.firebaseapp.com",
-      projectId: "teamgalaxy-77344",
-      storageBucket: "teamgalaxy-77344.firebasestorage.app",
-      messagingSenderId: "770256225320",
-      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-      measurementId: "G-6C2W9NSNCH"
-    };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
-    // Initialize Firebase
-    if (!window.firebase || !firebase.apps) {
-      console.error('Firebase compat not loaded correctly.');
-    } else {
-      try {
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-      } catch (e) { console.warn('firebase init skipped or failed', e); }
-    }
+        // Globals
+        window.analysisData = window.analysisData || [];
+        window.currentFile = window.currentFile || null;
+        window.charts = window.charts || { typeChart:null, sizeChart:null };
 
-    // Activate App Check
-    try {
-      const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider(
-        "6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"
-      );
-      firebase.appCheck().activate(appCheckProvider, true);
-      console.log(
-        "App Check (compat) activated — reCaptcha v3 provider attached."
-      );
-    } catch (e) {
-      console.warn("App Check activation failed (compat):", e);
-    }
+        // Helpers
+        function el(id){ return document.getElementById(id); }
+        function showLoading(txt){ const L = el('loading'); L.style.display='block'; L.classList.remove('hidden'); L.textContent = txt || 'Working...'; }
+        function hideLoading(){ const L = el('loading'); L.style.display='none'; L.classList.add('hidden'); L.textContent=''; }
+        function showError(msg){ const E = el('error'); E.style.display='block'; E.classList.remove('hidden'); E.textContent = msg; }
+        function hideError(){ const E = el('error'); E.style.display='none'; E.classList.add('hidden'); E.textContent=''; }
+        function formatBytes(bytes){ if(bytes === 0) return '0 Bytes'; if(!bytes) return '0 Bytes'; const k=1024; const sizes=['Bytes','KB','MB','GB']; const i = Math.floor(Math.log(Math.max(bytes,1))/Math.log(k)); return (bytes/Math.pow(k,i)).toFixed(2)+' '+sizes[i]; }
+        function getFileType(name){ const ext = (name.split('.').pop()||'').toLowerCase(); const map={'js':'JavaScript','ts':'TypeScript','py':'Python','html':'HTML','css':'CSS','json':'JSON','md':'Markdown'}; return map[ext]||(ext?ext.toUpperCase():'Unknown'); }
+        function safeDecodeURIPath(p){ try { return decodeURIComponent(p); } catch(e){ return p; } }
+        function escapeForAttr(s){ return (s||'').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+        function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function truncateStr(s, n=32){ if(!s) return ''; return s.length > n ? s.slice(0, n-1) + '…' : s; }
 
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-
-    // Hamburger menu functionality
-    const hamburgerBtn = document.getElementById("hamburgerBtn");
-    const navButtons = document.getElementById("navButtons");
-
-    hamburgerBtn.addEventListener('click', function() {
-      navButtons.classList.toggle('show');
-    });
-
-    // Close hamburger menu if clicked outside
-    window.addEventListener("click", function(event) {
-      if (!hamburgerBtn.contains(event.target) && !navButtons.contains(event.target)) {
-        navButtons.classList.remove('show');
-      }
-    });
-
-    // More Options dropdown functionality
-    const moreOptions = document.getElementById("moreOptions");
-    const moreDropdown = moreOptions.querySelector(".dropdown-content");
-
-    moreOptions.querySelector(".nav-btn").addEventListener("click", (e) => {
-      e.stopPropagation();
-      moreDropdown.style.display = moreDropdown.style.display === "block" ? "none" : "block";
-    });
-
-    window.addEventListener("click", (event) => {
-      if (!moreOptions.contains(event.target)) {
-        moreDropdown.style.display = "none";
-      }
-    });
-
-    // Profile dropdown functionality
-    const profileBtn = document.getElementById("profileBtn");
-    const profileMenu = document.getElementById("profileMenu");
-    const profileLink = document.getElementById("profileLink");
-    const logoutLink = document.getElementById("logoutLink");
-
-    profileBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      // close hamburger if open
-      navButtons.classList.remove('show');
-
-      // If not signed in, redirect to sign-up immediately
-      if (!auth.currentUser) {
-        window.location.href = "/teamgalaxy/legal/sign_up.html";
-        return;
-      }
-
-      // signed in -> toggle menu
-      const showing = profileMenu.style.display === "block";
-      profileMenu.style.display = showing ? "none" : "block";
-    });
-
-    // Close profile menu if clicked outside
-    window.addEventListener("click", (event) => {
-      if (!profileBtn.contains(event.target) && !profileMenu.contains(event.target)) {
-        profileMenu.style.display = "none";
-      }
-    });
-
-    // Sign-Out Function
-    async function signOut() {
-      try {
-        await auth.signOut();
-        // hide menu after sign-out
-        profileMenu.style.display = "none";
-        // after sign-out show default icon
-        profileBtn.innerHTML = '<i class="fa-solid fa-user"></i>';
-      } catch (error) {
-        alert("Sign-out failed: " + (error && error.message ? error.message : error));
-      }
-    }
-
-    // Fix: ensure the Profile menu item actually navigates to the correct path.
-    // We keep href for normal navigation, but also set onclick to ensure SPA-friendly navigation and close the menu.
-    function safeNavigateToProfile(e) {
-      e && e.preventDefault && e.preventDefault();
-      e && e.stopPropagation && e.stopPropagation();
-      // prefer the explicit path you requested
-      const path = '/teamgalaxy/user_management/user_profile.html';
-      // hide menu quickly (visual)
-      profileMenu.style.display = 'none';
-      // if user is signed in go to profile, else redirect to sign up
-      if (!auth.currentUser) {
-        window.location.href = '/teamgalaxy/legal/sign_up.html';
-      } else {
-        window.location.href = path;
-      }
-    }
-
-    // Wire up logout and profile click handlers once
-    if (logoutLink && !logoutLink._attached) {
-      logoutLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        signOut();
-      });
-      logoutLink._attached = true;
-    }
-
-    // Attach profile link handler
-    if (profileLink && !profileLink._attached) {
-      profileLink.addEventListener('click', safeNavigateToProfile);
-      profileLink._attached = true;
-    }
-
-    // Update profile button (photo or icon) on auth state change and ensure handlers remain wired
-    auth.onAuthStateChanged((user) => {
-      if (user) {
-        // show photo if available
-        if (user.photoURL) {
-          profileBtn.innerHTML = `<img src="${user.photoURL}" alt="Profile" style="width:36px;height:36px;border-radius:50%;">`;
-        } else {
-          profileBtn.innerHTML = '<i class="fa-solid fa-user"></i>';
+        // Stars background
+        function createStars(){
+            const starsContainer = document.getElementById('stars');
+            const starCount = 120;
+            for(let i=0;i<starCount;i++){
+                const star = document.createElement('div');
+                star.className='star';
+                const x = Math.random()*100, y = Math.random()*100;
+                star.style.left = x + '%'; star.style.top = y + '%';
+                const size = Math.random()*3 + 0.6;
+                star.style.width = size+'px'; star.style.height = size+'px';
+                const duration = Math.random()*6 + 2;
+                star.style.setProperty('--duration', duration + 's');
+                star.style.backgroundColor = 'rgba(255,255,255,' + (Math.random()*0.8 + 0.15) + ')';
+                starsContainer.appendChild(star);
+            }
         }
-        // ensure logout/profile handlers remain
-        if (logoutLink && !logoutLink._attached) {
-          logoutLink.addEventListener('click', (e) => {
-            e.preventDefault(); e.stopPropagation(); signOut();
-          });
-          logoutLink._attached = true;
+
+        // Auth check
+        async function checkAuth(){
+            try{
+                const user = await new Promise((resolve,reject) => {
+                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                        if(user){
+                            try{
+                                const adminQuery = await db.collection('admin').where('gmail','==', user.email).limit(1).get();
+                                if(!adminQuery.empty){
+                                    unsubscribe();
+                                    resolve(user);
+                                } else {
+                                    unsubscribe();
+                                    reject(new Error('Not an admin'));
+                                }
+                            }catch(e){ unsubscribe(); reject(e); }
+                        } else { unsubscribe(); reject(new Error('Not signed in')); }
+                    });
+                });
+
+                setTimeout(()=>{
+                    document.getElementById('loadingScreen').style.opacity='0';
+                    setTimeout(()=>{
+                        document.getElementById('loadingScreen').style.display='none';
+                        document.getElementById('mainContainer').style.display='block';
+                    }, 420);
+                }, 800);
+            }catch(err){
+                console.error('Auth error', err);
+                document.getElementById('loadingScreen').querySelector('.loading-text').textContent = 'Access denied. Redirecting...';
+                setTimeout(()=> window.location.href = 'index.html', 1400);
+            }
         }
-        if (profileLink && !profileLink._attached) {
-          profileLink.addEventListener('click', safeNavigateToProfile);
-          profileLink._attached = true;
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(t=>{
+            t.addEventListener('click', () => {
+                const tab = t.dataset.tab;
+                document.querySelectorAll('.tab').forEach(x=> x.classList.toggle('active', x===t));
+                document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id===tab));
+            });
+        });
+
+        // Rate-aware fetch wrapper
+        async function ghFetch(url, token){
+            const headers = { 'Accept': 'application/vnd.github.v3+json' };
+            if(token) headers['Authorization'] = 'token ' + token;
+            const res = await fetch(url, { headers });
+            const remaining = parseInt(res.headers.get('x-ratelimit-remaining') || '0',10);
+            const resetEpoch = parseInt(res.headers.get('x-ratelimit-reset') || '0',10);
+            return { res, remaining, resetEpoch };
         }
-      } else {
-        // signed out state: reset UI (icon) and keep profile button redirect behaviour on click
-        profileBtn.innerHTML = '<i class="fa-solid fa-user"></i>';
-      }
-    });
 
-    // Create star background
-    const starsContainer = document.getElementById('stars');
-    const starCount = 150; // Adjust number of stars as needed
+        // Analyze repo
+        async function analyzeRepo(){
+            hideError(); showLoading('Fetching repo tree from GitHub...');
+            try{
+                const owner = el('owner').value.trim(), repo = el('repo').value.trim(), branch = el('branch').value.trim() || 'main';
+                if(!owner || !repo) throw new Error('Owner & repo required');
+                const root = (el('root').value || '').trim();
+                const extensions = (el('extensions').value || '').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+                const minSize = parseInt(el('minSize').value) || 0;
+                const token = (el('ghToken').value || '').trim();
 
-    for (let i = 0; i < starCount; i++) {
-      const star = document.createElement('div');
-      star.classList.add('star');
+                const treeUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
+                const { res, remaining, resetEpoch } = await ghFetch(treeUrl, token);
+                el('rateInfo').textContent = `GitHub rate remaining: ${remaining} — reset ${ new Date(resetEpoch*1000).toLocaleString() }`;
 
-      // Random position
-      const posX = Math.random() * 100;
-      const posY = Math.random() * 100;
+                if(!res.ok){
+                    const txt = await res.text();
+                    throw new Error(`GitHub API error ${res.status}: ${txt.substring(0,200)}`);
+                }
+                const data = await res.json();
+                if(!data.tree) throw new Error('Invalid tree response');
 
-      // Random size (0.5px to 2px)
-      const size = Math.random() * 1.5 + 0.5;
+                let files = data.tree.filter(i => i.type === 'blob');
+                if(root){
+                    const rootNorm = root.replace(/^\/*/,'').replace(/\/*$/,'') + '/';
+                    files = files.filter(f => f.path.startsWith(rootNorm));
+                }
+                files = files.filter(item => {
+                    const pathLower = item.path.toLowerCase();
+                    const extMatch = extensions.length ? extensions.some(ext => pathLower.endsWith(ext)) : true;
+                    const sizeOk = (typeof item.size === 'number') ? item.size > minSize : true;
+                    return extMatch && sizeOk;
+                });
 
-      // Random animation duration (2s to 8s)
-      const duration = Math.random() * 6 + 2;
+                const built = files.map(f => ({
+                    path: f.path,
+                    name: f.path.split('/').pop(),
+                    size: f.size || 0,
+                    url: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encodeURI(f.path)}`,
+                    type: getFileType(f.path),
+                    lines: null,
+                    columns: null
+                }));
 
-      star.style.left = `${posX}%`;
-      star.style.top = `${posY}%`;
-      star.style.width = `${size}px`;
-      star.style.height = `${size}px`;
-      star.style.setProperty('--duration', `${duration}s`);
+                window.analysisData = built;
+                updateUIAfterAnalysis(built);
+                buildTreeStructure(built);
+                hideLoading();
 
-      // Random delay for animation
-      star.style.animationDelay = `${Math.random() * 5}s`;
+                if(remaining < 5){
+                    showError(`Warning: GitHub rate limit low (${remaining} remaining). Avoid fetching many files now or provide a personal token.`);
+                }
+            }catch(err){
+                hideLoading();
+                showError('Analysis error: ' + (err.message || err));
+                console.error(err);
+            }
+        }
 
-      starsContainer.appendChild(star);
-    }
-  </script>
+        // Build tree
+        function buildTreeStructure(files){
+            const treeView = el('treeView');
+            const tree = {};
+            files.forEach(file=>{
+                const parts = file.path.split('/');
+                let current = tree;
+                for(let i=0;i<parts.length-1;i++){
+                    const part = parts[i];
+                    if(!current[part]) current[part] = {};
+                    current = current[part];
+                }
+                current[parts[parts.length-1]] = file;
+            });
+
+            function renderTree(obj, depth=0){
+                let html='';
+                for(const key in obj){
+                    const item = obj[key];
+                    const indent = '&nbsp;'.repeat(depth * 4);
+                    if(item && item.path){
+                        html += `<div class="tree-item">${indent}<span class="tree-file">📄 ${escapeHtml(key)}</span></div>`;
+                    } else {
+                        html += `<div class="tree-item">${indent}<span class="tree-folder">📁 ${escapeHtml(key)}</span></div>`;
+                        html += renderTree(item, depth+1);
+                    }
+                }
+                return html;
+            }
+            treeView.innerHTML = renderTree(tree);
+        }
+
+        // Update UI after analysis
+        function updateUIAfterAnalysis(files){
+            const totalFiles = files.length;
+            const totalSize = files.reduce((s,f)=> s + (f.size||0), 0);
+            const largest = files.reduce((best,f)=> (!best || (f.size||0) > (best.size||0)) ? f : best, null);
+            const avg = totalFiles ? Math.round(totalSize/totalFiles) : 0;
+
+            el('totalFiles').textContent = totalFiles;
+            el('totalSize').textContent = formatBytes(totalSize);
+            el('avgSize').textContent = avg ? formatBytes(avg) : '—';
+
+            // largest file: set truncated with title for full name
+            if(largest){
+                el('largestFile').textContent = ''; // clear
+                const span = document.createElement('span');
+                span.className = 'truncate';
+                span.title = largest.name;
+                span.textContent = truncateStr(largest.name, 26);
+                el('largestFile').appendChild(span);
+                const sizeNote = document.createElement('span');
+                sizeNote.style.float = 'right';
+                sizeNote.style.color = 'var(--muted)';
+                sizeNote.style.marginLeft = '8px';
+                sizeNote.textContent = ' ' + formatBytes(largest.size);
+                el('largestFile').appendChild(sizeNote);
+            } else {
+                el('largestFile').textContent = '—';
+            }
+
+            // Summary: enhanced, concrete
+            el('summaryText').textContent = `Found ${totalFiles} file(s) totaling ${formatBytes(totalSize)}. Average file size: ${avg ? formatBytes(avg) : '—'}. Content is NOT fetched by default — use "Fetch top N" or click a file to load its content on demand.`;
+
+            // Top files: truncated with tooltip
+            const top = [...files].sort((a,b)=> (b.size||0) - (a.size||0)).slice(0,8);
+            el('topFilesList').innerHTML = top.length ? top.map(t=>{
+                return `<div style="margin-bottom:8px;font-size:0.95rem">
+                    <span class="truncate" title="${escapeHtml(t.name)}">${escapeHtml(truncateStr(t.name,34))}</span>
+                    &nbsp;—&nbsp;<span style="color:var(--muted)">${formatBytes(t.size)}</span>
+                </div>`;
+            }).join('') : '—';
+
+            renderFilesTable(files);
+            renderCharts(files);
+        }
+
+        // Render files table
+        function renderFilesTable(files){
+            const search = (el('searchFilter').value || '').toLowerCase();
+            const filtered = (files || []).filter(f=> (f.name + ' ' + f.path).toLowerCase().includes(search));
+            const tbody = el('filesTableBody');
+            tbody.innerHTML = '';
+
+            filtered.forEach(f=>{
+                const tr = document.createElement('tr');
+                // Use safe escaped content and classes to ensure truncation at CSS level
+                tr.innerHTML = `
+                  <td><div class="name-cell" title="${escapeHtml(f.name)}">${escapeHtml(truncateStr(f.name, 40))}</div></td>
+                  <td><div class="path-cell" title="${escapeHtml(f.path)}">${escapeHtml(truncateStr(f.path, 70))}</div></td>
+                  <td>${formatBytes(f.size)}</td>
+                  <td><span class="file-type" title="${escapeHtml(f.type)}">${escapeHtml(f.type)}</span></td>
+                  <td>${f.lines === null ? '—' : f.lines}</td>
+                  <td class="actions-cell">
+                    <button class="btn small" onclick="loadSingleFile('${escapeForAttr(f.url)}','${escapeForAttr(f.path)}')">🔍 Load</button>
+                    <button class="btn small" style="background:linear-gradient(45deg,#3b82f6,#2563eb)" onclick="downloadDirect('${escapeForAttr(f.url)}','${escapeForAttr(f.name)}')">📥</button>
+                  </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Charts
+        function renderCharts(files){
+            try{
+                const counts = {};
+                files.forEach(f=> counts[f.type] = (counts[f.type]||0) + 1 );
+                const labels = Object.keys(counts).slice(0,20);
+                const data = labels.map(l=> counts[l]);
+
+                if(window.charts.typeChart) window.charts.typeChart.destroy();
+                const ctx1 = el('typeChart').getContext('2d');
+                window.charts.typeChart = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: { labels, datasets: [{ data }] },
+                    options: { responsive:true, plugins:{legend:{position:'bottom', labels:{color:'#fff'}}} }
+                });
+
+                const top = [...files].sort((a,b)=> (b.size||0)-(a.size||0)).slice(0,10);
+                const sizeLabels = top.map(t=> t.name);
+                const sizeValues = top.map(t=> Math.round((t.size||0)/1024));
+                if(window.charts.sizeChart) window.charts.sizeChart.destroy();
+                const ctx2 = el('sizeChart').getContext('2d');
+                window.charts.sizeChart = new Chart(ctx2, {
+                    type:'bar',
+                    data: { labels: sizeLabels, datasets: [{ label: 'Size (KB)', data: sizeValues }] },
+                    options: { indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x: { ticks:{ color:'#a0aec0' } }, y:{ ticks:{ color:'#a0aec0' } } } }
+                });
+            }catch(e){ console.warn('charts err', e); }
+        }
+
+        // Load single file content
+        async function loadSingleFile(rawUrl, path){
+            hideError(); showLoading('Fetching file content (on-demand)...');
+            try{
+                const r = await fetch(rawUrl);
+                if(!r.ok) throw new Error(`HTTP ${r.status}`);
+                const text = await r.text();
+                showFileContent(path, text);
+
+                const fileObj = window.analysisData.find(f => f.path === path);
+                if(fileObj){ fileObj.lines = text.split(/\r\n|\n/).length; fileObj.columns = Math.max(...text.split(/\r\n|\n/).map(l=>l.length), 0); }
+                renderFilesTable(window.analysisData);
+                hideLoading();
+                switchToDetails(path);
+            }catch(err){
+                hideLoading();
+                showError('File load error: ' + (err.message || err));
+                console.error(err);
+            }
+        }
+
+        function showFileContent(path, content){
+            const target = el('fileDetailsInner');
+            const safePath = safeDecodeURIPath(path);
+            target.innerHTML = `
+                <h3 style="margin-top:0">${escapeHtml(safePath)}</h3>
+                <div style="color:var(--muted);margin-bottom:8px">Size: ${content.length} bytes — Loaded on demand</div>
+                <pre style="white-space:pre-wrap;max-height:420px;overflow:auto;background:rgba(0,0,0,0.2);padding:12px;border-radius:8px">${escapeHtml(content)}</pre>
+            `;
+        }
+
+        // Fetch top N content
+        async function fetchTopNContent(){
+            hideError();
+            const maxN = parseInt(el('maxContentFetch').value) || 0;
+            if(maxN <= 0){ alert('Set a positive number in "content fetch N" to use this feature.'); return; }
+            if(!window.analysisData || window.analysisData.length === 0){ alert('Run analysis first.'); return; }
+
+            const top = [...window.analysisData].sort((a,b)=> (b.size||0)-(a.size||0)).slice(0,maxN);
+            showLoading(`Fetching content for top ${top.length} files... (this uses ${top.length} requests)`);
+            let counter = 0;
+            for(const f of top){
+                try{
+                    await loadSingleFile(f.url, f.path);
+                    counter++;
+                    showLoading(`Fetched ${counter}/${top.length}...`);
+                    await new Promise(r=>setTimeout(r, 250));
+                }catch(e){ console.warn('top fetch err', e); }
+            }
+            hideLoading();
+            alert(`Done fetching content for ${counter}/${top.length} files.`);
+        }
+
+        // Utilities
+        function downloadDirect(url, name){
+            fetch(url).then(r=>r.blob()).then(b=>{
+                const a=document.createElement('a');
+                a.href = URL.createObjectURL(b);
+                a.download = name || 'file';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(()=> URL.revokeObjectURL(a.href), 3000);
+            }).catch(e=> alert('Download failed: '+e));
+        }
+
+        function switchToDetails(path){
+            document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab==='details'));
+            document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id==='details'));
+        }
+
+        // Event binds
+        el('analyzeBtn').addEventListener('click', analyzeRepo);
+        el('fetchTopContentBtn').addEventListener('click', fetchTopNContent);
+        el('exportBtn').addEventListener('click', ()=> {
+            if(!window.analysisData || window.analysisData.length===0){ alert('No data'); return; }
+            const blob = new Blob([JSON.stringify(window.analysisData,null,2)], {type:'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'analysis.json'; a.click(); a.remove();
+            setTimeout(()=> URL.revokeObjectURL(url), 4000);
+        });
+
+        el('searchFilter').addEventListener('input', ()=> renderFilesTable(window.analysisData || []));
+        el('loadCacheBtn').addEventListener('click', ()=>{
+            try{
+                const raw = localStorage.getItem('lastAnalysis');
+                if(!raw) return alert('No cached analysis found');
+                const obj = JSON.parse(raw);
+                if(!obj.data) return alert('Invalid cache');
+                window.analysisData = obj.data;
+                updateUIAfterAnalysis(window.analysisData);
+                buildTreeStructure(window.analysisData);
+                alert('Loaded cached analysis from ' + (obj.timestamp||'unknown'));
+            }catch(e){ alert('Load cache failed: '+e) }
+        });
+
+        el('openFilesTab').addEventListener('click', ()=> {
+            document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab==='files'));
+            document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id==='files'));
+            window.scrollTo({top:0, behavior:'smooth'});
+        });
+        el('openTreeTab').addEventListener('click', ()=> {
+            document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab==='tree'));
+            document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id==='tree'));
+            window.scrollTo({top:0, behavior:'smooth'});
+        });
+        el('refreshBtn').addEventListener('click', analyzeRepo);
+
+        // Auto-cache hook
+        (function autoCacheHook(){
+            const origAnalyze = analyzeRepo;
+            analyzeRepo = async function(){
+                await origAnalyze();
+                try{
+                    if(window.analysisData) localStorage.setItem('lastAnalysis', JSON.stringify({timestamp:new Date().toISOString(), data: window.analysisData}));
+                }catch(e){ console.warn('cache fail', e); }
+            };
+        })();
+
+        // Go back
+        function goBack(){ window.location.href = 'admin.html'; }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => { createStars(); checkAuth(); });
+    </script>
 </body>
 </html>
