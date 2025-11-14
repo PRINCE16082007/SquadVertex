@@ -3,30 +3,97 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>TeamGalaxy Portfolio Manager — Debug</title>
+  <title>TeamGalaxy Portfolio Manager</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
   <style>
     :root{
-      --primary-bg: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-      --card-bg: rgba(255,255,255,0.06);
-      --glass-border: 1px solid rgba(255,255,255,0.12);
-      --hover-glow: 0 0 24px rgba(102,126,234,0.35);
+      --primary-bg: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      --card-bg: rgba(25, 25, 35, 0.9);
+      --glass-border: 1px solid rgba(255,255,255,0.1);
+      --hover-glow: 0 0 24px rgba(0,212,255,0.35);
       --panel-bg: #1e1e1e;
       --muted: rgba(255,255,255,0.75);
-      --accent: linear-gradient(45deg,#ff6b6b,#4ecdc4);
+      --accent: linear-gradient(45deg,#00d4ff,#0077ff);
+      --primary: #00d4ff;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --error: #f87171;
     }
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%}
     body{
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background:var(--primary-bg); color:#fff; padding:20px; line-height:1.5;
+      position: relative;
+      overflow-x: hidden;
     }
-    .container{max-width:1200px;margin:0 auto}
+    
+    /* Stars Background */
+    .stars {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .star {
+      position: absolute;
+      background-color: white;
+      border-radius: 50%;
+      animation: twinkle var(--duration, 3s) infinite ease-in-out;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 1; }
+    }
+    
+    /* Loading Screen */
+    .loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 12, 41, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.5s ease;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255,255,255,0.1);
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 1.2rem;
+      color: var(--primary);
+      text-align: center;
+    }
+    
+    .container{max-width:1200px;margin:0 auto;position:relative;z-index:10}
     .header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
     .title { display:flex; align-items:center; gap:12px; }
     .title h1{ font-size:1.5rem; background:var(--accent); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:0 }
     .auth-area{display:flex;gap:8px;align-items:center}
-    .auth-btn{background:#2b2b2b;border:0;padding:8px 10px;border-radius:8px;color:#fff;cursor:pointer}
+    .auth-btn{background:rgba(255,255,255,0.1);border:0;padding:8px 10px;border-radius:8px;color:#fff;cursor:pointer}
     .auth-badge{background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:12px;font-size:13px}
     .stats{display:flex;gap:12px;margin:14px 0 18px;flex-wrap:wrap}
     .stat-card{background:var(--card-bg);border:var(--glass-border);border-radius:10px;padding:10px 14px;min-width:120px;text-align:center}
@@ -35,7 +102,7 @@
     .upload-section{background:var(--card-bg);border:var(--glass-border);padding:14px;border-radius:10px;min-width:420px}
     .file-input-wrapper{position:relative;display:inline-block;background:rgba(255,255,255,0.02);padding:12px 18px;border-radius:999px;border:2px dashed rgba(255,255,255,0.06);cursor:pointer}
     .file-input{position:absolute;left:0;top:0;opacity:0;width:100%;height:100%}
-    .upload-btn{background:linear-gradient(45deg,#ff6b6b,#4ecdc4);border:0;color:#fff;padding:8px 12px;border-radius:12px;cursor:pointer}
+    .upload-btn{background:linear-gradient(45deg,var(--primary),#0077ff);border:0;color:#fff;padding:8px 12px;border-radius:12px;cursor:pointer}
     .preview-container{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
     .preview-item{width:88px;height:88px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;position:relative}
     .preview-item img{width:100%;height:100%;object-fit:cover}
@@ -61,12 +128,43 @@
     .log-ts{color:#9aa7d6;margin-right:6px;font-size:11px}
     .field-list{margin-top:8px;font-size:13px;color:#cfd8ff}
     .small-muted{font-size:12px;color:#9aa}
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    .back-btn {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .back-btn:hover {
+      background: rgba(0, 212, 255, 0.3);
+    }
   </style>
 </head>
 <body>
-  <div class="container">
+  <!-- Loading Screen -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Verifying admin access...</div>
+  </div>
+  
+  <!-- Stars Background -->
+  <div class="stars" id="stars"></div>
+
+  <div class="container" id="mainContainer" style="display:none">
     <div class="header">
       <div class="title">
+        <button class="back-btn" onclick="goBack()">
+          <i class="fas fa-arrow-left"></i>
+        </button>
         <h1><i class="fas fa-rocket"></i> TeamGalaxy Portfolio Manager</h1>
       </div>
 
@@ -167,7 +265,7 @@
     const logs = [];
 
     // simple safe escape
-    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'<').replace(/>/g,'>'); }
 
     window.consolePanelLog = function(message, level='log'){
       try {
@@ -373,7 +471,6 @@
     document.getElementById('loadingIndicator').style.display = 'none';
     input.value = ''; document.getElementById('previewContainer').innerHTML = '';
   }
-
   // Upload to worker then add metadata to Firestore (client path)
   async function uploadToCloudflareWorker(file, user){
     const category = document.getElementById('categoryFilter').value || 'uncategorized';
@@ -562,9 +659,86 @@
     catch(e){ appLog('loadPortfolioItems failed after auth change: ' + e.message, 'warning'); }
   });
 
-  // Initial load
-  (function init(){ appLog('App init', 'info'); loadPortfolioItems().catch(()=>{}); })();
+  // Admin verification function
+  async function checkAdminAccess() {
+    try {
+      const user = await new Promise((resolve, reject) => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+          if (user) {
+            try {
+              const adminQuery = await db.collection('admin').where('gmail', '==', user.email).limit(1).get();
+              if (!adminQuery.empty) {
+                unsubscribe();
+                resolve(user);
+              } else {
+                unsubscribe();
+                throw new Error('Not an admin');
+              }
+            } catch (error) {
+              unsubscribe();
+              throw error;
+            }
+          } else {
+            unsubscribe();
+            throw new Error('Not signed in');
+          }
+        });
+      });
 
+      // Show main content after admin verification
+      setTimeout(() => {
+        document.getElementById('loadingScreen').style.opacity = '0';
+        setTimeout(() => {
+          document.getElementById('loadingScreen').classList.add('hidden');
+          document.getElementById('mainContainer').style.display = 'block';
+        }, 500);
+      }, 1500);
+
+    } catch (error) {
+      console.error('Admin access error:', error);
+      document.getElementById('loadingScreen').querySelector('.loading-text').textContent = 'Access denied. Redirecting...';
+      setTimeout(() => {
+        window.location.href = 'index.html';
+      }, 2000);
+    }
+  }
+
+  // Create stars background
+  function createStars() {
+    const starsContainer = document.getElementById('stars');
+    const starCount = 150;
+    
+    for (let i = 0; i < starCount; i++) {
+      const star = document.createElement('div');
+      star.classList.add('star');
+      
+      const x = Math.random() * 100;
+      const y = Math.random() * 100;
+      star.style.left = `${x}%`;
+      star.style.top = `${y}%`;
+      
+      const size = Math.random() * 3 + 1;
+      star.style.width = `${size}px`;
+      star.style.height = `${size}px`;
+      
+      const duration = Math.random() * 5 + 2;
+      star.style.setProperty('--duration', `${duration}s`);
+      
+      starsContainer.appendChild(star);
+    }
+  }
+
+  // Go back function
+  function goBack() {
+    window.location.href = 'admin.html';
+  }
+
+  // Initial load
+  (function init(){ 
+    appLog('App init', 'info');
+    createStars();
+    checkAdminAccess();
+  })();
   </script>
 </body>
 </html>
