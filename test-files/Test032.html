@@ -5,8 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Profile - TeamGalaxy</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    html,body { height: 100%; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
     body {
       background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
       color: #e0e0ff;
@@ -14,22 +19,32 @@
       display: flex;
       flex-direction: column;
       position: relative;
-      overflow-x: hidden; /* avoid horizontal scroll from big blobs */
+      overflow-x: hidden;
     }
 
-    /* subtle starfield behind everything */
-    body::before{
-      content: "";
+    /* BACKGROUND IMAGE LAYER (edit the URL below or set via inline style attribute on .bg-layer) */
+    .bg-layer {
       position: fixed;
       inset: 0;
-      background-image:
-        radial-gradient(2px 2px at 12% 10%, rgba(255,255,255,0.10), transparent),
-        radial-gradient(1.5px 1.5px at 70% 30%, rgba(255,255,255,0.07), transparent),
-        radial-gradient(1px 1px at 42% 78%, rgba(255,255,255,0.05), transparent);
-      opacity: 0.8;
-      z-index: 0;
+      z-index: -2;
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      filter: brightness(0.55) saturate(0.9);
+      /* example fallback: use your image URL here or set data-bg on the element in HTML */
+      /* background-image: url('path/to/your-image.jpg'); */
+    }
+
+    /* Star canvas sits above the bg image but behind UI */
+    #bgStars {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
       pointer-events: none;
-      mix-blend-mode: screen;
+      display: block;
     }
 
     /* Header */
@@ -44,7 +59,7 @@
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
       position: sticky;
       top: 0;
-      z-index: 60;
+      z-index: 100;
     }
 
     .logo {
@@ -58,184 +73,491 @@
       -webkit-text-fill-color: transparent;
     }
 
-    .header-buttons { display: flex; gap: 1rem; }
+    .header-buttons {
+      display: flex;
+      gap: 1rem;
+    }
+
     .btn {
       padding: 0.7rem 1.4rem;
       border-radius: 8px;
-      border: 1px solid rgba(138,124,255,0.3);
-      background: rgba(20,20,40,0.5);
-      cursor:pointer; font-weight:600; transition: all .25s ease; font-size: .95rem; color:#b1a6ff;
+      border: 1px solid rgba(138, 124, 255, 0.3);
+      background: rgba(20, 20, 40, 0.5);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+      color: #b1a6ff;
       backdrop-filter: blur(10px);
     }
-    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(106,90,249,0.08); }
 
-    /* Layout container */
+    .btn:hover {
+      background: rgba(30, 30, 60, 0.7);
+      border: 1px solid rgba(138, 124, 255, 0.6);
+      box-shadow: 0 0 15px rgba(138, 124, 255, 0.2);
+    }
+
+    /* Main Content */
     .container {
-      width: 100%;
       max-width: 1200px;
       margin: 2rem auto;
       padding: 0 1.5rem;
       flex: 1;
-      position: relative;
-      z-index: 30; /* above background decorations */
     }
 
-    /* HERO wrapper that provides side space visually */
-    .profile-hero {
-      position: relative;
-      padding: 2rem 0 3rem;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      gap: 2rem;
-    }
-
-    /* PROFILE CARD - slightly reduced width so sides exist */
     .profile-card {
-      background: rgba(20, 20, 40, 0.95);
+      background: rgba(20, 20, 40, 0.85);
       border-radius: 20px;
       padding: 3rem;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-      border: 1px solid rgba(90,79,207,0.9);
-      backdrop-filter: blur(8px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+      border: 1px solid #5a4fcf;
+      backdrop-filter: blur(10px);
       margin-bottom: 2rem;
-      width: min(920px, 100%); /* keep it narrower than page so sides remain */
+      width: 100%;
       position: relative;
-      z-index: 40;
-      overflow: visible;
     }
 
-    /* add soft glowing nebula blobs behind the card to fill sides */
-    .profile-card::before,
-    .profile-card::after {
-      content: "";
-      position: absolute;
-      width: 700px;
-      height: 420px;
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      margin-bottom: 2.5rem;
+      flex-wrap: wrap;
+    }
+
+    .profile-photo {
+      width: 150px;
+      height: 150px;
       border-radius: 50%;
-      filter: blur(90px);
-      opacity: 0.9;
-      z-index: -1;
-      pointer-events: none;
-      transform: translate3d(0,0,0);
-      will-change: transform, opacity;
+      object-fit: cover;
+      border: 4px solid #6a5af9;
+      background: linear-gradient(45deg, #6a5af9, #d66efd);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 4rem;
+      box-shadow: 0 0 20px rgba(106, 90, 249, 0.3);
     }
 
-    .profile-card::before {
-      left: calc(-50vw + 160px); /* pushes glow left into side space */
-      top: -60px;
-      background: radial-gradient(circle at 30% 30%, rgba(106,90,249,0.95), rgba(134, 99, 255,0.55) 35%, transparent 60%);
-      animation: float-blob 10s ease-in-out infinite;
-    }
-    .profile-card::after {
-      right: calc(-50vw + 160px); /* pushes glow right into side space */
-      bottom: -40px;
-      background: radial-gradient(circle at 70% 70%, rgba(214, 110, 253,0.9), rgba(138,124,255,0.45) 30%, transparent 60%);
-      animation: float-blob-2 12s ease-in-out infinite;
+    .profile-info {
+      flex: 1;
+      min-width: 300px;
     }
 
-    @keyframes float-blob {
-      0% { transform: translateY(0) scale(1); opacity: .95; }
-      50% { transform: translateY(-20px) scale(1.02); opacity: .8; }
-      100% { transform: translateY(0) scale(1); opacity: .95; }
-    }
-    @keyframes float-blob-2 {
-      0% { transform: translateY(0) scale(1); opacity: .85; }
-      50% { transform: translateY(18px) scale(1.03); opacity: .7; }
-      100% { transform: translateY(0) scale(1); opacity: .85; }
+    .profile-name {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
     }
 
-    /* subtle diagonal pattern that sits behind the entire hero area */
-    .hero-pattern {
+    .profile-slug {
+      font-size: 1.3rem;
+      color: #b1a6ff;
+      margin-bottom: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .verified-badge {
+      display: inline-block;
+      background: linear-gradient(45deg, #6a5af9, #d66efd);
+      color: white;
+      padding: 0.3rem 1rem;
+      border-radius: 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      box-shadow: 0 0 10px rgba(106, 90, 249, 0.3);
+    }
+
+    .join-date, .email {
+      color: #a0a0d0;
+      font-size: 1.1rem;
+      margin: 0.3rem 0;
+    }
+
+    .profile-actions {
       position: absolute;
-      inset: 0;
-      z-index: 35;
-      pointer-events: none;
-      background-image:
-        linear-gradient(135deg, rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(225deg, rgba(255,255,255,0.01) 1px, transparent 1px);
-      background-size: 40px 40px;
-      mix-blend-mode: overlay;
-      opacity: 0.6;
+      top: 2rem;
+      right: 2rem;
     }
 
-    /* small constellation SVG (positioned center-right) */
-    .constellation {
+    .btn-share {
+      padding: 0.7rem 1.4rem;
+      border-radius: 8px;
+      border: 1px solid rgba(138, 124, 255, 0.3);
+      background: rgba(20, 20, 40, 0.5);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+      color: #b1a6ff;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-share:hover {
+      background: rgba(30, 30, 60, 0.7);
+      border: 1px solid rgba(138, 124, 255, 0.6);
+      box-shadow: 0 0 15px rgba(138, 124, 255, 0.2);
+    }
+
+    .bio-section {
+      margin: 2.5rem 0;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #d0c4ff;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 2px solid #5a4fcf;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .bio-text {
+      line-height: 1.7;
+      color: #c0c0e0;
+      font-size: 1.15rem;
+    }
+
+    .profile-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 2rem;
+      margin-top: 2.5rem;
+    }
+
+    .stat-card {
+      background: rgba(40, 40, 70, 0.6);
+      padding: 2rem;
+      border-radius: 15px;
+      text-align: center;
+      border: 1px solid #5a4fcf;
+      transition: transform 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #8a7cff;
+      margin-bottom: 0.8rem;
+      text-shadow: 0 0 10px rgba(138, 124, 255, 0.3);
+    }
+
+    .stat-label {
+      color: #b1a6ff;
+      font-size: 1.1rem;
+    }
+
+    /* Posts Section */
+    .posts-section {
+      background: rgba(20, 20, 40, 0.85);
+      border-radius: 20px;
+      padding: 3rem;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+      border: 1px solid #5a4fcf;
+      backdrop-filter: blur(10px);
+      margin-bottom: 2rem;
+    }
+
+    /* CHANGED: Single column for posts */
+    .posts-grid {
+      display: grid;
+      grid-template-columns: 1fr; /* Single column */
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+
+    .post-card {
+      background: rgba(30, 30, 50, 0.7);
+      border-radius: 15px;
+      padding: 1.8rem;
+      border: 1px solid #5a4fcf;
+      transition: transform 0.3s ease;
+    }
+
+    .post-card:hover {
+      transform: translateY(-5px);
+      border-color: #8a7cff;
+    }
+
+    .post-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 0.8rem;
+    }
+
+    .post-body {
+      color: #c0c0e0;
+      line-height: 1.6;
+      margin-bottom: 1.2rem;
+      font-size: 1rem;
+    }
+
+    .post-meta {
+      display: flex;
+      justify-content: space-between;
+      color: #a0a0d0;
+      font-size: 0.9rem;
+      border-top: 1px solid #4a4a8a;
+      padding-top: 1rem;
+    }
+
+    .post-author {
+      color: #8a7cff;
+    }
+
+    .post-time {
+      color: #8a7cff;
+      font-size: 0.85rem;
+      font-style: italic;
+    }
+
+    .comments-section {
+      margin-top: 2.5rem;
+    }
+
+    /* CHANGED: Single column for comments */
+    .comments-grid {
+      display: grid;
+      grid-template-columns: 1fr; /* Single column */
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .comment-card {
+      background: rgba(40, 40, 60, 0.6);
+      border-radius: 12px;
+      padding: 1.2rem;
+      border: 1px solid #4a4a8a;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .comment-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.8rem;
+    }
+
+    .comment-author {
+      font-weight: 600;
+      color: #8a7cff;
+    }
+
+    .comment-time {
+      font-size: 0.8rem;
+      color: #a0a0d0;
+      font-style: italic;
+    }
+
+    .comment-body {
+      color: #c0c0e0;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .post-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      justify-content: center;
+    }
+
+    .btn-post {
+      padding: 0.9rem 2rem;
+      border-radius: 8px;
+      border: 1px solid rgba(138, 124, 255, 0.3);
+      background: rgba(20, 20, 40, 0.5);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      font-size: 1rem;
+      color: #b1a6ff;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-post:hover {
+      background: rgba(30, 30, 60, 0.7);
+      border: 1px solid rgba(138, 124, 255, 0.6);
+      box-shadow: 0 0 15px rgba(138, 124, 255, 0.2);
+    }
+
+    /* Footer */
+    .footer {
+      background: rgba(10, 10, 35, 0.95);
+      padding: 3rem 2rem 2rem;
+      margin-top: 3rem;
+      border-top: 1px solid #5a4fcf;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+    }
+
+    .footer-about-title {
+      font-size: 1.1rem;
+      color: #8a7cff;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+
+    .footer-about-text {
+      color: #a0a0d0;
+      line-height: 1.6;
+      font-size: 0.90rem;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .footer-links a {
+      color: #a0a0d0;
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: color 0.3s ease;
+    }
+
+    .footer-links a:hover {
+      color: #8a7cff;
+      text-decoration: underline;
+    }
+
+    .rocket-frame {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      border: 2px solid #5a4fcf;
+      border-radius: 12px;
+      background: rgba(20, 20, 40, 0.5);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .rocket-text {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #8a7cff;
+      text-align: center;
+      text-shadow: 0 0 15px rgba(138, 124, 255, 0.6);
+      background: linear-gradient(45deg, #8a7cff, #d66efd, #8a7cff);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 3s linear infinite;
+      font-family: 'Arial Rounded MT Bold', 'Segoe UI', sans-serif;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+
+    /* Loading Overlay */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 0.5s ease;
+    }
+
+    .loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-message {
+      font-size: 1.8rem;
+      color: #e0e0ff;
+      margin-bottom: 2rem;
+      text-align: center;
+      font-weight: 600;
+      text-shadow: 0 0 10px rgba(138, 124, 255, 0.5);
+    }
+
+    .stars-container {
+      position: relative;
+      width: 300px;
+      height: 300px;
+    }
+
+    .star {
       position: absolute;
-      right: 3%;
-      top: 20%;
-      width: 280px;
-      height: 220px;
-      z-index: 34;
-      pointer-events: none;
-      opacity: 0.6;
-      transform: translateZ(0);
+      background-color: white;
+      border-radius: 50%;
+      animation: twinkle var(--duration) infinite ease-in-out;
     }
 
-    /* PROFILE CONTENT inside card (no big changes to your classes) */
-    .profile-header { display: flex; align-items: center; gap: 2rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
-    .profile-photo { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid #6a5af9; background: linear-gradient(45deg,#6a5af9,#d66efd); display:flex; align-items:center; justify-content:center; font-size:4rem; box-shadow: 0 8px 30px rgba(106,90,249,0.24); }
-    .profile-info { flex: 1; min-width: 300px; }
-    .profile-name { font-size: 2.5rem; font-weight: bold; color: #ffffff; margin-bottom: .5rem; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
-    .profile-slug { font-size: 1.3rem; color: #b1a6ff; margin-bottom: .8rem; display:flex; align-items:center; gap:.5rem; }
-
-    .verified-badge { display:inline-block; background: linear-gradient(45deg,#6a5af9,#d66efd); color:white; padding:.3rem 1rem; border-radius:20px; font-size:1rem; font-weight:bold; box-shadow: 0 0 10px rgba(106,90,249,0.3); }
-    .join-date, .email { color:#a0a0d0; font-size:1.1rem; margin: .3rem 0; }
-
-    .profile-actions { position: absolute; top: 2rem; right: 2rem; z-index:45; }
-
-    .bio-section { margin: 2.5rem 0; }
-    .section-title { font-size: 1.5rem; font-weight:600; color:#d0c4ff; margin-bottom:1.5rem; padding-bottom:.8rem; border-bottom:2px solid #5a4fcf; display:flex; align-items:center; gap:.8rem; }
-    .bio-text { line-height:1.7; color:#c0c0e0; font-size:1.15rem; }
-
-    .profile-stats { display:grid; grid-template-columns: repeat(auto-fit,minmax(250px,1fr)); gap:2rem; margin-top:2.5rem; }
-    .stat-card { background: rgba(40,40,70,0.6); padding:2rem; border-radius:15px; text-align:center; border:1px solid #5a4fcf; transition: transform .3s ease; }
-    .stat-card:hover { transform: translateY(-5px); }
-    .stat-value { font-size:2.5rem; font-weight:bold; color:#8a7cff; margin-bottom:.8rem; text-shadow:0 0 10px rgba(138,124,255,0.3); }
-    .stat-label { color:#b1a6ff; font-size:1.1rem; }
-
-    /* posts / comments unchanged (kept concise here) */
-    .posts-section { background: rgba(20,20,40,0.85); border-radius:20px; padding:3rem; box-shadow:0 15px 35px rgba(0,0,0,0.4); border:1px solid #5a4fcf; backdrop-filter: blur(10px); margin-top: 2rem; }
-    .posts-grid { display:grid; grid-template-columns: 1fr; gap:2rem; margin-top:2rem; }
-    .post-card { background: rgba(30,30,50,0.7); border-radius:15px; padding:1.8rem; border:1px solid #5a4fcf; }
-    .post-title { font-size:1.4rem; font-weight:600; color:#fff; margin-bottom:.8rem; }
-    .post-body { color:#c0c0e0; line-height:1.6; margin-bottom:1.2rem; font-size:1rem; }
-
-    /* footer kept similar */
-    .footer { background: rgba(10,10,35,0.95); padding:3rem 2rem 2rem; margin-top:3rem; border-top:1px solid #5a4fcf; box-shadow: 0 -4px 20px rgba(0,0,0,0.3); z-index:30; }
-    .footer-content { max-width:1200px; margin:0 auto; display:grid; grid-template-columns:1fr 1fr; gap:3rem; }
-    .rocket-frame { margin-top:2rem; padding:1.5rem; border:2px solid #5a4fcf; border-radius:12px; background: rgba(20,20,40,0.5); position:relative; overflow:hidden; }
-    .rocket-text { font-size:1.8rem; font-weight:bold; color:#8a7cff; text-align:center; text-shadow:0 0 15px rgba(138,124,255,0.6); background: linear-gradient(45deg,#8a7cff,#d66efd,#8a7cff); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: shimmer 3s linear infinite; }
-
-    @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-
-    /* Loading overlay stars kept */
-    .loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(135deg,#0f0c29,#302b63,#24243e); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; transition: opacity .5s ease; }
-    .loading-overlay.hidden { opacity:0; pointer-events:none; }
-    .loading-message { font-size:1.8rem; color:#e0e0ff; margin-bottom:2rem; text-align:center; font-weight:600; text-shadow:0 0 10px rgba(138,124,255,0.5); }
-
-    .stars-container { position: relative; width: 300px; height: 300px; }
-    .star { position:absolute; background-color:white; border-radius:50%; animation: twinkle var(--duration) infinite ease-in-out; }
-    @keyframes twinkle { 0%,100%{opacity:.2;} 50%{opacity:1;} }
-
-    /* Responsive tweaks */
-    @media (max-width: 1024px) {
-      .profile-card::before, .profile-card::after { display: none; } /* hide large blobs on smaller desktops/tablets */
-      .constellation { right: 5%; top: 18%; width: 200px; height: 160px; }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 1; }
     }
 
+    /* Responsive */
     @media (max-width: 768px) {
-      .header { flex-direction: column; gap: 1.2rem; padding: 1.2rem; }
-      .profile-header { flex-direction: column; text-align: center; }
-      .profile-actions { position: static; margin-top: 1.5rem; text-align: center; }
-      .footer-content { grid-template-columns: 1fr; }
-      .profile-card, .posts-section { padding: 2rem 1.5rem; width: 100%; }
-      .profile-name { font-size: 2rem; }
-      .hero-pattern { display:none; }
+      .header {
+        flex-direction: column;
+        gap: 1.2rem;
+        padding: 1.2rem;
+      }
+
+      .profile-header {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .profile-actions {
+        position: static;
+        margin-top: 1.5rem;
+        text-align: center;
+      }
+
+      .footer-content {
+        grid-template-columns: 1fr;
+      }
+
+      .profile-card, .posts-section {
+        padding: 2rem 1.5rem;
+      }
+
+      .profile-name {
+        font-size: 2rem;
+      }
     }
   </style>
 </head>
 <body>
+  <!-- Background image layer: edit style attribute or add class with background-image in CSS -->
+  <div class="bg-layer" style="background-image: url('https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?auto=format&fit=crop&w=2000&q=80');"></div>
+
+  <!-- Star canvas over the background image -->
+  <canvas id="bgStars" aria-hidden="true"></canvas>
+
   <!-- Loading Overlay -->
   <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-message">Building your profile, wait for a second...</div>
@@ -253,28 +575,9 @@
 
   <!-- Main Content -->
   <div class="container">
-    <!-- profile hero (decorations live here, card stays centered) -->
-    <div class="profile-hero">
-      <div class="hero-pattern" aria-hidden="true"></div>
-
-      <!-- constellation svg for visual interest on the side -->
-      <svg class="constellation" viewBox="0 0 300 220" aria-hidden="true">
-        <g fill="none" stroke="rgba(200,190,255,0.14)" stroke-width="1.2" stroke-linecap="round">
-          <path d="M20 140 L70 90 L120 110 L170 60 L230 90" stroke-dasharray="6 6">
-            <animate attributeName="stroke-dashoffset" from="0" to="36" dur="8s" repeatCount="indefinite"/>
-          </path>
-        </g>
-        <g fill="rgba(255,255,255,0.85)">
-          <circle cx="20" cy="140" r="2.4"/><circle cx="70" cy="90" r="2.6"/><circle cx="120" cy="110" r="2.2"/><circle cx="170" cy="60" r="2.8"/><circle cx="230" cy="90" r="2.3"/>
-        </g>
-      </svg>
-
-      <!-- THIS must keep id="profile-content" so your JS continues to work -->
-      <div id="profile-content">
-        <div class="loading">Loading profile...</div>
-      </div>
+    <div id="profile-content">
+      <div class="loading">Loading profile...</div>
     </div>
-
     <div id="posts-section"></div>
   </div>
 
@@ -328,23 +631,26 @@
     const logoutBtn = document.querySelector('.btn-logout');
     const settingsBtn = document.querySelector('.btn-settings');
 
-    // Create stars for loading overlay
-    function createStars() {
+    // Create stars for loading overlay (unchanged)
+    function createLoadingStars() {
       const container = document.getElementById('starsContainer');
       container.innerHTML = '';
       for (let i = 0; i < 30; i++) {
         const star = document.createElement('div');
         star.classList.add('star');
 
+        // Random position
         const x = Math.random() * 100;
         const y = Math.random() * 100;
         star.style.left = `${x}%`;
         star.style.top = `${y}%`;
 
+        // Random size
         const size = Math.random() * 3 + 1;
         star.style.width = `${size}px`;
         star.style.height = `${size}px`;
 
+        // Random animation duration
         const duration = Math.random() * 3 + 2;
         star.style.setProperty('--duration', `${duration}s`);
 
@@ -352,55 +658,106 @@
       }
     }
 
-    // Format date, formatNumber, timeAgo (unchanged)
+    // Format date - FIXED
     function formatDate(dateValue) {
       if (!dateValue) return '';
+
+      // Check if it's a Firestore Timestamp object
       if (dateValue && dateValue.seconds !== undefined) {
         const date = new Date(dateValue.seconds * 1000);
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      } else if (dateValue instanceof Date) {
-        return dateValue.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      } else {
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
+      // If it's already a Date object
+      else if (dateValue instanceof Date) {
+        return dateValue.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
+      // If it's a string or number
+      else {
         const date = new Date(dateValue);
-        if (isNaN(date.getTime())) return 'Invalid Date';
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        if (isNaN(date.getTime())) {
+          return 'Invalid Date';
+        }
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
       }
     }
+
+    // Format number (e.g., 1000 -> 1K)
     function formatNumber(num) {
-      if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-      if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+      if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+      }
+      if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+      }
       return num.toString();
     }
+
+    // Time ago function - FIXED
     function timeAgo(dateValue) {
       if (!dateValue) return 'Just now';
+
       let date;
-      if (dateValue && dateValue.seconds !== undefined) date = new Date(dateValue.seconds * 1000);
-      else if (dateValue instanceof Date) date = dateValue;
-      else { date = new Date(dateValue); if (isNaN(date.getTime())) return 'Invalid Date'; }
+      // Check if it's a Firestore Timestamp object
+      if (dateValue && dateValue.seconds !== undefined) {
+        date = new Date(dateValue.seconds * 1000);
+      }
+      // If it's already a Date object
+      else if (dateValue instanceof Date) {
+        date = dateValue;
+      }
+      // If it's a string or number
+      else {
+        date = new Date(dateValue);
+        if (isNaN(date.getTime())) {
+          return 'Invalid Date';
+        }
+      }
+
       const now = new Date();
       const seconds = Math.floor((now - date) / 1000);
-      let interval = seconds / 31536000; if (interval > 1) return Math.floor(interval) + ' years ago';
-      interval = seconds / 2592000; if (interval > 1) return Math.floor(interval) + ' months ago';
-      interval = seconds / 86400; if (interval > 1) return Math.floor(interval) + ' days ago';
-      interval = seconds / 3600; if (interval > 1) return Math.floor(interval) + ' hours ago';
-      interval = seconds / 60; if (interval > 1) return Math.floor(interval) + ' minutes ago';
+
+      let interval = seconds / 31536000;
+      if (interval > 1) return Math.floor(interval) + ' years ago';
+      interval = seconds / 2592000;
+      if (interval > 1) return Math.floor(interval) + ' months ago';
+      interval = seconds / 86400;
+      if (interval > 1) return Math.floor(interval) + ' days ago';
+      interval = seconds / 3600;
+      if (interval > 1) return Math.floor(interval) + ' hours ago';
+      interval = seconds / 60;
+      if (interval > 1) return Math.floor(interval) + ' minutes ago';
       return Math.floor(seconds) + ' seconds ago';
     }
 
-    // Load profile data etc. (unchanged)
+    // Load profile data
     async function loadProfile() {
       const user = auth.currentUser;
       if (!user) {
         profileContent.innerHTML = '<div class="loading">Please log in to view your profile.</div>';
         return;
       }
+
       try {
         const docRef = doc(db, 'usersPrivate', user.uid);
         const docSnap = await getDoc(docRef);
+
         if (!docSnap.exists()) {
           profileContent.innerHTML = '<div class="loading">Profile not found.</div>';
           return;
         }
+
         const data = docSnap.data();
         renderProfile(data);
         await loadUserPosts(user.uid);
@@ -410,12 +767,22 @@
       }
     }
 
+    // Load user posts
     async function loadUserPosts(userId) {
       try {
-        const q = query(collection(db, 'posts'), where('authorId', '==', userId), orderBy('createdAt', 'desc'), limit(3));
+        const q = query(
+          collection(db, 'posts'),
+          where('authorId', '==', userId),
+          orderBy('createdAt', 'desc'),
+          limit(3)
+        );
         const querySnapshot = await getDocs(q);
+
         const posts = [];
-        querySnapshot.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
+        querySnapshot.forEach(doc => {
+          posts.push({ id: doc.id, ...doc.data() });
+        });
+
         renderPosts(posts);
       } catch (error) {
         console.error('Error loading posts:', error);
@@ -423,15 +790,17 @@
       }
     }
 
+    // Render profile HTML
     function renderProfile(data) {
       profileContent.innerHTML = `
         <div class="profile-card">
           <div class="profile-actions">
             <button class="btn-share" id="shareBtn">Share Profile</button>
           </div>
-
+          
+          <!-- Profile Header -->
           <div class="profile-header">
-            <img src="${data.profilePhotoUrl || 'https://via.placeholder.com/150'}" alt="Profile Photo" class="profile-photo">
+            <img src="${data.profilePhotoUrl || 'https://via.placeholder.com/150   '}" alt="Profile Photo" class="profile-photo">
             <div class="profile-info">
               <h1 class="profile-name">${data.name || 'Unknown User'}</h1>
               <div class="profile-slug">${data.slug ? '@' + data.slug : ''}${data.verified ? '<span class="verified-badge">✓ Verified</span>' : ''}</div>
@@ -440,11 +809,13 @@
             </div>
           </div>
 
+          <!-- Bio Section -->
           <div class="bio-section">
             <h2 class="section-title">Bio</h2>
             <p class="bio-text">${data.bio || 'No bio available.'}</p>
           </div>
 
+          <!-- Stats Section -->
           <div class="profile-stats">
             <div class="stat-card">
               <div class="stat-value">${formatNumber(data.publicPostCount || 0)}</div>
@@ -454,29 +825,49 @@
         </div>
       `;
 
-      // share button
-      const shareBtn = document.getElementById('shareBtn');
-      if (shareBtn) {
-        shareBtn.addEventListener('click', () => {
-          if (data.slug) {
-            const shareUrl = `https://teamgalaxyinteractive-cmd.github.io/teamgalaxy/public_data_manager/public_user_profile.html?=${data.slug}`;
-            navigator.clipboard.writeText(shareUrl).then(() => alert('Profile URL copied to clipboard!'))
-              .catch(err => { console.error('Failed to copy:', err); alert('Failed to copy URL.'); });
-          } else alert('No profile slug available for sharing.');
-        });
-      }
-    }
+      // Add share button functionality
+      document.getElementById('shareBtn').addEventListener('click', () => {
+        if(data.slug) {
+          const shareUrl = `https://teamgalaxyinteractive-cmd.github.io/teamgalaxy/public_data_manager/public_user_profile.html?=${data.slug}`;
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            alert('Profile URL copied to clipboard!');
+          }).catch(err => {
+            console.error('Failed to copy: ', err);
+            alert('Failed to copy URL. Please try again.');
+          });
+        } else {
+          alert('No profile slug available for sharing.');
+        }
+      });
+    } 
 
+    // Render posts HTML
     async function renderPosts(posts) {
       if (posts.length === 0) {
         postsSection.innerHTML = '<div class="loading">No posts found.</div>';
         return;
       }
-      let postsHTML = `<div class="posts-section"><h2 class="section-title">Recent Posts</h2><div class="posts-grid">`;
+
+      let postsHTML = `
+        <div class="posts-section">
+          <h2 class="section-title">Recent Posts</h2>
+          <div class="posts-grid">
+      `;
+
       for (const post of posts) {
-        const commentsQuery = query(collection(db, 'posts', post.id, 'comments'), orderBy('createdAt', 'desc'), limit(3));
+        // Load comments for this post
+        const commentsQuery = query(
+          collection(db, 'posts', post.id, 'comments'),
+          orderBy('createdAt', 'desc'),
+          limit(3)
+        );
         const commentsSnapshot = await getDocs(commentsQuery);
-        const comments = []; commentsSnapshot.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
+
+        const comments = [];
+        commentsSnapshot.forEach(doc => {
+          comments.push({ id: doc.id, ...doc.data() });
+        });
+
         postsHTML += `
           <div class="post-card">
             <h3 class="post-title">${post.title || 'Untitled Post'}</h3>
@@ -490,6 +881,7 @@
               <span>👎 ${formatNumber(post.downvotesCount || 0)}</span>
               <span>💬 ${formatNumber(post.commentsCount || 0)}</span>
             </div>
+
             ${comments.length > 0 ? `
               <div class="comments-section">
                 <h4>Recent Comments</h4>
@@ -504,30 +896,188 @@
                     </div>
                   `).join('')}
                 </div>
-              </div>` : ''}
-          </div>`;
+              </div>
+            ` : ''}
+          </div>
+        `;
       }
-      postsHTML += `</div><div class="post-actions"><button class="btn-post" id="explore-btn">Explore</button><button class="btn-post" id="show-all-btn">Show All Posts</button></div></div>`;
+
+      postsHTML += `
+          </div>
+          <div class="post-actions">
+            <button class="btn-post" id="explore-btn">Explore</button>
+            <button class="btn-post" id="show-all-btn">Show All Posts</button>
+          </div>
+        </div>
+      `;
+
       postsSection.innerHTML = postsHTML;
-      document.getElementById('explore-btn').addEventListener('click', () => { window.location.href = '../posts.html'; });
-      document.getElementById('show-all-btn').addEventListener('click', () => { window.location.href = 'user_posts.html'; });
+
+      // Add event listeners for buttons
+      document.getElementById('explore-btn').addEventListener('click', () => {
+        window.location.href = '../posts.html';
+      });
+
+      document.getElementById('show-all-btn').addEventListener('click', () => {
+        window.location.href = 'user_posts.html';
+      });
     }
 
+    // Auth state listener
     onAuthStateChanged(auth, (user) => {
-      if (user) loadProfile();
-      else { profileContent.innerHTML = '<div class="loading">Please log in to view your profile.</div>'; postsSection.innerHTML = ''; }
+      if (user) {
+        loadProfile();
+      } else {
+        profileContent.innerHTML = '<div class="loading">Please log in to view your profile.</div>';
+        postsSection.innerHTML = '';
+      }
     });
 
+    // Logout functionality
     logoutBtn.addEventListener('click', () => {
-      signOut(auth).then(() => { window.location.href = 'index.html'; }).catch(err => { console.error('Sign out error:', err); alert('Error signing out.'); });
+      signOut(auth).then(() => {
+        console.log('User signed out');
+        window.location.href = 'index.html';
+      }).catch((error) => {
+        console.error('Sign out error:', error);
+        alert('Error signing out. Please try again.');
+      });
     });
-    settingsBtn.addEventListener('click', () => { window.location.href = 'settings.html'; });
 
-    // loading overlay behavior + stars
-    window.addEventListener('load', () => {
-      createStars();
-      setTimeout(() => loadingOverlay.classList.add('hidden'), 3000);
+    // Settings functionality
+    settingsBtn.addEventListener('click', () => {
+      window.location.href = 'settings.html';
     });
+
+    // Initialize stars and handle loading overlay
+    window.addEventListener('load', () => {
+      createLoadingStars();
+
+      // Simulate a minimum 2 second load time
+      setTimeout(() => {
+        loadingOverlay.classList.add('hidden');
+      }, 3000);
+
+      // Start background star animation
+      initBgStars();
+    });
+
+    /* -----------------------------
+       Background star animation code
+       Lightweight, twinkling stars with subtle parallax
+       ----------------------------- */
+    function initBgStars() {
+      const canvas = document.getElementById('bgStars');
+      const ctx = canvas.getContext('2d');
+      let width = canvas.width = window.innerWidth;
+      let height = canvas.height = window.innerHeight;
+      let stars = [];
+      const STAR_COUNT = Math.round((width * height) / 6000); // scale by screen area (keeps perf)
+      let mouseX = width / 2, mouseY = height / 2;
+
+      function resetStars() {
+        stars = [];
+        for (let i = 0; i < STAR_COUNT; i++) {
+          const radius = Math.random() * 1.2 + 0.3; // small stars
+          stars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            baseX: 0, // will set below
+            baseY: 0,
+            r: radius,
+            alpha: Math.random() * 0.9 + 0.1,
+            twinkleSpeed: Math.random() * 0.02 + 0.005,
+            phase: Math.random() * Math.PI * 2
+          });
+        }
+        // set base positions
+        stars.forEach(s => { s.baseX = s.x; s.baseY = s.y; });
+      }
+
+      function onResize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+        resetStars();
+      }
+
+      window.addEventListener('resize', throttle(onResize, 150));
+
+      // subtle parallax on mouse move
+      window.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+      });
+
+      let lastTime = 0;
+      function animate(time) {
+        const dt = (time - lastTime) / 1000;
+        lastTime = time;
+        ctx.clearRect(0, 0, width, height);
+
+        // draw subtle vignette to better integrate stars with bg image
+        const vignette = ctx.createRadialGradient(width/2, height/2, Math.max(width, height)/8, width/2, height/2, Math.max(width, height)/1.2);
+        vignette.addColorStop(0, 'rgba(255,255,255,0.00)');
+        vignette.addColorStop(1, 'rgba(0,0,0,0.18)');
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0,0,width,height);
+
+        for (let i = 0; i < stars.length; i++) {
+          const s = stars[i];
+
+          // twinkle
+          s.phase += s.twinkleSpeed;
+          const tw = (Math.sin(s.phase) + 1) / 2; // 0..1
+          const alpha = s.alpha * (0.6 + 0.4 * tw);
+
+          // parallax offset (small)
+          const px = (mouseX - width/2) * (s.r * 0.003);
+          const py = (mouseY - height/2) * (s.r * 0.003);
+
+          const drawX = s.baseX + px;
+          const drawY = s.baseY + py;
+
+          // subtle movement to mimic depth drift
+          s.baseX += Math.sin((i + time*0.0001) * 0.0003) * 0.02;
+          s.baseY += Math.cos((i + time*0.0002) * 0.0004) * 0.02;
+
+          ctx.beginPath();
+          ctx.globalAlpha = alpha;
+          // draw glow for larger-ish stars
+          if (s.r > 0.9) {
+            const g = ctx.createRadialGradient(drawX, drawY, 0, drawX, drawY, s.r * 6);
+            g.addColorStop(0, `rgba(255,255,255,${alpha})`);
+            g.addColorStop(1, `rgba(255,255,255,0)`);
+            ctx.fillStyle = g;
+            ctx.arc(drawX, drawY, s.r * 6, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          // core
+          ctx.beginPath();
+          ctx.fillStyle = 'white';
+          ctx.arc(drawX, drawY, s.r, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.globalAlpha = 1;
+        }
+
+        requestAnimationFrame(animate);
+      }
+
+      resetStars();
+      requestAnimationFrame(animate);
+
+      // simple throttle utility
+      function throttle(fn, wait) {
+        let time = Date.now();
+        return function() {
+          if ((time + wait - Date.now()) < 0) {
+            fn();
+            time = Date.now();
+          }
+        }
+      }
+    }
+
   </script>
 </body>
 </html>
