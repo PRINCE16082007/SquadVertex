@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Responsive Styling Tester</title>
+    <title>Responsive Styling Tester - Scaled View</title>
     <style>
         * {
             margin: 0;
@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
@@ -114,6 +114,7 @@
             display: flex;
             justify-content: center;
             align-items: flex-start;
+            min-height: 600px;
         }
 
         .iframe-wrapper {
@@ -123,23 +124,28 @@
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.15);
             transition: all 0.3s ease;
+            background: white;
         }
 
         .iframe-wrapper:hover {
             box-shadow: 0 15px 40px rgba(0,0,0,0.2);
         }
 
-        .iframe-container {
+        .scaled-container {
             position: relative;
-            overflow: hidden;
+            overflow: auto;
+            max-width: 100%;
+            max-height: 70vh;
+            border: 1px solid #eee;
             background: white;
         }
 
-        .iframe-container iframe {
-            width: 100%;
-            height: 100%;
+        .scaled-iframe {
+            transform-origin: 0 0;
+            transform: scale(0.8); /* Default scale */
+            width: 125%; /* Compensate for scale */
+            height: 125%;
             border: none;
-            background: white;
         }
 
         .loading {
@@ -179,6 +185,20 @@
             border-radius: 4px;
             font-size: 12px;
             font-weight: 600;
+            z-index: 1001;
+        }
+
+        .scale-info {
+            position: absolute;
+            top: -25px;
+            right: 0;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 1001;
         }
 
         .action-buttons {
@@ -217,6 +237,25 @@
             transform: translateY(-2px);
         }
 
+        .zoom-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .zoom-btn {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .zoom-btn:hover {
+            background: #f8f9fa;
+        }
+
         @media (max-width: 768px) {
             .input-group {
                 flex-direction: column;
@@ -231,8 +270,12 @@
                 align-items: stretch;
             }
             
-            .action-buttons {
+            .action-buttons, .zoom-controls {
                 flex-direction: column;
+            }
+            
+            .preview-container {
+                padding: 12px;
             }
         }
 
@@ -247,8 +290,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📱 → 🖥️ Responsive Styling Tester</h1>
-            <p>Mobile developers ke liye desktop styling preview tool</p>
+            <h1>📱 → 🖥️ Responsive Styling Tester (Scaled View)</h1>
+            <p>Mobile developers ke liye desktop styling preview tool - High resolution scaled down</p>
         </div>
 
         <div class="controls">
@@ -269,6 +312,8 @@
                         <option value="21:9">21:9 (Ultrawide)</option>
                         <option value="1440:900">1440x900</option>
                         <option value="1920:1080">1920x1080</option>
+                        <option value="2560:1440">2560x1440 (2K)</option>
+                        <option value="3840:2160">3840x2160 (4K)</option>
                         <option value="1280:800">1280x800</option>
                     </select>
                     
@@ -280,8 +325,14 @@
                 </div>
                 
                 <div class="ratio-preview" id="ratioPreview">
-                    Current ratio: 16:9 (Select or enter custom ratio)
+                    Current ratio: 16:9 (1280x720) - Scale: 80%
                 </div>
+            </div>
+
+            <div class="zoom-controls">
+                <button class="zoom-btn" onclick="adjustScale(-0.1)">-</button>
+                <button class="zoom-btn" onclick="adjustScale(0.1)">+</button>
+                <button class="zoom-btn" onclick="resetScale()">Reset Scale</button>
             </div>
 
             <div class="action-buttons">
@@ -293,19 +344,22 @@
         <div class="preview-container">
             <div class="iframe-wrapper">
                 <div class="ratio-label" id="currentRatio">16:9</div>
-                <div class="iframe-container" id="iframeContainer" style="width: 800px; height: 450px;">
+                <div class="scale-info" id="scaleInfo">Scale: 80%</div>
+                <div class="scaled-container" id="scaledContainer">
                     <div class="loading" id="loadingIndicator">
                         <div class="spinner"></div>
                     </div>
-                    <iframe id="previewFrame" style="display: none;"></iframe>
+                    <iframe id="previewFrame" class="scaled-iframe" style="display: none;"></iframe>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        let currentWidth = 800;
-        let currentHeight = 450;
+        let currentWidth = 1280;
+        let currentHeight = 720;
+        let currentScale = 0.8; // 80% default
+        let maxContainerWidth = 1000; // Max width for container
 
         document.addEventListener('DOMContentLoaded', function() {
             // Set default ratio
@@ -325,44 +379,72 @@
             
             let ratioText = '';
             let ratio = '16:9';
+            let actualDimensions = '1280x720';
             
             if (select.value) {
+                const [w, h] = select.value.split(':').map(Number);
+                // Calculate dimensions that fit in container
+                let baseWidth = maxContainerWidth * 0.8; // 80% of container
+                let calculatedHeight = (baseWidth * h) / w;
+                
+                currentWidth = Math.round(baseWidth);
+                currentHeight = Math.round(calculatedHeight);
+                
                 ratio = select.value;
-                ratioText = `Current ratio: ${ratio} (Predefined)`;
+                actualDimensions = `${currentWidth}x${currentHeight}`;
+                ratioText = `Current ratio: ${ratio} (${actualDimensions}) - Scale: ${Math.round(currentScale * 100)}%`;
             } else if (customWidth && customHeight) {
-                ratio = `${customWidth}:${customHeight}`;
-                ratioText = `Current ratio: ${ratio} (Custom)`;
+                const w = parseInt(customWidth);
+                const h = parseInt(customHeight);
+                ratio = `${w}:${h}`;
+                
+                // Calculate scaled dimensions
+                let scaleToFit = Math.min(maxContainerWidth / w, 500 / h); // 500 is max height
+                currentWidth = Math.round(w * scaleToFit);
+                currentHeight = Math.round(h * scaleToFit);
+                
+                actualDimensions = `${w}x${h}`;
+                ratioText = `Current ratio: ${ratio} (${actualDimensions}) - Scale: ${Math.round(currentScale * 100)}%`;
             } else {
-                ratioText = 'Current ratio: 16:9 (Default)';
+                currentWidth = 1280;
+                currentHeight = 720;
+                ratioText = `Current ratio: 16:9 (1280x720) - Scale: ${Math.round(currentScale * 100)}%`;
             }
             
             document.getElementById('ratioPreview').textContent = ratioText;
             document.getElementById('currentRatio').textContent = ratio;
-            
-            // Calculate dimensions based on ratio
-            if (customWidth && customHeight) {
-                currentWidth = parseInt(customWidth);
-                currentHeight = parseInt(customHeight);
-            } else {
-                // Default to 16:9 with reasonable dimensions
-                currentWidth = 800;
-                currentHeight = 450;
-                
-                // Adjust based on selected ratio
-                if (select.value) {
-                    const [w, h] = select.value.split(':').map(Number);
-                    currentWidth = 800; // Base width
-                    currentHeight = (currentWidth * h) / w;
-                }
-            }
+            document.getElementById('scaleInfo').textContent = `Scale: ${Math.round(currentScale * 100)}%`;
             
             updateIframeSize();
         }
 
         function updateIframeSize() {
-            const container = document.getElementById('iframeContainer');
-            container.style.width = currentWidth + 'px';
-            container.style.height = currentHeight + 'px';
+            const frame = document.getElementById('previewFrame');
+            const container = document.getElementById('scaledContainer');
+            
+            if (frame && container) {
+                // Set the actual iframe size to the calculated dimensions
+                frame.style.width = currentWidth + 'px';
+                frame.style.height = currentHeight + 'px';
+                
+                // Apply scale transformation
+                frame.style.transform = `scale(${currentScale})`;
+                frame.style.transformOrigin = '0 0';
+                
+                // Compensate for scale in container size
+                container.style.width = (currentWidth * currentScale) + 'px';
+                container.style.height = (currentHeight * currentScale) + 'px';
+            }
+        }
+
+        function adjustScale(delta) {
+            currentScale = Math.max(0.1, Math.min(2, currentScale + delta)); // Limit between 10% and 200%
+            updateRatioPreview();
+        }
+
+        function resetScale() {
+            currentScale = 0.8;
+            updateRatioPreview();
         }
 
         function validateUrl(url) {
@@ -406,6 +488,7 @@
             frame.onload = function() {
                 loading.style.display = 'none';
                 frame.style.display = 'block';
+                updateIframeSize(); // Ensure size is correct after load
             };
             
             frame.onerror = function() {
@@ -422,6 +505,7 @@
             document.getElementById('previewFrame').src = '';
             document.getElementById('previewFrame').style.display = 'none';
             document.getElementById('loadingIndicator').style.display = 'flex';
+            currentScale = 0.8;
             updateRatioPreview();
             document.getElementById('urlError').style.display = 'none';
         }
