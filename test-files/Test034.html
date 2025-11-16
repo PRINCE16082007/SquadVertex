@@ -6,7 +6,7 @@
   <title>Profile - TeamGalaxy</title>
   <style>
     :root {
-      --overlay-color: rgba(34, 16, 80, 0.06); /* matching-color overlay (very low opacity) */
+      --overlay-color: rgba(34, 16, 80, 0.12); /* matching-color overlay (edit opacity) */
     }
 
     * {
@@ -28,17 +28,17 @@
       overflow-x: hidden;
     }
 
-    /* BACKGROUND IMAGE LAYER */
+    /* BACKGROUND IMAGE LAYER: using the provided image */
     .bg-layer {
       position: fixed;
       inset: 0;
-      z-index: -4;
-      background-image: url('https://dl.dropboxusercontent.com/scl/fi/1csa5jjslfhutldgd4in9/IMG_20251116_113654.png?rlkey=p2jqe4ngtw8z2id5rpqspw9sb&st=grvkp8p9&dl=0');
+      z-index: -4; /* farthest behind */
       background-position: center;
       background-size: cover;
       background-repeat: no-repeat;
       filter: brightness(0.55) saturate(0.95);
       transition: filter .35s ease;
+      background-image: url('https://dl.dropboxusercontent.com/scl/fi/1csa5jjslfhutldgd4in9/IMG_20251116_113654.png?rlkey=p2jqe4ngtw8z2id5rpqspw9sb&st=grvkp8p9&dl=0');
     }
 
     /* subtle overlay that tints the background with matching color */
@@ -71,10 +71,10 @@
       pointer-events: none;
       background: linear-gradient(120deg,
         rgba(255,255,255,0.00) 0%,
-        rgba(255,255,255,0.08) 45%,
+        rgba(255,255,255,0.06) 45%,
         rgba(255,255,255,0.00) 60%);
       background-size: 300% 300%;
-      opacity: 0.10;
+      opacity: 0.12;
       mix-blend-mode: screen;
       animation: shimmer-move 10s linear infinite;
       filter: blur(6px);
@@ -143,9 +143,9 @@
       z-index: 2; /* above decorations */
     }
 
-    /* PROFILE CARD: opacity reduced as requested */
+    /* PROFILE CARD: slight opacity reduction as requested */
     .profile-card {
-      background: rgba(20, 20, 40, 0.55); /* reduced from 0.65 to 0.55 */
+      background: rgba(20, 20, 40, 0.65); /* reduced from 0.85 to 0.65 */
       border-radius: 20px;
       padding: 3rem;
       box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45);
@@ -270,7 +270,7 @@
     }
 
     .stat-card {
-      background: rgba(40, 40, 70, 0.5);
+      background: rgba(40, 40, 70, 0.6);
       padding: 2rem;
       border-radius: 15px;
       text-align: center;
@@ -369,7 +369,7 @@
 </head>
 <body>
   <!-- Background layers -->
-  <div class="bg-layer" aria-hidden="true"></div>
+  <div class="bg-layer"></div>
   <div class="bg-overlay" aria-hidden="true"></div>
   <canvas id="bgStars" aria-hidden="true"></canvas>
   <div class="shimmer-layer" aria-hidden="true"></div>
@@ -682,7 +682,7 @@
       ];
       let stars = [];
       let shootingStars = [];
-      const BASE_DENSITY = 0.00022; // tweak: stars per px^2 (increased for more stars)
+      const BASE_DENSITY = 0.00018; // tweak: stars per px^2
       let mouseX = w/2, mouseY = h/2;
 
       function createStars() {
@@ -722,10 +722,10 @@
 
       // occasional shooting stars
       function maybeSpawnShooting() {
-        if (Math.random() < 0.025) { // slightly higher spawn chance
+        if (Math.random() < 0.02) { // spawn chance per interval
           spawnShootingStar();
         }
-        setTimeout(maybeSpawnShooting, randRange(1000, 4000)); // random intervals
+        setTimeout(maybeSpawnShooting, randRange(1200, 5000)); // random intervals
       }
       maybeSpawnShooting();
 
@@ -750,12 +750,11 @@
       // helpers
       function randRange(min, max) { return Math.random() * (max - min) + min; }
       function randomStarColor() {
-        // slight blue-white-yellow variance (more realistic)
+        // slight blue-white-yellow variance
         const t = Math.random();
-        if (t < 0.10) return 'rgba(255,235,200,'; // warm (yellowish)
+        if (t < 0.12) return 'rgba(255,235,200,'; // warm
         if (t < 0.6) return 'rgba(255,255,255,'; // white
-        if (t < 0.8) return 'rgba(200,220,255,'; // cool (bluish)
-        return 'rgba(230,240,255,'; // icy white
+        return 'rgba(200,220,255,'; // cool
       }
 
       let last = performance.now();
@@ -777,10 +776,10 @@
             const s = stars[i];
             if (s.layer !== li) continue;
 
-            // twinkle (more realistic - smoother, deeper variation)
+            // twinkle
             s.twinklePhase += s.twinkleSpeed * (dt/16.67);
             const tw = (Math.sin(s.twinklePhase) + 1) / 2; // 0..1
-            const alpha = s.alphaBase * (0.35 + 0.65 * tw); // more pronounced twinkle
+            const alpha = s.alphaBase * (0.45 + 0.55 * tw);
 
             // parallax offset influenced by depth
             const px = (mouseX - w/2) * (0.0005 * s.r) * (1 / s.depth);
@@ -788,17 +787,16 @@
             const drawX = s.baseX + px + Math.sin((i + now*0.00002) * (0.0002 * s.depth)) * 0.4;
             const drawY = s.baseY + py + Math.cos((i + now*0.00003) * (0.0003 * s.depth)) * 0.4;
 
-            // glow for larger stars (more realistic)
+            // glow for larger stars
             if (s.r > 1.2) {
               const g = ctx.createRadialGradient(drawX, drawY, 0, drawX, drawY, s.r * 6);
               g.addColorStop(0, s.color + alpha + ')');
-              g.addColorStop(0.4, s.color + (alpha * 0.6) + ')');
               g.addColorStop(1, s.color + '0)');
               ctx.fillStyle = g;
               ctx.fillRect(drawX - s.r*6, drawY - s.r*6, s.r*12, s.r*12);
             }
 
-            // core (more realistic - slightly sharper)
+            // core
             ctx.beginPath();
             ctx.globalAlpha = alpha;
             ctx.fillStyle = s.color + Math.min(1, alpha) + ')';
@@ -816,29 +814,24 @@
           sh.y += sh.vy * dt;
           sh.life += dt;
 
-          // draw trail (shimmer effect)
+          // draw trail
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
           const trailLen = sh.len;
           const grad = ctx.createLinearGradient(sh.x, sh.y, sh.x - sh.vx*10, sh.y - sh.vy*10);
           grad.addColorStop(0, `rgba(255,255,255,${sh.opacity})`);
-          grad.addColorStop(0.3, `rgba(200,220,255,${sh.opacity * 0.8})`);
           grad.addColorStop(1, `rgba(255,255,255,0)`);
           ctx.strokeStyle = grad;
-          ctx.lineWidth = 2.8;
+          ctx.lineWidth = 2.5;
           ctx.beginPath();
           ctx.moveTo(sh.x, sh.y);
           ctx.lineTo(sh.x - sh.vx*trailLen, sh.y - sh.vy*trailLen);
           ctx.stroke();
 
-          // head (with shimmer)
-          const headGlow = ctx.createRadialGradient(sh.x, sh.y, 0, sh.x, sh.y, 6);
-          headGlow.addColorStop(0, `rgba(255,255,255,${sh.opacity})`);
-          headGlow.addColorStop(0.7, `rgba(200,220,255,${sh.opacity * 0.6})`);
-          headGlow.addColorStop(1, `rgba(255,255,255,0)`);
-          ctx.fillStyle = headGlow;
+          // head
+          ctx.fillStyle = `rgba(255,255,255,${sh.opacity})`;
           ctx.beginPath();
-          ctx.arc(sh.x, sh.y, 3.0, 0, Math.PI*2);
+          ctx.arc(sh.x, sh.y, 2.2, 0, Math.PI*2);
           ctx.fill();
           ctx.restore();
 
@@ -868,7 +861,7 @@
       }
 
       // spawn first shooting star now with delay
-      setTimeout(spawnShootingStar, randRange(800, 2500));
+      setTimeout(spawnShootingStar, randRange(900, 3000));
 
       // Burn CPU more? user said it's ok — but still keep tuned. You can increase BASE_DENSITY if you want more stars.
 
