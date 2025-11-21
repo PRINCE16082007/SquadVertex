@@ -591,22 +591,15 @@
     for (let i = 0; i < 30; i++) {
       const star = document.createElement('div');
       star.classList.add('star');
-
-      // Random position
       const x = Math.random() * 100;
       const y = Math.random() * 100;
       star.style.left = `${x}%`;
       star.style.top = `${y}%`;
-
-      // Random size
       const size = Math.random() * 3 + 1;
       star.style.width = `${size}px`;
       star.style.height = `${size}px`;
-
-      // Random animation duration
       const duration = Math.random() * 3 + 2;
       star.style.setProperty('--duration', `${duration}s`);
-
       container.appendChild(star);
     }
   }
@@ -617,14 +610,11 @@
     let uid = params.get('uid') || params.get('id') || null;
 
     if (!uid) {
-      // raw part after '?'
       const raw = window.location.search.replace(/^\?/, '');
       if (!raw) return null;
-      // If pattern is "=UID"
       if (raw.startsWith('=')) uid = raw.slice(1);
-      // If pattern is "key=UID", take right side
       else if (raw.includes('=')) uid = raw.split('=')[1];
-      else uid = raw; // plain UID
+      else uid = raw;
     }
 
     if (!uid) return null;
@@ -746,8 +736,10 @@
     }
   }
 
-  // Render profile HTML; pass uid (canonical)
+  // Render profile HTML; display slug (if present) but keep uid as canonical id for sharing/routing
   function renderProfile(data, uid) {
+    const displayHandle = data.slug ? '@' + data.slug : (uid ? uid : 'Unknown');
+
     profileContent.innerHTML = `
       <div class="profile-card">
         <div class="profile-actions">
@@ -759,7 +751,7 @@
           <img src="${data.profilePhotoUrl || 'https://via.placeholder.com/150'}" alt="Profile Photo" class="profile-photo">
           <div class="profile-info">
             <h1 class="profile-name">${data.name || 'Unknown User'}</h1>
-            <div class="profile-uid">${uid ? 'ID: ' + uid : ''}${data.verified ? ' <span class="verified-badge">✓ Verified</span>' : ''}</div>
+            <div class="profile-handle">${displayHandle}${data.verified ? ' <span class="verified-badge">✓ Verified</span>' : ''}</div>
             <div class="join-date">Joined: ${formatDate(data.joinDate)}</div>
           </div>
         </div>
@@ -780,18 +772,16 @@
       </div>
     `;
 
-    // Share button uses UID in URL (dynamic origin)
+    // Share button uses UID in URL (routing stable)
     document.getElementById('shareBtn').addEventListener('click', async () => {
       try {
         const shareUrl = `${window.location.origin}/public_profile?=${encodeURIComponent(uid)}`;
         if (navigator.share) {
-          // try native share if available
           await navigator.share({ title: `${data.name || 'Profile'}`, url: shareUrl });
         } else if (navigator.clipboard) {
           await navigator.clipboard.writeText(shareUrl);
           alert('Profile URL copied to clipboard!');
         } else {
-          // fallback alert with URL
           prompt('Copy profile URL:', shareUrl);
         }
       } catch (err) {
@@ -815,7 +805,6 @@
     `;
 
     for (const post of posts) {
-      // fetch recent comments for each post (safe optional)
       let comments = [];
       try {
         const commentsQuery = query(
@@ -879,7 +868,6 @@
     });
 
     document.getElementById('show-all-btn').addEventListener('click', () => {
-      // show all posts page can read the uid from URL in same pattern
       const uid = getUidFromUrl();
       if (uid) {
         window.location.href = `public_user_posts.html?=${encodeURIComponent(uid)}`;
