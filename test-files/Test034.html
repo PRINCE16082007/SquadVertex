@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Profile Picture Upload</title>
+  <title>Profile Picture Editor</title>
+  
+  <!-- Cropper.js CSS (CDN) -->
+  <link href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css" rel="stylesheet">
+  
   <style>
     body { 
       background: #111; color: #fff; font-family: sans-serif;
@@ -16,12 +20,45 @@
       border: 2px dashed #555;
       border-radius: 50%;
       overflow: hidden;
+      cursor: pointer;
     }
     #preview img {
       width: 100%; height: 100%; object-fit: cover;
     }
     .hidden { display: none; }
     #authError { color: #ff5555; }
+    
+    /* Cropper Modal */
+    .modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 1000;
+      padding: 20px;
+    }
+    #cropperContainer {
+      max-width: 90%; max-height: 70vh;
+      border: 1px solid #444; border-radius: 4px;
+    }
+    .modal-buttons {
+      margin-top: 20px;
+      display: flex; gap: 10px;
+    }
+    .modal-buttons button {
+      padding: 8px 16px;
+      background: #333; border: 1px solid #666; color: white;
+      cursor: pointer;
+    }
+    .modal-buttons button:hover {
+      background: #444;
+    }
+    .tools {
+      display: flex; gap: 10px; margin-bottom: 15px;
+    }
+    .tools button {
+      padding: 5px 10px;
+      background: #2a2a2a;
+      border: 1px solid #555;
+    }
   </style>
 </head>
 <body>
@@ -29,18 +66,38 @@
   
   <div id="authError" class="hidden">Please login first!</div>
   <input id="fileInput" type="file" accept="image/*" class="hidden" />
-  <button id="uploadBtn" class="hidden">Upload New Picture</button>
+  <button id="uploadBtn" class="hidden">Change Picture</button>
 
-  <div id="preview">
+  <div id="preview" title="Click to edit">
     <span>Fetching profile...</span>
   </div>
 
-  <!-- Firebase SDK 11.9.0 (Modular) -->
+  <!-- Cropper Modal -->
+  <div id="cropperModal" class="modal hidden">
+    <div class="tools">
+      <button id="rotateLeft">⟲ Rotate</button>
+      <button id="rotateRight">⟳ Rotate</button>
+      <button id="zoomIn">+</button>
+      <button id="zoomOut">-</button>
+    </div>
+    <div id="cropperContainer">
+      <img id="cropperImage" src="" crossorigin="anonymous">
+    </div>
+    <div class="modal-buttons">
+      <button id="cancelCrop">Cancel</button>
+      <button id="applyCrop">Apply & Upload</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDK 11.9.0 -->
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
   
+  <!-- Cropper.js (CDN) -->
+  <script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
+  
   <script>
-    // Firebase config (exactly as provided)
+    // Configs (same as before)
     const firebaseConfig = {
       apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
       authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -50,62 +107,151 @@
       appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
       measurementId: "G-6C2W9NSNCH"
     };
-
-    // Supabase config (use your existing setup)
     const SUPABASE_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
     const FUNCTION_URL = 'https://dvjihjkyenzkacviywgk.functions.supabase.co/upload-image';
-
-    // DOM elements
-    const fileInput = document.getElementById('fileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const preview = document.getElementById('preview');
-    const authError = document.getElementById('authError');
 
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
 
-    // Check auth state
+    // DOM Elements
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const preview = document.getElementById('preview');
+    const authError = document.getElementById('authError');
+    const cropperModal = document.getElementById('cropperModal');
+    const cropperImage = document.getElementById('cropperImage');
+    const cancelCrop = document.getElementById('cancelCrop');
+    const applyCrop = document.getElementById('applyCrop');
+    const rotateLeft = document.getElementById('rotateLeft');
+    const rotateRight = document.getElementById('rotateRight');
+    const zoomIn = document.getElementById('zoomIn');
+    const zoomOut = document.getElementById('zoomOut');
+
+    let cropper = null;
+    let originalFile = null;
+
+    // Auth State Handling
     auth.onAuthStateChanged(user => {
       if (user) {
-        // User logged in - show upload UI
         fileInput.classList.remove('hidden');
         uploadBtn.classList.remove('hidden');
+        authError.classList.add('hidden');
         
-        // Show current profile pic (if exists)
+        // Load current profile pic
         const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${user.uid}.png?v=${Date.now()}`;
-        preview.innerHTML = `<img src="${publicUrl}" alt="Profile Picture" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23555%22 stroke-width=%221.5%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/><path d=%22M12 8v4%22/><circle cx=%2212%22 cy=%2216%22 r=%221%22/></svg>';">`;
+        preview.innerHTML = `<img src="${publicUrl}" alt="Profile" onerror="this.onerror=null; preview.innerHTML='<span>Click to upload</span>';">`;
       } else {
-        // User not logged in
         authError.classList.remove('hidden');
         preview.innerHTML = '<span>🔒 Login required</span>';
+        fileInput.classList.add('hidden');
+        uploadBtn.classList.add('hidden');
       }
     });
 
-    // Upload handler
-    uploadBtn.addEventListener('click', async () => {
-      const file = fileInput.files[0];
-      if (!file) return alert('Please select an image');
+    // Preview click also triggers file input
+    preview.addEventListener('click', () => {
+      if (auth.currentUser) fileInput.click();
+    });
+
+    // File selection handler
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
       if (file.size > 3 * 1024 * 1024) {
-        return alert('Max 3 MB allowed');
+        alert('Max 3 MB allowed');
+        fileInput.value = '';
+        return;
       }
 
-      try {
-        // Get current user (double-check)
-        const user = auth.currentUser;
-        if (!user) throw new Error('User not authenticated');
-
-        // Read file as base64
-        const base64 = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result.split(',')[1]);
-          reader.readAsDataURL(file);
+      originalFile = file;
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        // Setup cropper
+        cropperImage.src = event.target.result;
+        cropperModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden'; // Prevent background scroll
+        
+        // Initialize or replace cropper
+        if (cropper) cropper.destroy();
+        cropper = new Cropper(cropperImage, {
+          aspectRatio: 1, // Force square crop
+          viewMode: 1,
+          autoCropArea: 0.8,
+          movable: true,
+          zoomable: true,
+          scalable: true,
+          guides: true,
+          background: false,
+          cropBoxMovable: true,
+          cropBoxResizable: true
         });
+      };
+      reader.readAsDataURL(file);
+    });
 
-        // Filename = UID.png (overwrites existing)
+    // Cropper Controls
+    rotateLeft.addEventListener('click', () => cropper?.rotate(-90));
+    rotateRight.addEventListener('click', () => cropper?.rotate(90));
+    zoomIn.addEventListener('click', () => cropper?.zoom(0.1));
+    zoomOut.addEventListener('click', () => cropper?.zoom(-0.1));
+
+    // Cancel crop
+    cancelCrop.addEventListener('click', () => {
+      closeModal();
+    });
+
+    // Apply crop and upload
+    applyCrop.addEventListener('click', async () => {
+      if (!cropper || !originalFile) return;
+      
+      try {
+        // Get cropped image as base64
+        const canvas = cropper.getCroppedCanvas({
+          width: 300, // Optimal profile size
+          height: 300,
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'high'
+        });
+        
+        canvas.toBlob(async (blob) => {
+          // Convert blob to base64
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const base64 = reader.result.split(',')[1];
+            await uploadProfileImage(base64);
+            closeModal();
+          };
+          reader.readAsDataURL(blob);
+        }, 'image/jpeg', 0.9); // High quality JPEG
+        
+      } catch (e) {
+        console.error('Crop error:', e);
+        alert('Cropping failed. Please try again.');
+      }
+    });
+
+    // Close modal helper
+    function closeModal() {
+      cropperModal.classList.add('hidden');
+      document.body.style.overflow = 'auto';
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+      fileInput.value = ''; // Reset input
+    }
+
+    // Upload function (reused from before)
+    async function uploadProfileImage(base64) {
+      try {
+        const user = auth.currentUser;
+        if (!user) throw new Error('Not authenticated');
+        
         const fileName = `${user.uid}.png`;
-
-        // Upload via existing Edge Function
+        
         const response = await fetch(FUNCTION_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -119,14 +265,14 @@
 
         // Update preview immediately
         const newUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${fileName}?v=${Date.now()}`;
-        preview.innerHTML = `<img src="${newUrl}" alt="Profile Picture">`;
+        preview.innerHTML = `<img src="${newUrl}" alt="Profile Picture" onerror="this.onerror=null; preview.innerHTML='<span>Error loading</span>';">`;
         
-        alert('Profile picture updated successfully!');
+        alert('Profile updated!');
       } catch (e) {
         console.error('Upload error:', e);
-        alert(`Failed: ${e.message}`);
+        alert(`Upload failed: ${e.message}`);
       }
-    });
+    }
   </script>
 </body>
 </html>
