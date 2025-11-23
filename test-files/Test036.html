@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Settings - TeamGalaxy</title>
   <style>
-    /* ===== Your restored styles ===== */
+    /* ===== Your restored styles + fixes ===== */
     :root { --overlay-color: rgba(34, 16, 80, 0.06); }
     *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma, Geneva, Verdana, sans-serif}
     html,body{height:100%}
@@ -15,6 +15,22 @@
     #bgStars{ position:fixed; top:0; left:0; width:100%; height:100%; z-index:-2; pointer-events:none; display:block; }
     .shimmer-layer{ position:fixed; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(120deg, rgba(255,255,255,0.00) 0%, rgba(255,255,255,0.08) 45%, rgba(255,255,255,0.00) 60%); background-size:300% 300%; opacity:0.10; mix-blend-mode:screen; animation:shimmer-move 10s linear infinite; filter:blur(6px); }
     @keyframes shimmer-move { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+
+    /* Loading overlay helpers */
+    .hidden { display:none !important; }
+    .stars-container { position:relative; width:240px; height:240px; }
+    .stars-container .star {
+      position:absolute;
+      border-radius:50%;
+      background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.75) 40%, rgba(255,255,255,0) 100%);
+      opacity:0.95;
+      transform-origin:center;
+      animation:twinkle var(--duration,2s) ease-in-out infinite alternate;
+      pointer-events:none;
+      filter:drop-shadow(0 0 6px rgba(200,200,255,0.35));
+    }
+    @keyframes twinkle { from{ transform:scale(0.6); opacity:0.6 } to{ transform:scale(1.2); opacity:1 } }
+
     .header{ display:flex; justify-content:space-between; align-items:center; padding:1rem 2rem; background:rgba(10,10,35,0.95); backdrop-filter: blur(15px); border-bottom:1px solid #5a4fcf; box-shadow:0 4px 20px rgba(0,0,0,0.4); position:sticky; top:0; z-index:100; }
     .logo{ font-size:2rem; font-weight:bold; color:#8a7cff; letter-spacing:1.5px; text-shadow:0 0 10px rgba(138,124,255,0.5); background:linear-gradient(45deg,#8a7cff,#d66efd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; cursor:pointer; }
     .header-buttons{ display:flex; gap:1rem; }
@@ -136,9 +152,9 @@
       </div>
       <div>
         <div style="display:flex;flex-direction:column;gap:.8rem;">
-          <a href="../legal/privacy_policy.html" style="color:#a0a0d0;text-decoration:none;">Privacy Policy</a>
-          <a href="../legal/terms_and_conditions.html" style="color:#a0a0d0;text-decoration:none;">Terms & Conditions</a>
-          <a href="../about_us.html" style="color:#a0a0d0;text-decoration:none;">About</a>
+          <a href="../legal/privacy_policy.html" style="color:#a0a6d0;text-decoration:none;">Privacy Policy</a>
+          <a href="../legal/terms_and_conditions.html" style="color:#a0a6d0;text-decoration:none;">Terms & Conditions</a>
+          <a href="../about_us.html" style="color:#a0a6d0;text-decoration:none;">About</a>
         </div>
         <div class="rocket-frame" style="margin-top:2rem;padding:1.5rem;border:2px solid #5a4fcf;border-radius:12px;background:rgba(20,20,40,0.5);">
           <div style="font-size:1.8rem;font-weight:bold;color:#8a7cff;text-align:center;">🚀 ROCKET 🚀</div>
@@ -196,7 +212,11 @@
         if (boot) { boot.style.display = 'block'; boot.textContent = 'An error occurred while loading the page — check console for details.'; }
         console.error('Global error caught:', ev.error || ev.message || ev);
         const loading = document.getElementById('loadingOverlay');
-        if (loading) loading.classList.remove('hidden');
+        if (loading) {
+          // show overlay so user sees the error state
+          loading.style.display = 'flex';
+          loading.classList.remove('hidden');
+        }
       } catch (e) { console.error(e); }
     });
 
@@ -289,7 +309,7 @@
               star.style.left = x + '%'; star.style.top = y + '%';
               const s = Math.random()*3 + 1;
               star.style.width = s + 'px'; star.style.height = s + 'px';
-              const d = Math.random()*3 + 1.5;
+              const d = (Math.random()*2 + 1.2).toFixed(2);
               star.style.setProperty('--duration', d + 's');
               starsContainer.appendChild(star);
             }
@@ -381,7 +401,13 @@
             if (imgURL) try{ URL.revokeObjectURL(imgURL); }catch(e){}
             imgURL = URL.createObjectURL(f);
             img = new Image();
-            img.onload = ()=> { scale = Math.min(1, Math.max(0.2, Math.min(editorCanvas.width / img.width, editorCanvas.height / img.height))) * 1.4; angle = 0; pos = {x:0,y:0}; drawEditor(); };
+            img.crossOrigin = "anonymous";
+            img.onload = ()=> {
+              // ensure sensible starting scale
+              const baseScale = Math.min(editorCanvas.width / img.width, editorCanvas.height / img.height);
+              scale = Math.min(1, Math.max(0.2, baseScale)) * 1.4;
+              angle = 0; pos = {x:0,y:0}; drawEditor();
+            };
             img.src = imgURL;
           } catch(e) { console.error('modalFileInput change error', e); }
         });
@@ -399,9 +425,9 @@
             cctx.save(); cctx.beginPath(); cctx.arc(outSize/2, outSize/2, outSize/2, 0, Math.PI*2); cctx.closePath(); cctx.clip(); cctx.drawImage(out,0,0); cctx.restore();
             const dataURL = circ.toDataURL('image/png');
             window.__editedImageDataURL = dataURL;
-            modalMessages.innerHTML = '<div style="color:#bfffc9">Preview ready — click "Upload & Lock" to upload and lock the photo.</div>';
+            if (modalMessages) modalMessages.innerHTML = '<div style="color:#bfffc9">Preview ready — click "Upload & Lock" to upload and lock the photo.</div>';
             if (currentPhoto) currentPhoto.src = dataURL; // soft preview
-          } catch(e) { console.error('apply preview error', e); modalMessages.innerHTML = '<div style="color:#ffc9c9">Preview failed.</div>'; }
+          } catch(e) { console.error('apply preview error', e); if (modalMessages) modalMessages.innerHTML = '<div style="color:#ffc9c9">Preview failed.</div>'; }
         });
 
         // single upsert call
@@ -422,7 +448,7 @@
             const snapshot = await getDoc(docRef);
             if (snapshot.exists() && snapshot.data().profilePhotoLocked) {
               profilePhotoLocked = true;
-              editorModal.classList.remove('show');
+              if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); }
               safeShowStatus('Profile photo is already locked. You cannot change it again.', 'error');
               return;
             }
@@ -432,7 +458,7 @@
             if (!dataURL) return alert('Create a preview first (Apply Preview).');
             const base64 = dataURL.split(',')[1];
             const fileName = `${currentUser.uid}.png`;
-            modalMessages.innerHTML = '<div style="color:#bde0ff">Uploading...</div>';
+            if (modalMessages) modalMessages.innerHTML = '<div style="color:#bde0ff">Uploading...</div>';
             const attempt = await postUploadUpsert(fileName, base64);
             if (attempt.ok && (!attempt.body || !attempt.body.error)) {
               const newUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${fileName}?v=${Date.now()}`;
@@ -444,23 +470,23 @@
               if (photoUrlInput) photoUrlInput.value = newUrl;
               if (currentPhoto) currentPhoto.src = newUrl;
               profilePhotoLocked = true;
-              modalMessages.innerHTML = '<div style="color:#bfffc9">Uploaded & locked successfully!</div>';
-              editorModal.classList.remove('show');
+              if (modalMessages) modalMessages.innerHTML = '<div style="color:#bfffc9">Uploaded & locked successfully!</div>';
+              if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); }
               if (oneTimeNote) { oneTimeNote.textContent = 'Profile photo is locked — you cannot change it again.'; oneTimeNote.style.color = '#ffc9c9'; }
               safeShowStatus('Profile photo uploaded and locked!', 'success');
               return;
             }
             const msg = (attempt.body && (attempt.body.error || attempt.body.message)) || attempt.error || `HTTP ${attempt.status}`;
             if (/resource\s+already\s+exists|already exists|409|exists/i.test(String(msg))) {
-              modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload blocked: resource already exists on server. No further attempts will be made.</div>`;
+              if (modalMessages) modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload blocked: resource already exists on server. No further attempts will be made.</div>`;
               safeShowStatus('Upload blocked: resource already exists on server.', 'error');
               return;
             }
-            modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload failed: ${String(msg)}</div>`;
+            if (modalMessages) modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload failed: ${String(msg)}</div>`;
             safeShowStatus(`Upload failed: ${String(msg)}`, 'error');
           } catch (e) {
             console.error('Upload exception', e);
-            modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload exception: ${e.message || e}</div>`;
+            if (modalMessages) modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload exception: ${e.message || e}</div>`;
             safeShowStatus(`Upload failed: ${e.message || e}`, 'error');
           }
         });
@@ -470,17 +496,16 @@
           try {
             if (!currentUser) return alert('Login required');
             if (profilePhotoLocked) { safeShowStatus('Profile photo is locked — cannot change it.', 'error'); return; }
-            modalMessages.innerHTML = '';
+            if (modalMessages) modalMessages.innerHTML = '';
             window.__editedImageDataURL = null;
             img = null; imgURL = null; pos={x:0,y:0}; scale=1; angle=0;
-            editorModal.classList.add('show');
-            editorModal.setAttribute('aria-hidden','false');
+            if (editorModal) { editorModal.classList.add('show'); editorModal.setAttribute('aria-hidden','false'); }
           } catch(e){ console.error(e); }
         });
 
         // close modal
-        if (modalCloseBtn) modalCloseBtn.addEventListener('click', ()=> { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); });
-        if (cancelModalBtn) cancelModalBtn.addEventListener('click', ()=> { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); });
+        if (modalCloseBtn) modalCloseBtn.addEventListener('click', ()=> { if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); } });
+        if (cancelModalBtn) cancelModalBtn.addEventListener('click', ()=> { if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); } });
 
         // save other profile fields
         async function updateProfile() {
@@ -491,7 +516,7 @@
             const photoUrl = (photoUrlInput?.value || '').trim();
             const bio = (bioInput?.value || '').trim();
             if (!name || !slug) { safeShowStatus('Name and slug are required.', 'error'); return; }
-            saveBtn.disabled = true; saveBtn.textContent = 'Saving...';
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
             const docRef = doc(db, 'usersPrivate', currentUser.uid);
             await updateDoc(docRef, {
               name, slug,
@@ -534,7 +559,10 @@
             currentUser = user;
             await loadProfile(user.uid);
             // hide loading overlay smoothly
-            setTimeout(()=> { const loading = document.getElementById('loadingOverlay'); if (loading) loading.classList.add('hidden'); }, 800);
+            if (loadingOverlay) {
+              loadingOverlay.classList.add('hidden');
+              loadingOverlay.style.display = 'none';
+            }
           } catch(e){ console.error('onAuthStateChanged error', e); }
         });
 
@@ -543,7 +571,7 @@
         if (profileBtn) profileBtn.addEventListener('click', ()=> location.href='user_profile.html');
 
         // initial visuals
-        try { createLoadingStars(); initBgStars(); drawEditor(); } catch(e){ console.error('visual init error', e); }
+        try { createLoadingStars(); initBgStars(); if (editorCanvasExists) drawEditor(); } catch(e){ console.error('visual init error', e); }
 
       } catch (e) {
         console.error('Initialization failed', e);
