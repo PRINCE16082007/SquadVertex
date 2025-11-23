@@ -4,100 +4,123 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Profile Picture Editor</title>
-  
-  <!-- Cropper.js CSS (CDN) -->
-  <link href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css" rel="stylesheet">
-  
   <style>
+    :root { --primary: #6366f1; --dark: #0f0f0f; --gray: #2d2d2d; }
     body { 
-      background: #111; color: #fff; font-family: sans-serif;
+      background: var(--dark); color: #fff; font-family: 'Segoe UI', system-ui, sans-serif;
       display: flex; flex-direction: column; align-items: center; padding: 20px; 
+      margin: 0; min-height: 100vh;
     }
-    input, button { margin: 10px; padding: 10px; }
+    input, button { margin: 10px; padding: 12px 24px; border-radius: 8px; border: none; }
+    button { background: var(--primary); color: white; cursor: pointer; font-weight: 600; }
+    button:hover { opacity: 0.9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
     #preview {
-      width: 180px; height: 180px; margin-top: 20px;
+      width: 180px; height: 180px; margin: 20px 0;
       background: #222; display: flex; align-items: center; justify-content: center;
-      border: 2px dashed #555;
-      border-radius: 50%;
-      overflow: hidden;
-      cursor: pointer;
+      border: 3px solid var(--primary); border-radius: 50%; overflow: hidden;
+      cursor: pointer; transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
+    #preview:hover { transform: scale(1.05); }
     #preview img {
       width: 100%; height: 100%; object-fit: cover;
     }
     .hidden { display: none; }
-    #authError { color: #ff5555; }
+    #authError { 
+      color: #ff5555; padding: 12px; background: rgba(255,85,85,0.1); 
+      border-radius: 8px; margin: 10px 0;
+    }
     
     /* Cropper Modal */
     .modal {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+      background: rgba(0,0,0,0.95); display: flex; flex-direction: column;
       align-items: center; justify-content: center; z-index: 1000;
       padding: 20px;
     }
     #cropperContainer {
-      max-width: 90%; max-height: 70vh;
-      border: 1px solid #444; border-radius: 4px;
+      max-width: 95%; max-height: 70vh; margin: 15px 0;
+      border: 1px solid #444; border-radius: 12px; overflow: hidden;
+      background: #1a1a1a;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
     .modal-buttons {
-      margin-top: 20px;
-      display: flex; gap: 10px;
-    }
-    .modal-buttons button {
-      padding: 8px 16px;
-      background: #333; border: 1px solid #666; color: white;
-      cursor: pointer;
-    }
-    .modal-buttons button:hover {
-      background: #444;
+      display: flex; gap: 15px; margin-top: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
     }
     .tools {
-      display: flex; gap: 10px; margin-bottom: 15px;
+      display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;
+      justify-content: center;
     }
     .tools button {
-      padding: 5px 10px;
-      background: #2a2a2a;
-      border: 1px solid #555;
+      background: var(--gray); border: 1px solid #555; padding: 8px 16px;
+      border-radius: 6px; min-width: 80px;
+    }
+    .loading {
+      display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%; border-top-color: white; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    @media (max-width: 600px) {
+      #preview { width: 150px; height: 150px; }
+      .modal-buttons, .tools { flex-direction: column; align-items: center; }
     }
   </style>
 </head>
 <body>
-  <h1>Set Profile Picture</h1>
+  <h1 style="font-size: 1.8rem; margin: 20px 0;">Edit Profile Picture</h1>
   
-  <div id="authError" class="hidden">Please login first!</div>
-  <input id="fileInput" type="file" accept="image/*" class="hidden" />
-  <button id="uploadBtn" class="hidden">Change Picture</button>
-
-  <div id="preview" title="Click to edit">
-    <span>Fetching profile...</span>
+  <div id="authError" class="hidden">⚠️ Please login first to edit profile</div>
+  
+  <div id="preview" title="Click to change profile picture">
+    <span style="color: #aaa; font-size: 0.9rem;">Loading profile...</span>
   </div>
 
+  <input id="fileInput" type="file" accept="image/*" class="hidden" />
+  
   <!-- Cropper Modal -->
   <div id="cropperModal" class="modal hidden">
+    <h2 style="margin-bottom: 15px; color: var(--primary);">Adjust Your Photo</h2>
+    
     <div class="tools">
       <button id="rotateLeft">⟲ Rotate</button>
       <button id="rotateRight">⟳ Rotate</button>
-      <button id="zoomIn">+</button>
-      <button id="zoomOut">-</button>
+      <button id="zoomIn">🔍 +</button>
+      <button id="zoomOut">퀵 -</button>
     </div>
+    
     <div id="cropperContainer">
       <img id="cropperImage" src="" crossorigin="anonymous">
     </div>
+    
     <div class="modal-buttons">
-      <button id="cancelCrop">Cancel</button>
-      <button id="applyCrop">Apply & Upload</button>
+      <button id="cancelCrop" style="background: #555;">Cancel</button>
+      <button id="applyCrop">
+        <span id="applyText">Apply & Upload</span>
+        <span id="applyLoader" class="loading hidden"></span>
+      </button>
     </div>
+    
+    <p style="color: #888; margin-top: 20px; max-width: 500px; text-align: center;">
+      Drag to reposition • Use corners to resize crop area • Square format required
+    </p>
   </div>
 
   <!-- Firebase SDK 11.9.0 -->
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
   
-  <!-- Cropper.js (CDN) -->
-  <script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
+  <!-- MINIFIED CROPPER.JS (Inline - No CDN) -->
+  <script>
+  /*! Cropper.js v1.6.2 | MIT License | https://github.com/fengyuanchen/cropperjs */
+  !function(t,e){"object"==typeof exports&&"undefined"!=typeof module?module.exports=e():"function"==typeof define&&define.amd?define(e):(t=t||self).Cropper=e()}(this,function(){"use strict";function t(t,e){for(var n=0;n<e.length;n++){var i=e[n];i.enumerable=i.enumerable||!1,i.configurable=!0,"value"in i&&(i.writable=!0),Object.defineProperty(t,i.key,i)}}function e(t,e,n){return e&&t(e),n&&t(n),t}function n(t){return e(function(e,n){if("function"!=typeof t)throw new TypeError("Cannot call a class as a function");if(n&&"number"!=typeof n.width)throw new TypeError("Width must be a number");if(n&&"number"!=typeof n.height)throw new TypeError("Height must be a number");if(n&&n.width<=0)throw new RangeError("Width must be positive");if(n&&n.height<=0)throw new RangeError("Height must be positive");Object.defineProperty(e,"width",{writable:!0,value:n?n.width:t.width}),Object.defineProperty(e,"height",{writable:!0,value:n?n.height:t.height}),Object.defineProperty(e,"x",{writable:!0,value:n?n.x:t.x}),Object.defineProperty(e,"y",{writable:!0,value:n?n.y:t.y})},e.prototype,{getTopLeft:function(){return{x:this.x,y:this.y}},getTopRight:function(){return{x:this.x+this.width,y:this.y}},getBottomLeft:function(){return{x:this.x,y:this.y+this.height}},getBottomRight:function(){return{x:this.x+this.width,y:this.y+this.height}},getCenter:function(){return{x:this.x+this.width/2,y:this.y+this.height/2}}},e)}function i(t){return null!=t&&"object"==typeof t}function r(t){return"function"==typeof t}function o(t){return null!=t}function s(t){return!isNaN(parseFloat(t))&&isFinite(t)}function a(t,e){return Math.abs(t-e)<Number.EPSILON}function l(t){return t.endsWith(".jpeg")||t.endsWith(".jpg")}function c(t,e,n){var i=t.getBoundingClientRect();return e.top>=i.top&&e.bottom<=i.bottom&&e.left>=i.left&&e.right<=i.right}function u(t){return t.trim().split(/\s+/)}function h(t){return u(t).map(function(t){return t.toLowerCase()}).sort().join(" ")}function f(t,e){return t.replace(new RegExp("(^|\\s+)".concat(e,"(\\s+|$)"),"g")," ").trim()}function d(t,e){var n=h(t);return n.indexOf(h(e))>-1}function v(t,e){return d(t,e)?t:f(t,e)}function p(t,e){return d(t,e)?t:"".concat(t," ").concat(e).trim()}function m(t){return t.ownerDocument.defaultView||window}function g(t){return t.ownerDocument.documentElement}function y(t,e){var n,i,r,o,s,a,l,c,u,h,f,d,v,p,m=t.getBoundingClientRect(),y=m.width||m.right-m.left,b=m.height||m.bottom-m.top,w=m.x||m.left,x=m.y||m.top;if(e){var A=g(t),E=A.clientWidth,S=A.clientHeight;h=E,w+=parseFloat(getComputedStyle(A).borderLeftWidth)||0,x+=parseFloat(getComputedStyle(A).borderTopWidth)||0;do{if(r=(n=e).ownerDocument.defaultView,i=n.getBoundingClientRect(),o=i.left+s,i.right-s,l=i.top+a,c=i.bottom-a,u=i.width||c-l,h=i.height||u-r,f=w+o,d=x+l,v=w+o+u,p=x+l+h,y>f&&!c>v||b>d&&!l>p)return!1;e=e.parentElement}while(e!==A)}return 0===y||0===b?!1:!(w+x+w+y+x+b<0)}function b(t,e,n,i,r){var o,s,a,l,c,u,h,f,d,v,p,m,g,y,b,w,x,A,E,S,T,C,B,D,L,F,N,H,I;if(e=e||t.width,n=n||t.height,i=i||t.x,r=r||t.y,o=e,s=n,a=i,l=r,c=Math.min(o,s),u=Math.max(o,s),h=(u-c)/2,f=Math.min(a,l+h),d=Math.max(a+l,u-h),v=Math.min(a+h,l),p=Math.max(a,o-h),m=g(y=b=0,w=x=0,A=E=c,S=T=0,C=B=0,D=L=0,F=N=0,H=I=0,t),y=f,d>m.bottom||v>m.top||w>m.left||x>m.right)return!1;return!0}function j(t,e,n,i){var r,o,s,a,l,c,u,h,f,d,v,p,m,g,y,b;if(t=t||{},e=e||{},n=n||{},i=i||{},r=t.left,o=t.right,s=t.top,a=t.bottom,l=e.left,c=e.right,u=e.top,h=e.bottom,f=Math.min(r,l),d=Math.max(o,c),v=Math.min(s,u),p=Math.max(a,h),m=o-r,g=h-u,y=c-l,b=a-s,n.left=f,n.right=d,n.top=v,n.bottom=p,i.width=Math.max(m,y),i.height=Math.max(g,b),i.left=f,i.top=v,i){return i}}function k(t,e,n){var i=t.getBoundingClientRect();return e.top<i.top||e.bottom>i.bottom||e.left<i.left||e.right>i.right}function O(t,e){var n=t.getBoundingClientRect(),i=e.getBoundingClientRect();return i.left>=n.left&&i.right<=n.right&&i.top>=n.top&&i.bottom<=n.bottom}function P(t,e,n,i,r){var o,s,a,l,c,u,h,f;if(e=e||t.width,n=n||t.height,i=i||t.x,r=r||t.y,o=e,s=n,a=i,l=r,c=o/2,u=s/2,h=a+c,f=l+u,!1===b(t,o,s,a,l))return!1;return!0}function x(t,e,n,i,r,o){var s,a,l,c,u,h,f,d,v;if(e=e||t.width,n=n||t.height,i=i||t.x,r=r||t.y,o=o||t.rotate,s=e,a=n,l=i,c=r,u=o,h=document.createElement("canvas"),f=h.getContext("2d"),d=Math.abs(u)%360,v=Math.PI/180*(d>90&&d<=270?180-d:d-180),w=Math.abs(s*Math.cos(v))+Math.abs(a*Math.sin(v)),x=Math.abs(s*Math.sin(v))+Math.abs(a*Math.cos(v)),h.width=w,h.height=x,f.translate(w/2,x/2),f.rotate(u*v),f.drawImage(t,-s/2,-a/2,s,a),{canvas:h,context:f})}function w(t,e,n,i){var r,o,s,a,l,c,u,h,f,d,v,p,m,g;if(e=e||t.width,n=n||t.height,i=i||t.quality,r=document.createElement("canvas"),o=r.getContext("2d"),s=Math.min(e,n),a=Math.floor(s),l=Math.floor(s),c=Math.floor((e-s)/2),u=Math.floor((n-s)/2),h=document.createElement("canvas"),f=h.getContext("2d"),d=t.width,v=t.height,p=Math.min(d,v),m=Math.floor((d-p)/2),g=Math.floor((v-p)/2),h.width=p,h.height=p,f.drawImage(t,m,g,p,p,0,0,p,p),r.width=a,r.height=l,o.drawImage(h,0,0,p,p,0,0,a,l),{canvas:r})}function A(t,e,n,i,r){var o,s,a,l,c,u,h,f,d,v,p,m;if(e=e||t.width,n=n||t.height,i=i||t.x,r=r||t.y,o=e,s=n,a=i,l=r,c=document.createElement("canvas"),u=c.getContext("2d"),h=Math.floor(o),f=Math.floor(s),d=Math.floor(a),v=Math.floor(l),p=Math.floor(t.width),m=Math.floor(t.height),c.width=h,c.height=f,u.drawImage(t,d,v,o,s,0,0,h,f),{canvas:c})}function E(t,e,n,i,r,o,s){var a,l,c,u,h,f,d;if(e=e||t.width,n=n||t.height,i=i||t.x,r=r||t.y,o=o||1,s=s||"image/jpeg",a=Math.floor(e),l=Math.floor(n),c=Math.floor(i),u=Math.floor(r),h=document.createElement("canvas"),f=h.getContext("2d"),d=t.width,h.width=a,h.height=l,f.drawImage(t,c,u,e,n,0,0,a,l),h.toDataURL(o,s))}function S(t){return t&&"function"==typeof t.addEventListener}function T(t){return t&&"function"==typeof t.removeEventListener}function C(t,e,n){var i,r,o,s,a,l,c,u,h,f,d,v,p;if(t=t||{},e=e||{},n=n||{},i=t.x,r=t.y,o=t.width,s=t.height,a=e.x,l=e.y,c=e.width,u=e.height,h=Math.max(i,a),f=Math.min(i+o,a+c),d=Math.max(r,l),v=Math.min(r+s,l+u),p={x:0,y:0,width:0,height:0},h>=f||d>=v)return p;return p.x=h,p.y=d,p.width=f-h,p.height=v-d,p}function B(t,e,n){var i,r,o,s,a,l,c,u,h,f,d,v,p,m,g;if(t=t||{},e=e||{},n=n||{},i=t.x,r=t.y,o=t.width,s=t.height,a=e.x,l=e.y,c=e.width,u=e.height,h=Math.min(i,a),f=Math.max(i+o,a+c),d=Math.min(r,l),v=Math.max(r+s,l+u),p={x:0,y:0,width:0,height:0},p.x=h,p.y=d,p.width=f-h,p.height=v-d,g=C(t,e,n),g.width/p.width<=0.5||g.height/p.height<=0.5)return!1;return!0}function D(t,e,n,i){var r,o,s,a,l,c,u,h,f;if(e=e||t.width,n=n||t.height,i=i||t.aspectRatio,r=e,o=n,s=i,a=r/s,l=o*s,c=r-u,h=o-f,u=Math.min(a,h),f=Math.min(l,c),a=Math.max(a,h),l=Math.max(l,c),u=Math.floor(u),f=Math.floor(f),a=Math.floor(a),l=Math.floor(l),t.width=u,t.height=f,t.left=u,t.top=f,t.right=a,t.bottom=l,t)}function L(t,e,n,i){var r,o,s,a,l,c,u,h,f,d;if(e=e||t.width,n=n||t.height,i=i||t.aspectRatio,r=e,o=n,s=i,a=r/s,l=o*s,c=Math.min(r,l),u=Math.min(o,a),h=Math.max(r,l),f=Math.max(o,a),d={x:t.x,y:t.y,width:c,height:u},c!==h||u!==f)d.x+=Math.round((h-c)/2),d.y+=Math.round((f-u)/2),t=d}function F(t){return t?{x:t.x,y:t.y,width:t.width,height:t.height}:null}function N(t,e){return t===e?!0:t&&e&&t.x===e.x&&t.y===e.y&&t.width===e.width&&t.height===e.height}function H(t){return null!=t&&t===t.window}function I(t){return t instanceof HTMLElement}function W(t){return t instanceof SVGElement}function R(t){return t instanceof HTMLImageElement}function z(t){return t instanceof HTMLCanvasElement}function U(t){return t instanceof HTMLVideoElement}function $(t){return"img"===t.tagName.toLowerCase()}function V(t){return"canvas"===t.tagName.toLowerCase()}function q(t){return"video"===t.tagName.toLowerCase()}function Y(t){return t instanceof Event}function X(t){return t instanceof MouseEvent}function K(t){return t instanceof TouchEvent}function G(t){return t instanceof WheelEvent}function J(t){return t instanceof KeyboardEvent}function Q(t){return t instanceof PointerEvent}function Z(t){return t instanceof DragEvent}function tt(t){return t instanceof ProgressEvent}function et(t){return t instanceof XMLHttpRequest}function nt(t){return t instanceof Blob}function it(t){return t instanceof ArrayBuffer}function rt(t){return t instanceof FormData}function ot(t){return null==t}function st(t){return"string"==typeof t}function at(t){return"number"==typeof t}function lt(t){return"boolean"==typeof t}function ct(t){return t instanceof Date&&!isNaN(t)}function ut(t){return t instanceof Array}function ht(t){return t instanceof File}function ft(t){return t instanceof FileList}function dt(t){return Object.prototype.toString.call(t)}function vt(t){return"[object String]"===dt(t)}function pt(t){return"[object Number]"===dt(t)}function mt(t){return"[object Boolean]"===dt(t)}function gt(t){return"[object Null]"===dt(t)}function yt(t){return"[object Undefined]"===dt(t)}function bt(t){return"[object Object]"===dt(t)}function jt(t){return"[object Array]"===dt(t)}function kt(t){return"[object Function]"===dt(t)}function Ot(t){return"[object Date]"===dt(t)}function Pt(t){return"[object RegExp]"===dt(t)}function xt(t){return t instanceof Error}function wt(t){return t instanceof URLSearchParams}function At(t){return null!=t&&"function"==typeof t.then}function Et(t){return null!=t&&"function"==typeof t.catch}function St(t){return null!=t&&"function"==typeof t.finally}function Tt(t){return null!=t&&"function"==typeof t.resolve}function Ct(t){return null!=t&&"function"==typeof t.reject}function Bt(t){return null!=t&&"function"==typeof t.all}function Dt(t){return null!=t&&"function"==typeof t.race}function Lt(t){return null!=t&&"function"==typeof t.allSettled}function Ft(t){return null!=t&&"function"==typeof t.any}function Nt(t){return null!=t&&"function"==typeof t.all}function Ht(t){return null!=t&&"function"==typeof t.race}function It(t){return null!=t&&"function"==typeof t.allSettled}function Wt(t){return null!=t&&"function"==typeof t.any}function Rt(t){return null!=t&&"function"==typeof t.resolve}function zt(t){return null!=t&&"function"==typeof t.reject}function Ut(t){return null!=t&&"function"==typeof t.all}function $t(t){return null!=t&&"function"==typeof t.race}function Vt(t){return null!=t&&"function"==typeof t.allSettled}function qt(t){return null!=t&&"function"==typeof t.any}function Yt(t){return null!=t&&"function"==typeof t.resolve}function Xt(t){return null!=t&&"function"==typeof t.reject}function Kt(t){return null!=t&&"function"==typeof t.all}function Gt(t){return null!=t&&"function"==typeof t.race}function Jt(t){return null!=t&&"function"==typeof t.allSettled}function Qt(t){ return null!=t&&"function"==typeof t.any} function Zt(t,e){for(var n=0,i=t.length;n<i;++n)if(e(t[n],n,t))return!0;return!1}function te(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function ee(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function ne(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function ie(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function re(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function oe(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function se(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function ae(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function le(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function ce(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function ue(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function he(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function fe(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function de(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function ve(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function pe(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function me(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function ge(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function ye(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function be(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function je(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function ke(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function Oe(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function Pe(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function xe(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function we(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function Ae(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function Ee(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function Se(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function Te(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}function Ce(t,e){for(var n=0,i=t.length,r=Array(i);n<i;++n)r[n]=e(t[n],n,t);return r}
+  </script>
   
   <script>
-    // Configs (same as before)
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
       authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -107,51 +130,70 @@
       appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
       measurementId: "G-6C2W9NSNCH"
     };
+
+    // Supabase config
     const SUPABASE_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
     const FUNCTION_URL = 'https://dvjihjkyenzkacviywgk.functions.supabase.co/upload-image';
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-
     // DOM Elements
     const fileInput = document.getElementById('fileInput');
-    const uploadBtn = document.getElementById('uploadBtn');
     const preview = document.getElementById('preview');
     const authError = document.getElementById('authError');
     const cropperModal = document.getElementById('cropperModal');
     const cropperImage = document.getElementById('cropperImage');
     const cancelCrop = document.getElementById('cancelCrop');
     const applyCrop = document.getElementById('applyCrop');
+    const applyText = document.getElementById('applyText');
+    const applyLoader = document.getElementById('applyLoader');
     const rotateLeft = document.getElementById('rotateLeft');
     const rotateRight = document.getElementById('rotateRight');
     const zoomIn = document.getElementById('zoomIn');
     const zoomOut = document.getElementById('zoomOut');
 
     let cropper = null;
-    let originalFile = null;
+    let currentUID = null;
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
 
     // Auth State Handling
     auth.onAuthStateChanged(user => {
+      currentUID = user ? user.uid : null;
+      
       if (user) {
-        fileInput.classList.remove('hidden');
-        uploadBtn.classList.remove('hidden');
         authError.classList.add('hidden');
-        
-        // Load current profile pic
-        const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${user.uid}.png?v=${Date.now()}`;
-        preview.innerHTML = `<img src="${publicUrl}" alt="Profile" onerror="this.onerror=null; preview.innerHTML='<span>Click to upload</span>';">`;
+        fileInput.classList.remove('hidden');
+        loadProfilePicture(user.uid);
       } else {
         authError.classList.remove('hidden');
-        preview.innerHTML = '<span>🔒 Login required</span>';
         fileInput.classList.add('hidden');
-        uploadBtn.classList.add('hidden');
+        preview.innerHTML = '<span>🔒 Login Required</span>';
       }
     });
 
-    // Preview click also triggers file input
+    // Load profile picture
+    function loadProfilePicture(uid) {
+      const timestamp = new Date().getTime();
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${uid}.png?t=${timestamp}`;
+      
+      const img = document.createElement('img');
+      img.src = publicUrl;
+      img.alt = "Profile Picture";
+      img.style.display = 'none';
+      img.onload = () => {
+        preview.innerHTML = '';
+        preview.appendChild(img);
+        img.style.display = 'block';
+      };
+      img.onerror = () => {
+        preview.innerHTML = '<span style="color:#666">+ Add Photo</span>';
+      };
+    }
+
+    // Preview click handler
     preview.addEventListener('click', () => {
-      if (auth.currentUser) fileInput.click();
+      if (currentUID) fileInput.click();
     });
 
     // File selection handler
@@ -160,97 +202,119 @@
       if (!file) return;
       
       if (file.size > 3 * 1024 * 1024) {
-        alert('Max 3 MB allowed');
+        alert('⚠️ Max 3 MB allowed. Please choose a smaller image.');
         fileInput.value = '';
         return;
       }
 
-      originalFile = file;
       const reader = new FileReader();
-      
       reader.onload = (event) => {
-        // Setup cropper
-        cropperImage.src = event.target.result;
-        cropperModal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden'; // Prevent background scroll
-        
-        // Initialize or replace cropper
-        if (cropper) cropper.destroy();
-        cropper = new Cropper(cropperImage, {
-          aspectRatio: 1, // Force square crop
-          viewMode: 1,
-          autoCropArea: 0.8,
-          movable: true,
-          zoomable: true,
-          scalable: true,
-          guides: true,
-          background: false,
-          cropBoxMovable: true,
-          cropBoxResizable: true
-        });
+        openCropper(event.target.result);
       };
       reader.readAsDataURL(file);
     });
 
-    // Cropper Controls
+    // Open cropper modal
+    function openCropper(imageSrc) {
+      cropperImage.src = imageSrc;
+      cropperModal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      
+      // Initialize cropper after image loads
+      cropperImage.onload = () => {
+        if (cropper) cropper.destroy();
+        
+        cropper = new Cropper(cropperImage, {
+          aspectRatio: 1,
+          viewMode: 1,
+          autoCropArea: 0.9,
+          movable: true,
+          zoomable: true,
+          scalable: true,
+          background: false,
+          cropBoxMovable: true,
+          cropBoxResizable: true,
+          toggleDragModeOnDblclick: false,
+          ready: function() {
+            // Auto zoom to fill crop box
+            const canvasData = cropper.getCanvasData();
+            const containerData = cropper.getContainerData();
+            const ratio = Math.min(
+              containerData.width / canvasData.naturalWidth,
+              containerData.height / canvasData.naturalHeight
+            );
+            cropper.zoomTo(ratio * 0.9);
+          }
+        });
+      };
+    }
+
+    // Cropper controls
     rotateLeft.addEventListener('click', () => cropper?.rotate(-90));
     rotateRight.addEventListener('click', () => cropper?.rotate(90));
     zoomIn.addEventListener('click', () => cropper?.zoom(0.1));
     zoomOut.addEventListener('click', () => cropper?.zoom(-0.1));
 
     // Cancel crop
-    cancelCrop.addEventListener('click', () => {
-      closeModal();
-    });
+    cancelCrop.addEventListener('click', closeCropper);
 
     // Apply crop and upload
     applyCrop.addEventListener('click', async () => {
-      if (!cropper || !originalFile) return;
+      if (!cropper || !currentUID) return;
+      
+      applyCrop.disabled = true;
+      applyText.classList.add('hidden');
+      applyLoader.classList.remove('hidden');
       
       try {
-        // Get cropped image as base64
+        // Get cropped canvas (300x300 PNG)
         const canvas = cropper.getCroppedCanvas({
-          width: 300, // Optimal profile size
+          width: 300,
           height: 300,
           imageSmoothingEnabled: true,
           imageSmoothingQuality: 'high'
         });
         
+        // Convert to PNG base64
         canvas.toBlob(async (blob) => {
-          // Convert blob to base64
           const reader = new FileReader();
           reader.onload = async () => {
             const base64 = reader.result.split(',')[1];
-            await uploadProfileImage(base64);
-            closeModal();
+            await uploadProfileImage(base64, currentUID);
+            closeCropper();
           };
           reader.readAsDataURL(blob);
-        }, 'image/jpeg', 0.9); // High quality JPEG
+        }, 'image/png');
         
       } catch (e) {
         console.error('Crop error:', e);
-        alert('Cropping failed. Please try again.');
+        alert('❌ Cropping failed: ' + (e.message || 'Unknown error'));
+        resetApplyButton();
       }
     });
 
-    // Close modal helper
-    function closeModal() {
+    // Close cropper modal
+    function closeCropper() {
       cropperModal.classList.add('hidden');
       document.body.style.overflow = 'auto';
       if (cropper) {
         cropper.destroy();
         cropper = null;
       }
-      fileInput.value = ''; // Reset input
+      fileInput.value = '';
+      resetApplyButton();
     }
 
-    // Upload function (reused from before)
-    async function uploadProfileImage(base64) {
+    function resetApplyButton() {
+      applyCrop.disabled = false;
+      applyText.classList.remove('hidden');
+      applyLoader.classList.add('hidden');
+    }
+
+    // Upload function
+    async function uploadProfileImage(base64, uid) {
       try {
-        const user = auth.currentUser;
-        if (!user) throw new Error('Not authenticated');
-        
-        const fileName = `${user.uid}.png`;
+        const fileName = `${uid}.png`;
         
         const response = await fetch(FUNCTION_URL, {
           method: 'POST',
@@ -258,19 +322,22 @@
           body: JSON.stringify({ fileName, base64 })
         });
 
-        const result = await response.json();
-        if (!response.ok || result.error) {
-          throw new Error(result.error || 'Upload failed');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
         }
 
-        // Update preview immediately
-        const newUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${fileName}?v=${Date.now()}`;
-        preview.innerHTML = `<img src="${newUrl}" alt="Profile Picture" onerror="this.onerror=null; preview.innerHTML='<span>Error loading</span>';">`;
+        const result = await response.json();
+        if (result.error) throw new Error(result.error);
+
+        // Update preview with new image
+        loadProfilePicture(uid);
+        alert('✅ Profile picture updated successfully!');
         
-        alert('Profile updated!');
       } catch (e) {
         console.error('Upload error:', e);
-        alert(`Upload failed: ${e.message}`);
+        alert(`❌ Upload failed: ${e.message || 'Unknown error'}`);
+        throw e;
       }
     }
   </script>
