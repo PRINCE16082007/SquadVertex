@@ -624,43 +624,13 @@
   <!-- reCAPTCHA v3 -->
   <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
 
-  <script type="module">
+<script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
     import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
     import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
 
-    // Hamburger menu functionality
-    const hamburgerBtn = document.getElementById("hamburgerBtn");
-    const navButtons = document.getElementById("navButtons");
-
-    hamburgerBtn.addEventListener('click', function() {
-      navButtons.classList.toggle('show');
-    });
-
-    // Close hamburger menu if clicked outside
-    window.addEventListener("click", function(event) {
-        if (!hamburgerBtn.contains(event.target) && !navButtons.contains(event.target)) {
-            navButtons.classList.remove('show');
-        }
-    });
-
-    // More Options dropdown functionality
-    const moreOptions = document.getElementById("moreOptions");
-    const moreDropdown = moreOptions.querySelector(".dropdown-content");
-
-    moreOptions.querySelector(".nav-btn").addEventListener("click", (e) => {
-      e.stopPropagation();
-      moreDropdown.style.display = moreDropdown.style.display === "block" ? "none" : "block";
-    });
-
-    window.addEventListener("click", (event) => {
-        if (!moreOptions.contains(event.target)) {
-            moreDropdown.style.display = "none";
-        }
-    });
-
-    // ===== Firebase config (unchanged) =====
+    // ===== Firebase config =====
     const firebaseConfig = {
       apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
       authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -675,6 +645,7 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
+    // App Check activation
     try {
       const appCheckProvider = new ReCaptchaV3Provider("6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx");
       initializeAppCheck(app, {
@@ -686,6 +657,7 @@
       console.warn("App Check activation failed:", e);
     } 
 
+    // Auth persistence
     try {
       setPersistence(auth, browserLocalPersistence)
         .then(() => console.log("Auth persistence set to LOCAL"))
@@ -694,25 +666,73 @@
       console.warn("Could not set persistence:", err);
     }
 
+    // DOM elements
     const profileBtn = document.getElementById("profileBtn");
     const profileMenu = document.getElementById("profileMenu");
     const logoutLink = document.getElementById("logoutLink");
     const profileLink = document.getElementById("profileLink");
-    const cardsContainer = document.getElementById("cardsContainer"); // kept as in original
+    const cardsContainer = document.getElementById("cardsContainer");
 
-    document.querySelectorAll('.collaborator-logo-box').forEach(box => {
-      box.addEventListener('click', () => {
-        const url = box.getAttribute('data-url');
-        if (url) window.open(url, '_blank');
-      });
+    // ===== Header Elements and Event Handlers =====
+    document.addEventListener('DOMContentLoaded', function() {
+      // Hamburger menu
+      const hamburgerBtn = document.getElementById("hamburgerBtn");
+      const navButtons = document.getElementById("navButtons");
+      
+      if (hamburgerBtn && navButtons) {
+        hamburgerBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          navButtons.classList.toggle('show');
+        });
+
+        // Close hamburger menu when clicking outside
+        document.addEventListener('click', function(e) {
+          if (!hamburgerBtn.contains(e.target) && !navButtons.contains(e.target)) {
+            navButtons.classList.remove('show');
+          }
+        });
+      }
+
+      // More dropdown
+      const moreOptions = document.getElementById("moreOptions");
+      const moreBtn = moreOptions.querySelector(".nav-btn");
+      const moreDropdown = moreOptions.querySelector(".dropdown-content");
+      
+      if (moreBtn && moreDropdown) {
+        // Toggle dropdown on click (works for both touch and pointer)
+        moreBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const isVisible = moreDropdown.style.display === "block";
+          moreDropdown.style.display = isVisible ? "none" : "block";
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+          if (!moreOptions.contains(e.target)) {
+            moreDropdown.style.display = "none";
+          }
+        });
+
+        // Close dropdown when clicking on any link inside it
+        moreDropdown.querySelectorAll('a').forEach(link => {
+          link.addEventListener('click', () => {
+            moreDropdown.style.display = "none";
+          });
+        });
+
+        // Prevent dropdown from closing when clicking inside it
+        moreDropdown.addEventListener('click', function(e) {
+          e.stopPropagation();
+        });
+      }
     });
 
+    // Profile button handlers
     function handleProfileBtnClick(e) {
       e && e.stopPropagation();
       try {
         const liveUser = auth.currentUser;
         if (!liveUser) {
-          console.log("Profile clicked while not signed in — redirecting to /teamgalaxy/legal/sign_up.html");
           window.location.href = "/teamgalaxy/legal/sign_up.html";
           return;
         }
@@ -777,17 +797,15 @@
       profileLink._attached = true;
     }
 
+    // Auth state listener
     if (!auth._ourOnAuthAttached) {
       onAuthStateChanged(auth, (user) => {
         console.log("onAuthStateChanged fired. user:", !!user);
         currentUser = user;
         updateProfileButton();
-        // try to load blogs if auth changes; using loadBlogs below
         if (typeof loadBlogs === "function") loadBlogs();
       });
       auth._ourOnAuthAttached = true;
-    } else {
-      console.log("Auth listener already attached - skipping re-attach");
     }
 
     let currentUser = null;
@@ -810,6 +828,7 @@
       }
     }
 
+    // Blog loading function
     function formatPublishedAt(ts) {
       if (!ts) return "";
       const date = ts.toDate ? ts.toDate() : new Date(ts);
@@ -822,17 +841,14 @@
       return date.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric'});
     }
 
-    // ===== Load blogs but keep skeleton until images ready =====
     async function loadBlogs() {
       const grid = document.getElementById("blogsGrid");
-      // DO NOT clear skeleton immediately — let user see skeleton until content actually ready.
 
       try {
         const q = query(collection(db, "cards"), orderBy("publishedAt", "desc"), limit(8));
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
-          // no content — keep skeleton for a short moment then show message
           setTimeout(() => {
             grid.innerHTML = `<p style="color: #ff6b6b; text-align: center; width: 100%;">No posts yet. Check back later.</p>`;
           }, 500);
@@ -851,19 +867,16 @@
           card.onclick = () => window.location.href = `/teamgalaxy/card_showcase.html?id=${encodeURIComponent(id)}`;
           card.onkeydown = (e) => { if (e.key==="Enter") card.click(); };
 
-          // create img and prepare load promise
           const img = document.createElement("img");
           img.className = "blog-card-image";
           img.alt = data.heading || "Blog Post";
 
-          // set up promise that resolves on load or error (so one broken image doesn't hang)
           const p = new Promise((resolve) => {
             img.onload = () => resolve({ok:true, img, card});
             img.onerror = () => resolve({ok:false, img, card});
           });
           imgLoadPromises.push(p);
 
-          // start loading (assign src after promise set)
           img.src = data.imageUrl || " https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=500&q=80";
 
           card.appendChild(img);
@@ -886,33 +899,28 @@
           cards.push(card);
         });
 
-        // Wait for all images to either load or error
         await Promise.all(imgLoadPromises);
 
-        // Fade out skeletons
         const skeletons = Array.from(grid.querySelectorAll('.skeleton-blog-card'));
         skeletons.forEach(s => s.classList.add('skeleton-fade'));
 
-        // After fade, replace skeletons with real cards
         setTimeout(() => {
-          grid.innerHTML = ''; // remove skeletons cleanly
-          // append cards and stagger animation
+          grid.innerHTML = '';
           cards.forEach((c, idx) => {
             grid.appendChild(c);
-            setTimeout(() => c.classList.add('loaded'), 20 + idx * 80); // small stagger
+            setTimeout(() => c.classList.add('loaded'), 20 + idx * 80);
           });
-        }, 320); // matches skeleton fade duration
+        }, 320);
 
       } catch (error) {
         console.error("Error loading blogs:", error);
-        // keep existing skeletons and show soft error message inline
         if (grid) {
           grid.innerHTML = `<p style="color: #ff6b6b; text-align: center; width: 100%;">Error loading content. Please try again later.</p>`;
         }
       }
     }
 
-    // ===== Star field generation (realistic) =====
+    // Star field generation
     (function generateStars() {
       const starsContainer = document.getElementById('stars');
       if (!starsContainer) return;
@@ -924,11 +932,11 @@
 
         const posX = Math.random() * 100;
         const posY = Math.random() * 100;
-        const size = Math.random() * 2 + 1; // 1px - 3px
-        const duration = Math.random() * 6 + 3; // twinkle duration
-        const driftDur = 40 + Math.random() * 120; // slow drift
-        const driftX = (Math.random() - 0.5) * 20; // small horizontal drift
-        const driftY = (Math.random() - 0.5) * 10; // small vertical drift
+        const size = Math.random() * 2 + 1;
+        const duration = Math.random() * 6 + 3;
+        const driftDur = 40 + Math.random() * 120;
+        const driftX = (Math.random() - 0.5) * 20;
+        const driftY = (Math.random() - 0.5) * 10;
 
         star.style.left = `${posX}%`;
         star.style.top = `${posY}%`;
@@ -938,22 +946,19 @@
         star.style.setProperty('--driftDur', `${driftDur}s`);
         star.style.setProperty('--driftX', `${driftX}px`);
         star.style.setProperty('--driftY', `${driftY}px`);
-        // small random delay so twinkles don't sync
         star.style.animationDelay = `${Math.random() * 6}s`;
 
         starsContainer.appendChild(star);
       }
 
-      // occasional shooting stars
       function shoot() {
         const s = document.createElement('div');
         s.className = 'shooting-star';
-        // random start near top-left-ish to top-right area (so it crosses content nicely)
-        const startLeft = Math.random() * 80; // percent
-        const startTop = Math.random() * 40; // percent (top half more likely)
-        const angle = -20 - Math.random() * 40; // -20 to -60 degrees
-        const dur = 0.7 + Math.random() * 0.9; // 0.7 - 1.6s
-        const travel = 400 + Math.random() * 900; // px
+        const startLeft = Math.random() * 80;
+        const startTop = Math.random() * 40;
+        const angle = -20 - Math.random() * 40;
+        const dur = 0.7 + Math.random() * 0.9;
+        const travel = 400 + Math.random() * 900;
 
         s.style.left = `${startLeft}%`;
         s.style.top = `${startTop}%`;
@@ -963,21 +968,18 @@
         s.style.setProperty('--travelY', `${travel * 0.2}px`);
         s.style.transform = `rotate(${angle}deg)`;
         s.style.animation = `shoot ${dur}s linear forwards`;
-        // make it a little longer tail by skewing width (visual)
         s.style.width = `${1 + Math.random()*2}px`;
 
         starsContainer.appendChild(s);
-                // remove after animation completes
         s.addEventListener('animationend', () => s.remove());
       }
 
-      // random interval for shooting stars
       setInterval(() => {
-        if (Math.random() < 0.25) shoot(); // 25% chance every interval => occasional
+        if (Math.random() < 0.25) shoot();
       }, 1200);
     })();
 
-    // Kick off initial load
+    // Initial load
     window.onload = loadBlogs;
   </script>
 </body>
