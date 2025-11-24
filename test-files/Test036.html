@@ -203,382 +203,420 @@
     </div>
   </div>
 
-  <!-- script -->
   <script type="module">
-    // defensive global error handler so page doesn't go blank silently
-    window.addEventListener('error', (ev) => {
-      try {
-        const boot = document.getElementById('bootError');
-        if (boot) { boot.style.display = 'block'; boot.textContent = 'An error occurred while loading the page — check console for details.'; }
-        console.error('Global error caught:', ev.error || ev.message || ev);
-        const loading = document.getElementById('loadingOverlay');
-        if (loading) {
-          // show overlay so user sees the error state
-          loading.style.display = 'flex';
-          loading.classList.remove('hidden');
-        }
-      } catch (e) { console.error(e); }
-    });
-
-    // imports
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-
-    // config
-    const firebaseConfig = {
-      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-      authDomain: "teamgalaxy-77344.firebaseapp.com",
-      projectId: "teamgalaxy-77344",
-      storageBucket: "teamgalaxy-77344.firebasestorage.app",
-      messagingSenderId: "770256225320",
-      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-      measurementId: "G-6C2W9NSNCH"
-    };
-    const SUPABASE_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
-    const FUNCTION_URL = 'https://dvjihjkyenzkacviywgk.functions.supabase.co/upload-image';
-
-    // init firebase safely inside DOMContentLoaded
-    document.addEventListener('DOMContentLoaded', () => {
-      try {
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // DOM refs (guarded)
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const starsContainer = document.getElementById('starsContainer');
-        const currentPhoto = document.getElementById('currentPhoto');
-        const nameInput = document.getElementById('nameInput');
-        const slugInput = document.getElementById('slugInput');
-        const photoUrlInput = document.getElementById('photoUrlInput');
-        const bioInput = document.getElementById('bioInput');
-        const settingsForm = document.getElementById('settingsForm');
-        const saveBtn = document.getElementById('saveBtn');
-        const statusMessage = document.getElementById('statusMessage');
-        const logoutBtn = document.querySelector('.btn-logout');
-        const profileBtn = document.querySelector('.btn-profile');
-        const oneTimeNote = document.getElementById('oneTimeNote');
-
-        const editorModal = document.getElementById('editorModal');
-        const modalCloseBtn = document.getElementById('modalCloseBtn');
-        const modalFileInput = document.getElementById('modalFileInput');
-        const editorCanvas = document.getElementById('editorCanvas');
-        const ctx = editorCanvas ? editorCanvas.getContext('2d') : null;
-        const zoomIn = document.getElementById('zoomIn');
-        const zoomOut = document.getElementById('zoomOut');
-        const rotateLeft = document.getElementById('rotateLeft');
-        const rotateRight = document.getElementById('rotateRight');
-        const resetBtn = document.getElementById('resetBtn');
-        const applyBtnModal = document.getElementById('applyBtnModal');
-        const confirmUploadBtn = document.getElementById('confirmUploadBtn');
-        const cancelModalBtn = document.getElementById('cancelModalBtn');
-        const modalMessages = document.getElementById('modalMessages');
-        const detailsBox = document.getElementById('detailsBox');
-
-        const editorCanvasExists = !!editorCanvas && !!ctx;
-        if (!editorCanvasExists) console.warn('Editor canvas not found — editor disabled.');
-
-        // editor state
-        let img = null, imgURL = null, pos = {x:0,y:0}, dragging=false, lastPointer=null, scale=1, angle=0;
-        window.__editedImageDataURL = null;
-        let profilePhotoLocked = false;
-        let currentUser = null;
-
-        // helpers
-        function safeShowStatus(msg, type='success') {
-          try {
-            if (!statusMessage) return;
-            statusMessage.textContent = msg;
-            statusMessage.className = 'status-message';
-            if (type === 'success') statusMessage.classList.add('status-success');
-            else statusMessage.classList.add('status-error');
-            statusMessage.style.display = 'block';
-            setTimeout(()=> { if (statusMessage) statusMessage.style.display='none'; }, 4500);
-          } catch(e){ console.error(e); }
-        }
-
-        function createLoadingStars() {
-          try {
-            if (!starsContainer) return;
-            starsContainer.innerHTML = '';
-            for (let i=0;i<24;i++){
-              const star = document.createElement('div');
-              star.className = 'star';
-              const x = Math.random()*100, y=Math.random()*100;
-              star.style.left = x + '%'; star.style.top = y + '%';
-              const s = Math.random()*3 + 1;
-              star.style.width = s + 'px'; star.style.height = s + 'px';
-              const d = (Math.random()*2 + 1.2).toFixed(2);
-              star.style.setProperty('--duration', d + 's');
-              starsContainer.appendChild(star);
-            }
-          } catch(e){ console.error('createLoadingStars error', e); }
-        }
-
-        // background stars simplified & resilient
-        function initBgStars() {
-          try {
-            const canvas = document.getElementById('bgStars');
-            if (!canvas) return;
-            const ctx2 = canvas.getContext('2d');
-            let w = canvas.width = window.innerWidth, h = canvas.height = window.innerHeight;
-            const density = 0.00018;
-            let stars = [];
-            function rand(min,max){ return Math.random()*(max-min)+min; }
-            function make(){ stars = []; const count = Math.round(w*h*density); for (let i=0;i<count;i++){ stars.push({ x:Math.random()*w, y:Math.random()*h, r:rand(0.3,1.6), a:Math.random()*0.7+0.2, phase:Math.random()*Math.PI*2 }); } }
-            function onResize(){ w=canvas.width=innerWidth; h=canvas.height=innerHeight; make(); }
-            window.addEventListener('resize', onResize);
-            make();
-            let last = performance.now();
-            (function frame(now){
-              const dt = now - last; last = now;
-              ctx2.clearRect(0,0,w,h);
-              for (let s of stars){
-                s.phase += 0.005*(dt/16.67);
-                const alpha = s.a * (0.5 + 0.5*Math.sin(s.phase));
-                ctx2.beginPath();
-                ctx2.globalAlpha = alpha;
-                ctx2.fillStyle = 'white';
-                ctx2.arc(s.x, s.y, s.r, 0, Math.PI*2);
-                ctx2.fill();
-                ctx2.globalAlpha = 1;
-              }
-              requestAnimationFrame(frame);
-            })(last);
-          } catch(e){ console.error('initBgStars error', e); }
-        }
-
-        // editor draw (guarded)
-        function drawEditor() {
-          try {
-            if (!editorCanvasExists) return;
-            const w = editorCanvas.width, h = editorCanvas.height;
-            ctx.clearRect(0,0,w,h);
-            ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
-            if (!img) {
-              ctx.fillStyle = '#333'; ctx.font = '16px system-ui'; ctx.textAlign = 'center';
-              ctx.fillText('No image selected', w/2, h/2);
-              return;
-            }
-            ctx.save();
-            ctx.translate(w/2 + pos.x, h/2 + pos.y);
-            ctx.rotate(angle);
-            ctx.scale(scale, scale);
-            ctx.drawImage(img, -img.width/2, -img.height/2);
-            ctx.restore();
-            // overlay circle
-            ctx.beginPath(); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-            ctx.arc(w/2, h/2, Math.min(w,h)/2 - 6, 0, Math.PI*2); ctx.stroke();
-            // darken outside
-            ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = 'rgba(0,0,0,0.45)';
-            ctx.beginPath(); ctx.rect(0,0,w,h); ctx.arc(w/2,h/2,Math.min(w,h)/2 - 6,0,Math.PI*2,true); ctx.fill('evenodd'); ctx.restore();
-          } catch(e){ console.error('drawEditor error', e); }
-        }
-
-        // pointer handlers (guarded)
-        if (editorCanvasExists) {
-          editorCanvas.addEventListener('pointerdown', (ev)=>{ if(!img) return; dragging=true; lastPointer={x:ev.clientX,y:ev.clientY}; try{ editorCanvas.setPointerCapture(ev.pointerId);}catch(e){} });
-          editorCanvas.addEventListener('pointermove', (ev)=>{ if(!dragging) return; const dx = ev.clientX - lastPointer.x; const dy = ev.clientY - lastPointer.y; lastPointer={x:ev.clientX,y:ev.clientY}; pos.x += dx; pos.y += dy; drawEditor(); });
-          editorCanvas.addEventListener('pointerup', (ev)=>{ dragging=false; try{ editorCanvas.releasePointerCapture(ev.pointerId);}catch(e){}});
-          editorCanvas.addEventListener('pointercancel', ()=>{ dragging=false; });
-          editorCanvas.addEventListener('wheel', (ev)=>{ ev.preventDefault(); const delta=-ev.deltaY; const f = 1 + (delta>0?0.06:-0.06); scale *= f; scale = Math.max(0.12, Math.min(8, scale)); drawEditor(); }, {passive:false});
-        }
-
-        // editor control hooks
-        if (zoomIn) zoomIn.addEventListener('click', ()=>{ scale *= 1.12; drawEditor(); });
-        if (zoomOut) zoomOut.addEventListener('click', ()=>{ scale /= 1.12; drawEditor(); });
-        if (rotateLeft) rotateLeft.addEventListener('click', ()=>{ angle -= Math.PI/18; drawEditor(); });
-        if (rotateRight) rotateRight.addEventListener('click', ()=>{ angle += Math.PI/18; drawEditor(); });
-        if (resetBtn) resetBtn.addEventListener('click', ()=>{ scale=1; angle=0; pos={x:0,y:0}; drawEditor(); });
-
-        // file selection in modal
-        if (modalFileInput) modalFileInput.addEventListener('change', (e)=> {
-          try {
-            const f = e.target.files && e.target.files[0];
-            if (!f) return;
-            if (f.size > 6*1024*1024) { alert('File too large (max ~6MB)'); return; }
-            if (imgURL) try{ URL.revokeObjectURL(imgURL); }catch(e){}
-            imgURL = URL.createObjectURL(f);
-            img = new Image();
-            img.crossOrigin = "anonymous";
-            img.onload = ()=> {
-              // ensure sensible starting scale
-              const baseScale = Math.min(editorCanvas.width / img.width, editorCanvas.height / img.height);
-              scale = Math.min(1, Math.max(0.2, baseScale)) * 1.4;
-              angle = 0; pos = {x:0,y:0}; drawEditor();
-            };
-            img.src = imgURL;
-          } catch(e) { console.error('modalFileInput change error', e); }
-        });
-
-        // apply preview: produce circular dataURL
-        if (applyBtnModal) applyBtnModal.addEventListener('click', ()=> {
-          try {
-            if (!img) return alert('Select image first');
-            const outSize = 360;
-            const out = document.createElement('canvas'); out.width = outSize; out.height = outSize;
-            const octx = out.getContext('2d');
-            octx.save(); octx.translate(outSize/2 + pos.x, outSize/2 + pos.y); octx.rotate(angle); octx.scale(scale, scale);
-            octx.drawImage(img, -img.width/2, -img.height/2); octx.restore();
-            const circ = document.createElement('canvas'); circ.width = outSize; circ.height = outSize; const cctx = circ.getContext('2d');
-            cctx.save(); cctx.beginPath(); cctx.arc(outSize/2, outSize/2, outSize/2, 0, Math.PI*2); cctx.closePath(); cctx.clip(); cctx.drawImage(out,0,0); cctx.restore();
-            const dataURL = circ.toDataURL('image/png');
-            window.__editedImageDataURL = dataURL;
-            if (modalMessages) modalMessages.innerHTML = '<div style="color:#bfffc9">Preview ready — click "Upload & Lock" to upload and lock the photo.</div>';
-            if (currentPhoto) currentPhoto.src = dataURL; // soft preview
-          } catch(e) { console.error('apply preview error', e); if (modalMessages) modalMessages.innerHTML = '<div style="color:#ffc9c9">Preview failed.</div>'; }
-        });
-
-        // single upsert call
-        async function postUploadUpsert(fileName, base64) {
-          try {
-            const res = await fetch(FUNCTION_URL, { method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName, base64, upsert: true }) });
-            let body = null;
-            try { body = await res.json(); } catch(e){ body = { ok: res.ok, status: res.status }; }
-            return { ok: res.ok, status: res.status, body };
-          } catch (err) { return { ok:false, error: err.message || String(err) }; }
-        }
-
-        // upload & lock (one-time)
-        if (confirmUploadBtn) confirmUploadBtn.addEventListener('click', async ()=>{
-          try {
-            if (!currentUser) return alert('Not authenticated');
-            const docRef = doc(db, 'usersPrivate', currentUser.uid);
-            const snapshot = await getDoc(docRef);
-            if (snapshot.exists() && snapshot.data().profilePhotoLocked) {
-              profilePhotoLocked = true;
-              if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); }
-              safeShowStatus('Profile photo is already locked. You cannot change it again.', 'error');
-              return;
-            }
-            const confirmed = window.confirm('You can change profile picture ONLY ONCE. Proceed to upload & lock?');
-            if (!confirmed) return;
-            let dataURL = window.__editedImageDataURL;
-            if (!dataURL) return alert('Create a preview first (Apply Preview).');
-            const base64 = dataURL.split(',')[1];
-            const fileName = `${currentUser.uid}.png`;
-            if (modalMessages) modalMessages.innerHTML = '<div style="color:#bde0ff">Uploading...</div>';
-            const attempt = await postUploadUpsert(fileName, base64);
-            if (attempt.ok && (!attempt.body || !attempt.body.error)) {
-              const newUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${fileName}?v=${Date.now()}`;
-              await updateDoc(docRef, {
-                profilePhotoUrl: newUrl,
-                profilePhotoLocked: true,
-                profilePhotoLockedAt: serverTimestamp()
-              });
-              if (photoUrlInput) photoUrlInput.value = newUrl;
-              if (currentPhoto) currentPhoto.src = newUrl;
-              profilePhotoLocked = true;
-              if (modalMessages) modalMessages.innerHTML = '<div style="color:#bfffc9">Uploaded & locked successfully!</div>';
-              if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); }
-              if (oneTimeNote) { oneTimeNote.textContent = 'Profile photo is locked — you cannot change it again.'; oneTimeNote.style.color = '#ffc9c9'; }
-              safeShowStatus('Profile photo uploaded and locked!', 'success');
-              return;
-            }
-            const msg = (attempt.body && (attempt.body.error || attempt.body.message)) || attempt.error || `HTTP ${attempt.status}`;
-            if (/resource\s+already\s+exists|already exists|409|exists/i.test(String(msg))) {
-              if (modalMessages) modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload blocked: resource already exists on server. No further attempts will be made.</div>`;
-              safeShowStatus('Upload blocked: resource already exists on server.', 'error');
-              return;
-            }
-            if (modalMessages) modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload failed: ${String(msg)}</div>`;
-            safeShowStatus(`Upload failed: ${String(msg)}`, 'error');
-          } catch (e) {
-            console.error('Upload exception', e);
-            if (modalMessages) modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload exception: ${e.message || e}</div>`;
-            safeShowStatus(`Upload failed: ${e.message || e}`, 'error');
-          }
-        });
-
-        // open modal when clicking photo (if allowed)
-        if (currentPhoto) currentPhoto.addEventListener('click', async ()=>{
-          try {
-            if (!currentUser) return alert('Login required');
-            if (profilePhotoLocked) { safeShowStatus('Profile photo is locked — cannot change it.', 'error'); return; }
-            if (modalMessages) modalMessages.innerHTML = '';
-            window.__editedImageDataURL = null;
-            img = null; imgURL = null; pos={x:0,y:0}; scale=1; angle=0;
-            if (editorModal) { editorModal.classList.add('show'); editorModal.setAttribute('aria-hidden','false'); }
-          } catch(e){ console.error(e); }
-        });
-
-        // close modal
-        if (modalCloseBtn) modalCloseBtn.addEventListener('click', ()=> { if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); } });
-        if (cancelModalBtn) cancelModalBtn.addEventListener('click', ()=> { if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); } });
-
-        // save other profile fields
-        async function updateProfile() {
-          try {
-            if (!currentUser) return;
-            const name = (nameInput?.value || '').trim();
-            const slug = (slugInput?.value || '').trim();
-            const photoUrl = (photoUrlInput?.value || '').trim();
-            const bio = (bioInput?.value || '').trim();
-            if (!name || !slug) { safeShowStatus('Name and slug are required.', 'error'); return; }
-            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
-            const docRef = doc(db, 'usersPrivate', currentUser.uid);
-            await updateDoc(docRef, {
-              name, slug,
-              profilePhotoUrl: photoUrl || null,
-              bio,
-              termsAccepted: true,
-              termsTimestamp: serverTimestamp()
-            });
-            if (photoUrl) currentPhoto.src = photoUrl;
-            safeShowStatus('Profile updated successfully!', 'success');
-          } catch (err) {
-            console.error('Error updating profile', err);
-            safeShowStatus('Error saving profile data.', 'error');
-          } finally { if (saveBtn) { saveBtn.disabled=false; saveBtn.textContent='Save Changes'; } }
-        }
-        if (settingsForm) settingsForm.addEventListener('submit', (e)=>{ e.preventDefault(); updateProfile(); });
-
-        // load user profile
-        async function loadProfile(uid) {
-          try {
-            const docRef = doc(db, 'usersPrivate', uid);
-            const snap = await getDoc(docRef);
-            if (!snap.exists()) { safeShowStatus('Profile not found.', 'error'); return; }
-            const data = snap.data();
-            if (currentPhoto) currentPhoto.src = data.profilePhotoUrl || 'https://via.placeholder.com/150';
-            if (nameInput) nameInput.value = data.name || '';
-            if (slugInput) slugInput.value = data.slug || '';
-            if (photoUrlInput) photoUrlInput.value = data.profilePhotoUrl || '';
-            if (bioInput) bioInput.value = data.bio || '';
-            profilePhotoLocked = !!data.profilePhotoLocked;
-            if (profilePhotoLocked && oneTimeNote) { oneTimeNote.textContent = 'Profile photo is locked — you cannot change it again.'; oneTimeNote.style.color = '#ffc9c9'; }
-            else if (oneTimeNote) { oneTimeNote.textContent = 'Click your profile photo to open the upload modal. You can change only once.'; oneTimeNote.style.color = '#a0a0d0'; }
-          } catch(e){ console.error('loadProfile error', e); safeShowStatus('Error loading profile', 'error'); }
-        }
-
-        // auth state listener
-        onAuthStateChanged(auth, async (user) => {
-          try {
-            if (!user) { location.href = 'index.html'; return; }
-            currentUser = user;
-            await loadProfile(user.uid);
-            // hide loading overlay smoothly
-            if (loadingOverlay) {
-              loadingOverlay.classList.add('hidden');
-              loadingOverlay.style.display = 'none';
-            }
-          } catch(e){ console.error('onAuthStateChanged error', e); }
-        });
-
-        // logout/profile buttons
-        if (logoutBtn) logoutBtn.addEventListener('click', ()=> signOut(auth).then(()=>location.href='index.html').catch(err=>{ console.error(err); safeShowStatus('Sign out failed', 'error'); }));
-        if (profileBtn) profileBtn.addEventListener('click', ()=> location.href='user_profile.html');
-
-        // initial visuals
-        try { createLoadingStars(); initBgStars(); if (editorCanvasExists) drawEditor(); } catch(e){ console.error('visual init error', e); }
-
-      } catch (e) {
-        console.error('Initialization failed', e);
-        const boot = document.getElementById('bootError');
-        if (boot) { boot.style.display='block'; boot.textContent = 'Failed during initialization — check console.'; }
+  // defensive global error handler so page doesn't go blank silently
+  window.addEventListener('error', (ev) => {
+    try {
+      const boot = document.getElementById('bootError');
+      if (boot) { boot.style.display = 'block'; boot.textContent = 'An error occurred while loading the page — check console for details.'; }
+      console.error('Global error caught:', ev.error || ev.message || ev);
+      const loading = document.getElementById('loadingOverlay');
+      if (loading) {
+        // show overlay so user sees the error state
+        loading.style.display = 'flex';
+        loading.classList.remove('hidden');
       }
-    }); // DOMContentLoaded
-  </script>
+    } catch (e) { console.error(e); }
+  });
+
+  // imports (added setDoc)
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, updateDoc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+
+  // config
+  const firebaseConfig = {
+    apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+    authDomain: "teamgalaxy-77344.firebaseapp.com",
+    projectId: "teamgalaxy-77344",
+    storageBucket: "teamgalaxy-77344.firebasestorage.app",
+    messagingSenderId: "770256225320",
+    appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+    measurementId: "G-6C2W9NSNCH"
+  };
+  const SUPABASE_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
+  const FUNCTION_URL = 'https://dvjihjkyenzkacviywgk.functions.supabase.co/upload-image';
+
+  // init firebase safely inside DOMContentLoaded
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+
+      // DOM refs (guarded)
+      const loadingOverlay = document.getElementById('loadingOverlay');
+      const starsContainer = document.getElementById('starsContainer');
+      const currentPhoto = document.getElementById('currentPhoto');
+      const nameInput = document.getElementById('nameInput');
+      const slugInput = document.getElementById('slugInput');
+      const photoUrlInput = document.getElementById('photoUrlInput');
+      const bioInput = document.getElementById('bioInput');
+      const settingsForm = document.getElementById('settingsForm');
+      const saveBtn = document.getElementById('saveBtn');
+      const statusMessage = document.getElementById('statusMessage');
+      const logoutBtn = document.querySelector('.btn-logout');
+      const profileBtn = document.querySelector('.btn-profile');
+      const oneTimeNote = document.getElementById('oneTimeNote');
+
+      const editorModal = document.getElementById('editorModal');
+      const modalCloseBtn = document.getElementById('modalCloseBtn');
+      const modalFileInput = document.getElementById('modalFileInput');
+      const editorCanvas = document.getElementById('editorCanvas');
+      const ctx = editorCanvas ? editorCanvas.getContext('2d') : null;
+      const zoomIn = document.getElementById('zoomIn');
+      const zoomOut = document.getElementById('zoomOut');
+      const rotateLeft = document.getElementById('rotateLeft');
+      const rotateRight = document.getElementById('rotateRight');
+      const resetBtn = document.getElementById('resetBtn');
+      const applyBtnModal = document.getElementById('applyBtnModal');
+      const confirmUploadBtn = document.getElementById('confirmUploadBtn');
+      const cancelModalBtn = document.getElementById('cancelModalBtn');
+      const modalMessages = document.getElementById('modalMessages');
+      const detailsBox = document.getElementById('detailsBox');
+
+      const editorCanvasExists = !!editorCanvas && !!ctx;
+      if (!editorCanvasExists) console.warn('Editor canvas not found — editor disabled.');
+
+      // editor state
+      let img = null, imgURL = null, pos = {x:0,y:0}, dragging=false, lastPointer=null, scale=1, angle=0;
+      window.__editedImageDataURL = null;
+      let profilePhotoLocked = false;
+      let currentUser = null;
+
+      // helpers
+      function safeShowStatus(msg, type='success') {
+        try {
+          if (!statusMessage) return;
+          statusMessage.textContent = msg;
+          statusMessage.className = 'status-message';
+          if (type === 'success') statusMessage.classList.add('status-success');
+          else statusMessage.classList.add('status-error');
+          statusMessage.style.display = 'block';
+          setTimeout(()=> { if (statusMessage) statusMessage.style.display='none'; }, 4500);
+        } catch(e){ console.error(e); }
+      }
+
+      function createLoadingStars() {
+        try {
+          if (!starsContainer) return;
+          starsContainer.innerHTML = '';
+          for (let i=0;i<24;i++){
+            const star = document.createElement('div');
+            star.className = 'star';
+            const x = Math.random()*100, y=Math.random()*100;
+            star.style.left = x + '%'; star.style.top = y + '%';
+            const s = Math.random()*3 + 1;
+            star.style.width = s + 'px'; star.style.height = s + 'px';
+            const d = (Math.random()*2 + 1.2).toFixed(2);
+            star.style.setProperty('--duration', d + 's');
+            starsContainer.appendChild(star);
+          }
+        } catch(e){ console.error('createLoadingStars error', e); }
+      }
+
+      // background stars simplified & resilient
+      function initBgStars() {
+        try {
+          const canvas = document.getElementById('bgStars');
+          if (!canvas) return;
+          const ctx2 = canvas.getContext('2d');
+          let w = canvas.width = window.innerWidth, h = canvas.height = window.innerHeight;
+          const density = 0.00018;
+          let stars = [];
+          function rand(min,max){ return Math.random()*(max-min)+min; }
+          function make(){ stars = []; const count = Math.round(w*h*density); for (let i=0;i<count;i++){ stars.push({ x:Math.random()*w, y:Math.random()*h, r:rand(0.3,1.6), a:Math.random()*0.7+0.2, phase:Math.random()*Math.PI*2 }); } }
+          function onResize(){ w=canvas.width=innerWidth; h=canvas.height=innerHeight; make(); }
+          window.addEventListener('resize', onResize);
+          make();
+          let last = performance.now();
+          (function frame(now){
+            const dt = now - last; last = now;
+            ctx2.clearRect(0,0,w,h);
+            for (let s of stars){
+              s.phase += 0.005*(dt/16.67);
+              const alpha = s.a * (0.5 + 0.5*Math.sin(s.phase));
+              ctx2.beginPath();
+              ctx2.globalAlpha = alpha;
+              ctx2.fillStyle = 'white';
+              ctx2.arc(s.x, s.y, s.r, 0, Math.PI*2);
+              ctx2.fill();
+              ctx2.globalAlpha = 1;
+            }
+            requestAnimationFrame(frame);
+          })(last);
+        } catch(e){ console.error('initBgStars error', e); }
+      }
+
+      // resilient helper: upsert publicProfiles doc (keeps it resilient if doc doesn't exist)
+      async function upsertPublicProfile(uid, fields = {}) {
+        try {
+          const pubRef = doc(db, 'publicProfiles', uid);
+          // try update first (won't create new doc)
+          await updateDoc(pubRef, fields);
+        } catch (err) {
+          // if update failed because doc doesn't exist, create/merge it
+          try {
+            const pubRef = doc(db, 'publicProfiles', uid);
+            await setDoc(pubRef, fields, { merge: true });
+          } catch (e2) {
+            console.error('Failed to upsert publicProfiles doc:', e2, err);
+          }
+        }
+      }
+
+      // editor draw (guarded)
+      function drawEditor() {
+        try {
+          if (!editorCanvasExists) return;
+          const w = editorCanvas.width, h = editorCanvas.height;
+          ctx.clearRect(0,0,w,h);
+          ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+          if (!img) {
+            ctx.fillStyle = '#333'; ctx.font = '16px system-ui'; ctx.textAlign = 'center';
+            ctx.fillText('No image selected', w/2, h/2);
+            return;
+          }
+          ctx.save();
+          ctx.translate(w/2 + pos.x, h/2 + pos.y);
+          ctx.rotate(angle);
+          ctx.scale(scale, scale);
+          ctx.drawImage(img, -img.width/2, -img.height/2);
+          ctx.restore();
+          // overlay circle
+          ctx.beginPath(); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+          ctx.arc(w/2, h/2, Math.min(w,h)/2 - 6, 0, Math.PI*2); ctx.stroke();
+          // darken outside
+          ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = 'rgba(0,0,0,0.45)';
+          ctx.beginPath(); ctx.rect(0,0,w,h); ctx.arc(w/2,h/2,Math.min(w,h)/2 - 6,0,Math.PI*2,true); ctx.fill('evenodd'); ctx.restore();
+        } catch(e){ console.error('drawEditor error', e); }
+      }
+
+      // pointer handlers (guarded)
+      if (editorCanvasExists) {
+        editorCanvas.addEventListener('pointerdown', (ev)=>{ if(!img) return; dragging=true; lastPointer={x:ev.clientX,y:ev.clientY}; try{ editorCanvas.setPointerCapture(ev.pointerId);}catch(e){} });
+        editorCanvas.addEventListener('pointermove', (ev)=>{ if(!dragging) return; const dx = ev.clientX - lastPointer.x; const dy = ev.clientY - lastPointer.y; lastPointer={x:ev.clientX,y:ev.clientY}; pos.x += dx; pos.y += dy; drawEditor(); });
+        editorCanvas.addEventListener('pointerup', (ev)=>{ dragging=false; try{ editorCanvas.releasePointerCapture(ev.pointerId);}catch(e){}});
+        editorCanvas.addEventListener('pointercancel', ()=>{ dragging=false; });
+        editorCanvas.addEventListener('wheel', (ev)=>{ ev.preventDefault(); const delta=-ev.deltaY; const f = 1 + (delta>0?0.06:-0.06); scale *= f; scale = Math.max(0.12, Math.min(8, scale)); drawEditor(); }, {passive:false});
+      }
+
+      // editor control hooks
+      if (zoomIn) zoomIn.addEventListener('click', ()=>{ scale *= 1.12; drawEditor(); });
+      if (zoomOut) zoomOut.addEventListener('click', ()=>{ scale /= 1.12; drawEditor(); });
+      if (rotateLeft) rotateLeft.addEventListener('click', ()=>{ angle -= Math.PI/18; drawEditor(); });
+      if (rotateRight) rotateRight.addEventListener('click', ()=>{ angle += Math.PI/18; drawEditor(); });
+      if (resetBtn) resetBtn.addEventListener('click', ()=>{ scale=1; angle=0; pos={x:0,y:0}; drawEditor(); });
+
+      // file selection in modal
+      if (modalFileInput) modalFileInput.addEventListener('change', (e)=> {
+        try {
+          const f = e.target.files && e.target.files[0];
+          if (!f) return;
+          if (f.size > 6*1024*1024) { alert('File too large (max ~6MB)'); return; }
+          if (imgURL) try{ URL.revokeObjectURL(imgURL); }catch(e){}
+          imgURL = URL.createObjectURL(f);
+          img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = ()=> {
+            // ensure sensible starting scale
+            const baseScale = Math.min(editorCanvas.width / img.width, editorCanvas.height / img.height);
+            scale = Math.min(1, Math.max(0.2, baseScale)) * 1.4;
+            angle = 0; pos = {x:0,y:0}; drawEditor();
+          };
+          img.src = imgURL;
+        } catch(e) { console.error('modalFileInput change error', e); }
+      });
+
+      // apply preview: produce circular dataURL
+      if (applyBtnModal) applyBtnModal.addEventListener('click', ()=> {
+        try {
+          if (!img) return alert('Select image first');
+          const outSize = 360;
+          const out = document.createElement('canvas'); out.width = outSize; out.height = outSize;
+          const octx = out.getContext('2d');
+          octx.save(); octx.translate(outSize/2 + pos.x, outSize/2 + pos.y); octx.rotate(angle); octx.scale(scale, scale);
+          octx.drawImage(img, -img.width/2, -img.height/2); octx.restore();
+          const circ = document.createElement('canvas'); circ.width = outSize; circ.height = outSize; const cctx = circ.getContext('2d');
+          cctx.save(); cctx.beginPath(); cctx.arc(outSize/2, outSize/2, outSize/2, 0, Math.PI*2); cctx.closePath(); cctx.clip(); cctx.drawImage(out,0,0); cctx.restore();
+          const dataURL = circ.toDataURL('image/png');
+          window.__editedImageDataURL = dataURL;
+          if (modalMessages) modalMessages.innerHTML = '<div style="color:#bfffc9">Preview ready — click "Upload & Lock" to upload and lock the photo.</div>';
+          if (currentPhoto) currentPhoto.src = dataURL; // soft preview
+        } catch(e) { console.error('apply preview error', e); if (modalMessages) modalMessages.innerHTML = '<div style="color:#ffc9c9">Preview failed.</div>'; }
+      });
+
+      // single upsert call
+      async function postUploadUpsert(fileName, base64) {
+        try {
+          const res = await fetch(FUNCTION_URL, { method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ fileName, base64, upsert: true }) });
+          let body = null;
+          try { body = await res.json(); } catch(e){ body = { ok: res.ok, status: res.status }; }
+          return { ok: res.ok, status: res.status, body };
+        } catch (err) { return { ok:false, error: err.message || String(err) }; }
+      }
+
+      // upload & lock (one-time)
+      if (confirmUploadBtn) confirmUploadBtn.addEventListener('click', async ()=>{
+        try {
+          if (!currentUser) return alert('Not authenticated');
+          const docRef = doc(db, 'usersPrivate', currentUser.uid);
+          const snapshot = await getDoc(docRef);
+          if (snapshot.exists() && snapshot.data().profilePhotoLocked) {
+            profilePhotoLocked = true;
+            if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); }
+            safeShowStatus('Profile photo is already locked. You cannot change it again.', 'error');
+            return;
+          }
+          const confirmed = window.confirm('You can change profile picture ONLY ONCE. Proceed to upload & lock?');
+          if (!confirmed) return;
+          let dataURL = window.__editedImageDataURL;
+          if (!dataURL) return alert('Create a preview first (Apply Preview).');
+          const base64 = dataURL.split(',')[1];
+          const fileName = `${currentUser.uid}.png`;
+          if (modalMessages) modalMessages.innerHTML = '<div style="color:#bde0ff">Uploading...</div>';
+          const attempt = await postUploadUpsert(fileName, base64);
+          if (attempt.ok && (!attempt.body || !attempt.body.error)) {
+            const newUrl = `${SUPABASE_URL}/storage/v1/object/public/images/${fileName}?v=${Date.now()}`;
+            // update private doc
+            await updateDoc(docRef, {
+              profilePhotoUrl: newUrl,
+              profilePhotoLocked: true,
+              profilePhotoLockedAt: serverTimestamp()
+            });
+
+            // mirror profile photo to publicProfiles as well
+            try {
+              await upsertPublicProfile(currentUser.uid, { profilePhotoUrl: newUrl });
+            } catch (e) {
+              console.error('Mirror to publicProfiles failed (upload):', e);
+            }
+
+            if (photoUrlInput) photoUrlInput.value = newUrl;
+            if (currentPhoto) currentPhoto.src = newUrl;
+            profilePhotoLocked = true;
+            if (modalMessages) modalMessages.innerHTML = '<div style="color:#bfffc9">Uploaded & locked successfully!</div>';
+            if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); }
+            if (oneTimeNote) { oneTimeNote.textContent = 'Profile photo is locked — you cannot change it again.'; oneTimeNote.style.color = '#ffc9c9'; }
+            safeShowStatus('Profile photo uploaded and locked!', 'success');
+            return;
+          }
+          const msg = (attempt.body && (attempt.body.error || attempt.body.message)) || attempt.error || `HTTP ${attempt.status}`;
+          if (/resource\s+already\s+exists|already exists|409|exists/i.test(String(msg))) {
+            if (modalMessages) modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload blocked: resource already exists on server. No further attempts will be made.</div>`;
+            safeShowStatus('Upload blocked: resource already exists on server.', 'error');
+            return;
+          }
+          if (modalMessages) modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload failed: ${String(msg)}</div>`;
+          safeShowStatus(`Upload failed: ${String(msg)}`, 'error');
+        } catch (e) {
+          console.error('Upload exception', e);
+          if (modalMessages) modalMessages.innerHTML = `<div style="color:#ffc9c9">Upload exception: ${e.message || e}</div>`;
+          safeShowStatus(`Upload failed: ${e.message || e}`, 'error');
+        }
+      });
+
+      // open modal when clicking photo (if allowed)
+      if (currentPhoto) currentPhoto.addEventListener('click', async ()=>{
+        try {
+          if (!currentUser) return alert('Login required');
+          if (profilePhotoLocked) { safeShowStatus('Profile photo is locked — cannot change it.', 'error'); return; }
+          if (modalMessages) modalMessages.innerHTML = '';
+          window.__editedImageDataURL = null;
+          img = null; imgURL = null; pos={x:0,y:0}; scale=1; angle=0;
+          if (editorModal) { editorModal.classList.add('show'); editorModal.setAttribute('aria-hidden','false'); }
+        } catch(e){ console.error(e); }
+      });
+
+      // close modal
+      if (modalCloseBtn) modalCloseBtn.addEventListener('click', ()=> { if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); } });
+      if (cancelModalBtn) cancelModalBtn.addEventListener('click', ()=> { if (editorModal) { editorModal.classList.remove('show'); editorModal.setAttribute('aria-hidden','true'); } });
+
+      // save other profile fields
+      async function updateProfile() {
+        try {
+          if (!currentUser) return;
+          const name = (nameInput?.value || '').trim();
+          const slug = (slugInput?.value || '').trim();
+          const photoUrl = (photoUrlInput?.value || '').trim();
+          const bio = (bioInput?.value || '').trim();
+          if (!name || !slug) { safeShowStatus('Name and slug are required.', 'error'); return; }
+          if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+          const docRef = doc(db, 'usersPrivate', currentUser.uid);
+          await updateDoc(docRef, {
+            name, slug,
+            profilePhotoUrl: photoUrl || null,
+            bio,
+            termsAccepted: true,
+            termsTimestamp: serverTimestamp()
+          });
+
+          // mirror to publicProfiles so public view is consistent
+          try {
+            await upsertPublicProfile(currentUser.uid, {
+              displayName: name,
+              slug: slug,
+              profilePhotoUrl: photoUrl || null,
+              bio: bio || ''
+            });
+          } catch (e) {
+            console.error('Mirror to publicProfiles failed (save):', e);
+          }
+
+          if (photoUrl) currentPhoto.src = photoUrl;
+          safeShowStatus('Profile updated successfully!', 'success');
+        } catch (err) {
+          console.error('Error updating profile', err);
+          safeShowStatus('Error saving profile data.', 'error');
+        } finally { if (saveBtn) { saveBtn.disabled=false; saveBtn.textContent='Save Changes'; } }
+      }
+      if (settingsForm) settingsForm.addEventListener('submit', (e)=>{ e.preventDefault(); updateProfile(); });
+
+      // load user profile
+      async function loadProfile(uid) {
+        try {
+          const docRef = doc(db, 'usersPrivate', uid);
+          const snap = await getDoc(docRef);
+          if (!snap.exists()) { safeShowStatus('Profile not found.', 'error'); return; }
+          const data = snap.data();
+          if (currentPhoto) currentPhoto.src = data.profilePhotoUrl || 'https://via.placeholder.com/150';
+          if (nameInput) nameInput.value = data.name || '';
+          if (slugInput) slugInput.value = data.slug || '';
+          if (photoUrlInput) photoUrlInput.value = data.profilePhotoUrl || '';
+          if (bioInput) bioInput.value = data.bio || '';
+          profilePhotoLocked = !!data.profilePhotoLocked;
+          if (profilePhotoLocked && oneTimeNote) { oneTimeNote.textContent = 'Profile photo is locked — you cannot change it again.'; oneTimeNote.style.color = '#ffc9c9'; }
+          else if (oneTimeNote) { oneTimeNote.textContent = 'Click your profile photo to open the upload modal. You can change only once.'; oneTimeNote.style.color = '#a0a0d0'; }
+        } catch(e){ console.error('loadProfile error', e); safeShowStatus('Error loading profile', 'error'); }
+      }
+
+      // auth state listener
+      onAuthStateChanged(auth, async (user) => {
+        try {
+          if (!user) { location.href = 'index.html'; return; }
+          currentUser = user;
+          await loadProfile(user.uid);
+          // hide loading overlay smoothly
+          if (loadingOverlay) {
+            loadingOverlay.classList.add('hidden');
+            loadingOverlay.style.display = 'none';
+          }
+        } catch(e){ console.error('onAuthStateChanged error', e); }
+      });
+
+      // logout/profile buttons
+      if (logoutBtn) logoutBtn.addEventListener('click', ()=> signOut(auth).then(()=>location.href='index.html').catch(err=>{ console.error(err); safeShowStatus('Sign out failed', 'error'); }));
+      if (profileBtn) profileBtn.addEventListener('click', ()=> location.href='user_profile.html');
+
+      // initial visuals
+      try { createLoadingStars(); initBgStars(); if (editorCanvasExists) drawEditor(); } catch(e){ console.error('visual init error', e); }
+
+    } catch (e) {
+      console.error('Initialization failed', e);
+      const boot = document.getElementById('bootError');
+      if (boot) { boot.style.display='block'; boot.textContent = 'Failed during initialization — check console.'; }
+    }
+  }); // DOMContentLoaded
+</script>
 </body>
 </html>
