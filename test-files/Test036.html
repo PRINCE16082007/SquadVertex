@@ -672,7 +672,7 @@
   import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
   import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
-  // Firebase configuration (your config)
+  // --- firebase config (same as yours) ---
   const firebaseConfig = {
     apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
     authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -693,14 +693,50 @@
   const provider = new GoogleAuthProvider();
   const db = getFirestore(app);
 
-  /* ---------------------------
-     DOM refs & initial state
-     --------------------------- */
+  /* -------------------------
+     Inject small CSS tweaks
+     (moves name to left, keeps rest HUD right)
+     ------------------------- */
+  (function injectStyles(){
+    const css = `
+      /* left HUD for name/slug */
+      .hud-left {
+        position: absolute;
+        left: 18px;
+        top: 14px;
+        z-index: 18;
+        background: rgba(6,10,18,0.48);
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.03);
+        backdrop-filter: blur(6px);
+        display:flex;
+        flex-direction:column;
+        gap:2px;
+        min-width:140px;
+      }
+      .hud-left .label { font-weight:700; color:#fff; font-size:0.95rem; }
+      .hud-left .muted { color:#bfeaff; font-size:0.85rem; }
+      /* ensure existing hud-small stays right */
+      .hud-small { right: 14px; top: 14px; left: auto !important; }
+      /* play-card enhanced background layering */
+      .play-card { background: linear-gradient(180deg, rgba(2,8,18,0.72), rgba(4,8,14,0.56)); overflow: visible; }
+      /* subtle nebula canvas overlay sits behind orbs inside play-card */
+      .nebula-canvas { position:absolute; inset:0; z-index:2; pointer-events:none; }
+      /* ensure main canvas drawing (orbs) sits above nebula */
+      .play-canvas { z-index:6; }
+    `;
+    const s = document.createElement('style');
+    s.innerText = css;
+    document.head.appendChild(s);
+  })();
+
+  /* -------------------------
+     DOM refs
+     ------------------------- */
   const playCanvas = document.getElementById('playCanvas');
   const playCard = document.getElementById('playCard');
   const earthEl = document.getElementById('earthEl');
-  const hudName = document.getElementById('hudName');
-  const hudSlug = document.getElementById('hudSlug');
   const hudCollected = document.getElementById('hudCollected');
   const hudHigh = document.getElementById('hudHigh');
   const btnSpawn = document.getElementById('btnSpawn');
@@ -712,22 +748,24 @@
   const logoutLink = document.getElementById('logoutLink');
   const profileLink = document.getElementById('profileLink');
 
-  // responsive/layout tweaks: reduce big page gaps when large screens
-  (function reduceDesktopGaps(){
-    const aboutMain = document.querySelector('.about-main');
-    if(aboutMain){
-      aboutMain.style.maxWidth = '1100px'; // increase content width so less left-right whitespace
-      aboutMain.style.margin = '120px auto 40px auto'; // reduce top margin
-      // inline image width adapt
-      const inlineImg = document.querySelector('.about-img-inline');
-      if(inlineImg) inlineImg.style.width = '100%';
-    }
-    // play-card max-width better fit
-    const orbit = document.querySelector('.orbit-playground');
-    if(orbit) orbit.style.maxWidth = '1100px';
-  })();
+  // create left HUD container (name + slug) and nebula canvas programmatically
+  const hudLeft = document.createElement('div');
+  hudLeft.className = 'hud-left';
+  hudLeft.innerHTML = `<div class="label" id="hudName">Guest</div><div class="muted" id="hudSlug">@guest</div>`;
+  playCard.appendChild(hudLeft);
 
-  // device pixel ratio + canvas context
+  const nebulaCanvas = document.createElement('canvas');
+  nebulaCanvas.className = 'nebula-canvas';
+  nebulaCanvas.setAttribute('aria-hidden', 'true');
+  playCard.appendChild(nebulaCanvas);
+  const nebCtx = nebulaCanvas.getContext('2d');
+
+  // existing star div (global background)
+  const globalStarsEl = document.getElementById('stars');
+
+  /* -------------------------
+     State & config
+     ------------------------- */
   let DPR = Math.max(1, window.devicePixelRatio || 1);
   let W = 0, H = 0;
   const ctx = playCanvas.getContext('2d');
@@ -742,53 +780,130 @@
     { name:'epic', chance:0.01, size:44, score:12, color:'#FF9AD6' }
   ];
 
-  // local storage keys
-  const LS_HIGH = 'galaxy_high';
-  const LS_LAST_MILE = 'galaxy_last_milestone';
-
   // score state
-  let collected = 0; // IMPORTANT: current score always starts from 0 each session (requested)
-  let high = parseInt(localStorage.getItem(LS_HIGH)) || 0;
+  let collected = 0; // session-only: always starts from 0
+  let high = parseInt(localStorage.getItem('galaxy_high')) || 0;
 
-  // milestone thresholds
-  const MILESTONES = [10, 25, 50, 100, 250, 500];
-  let lastMilestone = parseInt(localStorage.getItem(LS_LAST_MILE)) || 0;
+  // auto-spawn config
+  const AUTO_SPAWN_INTERVAL_MS = 2200; // spawn an orb every ~2.2s (if under MAX_ORBS)
+  const AUTO_SPAWN_BURST_PROB = 0.14; // occasional small burst
 
-  // user identity state
+  // user identity
   let currentUser = null;
   let currentProfile = null;
 
-  // small helpers
+  // helper funcs
   function rand(a,b){ return a + Math.random()*(b-a); }
   function pickType(){ const r=Math.random(); let s=0; for(const t of ORB_TYPES){ s+=t.chance; if(r <= s) return t; } return ORB_TYPES[0]; }
   function hexToRgb(hex){ const s = hex.replace('#',''); return { r:parseInt(s.slice(0,2),16), g:parseInt(s.slice(2,4),16), b:parseInt(s.slice(4,6),16) }; }
-  function updateHUD(){ hudCollected.textContent = collected; hudHigh.textContent = 'High: ' + high; hudName.textContent = currentProfile?.name || (currentUser?.displayName || 'Guest'); hudSlug.textContent = currentProfile?.slug ? ('@' + currentProfile.slug) : (currentUser ? ('@' + (currentUser.uid.slice(0,6))) : '@guest'); updateProfileButton(); }
 
-  /* ---------------------------
-     Canvas sizing & stars
-     --------------------------- */
+  // update HUDs
+  function updateHUD(){ 
+    hudCollected.textContent = collected; 
+    hudHigh.textContent = 'High: ' + high; 
+    const hudNameEl = document.getElementById('hudName');
+    const hudSlugEl = document.getElementById('hudSlug');
+    hudNameEl.textContent = currentProfile?.name || (currentUser?.displayName || 'Guest');
+    hudSlugEl.textContent = currentProfile?.slug ? ('@' + currentProfile.slug) : (currentUser ? ('@' + currentUser.uid.slice(0,6)) : '@guest');
+    updateProfileButton(); 
+  }
+
+  /* -------------------------
+     Canvas sizing + nebula + global stars
+     ------------------------- */
   function resizeCanvas(){
-    const padding = 40; // ensure a bit of padding so the play-card doesn't feel floating
     const rect = playCard.getBoundingClientRect();
-    const computedWidth = Math.min(rect.width, Math.max(320, window.innerWidth - padding*2));
+    const computedWidth = Math.min(rect.width, Math.max(320, window.innerWidth - 80));
     W = Math.max(200, Math.floor(computedWidth));
     H = Math.max(160, Math.floor(rect.height));
     playCanvas.style.width = W + 'px'; playCanvas.style.height = H + 'px';
     playCanvas.width = Math.floor(W * DPR); playCanvas.height = Math.floor(H * DPR);
     ctx.setTransform(DPR,0,0,DPR,0,0);
-    initStars();
+
+    // nebula canvas to match playCard area
+    nebulaCanvas.style.width = W + 'px'; nebulaCanvas.style.height = H + 'px';
+    nebulaCanvas.width = Math.floor(W * DPR); nebulaCanvas.height = Math.floor(H * DPR);
+    nebCtx.setTransform(DPR,0,0,DPR,0,0);
+
+    initStars(); initNebula();
   }
   window.addEventListener('resize', resizeCanvas);
 
   function initStars(){
     stars.length = 0;
-    const count = Math.max(12, Math.round((W*H)/90000));
-    for(let i=0;i<count;i++) stars.push({ x:Math.random()*W, y:Math.random()*H, s:Math.random()*1.6+0.4, phase:Math.random()*Math.PI*2 });
+    const count = Math.max(16, Math.round((W*H)/90000));
+    for(let i=0;i<count;i++) stars.push({ x:Math.random()*W, y:Math.random()*H, s:Math.random()*1.6+0.4, phase:Math.random()*Math.PI*2, speed: 0.001 + Math.random()*0.004 });
   }
 
-  /* ---------------------------
-     Spawn / collect logic
-     --------------------------- */
+  // global page stars (fills #stars) — subtle parallax and twinkle
+  (function initGlobalStars(){
+    if(!globalStarsEl) return;
+    const STAR_COUNT = 160;
+    for(let i=0;i<STAR_COUNT;i++){
+      const el = document.createElement('div');
+      el.className = 'star';
+      const x = Math.random()*100, y = Math.random()*100;
+      const size = Math.random()*2 + 0.6;
+      el.style.left = x+'%'; el.style.top = y+'%';
+      el.style.width = size+'px'; el.style.height = size+'px';
+      el.style.opacity = (0.2 + Math.random()*0.8).toString();
+      el.style.setProperty('--duration', `${2 + Math.random()*5}s`);
+      el.style.transition = `transform ${3 + Math.random()*6}s linear`;
+      globalStarsEl.appendChild(el);
+    }
+    // subtle move on mouse
+    document.addEventListener('mousemove', (e)=>{
+      const w = window.innerWidth, h = window.innerHeight;
+      const rx = (e.clientX / w - 0.5) * 6;
+      const ry = (e.clientY / h - 0.5) * 6;
+      globalStarsEl.style.transform = `translate(${rx}px, ${ry}px)`;
+    });
+  })();
+
+  /* -------------------------
+     Nebula background (soft moving blobs)
+     ------------------------- */
+  let nebulaBlobs = [];
+  function initNebula(){
+    nebulaBlobs = [];
+    const blobCount = Math.max(2, Math.round(W/420));
+    for(let i=0;i<blobCount;i++){
+      nebulaBlobs.push({
+        x: Math.random()*W,
+        y: Math.random()*H,
+        r: Math.max(80, Math.random()*220),
+        vx: (Math.random()-0.5)*0.12,
+        vy: (Math.random()-0.5)*0.12,
+        hue: Math.floor(180 + Math.random()*120),
+        alpha: 0.06 + Math.random()*0.12
+      });
+    }
+  }
+  function drawNebula(now){
+    nebCtx.clearRect(0,0,W,H);
+    for(const b of nebulaBlobs){
+      b.x += b.vx;
+      b.y += b.vy;
+      // wrap
+      if(b.x < -b.r) b.x = W + b.r;
+      if(b.x > W + b.r) b.x = -b.r;
+      if(b.y < -b.r) b.y = H + b.r;
+      if(b.y > H + b.r) b.y = -b.r;
+
+      const g = nebCtx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+      g.addColorStop(0, `hsla(${b.hue}, 75%, 60%, ${b.alpha*1.6})`);
+      g.addColorStop(0.5, `hsla(${b.hue}, 65%, 40%, ${b.alpha})`);
+      g.addColorStop(1, `rgba(0,0,0,0)`);
+      nebCtx.fillStyle = g;
+      nebCtx.beginPath();
+      nebCtx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+      nebCtx.fill();
+    }
+  }
+
+  /* -------------------------
+     Spawning / collecting
+     ------------------------- */
   function spawnOrbAt(clientX, clientY){
     if (orbs.length >= MAX_ORBS) return;
     const rect = playCard.getBoundingClientRect();
@@ -835,31 +950,20 @@
     if(!o) return;
     spawnPopForOrb(o);
     const prevCollected = collected;
-    const prevHigh = high;
     collected += o.score;
 
-    // milestone check (first time crossing that threshold)
-    for(const m of MILESTONES){
-      if(prevCollected < m && collected >= m && m > lastMilestone){
-        lastMilestone = m;
-        localStorage.setItem(LS_LAST_MILE, lastMilestone);
-        playCelebration(); launchConfetti();
-        // small notification
-        setTimeout(()=> alert(`Milestone reached: ${m} points! 🎉`), 80);
-        break; // handle one milestone at a time
-      }
-    }
-
-    // high score check
+    // check for new high or milestone
     if (collected > high){
       high = collected;
-      localStorage.setItem(LS_HIGH, high);
+      localStorage.setItem('galaxy_high', high);
       flashHigh();
       playCelebration();
-      launchConfetti();
+      launchConfetti({count: 90});
     }
 
-    // persist only high (collected intentionally not persisted across sessions)
+    // small burst confetti occasionally on every 10 points
+    if (collected % 10 === 0) { launchConfetti({count: 34}); playCelebration(); }
+
     orbs = orbs.filter(x => x.id !== o.id);
     updateHUD();
     playCollect();
@@ -869,23 +973,31 @@
     const rect = playCard.getBoundingClientRect(); const cx = rect.width/2, cy = rect.height/2;
     const x = cx + o.radius * Math.cos(o.angle); const y = cy + o.radius * Math.sin(o.angle);
     const rgb = hexToRgb(o.color);
-    const parts = []; const count = Math.min(28, Math.round(6 + o.size*1.2));
+    const parts = []; const count = Math.min(34, Math.round(8 + o.size*1.4));
     for(let i=0;i<count;i++){
       const ang = Math.random()*Math.PI*2;
-      parts.push({ vx: Math.cos(ang)*(0.6 + Math.random()*2.6), vy: Math.sin(ang)*(0.6 + Math.random()*2.6), size: Math.random()*(o.size*0.6)+0.6, color: `rgba(${rgb.r},${rgb.g},${rgb.b},` });
+      parts.push({ vx: Math.cos(ang)*(0.6 + Math.random()*3.2), vy: Math.sin(ang)*(0.6 + Math.random()*3.2), size: Math.random()*(o.size*0.8)+0.6, color: `rgba(${rgb.r},${rgb.g},${rgb.b},` });
     }
     pops.push({ x,y, parts, life:1, lifeMax:1, speed: 42 + o.size*6 });
   }
 
-  /* ---------------------------
-     Drawing functions
-     --------------------------- */
+  /* -------------------------
+     Drawing (orbs + pops + background)
+     ------------------------- */
   function drawBackground(now){
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for(const s of stars){
-      const a = 0.22 + 0.18*Math.abs(Math.sin(now/1200 + s.phase));
-      ctx.fillStyle = `rgba(210,235,255,${a})`;
-      ctx.beginPath(); ctx.ellipse(s.x, s.y, s.s, s.s, 0,0,Math.PI*2); ctx.fill();
+    // enhanced background: soft radial vignette + tiny stars
+    ctx.save();
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, 'rgba(6,10,18,0.20)');
+    grad.addColorStop(1, 'rgba(3,6,12,0.32)');
+    ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+
+    // small faint star field behind orbs (subtle)
+    for(let i=0;i<Math.max(8, Math.round((W*H)/200000)); i++){
+      const x = (i*37*13) % W + ((now/1200) % 7);
+      const y = ((i*17*7) % H) + Math.sin((now/12000)+i)*6;
+      ctx.fillStyle = 'rgba(200,230,255,0.02)';
+      ctx.beginPath(); ctx.ellipse(x,y,1.2,1.2,0,0,Math.PI*2); ctx.fill();
     }
     ctx.restore();
   }
@@ -897,24 +1009,29 @@
       o.angle += o.speed * (dt/1000);
       o.rotation += o.rotSpeed;
       const x = cx + o.radius * Math.cos(o.angle), y = cy + o.radius * Math.sin(o.angle);
+      // glow
       ctx.save();
       ctx.translate(x,y);
       ctx.rotate(o.rotation * 0.12);
-      ctx.beginPath();
-      const grad = ctx.createRadialGradient(0,0,0,0,0,o.size*1.9);
-      grad.addColorStop(0, 'rgba(255,255,255,0.08)');
-      grad.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = grad;
-      ctx.arc(0,0,o.size*1.9,0,Math.PI*2); ctx.fill();
-      const fontSize = Math.max(14, Math.min(56, o.size));
+      const glow = ctx.createRadialGradient(0,0,0,0,0,o.size*2.6);
+      glow.addColorStop(0, 'rgba(255,255,255,0.08)');
+      glow.addColorStop(0.6, 'rgba(255,255,255,0.02)');
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(0,0,o.size*2.6,0,Math.PI*2); ctx.fill();
+
+      // emoji satellite
+      const fontSize = Math.max(16, Math.min(56, o.size));
       ctx.font = `${fontSize}px serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('🛰️', 0, 0);
+
+      // rarity badge for rare/epic
       if (o.rarity === 'epic' || o.rarity === 'rare'){
         ctx.font = '10px Poppins, Arial';
         ctx.fillStyle = '#fff';
-        ctx.fillText(o.rarity[0].toUpperCase(), o.size*0.85, -o.size*0.8);
+        ctx.fillText(o.rarity[0].toUpperCase(), o.size*0.85, -o.size*0.82);
       }
       ctx.restore();
       o.screenX = x; o.screenY = y;
@@ -925,13 +1042,13 @@
     ctx.save();
     for(let i=pops.length-1;i>=0;i--){
       const p = pops[i];
-      p.life -= dt / 400;
+      p.life -= dt / 420;
       const alpha = Math.max(0, p.life / p.lifeMax);
       for(const part of p.parts){
         const px = p.x + part.vx * (1 - alpha) * p.speed;
         const py = p.y + part.vy * (1 - alpha) * p.speed;
         const s = Math.max(0.6, part.size * alpha);
-        ctx.fillStyle = part.color + (0.85 * alpha) + ')';
+        ctx.fillStyle = part.color + (0.88 * alpha) + ')';
         ctx.beginPath(); ctx.ellipse(px, py, s, s, 0,0,Math.PI*2); ctx.fill();
       }
       if (p.life <= 0) pops.splice(i,1);
@@ -944,23 +1061,23 @@
     const dt = Math.max(8, now - last);
     last = now;
     ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = 'rgba(6,8,12,0.16)'; ctx.fillRect(0,0,W,H);
     drawBackground(now);
     drawOrbs(now, dt);
     drawPops(now, dt);
     drawVignette();
+    drawNebula(now); // nebula overlays behind canvas content (we already render nebula on its own canvas)
   }
 
   function drawVignette(){
     const g = ctx.createRadialGradient(W/2, H/2, Math.max(W,H)/6, W/2, H/2, Math.max(W,H)/1.0);
     g.addColorStop(0,'rgba(255,255,255,0)');
-    g.addColorStop(1,'rgba(0,0,0,0.20)');
+    g.addColorStop(1,'rgba(0,0,0,0.18)');
     ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
   }
 
-  /* ---------------------------
-     Pointer handling & controls
-     --------------------------- */
+  /* -------------------------
+     Pointer handling + controls
+     ------------------------- */
   playCard.addEventListener('pointerdown', (e)=> {
     if(e.pointerType === 'mouse' && e.button !== 0) return;
     const p = toLocalCoords(e.clientX, e.clientY);
@@ -974,12 +1091,11 @@
   btnDownload.addEventListener('click', downloadScoreImage);
   btnSave.addEventListener('click', saveScoreToCloud);
 
-  /* ---------------------------
-     Audio: collect sounds + celebration
-     --------------------------- */
+  /* -------------------------
+     Audio (collect + celebration)
+     ------------------------- */
   let audioCtx = null;
   function ensureAudio(){ if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-
   function playTone(freq=420, dur=0.06){
     try{
       ensureAudio();
@@ -995,10 +1111,7 @@
       o.stop(now + dur + 0.02);
     }catch(e){}
   }
-
   function playCollect(){ playTone(720,0.05); }
-
-  // celebration melody (short arpeggio)
   function playCelebration(){
     try{
       ensureAudio();
@@ -1009,7 +1122,7 @@
         const g = audioCtx.createGain();
         o.type='triangle'; o.frequency.value = n;
         o.connect(g); g.connect(audioCtx.destination);
-        const t = now + i*0.08;
+        const t = now + i*0.07;
         g.gain.setValueAtTime(0.0001, t);
         g.gain.exponentialRampToValueAtTime(0.14, t + 0.02);
         g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
@@ -1017,46 +1130,45 @@
       });
     }catch(e){}
   }
-
   document.addEventListener('pointerdown', ()=> ensureAudio(), { once:true });
 
-  /* ---------------------------
-     Confetti: small custom implementation
-     --------------------------- */
-  const confettiContainer = (function createConfettiCanvas(){
+  /* -------------------------
+     Confetti: improved (multiple shapes, nicer physics)
+     ------------------------- */
+  const confettiCanvas = (function createConfetti(){
     const c = document.createElement('canvas');
     c.style.position = 'fixed';
-    c.style.left = '0';
-    c.style.top = '0';
-    c.style.width = '100%';
-    c.style.height = '100%';
+    c.style.left = '0'; c.style.top = '0';
+    c.style.width = '100%'; c.style.height = '100%';
     c.style.pointerEvents = 'none';
     c.style.zIndex = 9999;
-    c.id = 'confettiCanvas';
     document.body.appendChild(c);
     const ctx = c.getContext('2d');
     function resize(){ c.width = window.innerWidth * DPR; c.height = window.innerHeight * DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
     window.addEventListener('resize', resize);
     resize();
-    return { canvas:c, ctx, particles:[] };
+    return {canvas:c, ctx, parts:[]};
   })();
 
-  function launchConfetti({count=60,spread=Math.PI*0.9,duration=1800} = {}){
-    const { canvas, ctx, particles } = confettiContainer;
+  function launchConfetti({count=80, spread=Math.PI*1.1, duration=2200} = {}){
+    const { canvas, ctx, parts } = confettiCanvas;
     const w = canvas.width / DPR, h = canvas.height / DPR;
-    const colors = ['#ffd166','#06d6a0','#118ab2','#ef476f','#a8dadc','#ffd6a5'];
+    const colors = ['#ffd166','#06d6a0','#118ab2','#ef476f','#a8dadc','#ffd6a5','#c084fc'];
     for(let i=0;i<count;i++){
       const angle = (Math.PI/2) + (Math.random()-0.5)*spread;
-      const speed = Math.random()*6 + 3;
-      particles.push({
-        x: Math.random()*w,
-        y: -20,
+      const speed = Math.random()*8 + 3;
+      const size = 6 + Math.random()*10;
+      const shape = Math.random() < 0.5 ? 'rect' : (Math.random() < 0.5 ? 'circle' : 'tri');
+      parts.push({
+        x: w * (0.2 + Math.random()*0.6),
+        y: -10 - Math.random()*60,
         vx: Math.cos(angle)*speed,
-        vy: Math.sin(angle)*speed + 1.5,
+        vy: Math.sin(angle)*speed + 1.6,
         rot: Math.random()*Math.PI*2,
-        rotSpeed: (Math.random()-0.5)*0.2,
-        size: Math.random()*8 + 6,
+        rotSpeed: (Math.random()-0.5)*0.28,
+        size,
         color: colors[Math.floor(Math.random()*colors.length)],
+        shape,
         life: 1,
         decay: 1 / (duration/16 + Math.random()*40)
       });
@@ -1065,9 +1177,10 @@
     (function frame(now){
       const dt = now - t0; t0 = now;
       ctx.clearRect(0,0,w,h);
-      for(let i=particles.length-1;i>=0;i--){
-        const p = particles[i];
-        p.vy += 0.12; // gravity
+      for(let i=parts.length-1;i>=0;i--){
+        const p = parts[i];
+        p.vy += 0.16; // gravity
+        p.vx *= 0.998;
         p.x += p.vx;
         p.y += p.vy;
         p.rot += p.rotSpeed;
@@ -1077,18 +1190,24 @@
         ctx.rotate(p.rot);
         ctx.globalAlpha = Math.max(0, p.life);
         ctx.fillStyle = p.color;
-        ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size*0.6);
+        if(p.shape === 'rect') ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size*0.6);
+        else if(p.shape === 'circle'){ ctx.beginPath(); ctx.ellipse(0,0,p.size*0.55,p.size*0.55,0,0,Math.PI*2); ctx.fill(); }
+        else { // triangle
+          ctx.beginPath(); ctx.moveTo(0,-p.size/1.3); ctx.lineTo(p.size/1.2,p.size/1.6); ctx.lineTo(-p.size/1.2,p.size/1.6); ctx.closePath(); ctx.fill();
+        }
         ctx.restore();
-        if(p.life <= 0 || p.y > h + 40) particles.splice(i,1);
+        // ground bounce (soft)
+        if(p.y > h - 12 && p.life > 0.2){ p.vy *= -0.32; p.vx *= 0.75; p.y = h - 12; }
+        if(p.life <= 0 || p.y > h + 80) parts.splice(i,1);
       }
-      if(particles.length > 0) requestAnimationFrame(frame);
+      if(parts.length > 0) requestAnimationFrame(frame);
       else ctx.clearRect(0,0,w,h);
     })(performance.now());
   }
 
-  /* ---------------------------
-     Download / Save functions
-     --------------------------- */
+  /* -------------------------
+     Download & save
+     ------------------------- */
   function downloadScoreImage(){
     const w = 1400, h = 760;
     const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -1125,7 +1244,6 @@
       URL.revokeObjectURL(url);
     }, 'image/png');
   }
-
   function roundRect(g, x, y, w, h, r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
 
   async function saveScoreToCloud(){
@@ -1139,26 +1257,19 @@
     }catch(e){ console.error('save fail', e); alert('Save failed.'); }
   }
 
-  /* ---------------------------
-     Small UI interactions & auth
-     --------------------------- */
+  /* -------------------------
+     UI auth
+     ------------------------- */
   function flashHigh(){ hudHigh.style.transform = 'scale(1.06)'; hudHigh.style.color = '#fff'; setTimeout(()=>{ hudHigh.style.transform=''; hudHigh.style.color=''; }, 420); }
-
   function updateProfileButton(){
     try {
       const u = currentUser;
       if (!profileBtn) return;
       if (u) {
-        if (u.photoURL) {
-          profileBtn.innerHTML = `<img src="${u.photoURL}" alt="Profile" style="width:36px;height:36px;border-radius:50%;">`;
-        } else {
-          profileBtn.innerHTML = `<i class="fa-solid fa-user"></i>`;
-        }
+        if (u.photoURL) { profileBtn.innerHTML = `<img src="${u.photoURL}" alt="Profile" style="width:36px;height:36px;border-radius:50%;">`; }
+        else { profileBtn.innerHTML = `<i class="fa-solid fa-user"></i>`; }
         profileBtn.title = u.displayName || u.email || "Profile";
-      } else {
-        profileBtn.innerHTML = 'Sign In';
-        profileBtn.title = 'Sign In';
-      }
+      } else { profileBtn.innerHTML = 'Sign In'; profileBtn.title = 'Sign In'; }
     } catch(e){ console.warn('updateProfileBtn err', e); }
   }
 
@@ -1200,33 +1311,45 @@
     try{ await signInWithPopup(auth, provider); alert('Signed in'); }catch(e){ console.warn(e); alert('Sign-in failed'); }
   });
 
-  // init canvas & warmup
-  function init() {
+  /* -------------------------
+     Auto-spawn loop (keeps game lively)
+     ------------------------- */
+  (function startAutoSpawn(){
+    setInterval(()=>{
+      // occasionally create small bursts
+      if(Math.random() < AUTO_SPAWN_BURST_PROB){
+        for(let i=0;i<3;i++) spawnOrbAt();
+      } else {
+        spawnOrbAt();
+      }
+    }, AUTO_SPAWN_INTERVAL_MS);
+  })();
+
+  /* -------------------------
+     Nebula animation + main loop init
+     ------------------------- */
+  function init(){
     DPR = Math.max(1, window.devicePixelRatio || 1);
     resizeCanvas();
     const rect = playCard.getBoundingClientRect();
-    for(let i=0;i<6;i++) spawnOrbAt(rect.left + rect.width/2 + rand(-140,140), rect.top + rect.height/2 + rand(-90,90));
+    for(let i=0;i<4;i++) spawnOrbAt(rect.left + rect.width/2 + rand(-120,120), rect.top + rect.height/2 + rand(-80,80));
     updateHUD();
     last = performance.now();
     requestAnimationFrame(loop);
   }
+  window.addEventListener('load', init);
 
-  // persist high & last milestone on unload; do NOT persist collected (session-only)
-  window.addEventListener('beforeunload', ()=> {
-    localStorage.setItem(LS_HIGH, high);
-    localStorage.setItem(LS_LAST_MILE, lastMilestone || 0);
-  });
+  // animate nebula at ~60fps but independent (drawNebula already called in loop for sync)
+  // persist high only
+  window.addEventListener('beforeunload', ()=> { localStorage.setItem('galaxy_high', high); });
 
-  // polyfill roundRect if missing (kept)
+  // small polyfill (kept)
   if (!CanvasRenderingContext2D.prototype.roundRect) {
     CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
       if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
       this.beginPath(); this.moveTo(x+r, y); this.arcTo(x+w, y, x+w, y+h, r); this.arcTo(x+w, y+h, x, y+h, r); this.arcTo(x, y+h, x, y, r); this.arcTo(x, y, x+w, y, r); this.closePath();
     };
   }
-
-  // run init on load
-  window.addEventListener('load', init);
 </script>
 </body>
 </html>
