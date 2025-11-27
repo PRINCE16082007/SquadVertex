@@ -672,7 +672,7 @@
   import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
   import { getFirestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
-  // Firebase config
+  // Firebase config (same)
   const firebaseConfig = {
     apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
     authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -694,25 +694,85 @@
   const db = getFirestore(app);
 
   /* ============================
-     Inject CSS tweaks
-     - increase play area height
-     - reduce gap between play area and content
-     - small HUD tweaks
+     Inject improved CSS:
+     - polished top-left HUD (avatar + name + slug)
+     - Play Full Game button styling + subtle entrance
+     - play area height + reduced gap kept
      ============================ */
   (function injectStyles(){
     const css = `
-      /* increase play area height (desktop) and make responsive */
+      /* Play area sizing & spacing */
       .orbit-playground { height: 520px !important; max-width: calc(100% - 40px); margin: 10px auto 8px auto; }
       @media (max-width:900px){ .orbit-playground{ height: 420px !important; } .about-main{ margin-top: 80px; } }
-      /* reduce gap between play area and content section */
       .about-main { margin-top: 40px !important; max-width: 1100px; }
-      /* left HUD adjustments */
-      .hud-left { left: 18px; top: 14px; min-width: 160px; }
-      .hud-left .label { font-size: 1.02rem; }
-      /* keep right HUD where it is */
-      .hud-small { right: 14px; top: 14px; left: auto !important; }
-      /* Play Full Game button improvements */
-      .play-full-btn { right: 14px; bottom: 14px; padding: 10px 14px; font-size: 0.95rem; }
+
+      /* TOP-LEFT HUD: polished card with avatar, name, slug */
+      .hud-left {
+        position: absolute;
+        left: 16px;
+        top: 12px;
+        z-index: 30;
+        background: linear-gradient(180deg, rgba(8,14,22,0.6), rgba(10,18,30,0.36));
+        padding: 8px 10px 8px 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.06);
+        backdrop-filter: blur(6px);
+        display:flex;
+        gap:10px;
+        align-items:center;
+        min-width:180px;
+        box-shadow: 0 8px 20px rgba(2,8,20,0.5);
+        transition: transform .12s ease, box-shadow .12s ease;
+      }
+      .hud-left:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(2,10,30,0.6); }
+
+      .hud-left .avatar {
+        width:44px; height:44px; border-radius:50%; overflow:hidden; flex:0 0 44px;
+        border: 2px solid rgba(150,220,255,0.12); background: linear-gradient(180deg,#0b2b3a,#06202a);
+        display:flex; align-items:center; justify-content:center; font-size:20px; color:#bfeaff;
+      }
+      .hud-left .text {
+        display:flex; flex-direction:column; gap:2px; min-width:0;
+      }
+      .hud-left .label { font-weight:700; color:#fff; font-size:0.98rem; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .hud-left .muted { font-weight:600; color:#9fd8ff; font-size:0.82rem; opacity:0.95; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+      /* Right HUD keep place */
+      .hud-small { right: 14px; top: 14px; left: auto !important; z-index:25; }
+
+      /* Play Full Game button: polished gradient + icon */
+      .play-full-btn {
+        position: absolute;
+        right: 14px;
+        bottom: 14px;
+        z-index: 40;
+        background: linear-gradient(90deg,#64c2ff 0%, #8ee7ff 50%, #d7fbff 100%);
+        color: #052027;
+        padding: 10px 14px;
+        border-radius: 12px;
+        border: none;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 12px 36px rgba(6,16,28,0.5), inset 0 -2px 8px rgba(0,0,0,0.06);
+        display:flex; align-items:center; gap:10px;
+        transform: translateY(6px); opacity:0; animation: popIn .36s ease forwards .08s;
+      }
+      .play-full-btn i { font-size:14px; transform: translateY(-1px); }
+      .play-full-btn:hover { transform: translateY(0); box-shadow: 0 18px 48px rgba(6,20,36,0.6); }
+
+      @keyframes popIn {
+        from { transform: translateY(6px) scale(0.98); opacity: 0; }
+        to { transform: translateY(0) scale(1); opacity: 1; }
+      }
+
+      /* nebula overlay stacking fix */
+      .nebula-canvas { position:absolute; inset:0; z-index:2; pointer-events:none; }
+
+      /* responsive button sizing */
+      @media (max-width:520px){
+        .hud-left .avatar{ width:36px;height:36px;}
+        .play-full-btn{ padding:8px 10px; font-size:0.92rem; border-radius:10px; }
+      }
     `;
     const s = document.createElement('style');
     s.innerText = css;
@@ -720,7 +780,7 @@
   })();
 
   /* ============================
-     DOM refs (existing elements)
+     DOM refs & create HUD/button + nebula canvas
      ============================ */
   const playCanvas = document.getElementById('playCanvas');
   const playCard = document.getElementById('playCard');
@@ -737,20 +797,26 @@
   const profileLink = document.getElementById('profileLink');
   const globalStarsEl = document.getElementById('stars');
 
-  // add left HUD (game name)
+  // create left HUD with avatar + text areas (will update later)
   const hudLeft = document.createElement('div');
   hudLeft.className = 'hud-left';
-  hudLeft.innerHTML = `<div class="label">Orbit Playground</div><div class="muted">Play & Collect</div>`;
+  hudLeft.innerHTML = `
+    <div class="avatar" id="hudAvatar">🌌</div>
+    <div class="text">
+      <div class="label" id="hudName">Orbit Playground</div>
+      <div class="muted" id="hudSlugSmall">Play & Collect</div>
+    </div>
+  `;
   playCard.appendChild(hudLeft);
 
-  // Play Full Game button
+  // Play Full Game button (with icon)
   const playFullBtn = document.createElement('button');
   playFullBtn.className = 'play-full-btn';
-  playFullBtn.textContent = 'Play Full Game';
+  playFullBtn.innerHTML = `<i class="fa-solid fa-rocket"></i><span>Play Full Game</span>`;
   playFullBtn.addEventListener('click', () => { window.location.href = '/game/full_game.html'; });
   playCard.appendChild(playFullBtn);
 
-  // nebula canvas
+  // nebula canvas (already used)
   const nebulaCanvas = document.createElement('canvas');
   nebulaCanvas.className = 'nebula-canvas';
   nebulaCanvas.setAttribute('aria-hidden', 'true');
@@ -758,7 +824,7 @@
   const nebCtx = nebulaCanvas.getContext('2d');
 
   /* ============================
-     State & constants
+     State, constants, helpers (kept same)
      ============================ */
   let DPR = Math.max(1, window.devicePixelRatio || 1);
   let W = 0, H = 0;
@@ -774,40 +840,54 @@
     { name:'epic', chance:0.01, size:44, score:12, color:'#FF9AD6' }
   ];
 
-  // score state
-  let collected = 0; // session-only (always start 0)
+  let collected = 0; // session-only start at 0
   let high = parseInt(localStorage.getItem('galaxy_high')) || 0;
 
-  // auto spawn config (kept faster)
   const AUTO_SPAWN_INTERVAL_MS = 1200;
   const AUTO_SPAWN_BURST_PROB = 0.22;
 
-  // user identity & live subscription
   let currentUser = null;
   let currentProfile = null;
   let userPrivUnsub = null;
 
-  /* ============================
-     Helpers
-     ============================ */
   function rand(a,b){ return a + Math.random()*(b-a); }
   function pickType(){ const r=Math.random(); let s=0; for(const t of ORB_TYPES){ s+=t.chance; if(r <= s) return t; } return ORB_TYPES[0]; }
   function hexToRgb(hex){ const s = hex.replace('#',''); return { r:parseInt(s.slice(0,2),16), g:parseInt(s.slice(2,4),16), b:parseInt(s.slice(4,6),16) }; }
 
+  /* update HUD content (avatar, name small slug on top-left, right HUD remains) */
   function updateHUD(){
     hudCollected.textContent = collected;
     hudHigh.textContent = 'High: ' + high;
-    // update left HUD to show game name (kept static) and no user details there per request
-    // (Profile button still shows photo / title)
+
+    // top-left name/slug derived from currentProfile if available
+    const nameEl = document.getElementById('hudName');
+    const slugSmallEl = document.getElementById('hudSlugSmall');
+    const avatarEl = document.getElementById('hudAvatar');
+
+    if (currentProfile && (currentProfile.name || currentProfile.slug || currentProfile.profilePhotoUrl)) {
+      nameEl.textContent = currentProfile.name || (currentUser?.displayName || 'Player');
+      slugSmallEl.textContent = currentProfile.slug ? ('@' + currentProfile.slug) : 'Play & Collect';
+      // avatar: prefer profilePhotoUrl (usersPrivate), fallback to auth.photoURL, else emoji
+      const photo = currentProfile.profilePhotoUrl || currentUser?.photoURL || null;
+      if (photo) {
+        avatarEl.innerHTML = `<img src="${photo}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      } else {
+        avatarEl.textContent = '🌌';
+      }
+    } else {
+      nameEl.textContent = 'Orbit Playground';
+      slugSmallEl.textContent = 'Play & Collect';
+      avatarEl.textContent = '🌌';
+    }
+
     updateProfileButton();
   }
 
   /* ============================
-     Canvas sizing and nebula
+     Canvas sizing + nebula + global stars
      ============================ */
   function resizeCanvas(){
     const rect = playCard.getBoundingClientRect();
-    // use computed play-card height (we enforced via CSS) but fallback
     const computedHeight = Math.max(260, rect.height || 520);
     const computedWidth = Math.min(rect.width || (window.innerWidth - 80), Math.max(320, rect.width));
     W = Math.max(200, Math.floor(computedWidth));
@@ -852,7 +932,6 @@
     });
   })();
 
-  /* Nebula (soft blobs) */
   let nebulaBlobs = [];
   function initNebula(){
     nebulaBlobs = [];
@@ -887,7 +966,7 @@
   }
 
   /* ============================
-     Spawn / Collect (increased base speed)
+     Spawn / collect (kept faster)
      ============================ */
   function spawnOrbAt(clientX, clientY){
     if (orbs.length >= MAX_ORBS) return;
@@ -899,7 +978,6 @@
     const dx = px - cx; const dy = py - cy;
     const radius = Math.max(72, Math.min(Math.hypot(dx,dy), Math.min(rect.width, rect.height)/2 - 36));
     const angle = Math.atan2(dy, dx);
-    // slightly faster base speed
     const baseSpeed = 1.1 / Math.sqrt(Math.max(1, radius/90));
     const speed = (Math.random() < 0.5 ? 1 : -1) * baseSpeed * (0.7 + Math.random()*1.0);
     const t = pickType();
@@ -935,17 +1013,13 @@
   function collectOrb(o){
     if(!o) return;
     spawnPopForOrb(o);
-    const prevCollected = collected;
     collected += o.score;
-
     if (collected > high){
       high = collected;
       localStorage.setItem('galaxy_high', high);
       flashHigh(); playCelebration(); launchConfetti({count:90});
     }
-
     if (collected % 10 === 0){ launchConfetti({count:28}); playCelebration(); }
-
     orbs = orbs.filter(x => x.id !== o.id);
     updateHUD(); playCollect();
   }
@@ -963,7 +1037,7 @@
   }
 
   /* ============================
-     Drawing
+     Drawing routines
      ============================ */
   function drawBackground(now){
     ctx.save();
@@ -971,7 +1045,6 @@
     grad.addColorStop(0, 'rgba(6,10,18,0.20)');
     grad.addColorStop(1, 'rgba(3,6,12,0.32)');
     ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
-
     for(let i=0;i<Math.max(8, Math.round((W*H)/200000)); i++){
       const x = (i*37*13) % W + ((now/1200) % 7);
       const y = ((i*17*7) % H) + Math.sin((now/12000)+i)*6;
@@ -997,13 +1070,11 @@
       glow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = glow;
       ctx.beginPath(); ctx.arc(0,0,o.size*2.6,0,Math.PI*2); ctx.fill();
-
       const fontSize = Math.max(16, Math.min(56, o.size));
       ctx.font = `${fontSize}px serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('🛰️', 0, 0);
-
       if (o.rarity === 'epic' || o.rarity === 'rare'){
         ctx.font = '10px Poppins, Arial';
         ctx.fillStyle = '#fff';
@@ -1077,7 +1148,7 @@
   function playCelebration(){ try{ ensureAudio(); const now = audioCtx.currentTime; const notes = [880, 1100, 1320, 1760]; notes.forEach((n,i)=>{ const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='triangle'; o.frequency.value = n; o.connect(g); g.connect(audioCtx.destination); const t = now + i*0.07; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.14, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22); o.start(t); o.stop(t + 0.26); }); }catch(e){} }
   document.addEventListener('pointerdown', ()=> ensureAudio(), { once:true });
 
-  // confetti simplified implementation (re-use previous)
+  // confetti
   const confettiCanvas = (function createConfetti(){
     const c = document.createElement('canvas');
     c.style.position = 'fixed'; c.style.left = '0'; c.style.top = '0'; c.style.width = '100%'; c.style.height = '100%';
@@ -1120,7 +1191,7 @@
   }
 
   /* ============================
-     Download & Save (added photoUrl field)
+     Download & Save (photoUrl)
      ============================ */
   function downloadScoreImage(){
     const w = 1400, h = 760;
@@ -1149,7 +1220,7 @@
   }
   function roundRect(g, x, y, w, h, r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
 
-  // Save to Firestore (now includes name, slug, photoUrl)
+  // Save to Firestore (includes name, slug, photoUrl)
   async function saveScoreToCloud(){
     if (!currentUser){ alert('Sign in to save to cloud (click Sign In or double-click the Earth).'); return; }
     try{
@@ -1170,7 +1241,7 @@
   }
 
   /* ============================
-     Auth: keep usersPrivate live (slug updates)
+     Auth & keep usersPrivate live (slug updates)
      ============================ */
   function flashHigh(){ hudHigh.style.transform = 'scale(1.06)'; hudHigh.style.color = '#fff'; setTimeout(()=>{ hudHigh.style.transform=''; hudHigh.style.color=''; }, 420); }
   function updateProfileButton(){
@@ -1191,14 +1262,12 @@
     if (user){
       try {
         const privRef = doc(db, 'usersPrivate', user.uid);
-        // onSnapshot ensures live updates to name & slug even if user only visits or updates elsewhere
         userPrivUnsub = onSnapshot(privRef, (snap) => {
           if (snap.exists()){
             currentProfile = snap.data();
           } else {
             currentProfile = { name: user.displayName || null, slug: null, profilePhotoUrl: null };
           }
-          // keep profile photo updated from usersPrivate if available
           updateHUD();
         }, (err) => {
           console.warn('usersPrivate snapshot error', err);
@@ -1233,7 +1302,7 @@
   });
 
   /* ============================
-     Auto-spawn (faster)
+     Auto-spawn
      ============================ */
   (function startAutoSpawn(){
     setInterval(()=>{
