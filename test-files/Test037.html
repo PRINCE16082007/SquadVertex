@@ -1,1073 +1,276 @@
-<!DOCTYPE html> 
-<html lang="en">  
-<head>  
-  <meta charset="UTF-8" />  
-  <title>About Team Galaxy</title>  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css " />  
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">  
-  <style>  
-    /* ------- ORIGINAL STYLES (kept as-is) ------- */  
-    body {   
-      background: #181f2b;   
-      color: #fff;   
-      margin: 0;   
-      font-family: Arial, sans-serif;   
-      position: relative;  
-      min-height: 100vh;  
-      overflow-x: hidden;  
-    }  /* Star background */  
-.stars {  
-  position: fixed;  
-  top: 0;  
-  left: 0;  
-  width: 100%;  
-  height: 100%;  
-  pointer-events: none;  
-  z-index: -1;  
-}  
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Galaxy — Orbit Game (Upgraded with Real-time Leaderboard)</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+  <style>
+    :root{ --bg:#08101a; --card:#06121a; --accent:#64c2ff; --muted:#bfeaff }
+    html,body{height:100%;margin:0;font-family:Inter, Poppins, Arial, sans-serif;background:linear-gradient(180deg,#05111a 0%, #081222 100%);color:#eaf6ff}
+    .container{max-width:1200px;margin:18px auto;padding:16px;display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+    .logo{display:flex;align-items:center;gap:10px;cursor:pointer}
+    .logo img{height:40px}
+    .title{font-weight:700;font-size:1.2rem}
 
-.star {  
-  position: absolute;  
-  background-color: white;  
-  border-radius: 50%;  
-  animation: twinkle var(--duration, 5s) infinite ease-in-out;  
-}  
+    /* Play card */
+    .play-card{background:linear-gradient(180deg, rgba(2,8,18,0.72), rgba(4,8,14,0.56));border-radius:12px;padding:12px;position:relative;overflow:visible;border:1px solid rgba(255,255,255,0.03);box-shadow:0 10px 30px rgba(2,6,12,0.9)}
+    .play-area{height:520px;border-radius:10px;position:relative;background:transparent;}
+    canvas.play-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+    .orbit-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:6;display:flex;align-items:center;justify-content:center}
+    .earth-game{width:120px;height:120px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:46px;cursor:default;box-shadow:0 8px 28px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.04);background:radial-gradient(circle at 30% 25%, rgba(255,255,255,0.04), rgba(0,0,0,0.18));}
 
-@keyframes twinkle {  
-  0%, 100% { opacity: 0.2; }  
-  50% { opacity: 1; }  
-}  
+    .hud{position:absolute;right:14px;top:14px;z-index:18;background:rgba(6,10,18,0.6);padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);display:flex;gap:12px;align-items:center}
+    .hud .label{font-weight:700;color:#fff}
+    .hud .muted{color:var(--muted);font-size:0.85rem}
+    .hud .btn{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:6px 8px;border-radius:8px;color:var(--muted);cursor:pointer;font-weight:600}
 
-/* Header */  
-.top-bar {  
-  display: flex;  
-  align-items: center;  
-  justify-content: space-between;  
-  height: 80px;  
-  background: rgba(16, 23, 36, 0.85);  
-  padding: 0 20px;  
-  backdrop-filter: blur(10px);  
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);  
-  position: sticky;  
-  top: 0;  
-  z-index: 100;  
-  width: 100%;  
-  box-sizing: border-box;  
-}  
+    /* Leaderboard */
+    .leaderboard{background:linear-gradient(180deg, rgba(8,13,20,0.6), rgba(3,6,10,0.6));border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+    .leaderboard h3{margin:0 0 8px 0;color:var(--accent)}
+    .leaders{display:flex;flex-direction:column;gap:8px}
+    .leader-row{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.02)}
+    .leader-row .meta{display:flex;gap:10px;align-items:center}
+    .rank{width:34px;text-align:center;font-weight:800}
+    .name{font-weight:700}
+    .score{font-weight:800}
+    .you{box-shadow:0 6px 20px rgba(100,194,255,0.06);border:1px solid rgba(100,194,255,0.12);background:linear-gradient(90deg, rgba(100,194,255,0.04), rgba(100,194,255,0.02));}
+    .small{font-size:0.85rem;color:var(--muted)}
 
-.logo-title {  
-  margin-left: 0;  
-  display: flex;  
-  align-items: center;  
-  gap: 10px;  
-  font-size: 1.5rem;  
-  font-weight: bold;  
-  font-family: 'Montserrat', sans-serif;  
-  color: #fff;  
-  white-space: nowrap;  
-  overflow: hidden;  
-  text-overflow: ellipsis;  
-  flex: 0 0 auto;  
-}  
+    .leader-footer{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+    .my-row{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02)}
+    .signin{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:8px;color:var(--muted);cursor:pointer}
 
-.logo-title img {  
-  height: 80px;  
-  filter: drop-shadow(0 0 8px rgba(97, 218, 251, 0.7));  
-  flex-shrink: 0;  
-}  
+    /* Responsive */
+    @media (max-width:980px){.container{grid-template-columns:1fr}.leaderboard{order:2}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <header>
+        <div class="logo" onclick="location.reload()">
+          <img src="https://dl.dropboxusercontent.com/scl/fi/ulfs6ygkeyvr4mar8bkuz/galaxwbewh.png?rlkey=jq9buj80ny6et6jfbfpiuf14l&st=lwkqobqi&dl=0" alt="logo"/>
+          <div class="title">Galaxy — Orbit (Play)</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <button id="profileBtn" class="signin">Sign In</button>
+          <button id="btnSaveLocal" class="signin">Save (Cloud)</button>
+        </div>
+      </header>
 
-.hamburger {  
-  display: none;  
-  background: none;  
-  border: none;  
-  color: #e0e0e0;  
-  cursor: pointer;  
-  font-size: 1.2rem;  
-  padding: 8px;  
-  margin-right: 10px;  
-  flex-shrink: 0;  
-}  
+      <div class="play-card" id="playCard">
+        <div class="play-area">
+          <canvas id="playCanvas" class="play-canvas"></canvas>
+          <div class="orbit-center"><div id="earthEl" class="earth-game" title="Double-click to sign in">🌎</div></div>
+          <div id="hud" class="hud">
+            <div>
+              <div class="label" id="hudName">Guest</div>
+              <div class="muted" id="hudSlug">@guest</div>
+            </div>
+            <div style="width:14px"></div>
+            <div style="text-align:right">
+              <div class="label" id="hudCollected">0</div>
+              <div class="muted" id="hudHigh">High: 0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-.nav-buttons {  
-  display: flex;  
-  align-items: center;  
-  gap: 15px;  
-  font-size: 1rem;  
-  position: relative;  
-  flex-shrink: 0;  
-}  
+    <aside class="leaderboard">
+      <h3>Real-time Leaderboard</h3>
+      <div class="small">Top 10 players by High Score — updates live</div>
+      <div id="leaders" class="leaders" aria-live="polite"></div>
 
-.nav-btn,  
-.profile-btn {  
-  background: none;  
-  border: none;  
-  color: #e0e0e0;  
-  cursor: pointer;  
-  font-size: 0.95rem;  
-  position: relative;  
-  font-family: 'Poppins', sans-serif;  
-  font-weight: 500;  
-  padding: 6px 10px;  
-  border-radius: 6px;  
-  transition: all 0.3s ease;  
-  white-space: nowrap;  
-}  
+      <div class="leader-footer">
+        <div class="small">Your current rank (updates after sign-in & save)</div>
+        <div id="myRow" class="my-row">Not signed in — your rank is hidden. <button id="btnSignIn" class="signin">Sign In</button></div>
+      </div>
+    </aside>
+  </div>
 
-.nav-btn:hover, .profile-btn:hover {  
-  color: #64c2ff;  
-  background: rgba(255, 255, 255, 0.05);  
-}  
+  <!-- confetti canvas added dynamically by script -->
 
-.profile-btn img {  
-  width: 36px;  
-  height: 36px;  
-  border-radius: 50%;  
-  object-fit: cover;  
-  border: 2px solid #64c2ff;  
-}  
+  <!-- Firebase + Game code -->
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+  import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
+  import { getFirestore, collection, doc, setDoc, getDoc, serverTimestamp, query, orderBy, limit, onSnapshot, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
-.dropdown-content {  
-  display: none;  
-  position: absolute;  
-  right: 0;  
-  background: rgba(29, 35, 54, 0.95);  
-  min-width: 140px;  
-  border-radius: 8px;  
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);  
-  top: 50px;  
-  z-index: 1000;  
-  backdrop-filter: blur(10px);  
-  border: 1px solid rgba(255, 255, 255, 0.1);  
-  overflow: hidden;  
-}  
+  // --- firebase config (kept same as provided) ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+    authDomain: "teamgalaxy-77344.firebaseapp.com",
+    projectId: "teamgalaxy-77344",
+    storageBucket: "teamgalaxy-77344.firebasestorage.app",
+    messagingSenderId: "770256225320",
+    appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+    measurementId: "G-6C2W9NSNCH"
+  };
 
-.dropdown-content a {  
-  color: #e0e0e0;  
-  padding: 10px 14px;  
-  text-decoration: none;  
-  display: block;  
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);  
-  transition: all 0.2s ease;  
-  font-size: 0.95rem;  
-}  
+  const app = initializeApp(firebaseConfig);
+  try{
+    const appCheckProvider = new ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');
+    initializeAppCheck(app, { provider: appCheckProvider, isTokenAutoRefreshEnabled: true });
+  }catch(e){ console.warn('AppCheck failed', e); }
 
-.dropdown-content a:last-child { border-bottom: none; }  
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+  const db = getFirestore(app);
 
-.dropdown-content a:hover {  
-  background: rgba(100, 194, 255, 0.1);  
-  color: #64c2ff;  
-}  
+  // DOM refs
+  const playCanvas = document.getElementById('playCanvas');
+  const playCard = document.getElementById('playCard');
+  const earthEl = document.getElementById('earthEl');
+  const hudCollected = document.getElementById('hudCollected');
+  const hudHigh = document.getElementById('hudHigh');
+  const hudName = document.getElementById('hudName');
+  const hudSlug = document.getElementById('hudSlug');
+  const leadersEl = document.getElementById('leaders');
+  const myRowEl = document.getElementById('myRow');
+  const profileBtn = document.getElementById('profileBtn');
+  const btnSignIn = document.getElementById('btnSignIn');
+  const btnSaveLocal = document.getElementById('btnSaveLocal');
 
-.nav-buttons .more-options:hover .dropdown-content,  
-.nav-buttons .profile-btn.show-menu + .dropdown-content {  
-  display: block;  
-}  
+  // confetti helper (small)
+  function createConfettiCanvas(){
+    const c = document.createElement('canvas'); c.style.position='fixed'; c.style.left='0'; c.style.top='0'; c.style.width='100%'; c.style.height='100%'; c.style.pointerEvents='none'; c.style.zIndex=9999; document.body.appendChild(c);
+    const ctx = c.getContext('2d'); function resize(){ c.width = window.innerWidth; c.height = window.innerHeight; } window.addEventListener('resize', resize); resize(); return {c,ctx,parts:[]};
+  }
+  const confetti = createConfettiCanvas();
+  function launchConfettiSimple(count=40){ const {c,ctx,parts} = confetti; for(let i=0;i<count;i++){ parts.push({x:Math.random()*c.width,y:-20+Math.random()*-80,vx:(Math.random()-0.5)*6,vy:Math.random()*6+3,life:1,size:6+Math.random()*8,color:['#ffd166','#06d6a0','#118ab2','#ef476f'][Math.floor(Math.random()*4)]}) } requestAnimationFrame(function frame(){ ctx.clearRect(0,0,c.width,c.height); for(let i=parts.length-1;i>=0;i--){ const p=parts[i]; p.vy+=0.18; p.x+=p.vx; p.y+=p.vy; p.life-=0.01; ctx.save(); ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,p.size,p.size); ctx.restore(); if(p.y>c.height+40||p.life<=0) parts.splice(i,1); } if(parts.length>0) requestAnimationFrame(frame); else ctx.clearRect(0,0,c.width,c.height); }); }
 
-/* Mobile-specific fixes */  
-@media (max-width: 768px) {  
-  .logo-title {  
-    font-size: 1.2rem;  
-  }  
-  .logo-title img {  
-    height: 40px;  
-  }  
-  .hamburger {  
-    display: block;  
-  }  
-  .top-bar {  
-    justify-content: flex-end;  
-  }  
-  .logo-title {  
-    margin-left: auto;  
-  }  
-  .nav-buttons {  
-    display: none;  
-    position: absolute;  
-    top: 100%;  
-    right: 0;  
-    background: rgba(16, 23, 36, 0.95);  
-    flex-direction: column;  
-    padding: 20px;  
-    gap: 10px;  
-    border-radius: 8px;  
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);  
-    z-index: 100;  
-    width: 100%;  
-    box-sizing: border-box;  
-  }  
-  .nav-buttons.show {  
-    display: flex;  
-  }  
-}  
+  // --- Game core (stripped down & re-used from your original) ---
+  let DPR = Math.max(1, window.devicePixelRatio||1); let W=0,H=0; const ctx = playCanvas.getContext('2d'); let last=performance.now(); let orbs=[]; let pops=[]; let nextId=1; const MAX_ORBS=28;
+  const ORB_TYPES=[{name:'common',chance:0.75,size:18,score:1,color:'#8EE7FF'},{name:'uncommon',chance:0.18,size:26,score:3,color:'#FFD57B'},{name:'rare',chance:0.06,size:34,score:6,color:'#B8FF9A'},{name:'epic',chance:0.01,size:44,score:12,color:'#FF9AD6'}];
 
-/* About Container (kept identical) */  
-.about-blank-space { height: 380px; }  
-.about-main { max-width: 900px; margin: 180px auto 50px auto; padding-top: 70px; position: relative; }  
-.about-section { background: rgba(24,31,43,0.97); border-radius: 12px; box-shadow: 0 8px 24px #20294429; padding: 44px 48px; margin-bottom: 44px; }  
-.about-flex-row { display: flex; align-items: flex-start; gap: 36px; margin-bottom: 38px; flex-wrap: wrap; }  
+  let collected = 0; let high = parseInt(localStorage.getItem('galaxy_high'))||0;
+  let currentUser=null; let currentProfile=null;
 
-/* Updated image styles with 3:4 ratio and improved frames */  
-.about-img-container {  
-  display: flex;  
-  justify-content: center;  
-  align-items: center;  
-  border-radius: 12px;  
-  background: transparent;  
-  box-shadow: 0 2px 24px #23274680;  
-  overflow: hidden;  
-  flex-shrink: 0;  
-  border: 2px solid rgba(255, 255, 255, 0.15); /* Added border for better frame visibility */  
-  position: relative;  
-}  
+  function rand(a,b){return a+Math.random()*(b-a);} function pickType(){const r=Math.random();let s=0;for(const t of ORB_TYPES){s+=t.chance;if(r<=s) return t;}return ORB_TYPES[0];}
 
-.about-img-container::before {  
-  content: '';  
-  position: absolute;  
-  top: 2px;  
-  left: 2px;  
-  right: 2px;  
-  bottom: 2px;  
-  border-radius: 10px;  
-  border: 1px solid rgba(255, 255, 255, 0.05);  
-  pointer-events: none;  
-}  
+  function updateHUD(){ hudCollected.textContent = collected; hudHigh.textContent = 'High: ' + high; hudName.textContent = currentProfile?.name || (currentUser?.displayName || 'Guest'); hudSlug.textContent = currentProfile?.slug ? ('@'+currentProfile.slug) : (currentUser ? ('@'+currentUser.uid.slice(0,6)) : '@guest'); }
 
-.about-img-container img {  
-  width: 100%;  
-  height: 100%;  
-  object-fit: cover;  
-  display: block;  
-}  
+  function resizeCanvas(){ const rect = playCard.getBoundingClientRect(); const computedWidth = Math.min(rect.width, Math.max(320, window.innerWidth-120)); W = Math.max(300, Math.floor(computedWidth)); H = Math.max(220, Math.floor(rect.height)); playCanvas.style.width = W+'px'; playCanvas.style.height = H+'px'; playCanvas.width = Math.floor(W*DPR); playCanvas.height = Math.floor(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); }
+  window.addEventListener('resize', resizeCanvas);
 
-.about-img-left {  
-  width: 260px;  
-  height: 347px; /* 3:4 ratio (260 * 4 / 3) */  
-  margin-right: 20px;  
-  margin-bottom: 10px;  
-}  
+  function spawnOrbAt(clientX, clientY){ if(orbs.length>=MAX_ORBS) return; const rect = playCard.getBoundingClientRect(); const cx = rect.left + rect.width/2; const cy = rect.top + rect.height/2; const px = clientX || (cx + rand(-140,140)); const py = clientY || (cy + rand(-90,90)); const dx = px-cx, dy = py-cy; const radius = Math.max(72, Math.min(Math.hypot(dx,dy), Math.min(rect.width,rect.height)/2 - 36)); const angle = Math.atan2(dy,dx); const baseSpeed = 0.8 / Math.sqrt(Math.max(1, radius/90)); const speed = (Math.random()<0.5?1:-1)*baseSpeed*(0.6+Math.random()*0.9); const t = pickType(); const orb={id:nextId++,angle,radius,speed,size:t.size*(0.9+Math.random()*0.18),color:t.color,score:t.score,rarity:t.name,rotation:Math.random()*Math.PI*2,rotSpeed:(Math.random()*0.9-0.45)*0.02}; orbs.push(orb); }
 
-.about-img-right {  
-  width: 260px;  
-  height: 347px; /* 3:4 ratio */  
-  margin-left: 35px;  
-  margin-bottom: 10px;  
-}  
+  function hitTest(x,y){ let best=null,bestD=Infinity; const rect=playCard.getBoundingClientRect(); const cx=rect.width/2, cy=rect.height/2; for(const o of orbs){ const ox=cx+o.radius*Math.cos(o.angle), oy=cy+o.radius*Math.sin(o.angle); const d=Math.hypot(x-ox,y-oy); const hitR=Math.max(18,o.size*1.6); if(d<=hitR && d<bestD){best=o;bestD=d;} } return best; }
 
-.about-img-inline {  
-  width: 760px;  
-  height: 340px;   
-  margin: 16px auto 20px auto;  
-  border-radius: 10px;  
-  box-shadow: 0 2px 20px #23274680;  
-  display: block;  
-  border: 2px solid rgba(255, 255, 255, 0.15);  
-}  
+  function collectOrb(o){ if(!o) return; spawnPopForOrb(o); const prev=collected; collected+=o.score; if(collected>high){ high=collected; localStorage.setItem('galaxy_high',high); flashHigh(); playCelebration(); launchConfettiSimple(60); }
+    if(collected%10===0){ launchConfettiSimple(28); playCelebration(); }
+    orbs = orbs.filter(x=>x.id!==o.id); updateHUD(); playCollect(); }
 
-.about-img-inline::before {  
-  content: '';  
-  position: absolute;  
-  top: 2px;  
-  left: 2px;  
-  right: 2px;  
-  bottom: 2px;  
-  border-radius: 8px;  
-  border: 1px solid rgba(255, 255, 255, 0.05);  
-  pointer-events: none;  
-}  
+  function spawnPopForOrb(o){ const rect = playCard.getBoundingClientRect(); const cx = rect.width/2, cy = rect.height/2; const x = cx + o.radius * Math.cos(o.angle); const y = cy + o.radius * Math.sin(o.angle); const parts=[]; const rgb = {r:200,g:220,b:255}; const count=Math.min(34,Math.round(8+o.size*1.4)); for(let i=0;i<count;i++){ const ang=Math.random()*Math.PI*2; parts.push({vx:Math.cos(ang)*(0.6+Math.random()*3.2),vy:Math.sin(ang)*(0.6+Math.random()*3.2),size:Math.random()*(o.size*0.8)+0.6,color:`rgba(${rgb.r},${rgb.g},${rgb.b},`}) } pops.push({x,y,parts,life:1,lifeMax:1,speed:42+o.size*6}); }
 
-.about-flex-text { flex: 1 1 340px; font-size: 1.18rem; line-height: 1.7; white-space: pre-line; color: #fff; }  
-.about-section h2 { color: #fab84f; font-size: 2rem; margin-top: 0; margin-bottom: 16px; }  
-.about-section ul { margin: 18px 0 18px 24px; }  
-.about-section ul li { font-size: 1.10rem; margin-bottom: 9px; color: #b3e6ff; }  
+  function draw(now){ ctx.clearRect(0,0,W,H); drawBackground(now); drawOrbs(now); drawPops(now); drawVignette(); }
+  function drawBackground(now){ ctx.save(); const grad = ctx.createLinearGradient(0,0,0,H); grad.addColorStop(0,'rgba(6,10,18,0.20)'); grad.addColorStop(1,'rgba(3,6,12,0.32)'); ctx.fillStyle=grad; ctx.fillRect(0,0,W,H); ctx.restore(); }
+  function drawOrbs(now){ const rect = playCard.getBoundingClientRect(); const cx = rect.width/2, cy = rect.height/2; for(const o of orbs){ o.angle += o.speed * ((now-last)/1000); o.rotation += o.rotSpeed; const x = cx + o.radius * Math.cos(o.angle), y = cy + o.radius * Math.sin(o.angle); ctx.save(); ctx.translate(x,y); ctx.rotate(o.rotation*0.12); const glow = ctx.createRadialGradient(0,0,0,0,0,o.size*2.6); glow.addColorStop(0,'rgba(255,255,255,0.08)'); glow.addColorStop(0.6,'rgba(255,255,255,0.02)'); glow.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0,0,o.size*2.6,0,Math.PI*2); ctx.fill(); ctx.font = Math.max(16,Math.min(56,o.size)) + 'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🛰️',0,0); if(o.rarity==='epic'||o.rarity==='rare'){ ctx.font='10px Poppins, Arial'; ctx.fillStyle='#fff'; ctx.fillText(o.rarity[0].toUpperCase(), o.size*0.85, -o.size*0.82); } ctx.restore(); o.screenX=x; o.screenY=y; } }
+  function drawPops(now){ for(let i=pops.length-1;i>=0;i--){ const p=pops[i]; p.life -= (now-last)/420; const alpha = Math.max(0, p.life / p.lifeMax); for(const part of p.parts){ const px = p.x + part.vx * (1 - alpha) * p.speed; const py = p.y + part.vy * (1 - alpha) * p.speed; const s = Math.max(0.6, part.size * alpha); ctx.fillStyle = part.color + (0.88 * alpha) + ')'; ctx.beginPath(); ctx.ellipse(px,py,s,s,0,0,Math.PI*2); ctx.fill(); } if(p.life<=0) pops.splice(i,1); } }
+  function drawVignette(){ const g = ctx.createRadialGradient(W/2,H/2,Math.max(W,H)/6,W/2,H/2,Math.max(W,H)/1.0); g.addColorStop(0,'rgba(255,255,255,0)'); g.addColorStop(1,'rgba(0,0,0,0.18)'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
 
-/* Footer Styles (kept as-is) */  
-.footer {  
-  min-height: 300px;  
-  background: linear-gradient(90deg, #181f2b 60%, #232e44 100%);  
-  color: #fff;  
-  display: flex;  
-  flex-direction: row;  
-  gap: 30px;  
-  align-items: stretch;  
-  justify-content: space-between;  
-  padding: 30px 50px 20px 50px;  
-  border-top: 2px solid #163053;  
-  box-sizing: border-box;  
-  flex-wrap: wrap;  
-}  
-.footer-col {  
-  display: flex;  
-  flex-direction: column;  
-  justify-content: space-between;  
-  flex: 1 1 45%;  
-}  
-.footer-links {  
-  margin-bottom: 24px;  
-}  
-.footer-links a {  
-  font-size: 1.13rem;  
-  color: #aaa;  
-  text-decoration: none;  
-  margin-bottom: 12px;  
-  font-weight: 600;  
-  transition: color 0.2s;  
-  display: block;  
-}  
-.footer-links a:hover {  
-  color: #fab84f;  
-}  
-.footer-about-title {  
-  font-size: 1.46rem;  
-  font-weight: bold;  
-  margin-bottom: 8px;  
-  color: #fab84f;  
-}  
-.footer-about-text {  
-  font-size: 1rem;  
-  color: #e5e5e5;  
-  margin-bottom: 18px;  
-  line-height: 1.5;  
-}  
-.footer-social {  
-  margin-top: auto;  
-  display: flex;  
-  gap: 21px;  
-}  
-.footer-social a {  
-  color: #fff;  
-  font-size: 2rem;  
-  text-decoration: none;  
-  transition: color 0.22s;  
-}  
-.footer-social a:hover {  
-  color: #fab84f;  
-}  
-.footer-contact-row {  
-  margin-bottom: 8px;  
-  font-size: 1rem;  
-  display: flex;  
-  align-items: center;  
-  gap: 8px;  
-}  
-.footer-contact-label {  
-  color: #fab84f;  
-  margin-right: 4px;  
-  font-weight: 500;  
-  font-size: 1rem;  
-}  
-.footer-contact {  
-  margin-top: 12px;  
-  font-size: 1.02rem;  
-  color: #fff;  
-}  
-.footer-contact-icon {  
-  font-size: 1.18rem;  
-  vertical-align: middle;  
-  color: #afeafd;  
-  margin-right: 7px;  
-}  
-@media (max-width: 900px) {  
-  .footer {  
-    flex-direction: column;  
-    padding: 30px 20px 20px 20px;  
-    gap: 30px;  
-  }  
-  .footer-col {  
-    flex: 1 1 100%;  
-  }  
-  .about-flex-row {  
-    flex-direction: column;  
-  }  
-  .about-img-left, .about-img-right {  
-    margin-left: 0;  
-    margin-right: 0;  
-    align-self: center;  
-  }  
-}
+  function loop(now){ requestAnimationFrame(loop); const dt = Math.max(8, now-last); draw(now); last = now; }
 
-/* Hide reCAPTCHA v3 badge per your requirement, this is temporary and will be removed after i get a fixed domain. */
-.grecaptcha-badge {
-display: none !important;
-}
+  playCard.addEventListener('pointerdown',(e)=>{ if(e.pointerType==='mouse' && e.button!==0) return; const rect = playCard.getBoundingClientRect(); const p={x: e.clientX-rect.left, y: e.clientY-rect.top}; const found = hitTest(p.x,p.y); if(found){ collectOrb(found); return; } spawnOrbAt(e.clientX,e.clientY); });
 
-/* ------- GAME STYLES (scoped, minimal) ------- */  
-.orbit-playground {  
-  position: relative;  
-  height: 380px; /* matches previous blank space height */  
-  max-width: calc(100% - 40px);  
-  margin: 20px auto 0;  
-}  
-.play-card {  
-  position: relative;  
-  width: 100%;  
-  height: 100%;  
-  border-radius: 12px;  
-  overflow: hidden;  
-  background: linear-gradient(180deg, rgba(6,10,18,0.6), rgba(3,6,12,0.6));  
-  border: 1px solid rgba(255,255,255,0.03);  
-  box-shadow: 0 14px 40px rgba(0,0,0,0.6);  
-}  
-.play-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; }  
-/* Center Earth in middle of the play-card */  
-.orbit-center { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:6; display:flex; align-items:center; justify-content:center; pointer-events:auto; }  
-.earth-game {  
-  width:120px; height:120px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:56px; cursor:default;  
-  box-shadow: 0 10px 28px rgba(4,12,28,0.6), inset -6px -4px 20px rgba(0,0,0,0.45);  
-  border:1px solid rgba(255,255,255,0.04);  
-  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.04), rgba(0,0,0,0.18));  
-  -webkit-user-select:none; user-select:none;  
-  pointer-events: auto;  
-}  
-.hud-small {  
-  position:absolute; right:14px; top:14px; z-index:18; background:rgba(6,10,18,0.6); padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.04);  
-  display:flex; gap:10px; align-items:center; backdrop-filter: blur(6px);  
-}  
-.hud-small .btn { background:transparent; border:1px solid rgba(255,255,255,0.04); padding:6px 8px; border-radius:8px; color:#bfeaff; cursor:pointer; font-weight:600; }  
-.hud-small .btn:hover { background: rgba(100,194,255,0.06); color:#fff; }  
-.hud-small .label { font-weight:700; color:#fff; font-size:0.9rem; }  
-.hud-small .muted { color:#bfeaff; font-size:0.82rem; }  
-@media (max-width:700px) {  
-  .orbit-center { left: 50%; top: 50%; transform: translate(-50%,-50%); }  
-  .earth-game { width:84px;height:84px;font-size:40px; }  
-  .play-card { border-radius:10px; }  
-}
+  // audio
+  let audioCtx=null; function ensureAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+  function playTone(freq=420,dur=0.06){ try{ ensureAudio(); const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(audioCtx.destination); const now = audioCtx.currentTime; g.gain.setValueAtTime(0.001,now); g.gain.exponentialRampToValueAtTime(0.12, now+0.01); g.gain.exponentialRampToValueAtTime(0.0001, now+dur); o.start(now); o.stop(now+dur+0.02);}catch(e){} }
+  function playCollect(){ playTone(720,0.05); } function playCelebration(){ try{ ensureAudio(); const now=audioCtx.currentTime; const notes=[880,1100,1320,1760]; notes.forEach((n,i)=>{ const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='triangle'; o.frequency.value=n; o.connect(g); g.connect(audioCtx.destination); const t=now+i*0.07; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.14,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.22); o.start(t); o.stop(t+0.26); }); }catch(e){} }
+  document.addEventListener('pointerdown', ()=> ensureAudio(), {once:true});
 
-  </style>  
-</head>  
-<body>  
-   <!-- Star Background -->  
-  <div class="stars" id="stars"></div>     <!-- Top Section -->    <div class="top-bar">  
-    <button class="hamburger">  
-      <i class="fa-solid fa-bars"></i>  
-    </button>  
-    <div class="logo-title" onclick="window.location.href='dashboard.html';" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">  
-      <img src="https://dl.dropboxusercontent.com/scl/fi/ulfs6ygkeyvr4mar8bkuz/galaxwbewh.png?rlkey=jq9buj80ny6et6jfbfpiuf14l&st=lwkqobqi&dl=0" height="46" alt="Logo" />  
-      GalaxyWeb  
-    </div>  
-    <div class="nav-buttons">  
-      <button class="nav-btn" onclick="window.location.href='dashboard.html';">Home</button>  
-      <button class="nav-btn" onclick="window.location.href='about_us.html';">Team Galaxy</button>  
-      <div class="more-options" id="moreOptions" style="position:relative;">  
-        <button class="nav-btn">More ▼</button>  
-        <div class="dropdown-content" id="moreDropdown">  
-          <a href="galaxy_blogs.html">Blog</a>  
-          <a href="galaxy_portfolio.html">Portfolio</a>  
-          <a href="posts.html">Posts</a>  
-          <a href="community_chat.html">Community Chat</a>  
-          <a href="galaxy_studio.html">Galaxy Design</a>  
-        </div>  
-      </div>  
-      <button id="profileBtn" class="profile-btn" title="Sign In">  
-        Sign In  
-      </button>  
-      <div id="profileMenu" class="dropdown-content" style="right: 30px; display:none;">  
-        <a href="/teamgalaxy/user_management/user_profile.html" id="profileLink">Profile</a>  
-        <a href="#" id="logoutLink">Logout</a>  
-      </div>  
-    </div>  
-  </div>    <!-- Title & Game inserted into the previously empty space -->    <div style="position:relative;">  
-    <!-- replaced the blank space with the playground, keeping layout intact -->  
-    <div class="orbit-playground" id="orbitPlay">  
-      <div class="play-card" id="playCard" aria-label="Orbit playground">  
-        <canvas id="playCanvas" class="play-canvas" aria-hidden="true"></canvas>  <div class="orbit-center" aria-hidden="false">  
-      <!-- Earth DOM element - fixed center -->  
-      <div class="earth-game" id="earthEl" title="Double-click to sign in (or use Sign In button)">🌎</div>  
-    </div>  
+  // small helpers for leaderboard UI
+  function el(tag, cls, html){ const e=document.createElement(tag); if(cls) e.className=cls; if(html!==undefined) e.innerHTML = html; return e; }
 
-    <!-- HUD showing slug & name and controls -->  
-    <div class="hud-small" id="hud">  
-      <div>  
-        <div class="label" id="hudName">Guest</div>  
-        <div class="muted" id="hudSlug">@guest</div>  
-      </div>  
-      <div style="width:6px"></div>  
-      <div style="text-align:right">  
-        <div class="label" id="hudCollected">0</div>  
-        <div class="muted" id="hudHigh">High: 0</div>  
-      </div>  
-      <div style="width:12px"></div>  
-      <div>  
-        <button class="btn" id="btnSpawn">Spawn</button>  
-        <button class="btn" id="btnClear">Clear</button>  
-        <button class="btn" id="btnSave">Save</button>  
-        <button class="btn" id="btnDownload">Download</button>  
-      </div>  
-    </div>  
-  </div>  
-</div>  
+  /* -------------------------
+     REAL-TIME LEADERBOARD
+     - Top 10 (onSnapshot)
+     - Show user's rank (using getCountFromServer)
+  --------------------------*/
+  const scoresColl = collection(db, 'gameScores');
+  function initLeaderboardRealtime(){
+    const qTop = query(scoresColl, orderBy('high','desc'), limit(10));
+    onSnapshot(qTop, snapshot => {
+      const docs = snapshot.docs.map(d => ({ id:d.id, ...(d.data()) }));
+      renderTopList(docs);
+    });
+  }
 
-<!-- REMOVED the <h1 class="about-title">About Team Galaxy</h1> intentionally as requested -->
+  function renderTopList(rows){ leadersEl.innerHTML = '';
+    rows.forEach((r, idx)=>{
+      const row = el('div','leader-row'+(currentUser&&currentUser.uid===r.id?' you':''));
+      if(currentUser && currentUser.uid===r.id) row.classList.add('you');
+      const left = el('div','meta',`<div class="rank">${idx+1}</div><div><div class="name">${r.name||r.displayName||'Anonymous'}</div><div class="small">${r.slug?('@'+r.slug):('#'+(r.id||'anon').slice(0,6))}</div></div>`);
+      const right = el('div','score', String(r.high||0));
+      row.appendChild(left); row.appendChild(right);
+      leadersEl.appendChild(row);
+    });
+  }
 
-  </div>    <div class="about-main">  <div class="about-section">  
-  <div class="about-flex-row">  
-    <div class="about-img-container about-img-left">  
-      <img src=" https://dl.dropboxusercontent.com/scl/fi/4r0o3ymhfol2ndauy5bwb/IMG_20251108_205841.png?rlkey=hagnr2tms6hzf36vc0qgldu4e&st=czyyqfdb&dl=0" alt="Team Galaxy" />  
-    </div>  
-    <div class="about-flex-text">  
-      <h2>What is Team Galaxy?</h2>  
-      Est. May 2025<br>  
-      <br>  
-      Team Galaxy shines brightly on the competitive stage of World of Tanks Blitz. Our mission is to showcase our skills, push our limits, and aim for the top. With a strong and united roster, we make our mark not only in tournaments but in every battle we fight.<br>  
-      <br>  
-      But Team Galaxy isn't just about victory — it's about having fun, too! Our custom ranking system makes clan missions more exciting and creates a sense of friendly competition among members. Whether you want to fight at the highest level or just relax and enjoy the game with friends, you'll always find your place here.<br>  
-      <br>  
-      In Galaxy, every member is a star. 🌌  
-    </div>  
-  </div>  
-</div>  
+  async function updateMyRankUI(){
+    if(!currentUser){ myRowEl.innerHTML = 'Not signed in — sign in to save & see your exact rank. <button id="btnSignIn2" class="signin">Sign In</button>'; document.getElementById('btnSignIn2').addEventListener('click', doSignIn); return; }
+    // read my saved high
+    const myRef = doc(db, 'gameScores', currentUser.uid);
+    const mySnap = await getDoc(myRef);
+    const myHigh = (mySnap.exists() && mySnap.data().high) ? mySnap.data().high : high;
+    // count number of docs with high > myHigh
+    const q = query(scoresColl, where('high','>', myHigh));
+    try{
+      const cntSnap = await getCountFromServer(q);
+      const rank = cntSnap.data().count + 1;
+      // show a compact row (highlight if beyond top 10)
+      myRowEl.innerHTML = '';
+      const left = el('div',null,`<div style="font-weight:700">${currentProfile?.name || currentUser.displayName || 'You'}</div><div class="small">${currentProfile?.slug?('@'+currentProfile.slug):('@'+currentUser.uid.slice(0,6))}</div>`);
+      const right = el('div',null,`<div style="font-weight:800">#${rank}</div><div class="small">High: ${myHigh}</div>`);
+      myRowEl.appendChild(left); myRowEl.appendChild(right);
+      myRowEl.classList.toggle('you', true);
+    }catch(e){ console.warn('rank calc failed', e); }
+  }
 
-<div class="about-section">  
-  <div class="about-flex-row">  
-    <div class="about-flex-text">  
-      <h2>Clan Events & Activities</h2>  
-      At Team Galaxy, we believe that a clan should be more than just a tag next to your name — it should be an experience. That's why we host exclusive member-only events designed to bring our community closer and keep the game exciting.<br>  
-      <br>  
-      One of our biggest traditions is turning weekly clan missions into a fun competition. Members earn stars by completing missions, and these stars contribute to a long-term leaderboard. The higher you climb, the more rewards you can win — from in-game gifts to special Galaxy merchandise.<br>  
-      <br>  
-      These events are perfect for both competitive warriors and laid-back tankers who just want to enjoy the ride while working toward something rewarding.  
-    </div>  
-    <div class="about-img-container about-img-right">  
-      <img src=" https://dl.dropboxusercontent.com/scl/fi/g4wq4m8pkzd32dc7g79dt/1762616781.png?rlkey=m4ctngnu14zl6lffhbw5lvexz&st=bbrct8s5&dl=0" alt="Clan Event" />  
-    </div>  
-  </div>  
-</div>  
+  // listen for real-time changes and update my-row when relevant
+  function watchMyDoc(){ if(!currentUser) return; const myRef = doc(db,'gameScores', currentUser.uid); onSnapshot(myRef, snap => { updateMyRankUI(); }); }
 
-<div class="about-section">  
-  <h2>How to Apply</h2>  
-  <div class="about-img-container about-img-inline">  
-    <img src=" https://dl.dropboxusercontent.com/scl/fi/extuxsxwz66h4kxz8apek/IMG_20251108_212726.jpg?rlkey=xw6xxxqtx62ahy9bikj0em3i3&st=34gxu7oj&dl=0" alt="Apply Clan" />  
-  </div>  
-  <div>  
-    Currently, we operate one main clan that welcomes both competitive and casual players.<br>  
-    <br>  
-    <strong>Competitive Player Requirements:</strong>  
-    <ul>  
-      <li>2400+ WN8 (last 30 days)</li>  
-      <li>5,000+ total battles</li>  
-      <li>60%+ overall win rate</li>  
-    </ul>  
-    <strong>Casual Player Requirements:</strong>  
-    <ul>  
-      <li>10,000+ total battles</li>  
-      <li>60%+ overall win rate</li>  
-    </ul>  
-    <br>  
-    If you meet the requirements, simply reach out to us through our official Discord or in-game contact. Our recruitment officers will review your stats and chat with you before inviting you to join.<br>  
-    <br>  
-    💡 Coming Soon: We are planning to launch our second clan to welcome even more players into the Galaxy family. Stay tuned for updates!  
-  </div>  
-</div>  
+  // save to cloud (user required)
+  async function saveScoreToCloud(){ if(!currentUser){ alert('Sign in required to save to cloud.'); return; }
+    try{
+      const ref = doc(db, 'gameScores', currentUser.uid);
+      const payload = { high, name: currentProfile?.name || currentUser.displayName || null, slug: currentProfile?.slug || null, lastUpdated: serverTimestamp() };
+      await setDoc(ref, payload, { merge:true });
+      alert('Saved! Leaderboard will update automatically.');
+    }catch(e){ console.error('save fail', e); alert('Save failed.'); }
+  }
 
-<div class="about-section">  
-  <div class="about-flex-row">  
-    <div class="about-img-container about-img-left">  
-      <img src=" https://dl.dropboxusercontent.com/scl/fi/2o26yjla61had31bwpcqh/IMG_20251108_213648.jpg?rlkey=dh5e6uqjquk7bb8jnaofxixt5&st=mt7scwa4&dl=0" alt="Team Philosophy" />  
-    </div>  
-    <div class="about-flex-text">  
-      <h2>Our Playstyle & Philosophy</h2>  
-      At Team Galaxy, we believe that victory is built on teamwork, strategy, and trust. We don't just play — we play smart, fast, and as one. Every battle is a chance to learn, improve, and grow stronger together.<br>  
-      <br>  
-      Our philosophy is simple: push your limits, respect your team, and enjoy the game. Whether we're fighting for the top spot in a tournament or just having a relaxed evening in platoon, we bring the same passion and dedication to every match.<br>  
-      <br>  
-      We value communication, adaptability, and the drive to become better — because in the Galaxy, every star shines brighter when united. 🌌  
-    </div>  
-  </div>  
-</div>  
-<div class="about-section">  
-  <h2>Achievements & Journey</h2>  
-  <div class="about-flex-row">  
-    <div class="about-flex-text">  
-      Since our formation in May 2025, Team Galaxy has quickly built a name for itself in the Blitz community. While our sights are set on the biggest stages, we've already dominated numerous smaller-scale tournaments and community events — proving that our teamwork and skill can consistently bring home the win.<br>  
-      <br>  
-      <strong>Highlights so far:</strong>  
-      <ul>  
-        <li>Multiple weekly and community tournament victories.</li>  
-        <li>Strong performance in clan mission challenges and internal competitions.</li>  
-        <li>Established a solid and active roster of both competitive and casual players.</li>  
-        <li>Launched our Galaxy Mission Challenge, turning weekly clan missions into a fun, rewarding contest.</li>  
-      </ul>  
-      Our journey is just beginning — and each win, no matter the size, brings us closer to our ultimate goal: competing and triumphing at the highest levels.  
-    </div>  
-    <div class="about-img-container about-img-right">  
-      <img src=" https://dl.dropboxusercontent.com/scl/fi/athrvawp9mjtjc6psfxhv/1762616303.png?rlkey=4wwayymq6wn1632tquut9fn55&st=f10ldv4f&dl=0" alt="Galaxy Journey" />  
-    </div>  
-  </div>  
-</div>
+  // auth UI & wiring
+  async function doSignIn(){ try{ await signInWithPopup(auth, provider); alert('Signed in'); }catch(e){ console.warn(e); alert('Sign-in failed'); } }
+  profileBtn.addEventListener('click', doSignIn); btnSignIn.addEventListener('click', doSignIn); btnSaveLocal.addEventListener('click', saveScoreToCloud);
 
-  </div>    <!-- Footer -->    <footer class="footer">  
-    <!-- Left: About + Social -->  
-    <div class="footer-col footer-left">  
-      <div>  
-        <div class="footer-about-title">About TeamGalaxy</div>  
-        <div class="footer-about-text">  
-          TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration. We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!  
-        </div>  
-      </div>  
-      <div class="footer-social">  
-        <a href="https://x.com/teamgalaxy_wotb" title="Twitter"><i class="fab fa-twitter"></i></a>  
-     <!--   <a href="#" title="Facebook"><i class="fab fa-facebook"></i></a>  
-        <a href="#" title="Instagram"><i class="fab fa-instagram"></i></a>  
-        <a href="#" title="YouTube"><i class="fab fa-youtube"></i></a> -->  
-        <a href="https://discord.gg/26pSCyMRPM" title="Discord"><i class="fab fa-discord"></i></a>  
-      </div>  
-    </div>  <!-- Right: Links + Address -->  
-<div class="footer-col footer-right">  
-  <div class="footer-links">  
-    <a href="legal/privacy_policy.html">Privacy Policy</a>  
-    <a href="legal/terms_and_conditions.html">Terms & Conditions</a>  
-    <a href="about_us.html">About</a>  
-  </div>  
-  <div>  
-  <!--  <div class="footer-contact-row">  
-      <span class="footer-contact-label">  
-        <i class="fa-solid fa-location-dot footer-contact-icon"></i>Address:  
-      </span>  
-      Not Available   
-    </div>  
-    <div class="footer-contact-row">  
-      <span class="footer-contact-label">  
-        <i class="fa-solid fa-phone footer-contact-icon"></i>Phone:  
-      </span>  
-      Not Available  
-    </div> -->  
-    <div class="footer-contact-row">  
-      <span class="footer-contact-label">  
-        <i class="fa-solid fa-envelope footer-contact-icon"></i>Email:  
-      </span>  
-      info@teamgalaxy.net  
-    </div>  
-    <div class="footer-contact">  
-      <span class="footer-contact-label">  
-        <i class="fa-regular fa-clock footer-contact-icon"></i>Working Hours:  
-      </span>  
-      Mon-Sat 10am - 10pm  
-    </div>  
-  </div>  
-</div>
+  earthEl.addEventListener('dblclick', async ()=>{ if(currentUser){ alert('Signed in as ' + (currentUser.displayName || currentUser.email)); return; } try{ await signInWithPopup(auth, provider); alert('Signed in'); }catch(e){ console.warn(e); alert('Sign-in failed'); } });
 
-  </footer>    <!-- ReCAPTCHA (kept as-is) -->    <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>    <!-- GAME + FIREBASE SCRIPT -->    <script type="module">  
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";  
-    import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";  
-    import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";  
-    import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";  
-  
-    // Firebase configuration (your config)  
-    const firebaseConfig = {  
-      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",  
-      authDomain: "teamgalaxy-77344.firebaseapp.com",  
-      projectId: "teamgalaxy-77344",  
-      storageBucket: "teamgalaxy-77344.firebasestorage.app",  
-      messagingSenderId: "770256225320",  
-      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",  
-      measurementId: "G-6C2W9NSNCH"  
-    };  
-  
-    const app = initializeApp(firebaseConfig);  
-    try {  
-      const appCheckProvider = new ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');  
-      initializeAppCheck(app, { provider: appCheckProvider, isTokenAutoRefreshEnabled: true });  
-    } catch(e){ console.warn('App Check init failed', e); }  
-  
-    const auth = getAuth(app);  
-    const provider = new GoogleAuthProvider();  
-    const db = getFirestore(app);  
-  
-    // DOM refs  
-    const playCanvas = document.getElementById('playCanvas');  
-    const playCard = document.getElementById('playCard');  
-    const earthEl = document.getElementById('earthEl');  
-    const hudName = document.getElementById('hudName');  
-    const hudSlug = document.getElementById('hudSlug');  
-    const hudCollected = document.getElementById('hudCollected');  
-    const hudHigh = document.getElementById('hudHigh');  
-    const btnSpawn = document.getElementById('btnSpawn');  
-    const btnClear = document.getElementById('btnClear');  
-    const btnSave = document.getElementById('btnSave');  
-    const btnDownload = document.getElementById('btnDownload');  
-    const profileBtn = document.getElementById('profileBtn');  
-    const profileMenu = document.getElementById('profileMenu');  
-    const logoutLink = document.getElementById('logoutLink');  
-    const profileLink = document.getElementById('profileLink');  
-  
-    // game state (keeps minimal and local-first)  
-    let DPR = Math.max(1, window.devicePixelRatio || 1);  
-    let W = 0, H = 0;  
-    const ctx = playCanvas.getContext('2d');  
-    let last = performance.now();  
-    let orbs = []; let pops = []; let stars = [];  
-    let nextId = 1;  
-    const MAX_ORBS = 28;  
-    const ORB_TYPES = [  
-      { name:'common', chance:0.75, size:18, score:1, color:'#8EE7FF' },  
-      { name:'uncommon', chance:0.18, size:26, score:3, color:'#FFD57B' },  
-      { name:'rare', chance:0.06, size:34, score:6, color:'#B8FF9A' },  
-      { name:'epic', chance:0.01, size:44, score:12, color:'#FF9AD6' }  
-    ];  
-  
-    // local storage keys  
-    const LS_COL = 'galaxy_collected';  
-    const LS_HIGH = 'galaxy_high';  
-  
-    // score state  
-    let collected = parseInt(localStorage.getItem(LS_COL)) || 0;  
-    let high = parseInt(localStorage.getItem(LS_HIGH)) || 0;  
-  
-    // user identity state  
-    let currentUser = null; // firebase user  
-    let currentProfile = null; // object read from usersPrivate (slug, name)  
-  
-    // helpers  
-    function rand(a,b){ return a + Math.random()*(b-a); }  
-    function pickType(){ const r=Math.random(); let s=0; for(const t of ORB_TYPES){ s+=t.chance; if(r <= s) return t; } return ORB_TYPES[0]; }  
-    function hexToRgb(hex){ const s = hex.replace('#',''); return { r:parseInt(s.slice(0,2),16), g:parseInt(s.slice(2,4),16), b:parseInt(s.slice(4,6),16) }; }  
-    function updateHUD(){ hudCollected.textContent = collected; hudHigh.textContent = 'High: ' + high; hudName.textContent = currentProfile?.name || (currentUser?.displayName || 'Guest'); hudSlug.textContent = currentProfile?.slug ? ('@' + currentProfile.slug) : (currentUser ? ('@' + (currentUser.uid.slice(0,6))) : '@guest'); updateProfileButton(); }  
-  
-    // canvas sizing  
-    function resizeCanvas(){  
-      const rect = playCard.getBoundingClientRect();  
-      W = Math.max(200, Math.floor(rect.width));  
-      H = Math.max(160, Math.floor(rect.height));  
-      playCanvas.style.width = W + 'px'; playCanvas.style.height = H + 'px';  
-      playCanvas.width = Math.floor(W * DPR); playCanvas.height = Math.floor(H * DPR);  
-      ctx.setTransform(DPR,0,0,DPR,0,0);  
-      initStars();  
-    }  
-    window.addEventListener('resize', resizeCanvas);  
-  
-    function initStars(){  
-      stars.length = 0;  
-      const count = Math.max(12, Math.round((W*H)/90000));  
-      for(let i=0;i<count;i++) stars.push({ x:Math.random()*W, y:Math.random()*H, s:Math.random()*1.6+0.4, phase:Math.random()*Math.PI*2 });  
-    }  
-  
-    // spawn orb near center or at pointer  
-    function spawnOrbAt(clientX, clientY){  
-      if (orbs.length >= MAX_ORBS) return;  
-      const rect = playCard.getBoundingClientRect();  
-      // spawn around center if coords not provided  
-      const cx = rect.left + rect.width/2;  
-      const cy = rect.top + rect.height/2;  
-      const px = clientX || (cx + rand(-140,140));  
-      const py = clientY || (cy + rand(-90,90));  
-      // compute radius/angle relative to center  
-      const dx = px - cx; const dy = py - cy;  
-      const radius = Math.max(72, Math.min(Math.hypot(dx,dy), Math.min(rect.width, rect.height)/2 - 36));  
-      const angle = Math.atan2(dy, dx);  
-      const baseSpeed = 0.8 / Math.sqrt(Math.max(1, radius/90));  
-      const speed = (Math.random() < 0.5 ? 1 : -1) * baseSpeed * (0.6 + Math.random()*0.9);  
-      const t = pickType();  
-      const orb = {  
-        id: nextId++,  
-        angle, radius, speed,  
-        size: t.size * (0.9 + Math.random()*0.18),  
-        color: t.color, score: t.score, rarity: t.name,  
-        rotation: Math.random()*Math.PI*2,  
-        rotSpeed: (Math.random()*0.9-0.45)*0.02  
-      };  
-      orbs.push(orb);  
-    }  
-  
-    // hit detection + collect  
-    function toLocalCoords(clientX, clientY){  
-      const rect = playCard.getBoundingClientRect();  
-      return { x: clientX - rect.left, y: clientY - rect.top };  
-    }  
-    function hitTest(x,y){  
-      let best=null, bestD=Infinity;  
-      const rect = playCard.getBoundingClientRect();  
-      const cx = rect.width/2, cy = rect.height/2;  
-      for(const o of orbs){  
-        const ox = cx + o.radius * Math.cos(o.angle), oy = cy + o.radius * Math.sin(o.angle);  
-        const d = Math.hypot(x-ox, y-oy);  
-        const hitR = Math.max(18, o.size*1.6);  
-        if (d <= hitR && d < bestD){ best = o; bestD = d; }  
-      }  
-      return best;  
-    }  
-    function collectOrb(o){  
-      if(!o) return;  
-      spawnPopForOrb(o);  
-      collected += o.score;  
-      if (collected > high){ high = collected; localStorage.setItem(LS_HIGH, high); flashHigh(); }  
-      localStorage.setItem(LS_COL, collected);  
-      orbs = orbs.filter(x => x.id !== o.id);  
-      updateHUD();  
-      playCollect();  
-    }  
-  
-    function spawnPopForOrb(o){  
-      const rect = playCard.getBoundingClientRect(); const cx = rect.width/2, cy = rect.height/2;  
-      const x = cx + o.radius * Math.cos(o.angle); const y = cy + o.radius * Math.sin(o.angle);  
-      const rgb = hexToRgb(o.color);  
-      const parts = []; const count = Math.min(28, Math.round(6 + o.size*1.2));  
-      for(let i=0;i<count;i++){  
-        const ang = Math.random()*Math.PI*2;  
-        parts.push({ vx: Math.cos(ang)*(0.6 + Math.random()*2.6), vy: Math.sin(ang)*(0.6 + Math.random()*2.6), size: Math.random()*(o.size*0.6)+0.6, color: `rgba(${rgb.r},${rgb.g},${rgb.b},` });  
-      }  
-      pops.push({ x,y, parts, life:1, lifeMax:1, speed: 42 + o.size*6 });  
-    }  
-  
-    // drawing  
-    function drawBackground(now){  
-      ctx.save(); ctx.globalCompositeOperation = 'lighter';  
-      for(const s of stars){  
-        const a = 0.22 + 0.18*Math.abs(Math.sin(now/1200 + s.phase));  
-        ctx.fillStyle = `rgba(210,235,255,${a})`;  
-        ctx.beginPath(); ctx.ellipse(s.x, s.y, s.s, s.s, 0,0,Math.PI*2); ctx.fill();  
-      }  
-      ctx.restore();  
-    }  
-  
-    // DRAW ORBS as emoji 🛰️ (per request) — simplified visual, no satellite CSS needed  
-    function drawOrbs(now, dt){  
-      const rect = playCard.getBoundingClientRect();  
-      const cx = rect.width/2, cy = rect.height/2;  
-      for(const o of orbs){  
-        o.angle += o.speed * (dt/1000);  
-        o.rotation += o.rotSpeed;  
-        const x = cx + o.radius * Math.cos(o.angle), y = cy + o.radius * Math.sin(o.angle);  
-        // draw emoji at orb pos, size depends on o.size  
-        ctx.save();  
-        ctx.translate(x,y);  
-        ctx.rotate(o.rotation * 0.12);  
-        // subtle glow circle behind emoji  
-        ctx.beginPath();  
-        const grad = ctx.createRadialGradient(0,0,0,0,0,o.size*1.9);  
-        grad.addColorStop(0, 'rgba(255,255,255,0.08)');  
-        grad.addColorStop(1, 'rgba(255,255,255,0)');  
-        ctx.fillStyle = grad;  
-        ctx.arc(0,0,o.size*1.9,0,Math.PI*2); ctx.fill();  
-        // emoji  
-        const fontSize = Math.max(14, Math.min(56, o.size)); // cap emoji size reasonably  
-        ctx.font = `${fontSize}px serif`;  
-        ctx.textAlign = 'center';  
-        ctx.textBaseline = 'middle';  
-        ctx.fillText('🛰️', 0, 0);  
-        // small label for rarity (tiny)  
-        if (o.rarity === 'epic' || o.rarity === 'rare'){  
-          ctx.font = '10px Poppins, Arial';  
-          ctx.fillStyle = '#fff';  
-          ctx.fillText(o.rarity[0].toUpperCase(), o.size*0.85, -o.size*0.8);  
-        }  
-        ctx.restore();  
-        o.screenX = x; o.screenY = y;  
-      }  
-    }  
-  
-    function drawPops(now, dt){  
-      ctx.save();  
-      for(let i=pops.length-1;i>=0;i--){  
-        const p = pops[i];  
-        p.life -= dt / 400;  
-        const alpha = Math.max(0, p.life / p.lifeMax);  
-        for(const part of p.parts){  
-          const px = p.x + part.vx * (1 - alpha) * p.speed;  
-          const py = p.y + part.vy * (1 - alpha) * p.speed;  
-          const s = Math.max(0.6, part.size * alpha);  
-          ctx.fillStyle = part.color + (0.85 * alpha) + ')';  
-          ctx.beginPath(); ctx.ellipse(px, py, s, s, 0,0,Math.PI*2); ctx.fill();  
-        }  
-        if (p.life <= 0) pops.splice(i,1);  
-      }  
-      ctx.restore();  
-    }  
-  
-    function loop(now){  
-      requestAnimationFrame(loop);  
-      const dt = Math.max(8, now - last);  
-      last = now;  
-      ctx.clearRect(0,0,W,H);  
-      ctx.fillStyle = 'rgba(6,8,12,0.16)'; ctx.fillRect(0,0,W,H);  
-      drawBackground(now);  
-      drawOrbs(now, dt);  
-      drawPops(now, dt);  
-      drawVignette();  
-    }  
-  
-    function drawVignette(){  
-      const g = ctx.createRadialGradient(W/2, H/2, Math.max(W,H)/6, W/2, H/2, Math.max(W,H)/1.0);  
-      g.addColorStop(0,'rgba(255,255,255,0)');  
-      g.addColorStop(1,'rgba(0,0,0,0.20)');  
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);  
-    }  
-  
-    // pointer handling  
-    playCard.addEventListener('pointerdown', (e)=> {  
-      if(e.pointerType === 'mouse' && e.button !== 0) return;  
-      const p = toLocalCoords(e.clientX, e.clientY);  
-      const found = hitTest(p.x, p.y);  
-      if(found){ collectOrb(found); return; }  
-      spawnOrbAt(e.clientX, e.clientY);  
-    });  
-  
-    // small UI controls  
-    btnSpawn.addEventListener('click', ()=> { for(let i=0;i<3;i++) spawnOrbAt(); });  
-    btnClear.addEventListener('click', ()=> { orbs=[]; pops=[]; ctx.clearRect(0,0,W,H); });  
-    btnDownload.addEventListener('click', downloadScoreImage);  
-    btnSave.addEventListener('click', saveScoreToCloud);  
-  
-    // simple audio  
-    let audioCtx = null;  
-    function ensureAudio(){ if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }  
-    function playTone(freq=420, dur=0.08){ try{ ensureAudio(); const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(audioCtx.destination); const now = audioCtx.currentTime; g.gain.setValueAtTime(0.001, now); g.gain.exponentialRampToValueAtTime(0.12, now + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, now + dur); o.start(now); o.stop(now + dur + 0.02);}catch(e){} }  
-    function playCollect(){ playTone(720,0.06); }  
-  
-    document.addEventListener('pointerdown', ()=> ensureAudio(), { once:true });  
-  
-    // download image generation (upgraded visuals)  
-    function downloadScoreImage(){  
-      const w = 1400, h = 760;  
-      const c = document.createElement('canvas'); c.width = w; c.height = h;  
-      const g = c.getContext('2d');  
-      // background gradient  
-      const grad = g.createLinearGradient(0,0,0,h);  
-      grad.addColorStop(0, '#021224'); grad.addColorStop(1, '#061224');  
-      g.fillStyle = grad; g.fillRect(0,0,w,h);  
-      // star field  
-      for(let i=0;i<200;i++){ g.fillStyle = 'rgba(200,230,255,' + (0.02 + Math.random()*0.07) + ')'; const x=Math.random()*w,y=Math.random()*h,s= Math.random()*2.4; g.beginPath(); g.ellipse(x,y,s,s,0,0,Math.PI*2); g.fill(); }  
-      // glass card  
-      g.fillStyle = 'rgba(8,14,22,0.62)'; roundRect(g, 64, 84, w-128, h-188, 20); g.fill();  
-      // planet badge circle on left  
-      const cx = 150, cy = 300, cr = 120;  
-      const pg = g.createRadialGradient(cx-30, cy-30, 10, cx, cy, cr);  
-      pg.addColorStop(0, '#9ee6ff'); pg.addColorStop(0.5, '#6abcf1'); pg.addColorStop(1, '#1b3d66');  
-      g.fillStyle = pg; g.beginPath(); g.arc(cx, cy, cr, 0, Math.PI*2); g.fill();  
-      // glossy planet ring (simple)  
-      g.strokeStyle = 'rgba(255,255,255,0.08)'; g.lineWidth = 8; g.beginPath(); g.ellipse(cx, cy+8, cr+28, cr-18, -0.35, 0, Math.PI*2); g.stroke();  
-      // big emojis orbiting small  
-      g.font = '92px serif'; g.textAlign = 'center'; g.textBaseline='middle';  
-      g.fillText('🌎', cx, cy);  
-      // header text  
-      g.font = '700 44px Poppins, Arial'; g.fillStyle = '#fff'; g.fillText('Team Galaxy — Orbit Score Card', 380, 140);  
-      // display name + slug  
-      const displayName = currentProfile?.name || (currentUser?.displayName || 'Guest');  
-      const slug = currentProfile?.slug ? ('@' + currentProfile.slug) : (currentUser ? ('@' + currentUser.uid.slice(0,8)) : '@guest');  
-      g.font = '600 28px Poppins, Arial'; g.fillStyle = '#bfeaff'; g.fillText(displayName, 380, 210);  
-      g.font = '500 20px Poppins, Arial'; g.fillStyle = '#9fd8ff'; g.fillText(slug, 380, 246);  
-      // stats big  
-      g.font = '700 88px Poppins, Arial'; g.fillStyle = '#fff'; g.fillText(String(high), 380, 380);  
-      g.font = '500 20px Poppins, Arial'; g.fillStyle = '#9fd8ff'; g.fillText('High Score', 380, 420);  
-      // collected  
-      g.font = '700 38px Poppins, Arial'; g.fillStyle = '#fff'; g.fillText('Collected: ' + collected, 380, 520);  
-      // small details right column  
-      g.font = '400 16px Poppins, Arial'; g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillText('Generated: ' + new Date().toLocaleString(), 380, 600);  
-      // footer note  
-      g.font = '400 14px Poppins, Arial'; g.fillStyle = 'rgba(255,255,255,0.65)'; g.fillText('Public game stats only — no personal PII included.', w-300, h-56);  
-      // small satellites emojis around card  
-      g.font = '28px serif';  
-      const satPositions = [ [w-240,220], [w-160,340], [w-220,420] ];  
-      g.fillStyle = '#d7f6ff';  
-      satPositions.forEach((p,i)=> g.fillText('🛰️', p[0], p[1]));  
-      // download  
-      c.toBlob(function(blob){  
-        const url = URL.createObjectURL(blob);  
-        const a = document.createElement('a'); a.href = url; a.download = 'galaxy-score-' + Date.now() + '.png';  
-        document.body.appendChild(a); a.click(); a.remove();  
-        URL.revokeObjectURL(url);  
-      }, 'image/png');  
-    }  
-  
-     function roundRect(g, x, y, w, h, r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }  
-  
-    // Save to Firestore under gameScores/{uid} (merge)  
-    async function saveScoreToCloud(){  
-      if (!currentUser){ alert('Sign in to save to cloud (click Sign In or double-click the Earth).'); return; }  
-      try{  
-        const uid = currentUser.uid;  
-        const ref = doc(db, 'gameScores', uid);  
-        const payload = { collected, high, lastUpdated: serverTimestamp(), clientTs: new Date().toISOString() };  
-        await setDoc(ref, payload, { merge: true });  
-        alert('Saved to cloud.');  
-      }catch(e){ console.error('save fail', e); alert('Save failed.'); }  
-    }  
-  
-    // small visual update when new high  
-    function flashHigh(){ hudHigh.style.transform = 'scale(1.06)'; hudHigh.style.color = '#fff'; setTimeout(()=>{ hudHigh.style.transform=''; hudHigh.style.color=''; }, 420); }  
-  
-    // profile button UI update (show photo if signed in)  
-    function updateProfileButton(){  
-      try {  
-        const u = currentUser;  
-        if (!profileBtn) return;  
-        if (u) {  
-          if (u.photoURL) {  
-            profileBtn.innerHTML = `<img src="${u.photoURL}" alt="Profile" style="width:36px;height:36px;border-radius:50%;">`;  
-          } else {  
-            profileBtn.innerHTML = `<i class="fa-solid fa-user"></i>`;  
-          }  
-          profileBtn.title = u.displayName || u.email || "Profile";  
-        } else {  
-          profileBtn.innerHTML = 'Sign In';  
-          profileBtn.title = 'Sign In';  
-        }  
-      } catch(e){ console.warn('updateProfileBtn err', e); }  
-    }  
-  
-    // auth state + fetch usersPrivate to get slug & name  
-    onAuthStateChanged(auth, async (user) => {  
-      currentUser = user;  
-      if (user){  
-        try {  
-          const privRef = doc(db, 'usersPrivate', user.uid);  
-          const privSnap = await getDoc(privRef);  
-          if (privSnap.exists()){  
-            currentProfile = privSnap.data();  
-          } else {  
-            currentProfile = { name: user.displayName || null, slug: null };  
-          }  
-        } catch(e){  
-          console.warn('usersPrivate read failed', e);  
-          currentProfile = { name: user.displayName || null, slug: null };  
-        }  
-      } else {  
-        currentProfile = null;  
-      }  
-      updateHUD();  
-      updateProfileButton();  
-    });  
-  
-    // profile button interactions  
-    profileBtn.addEventListener('click', (e) => {  
-      e.stopPropagation();  
-      const liveUser = auth.currentUser;  
-      if (!liveUser) { window.location.href = "/teamgalaxy/legal/sign_up.html"; return; }  
-      if (!profileMenu) return;  
-      profileMenu.style.display = profileMenu.style.display === 'block' ? 'none' : 'block';  
-    });  
-    window.addEventListener('click', ()=> { if(profileMenu) profileMenu.style.display = 'none'; });  
-    logoutLink.addEventListener('click', (e)=> { e.preventDefault(); signOut(auth).then(()=>{ alert('Signed out'); }).catch(()=>{}); });  
-    profileLink.addEventListener('click', (e)=> { e.preventDefault(); if(!auth.currentUser) window.location.href = "/teamgalaxy/legal/sign_up.html"; else window.location.href = "/teamgalaxy/user_management/user_profile.html"; });  
-  
-    // double-click earth to sign in (or show user)  
-    earthEl.addEventListener('dblclick', async () => {  
-      if (currentUser){ alert('Signed in as ' + (currentUser.displayName || currentUser.email)); return; }  
-      try{ await signInWithPopup(auth, provider); alert('Signed in'); }catch(e){ console.warn(e); alert('Sign-in failed'); }  
-    });  
-  
-    // init canvas & warmup  
-    function init() {  
-      DPR = Math.max(1, window.devicePixelRatio || 1);  
-      resizeCanvas();  
-      const rect = playCard.getBoundingClientRect();  
-      for(let i=0;i<6;i++) spawnOrbAt(rect.left + rect.width/2 + rand(-140,140), rect.top + rect.height/2 + rand(-90,90));  
-      updateHUD();  
-      last = performance.now();  
-      requestAnimationFrame(loop);  
-    }  
-  
-    // persist local on unload  
-    window.addEventListener('beforeunload', ()=> { localStorage.setItem(LS_COL, collected); localStorage.setItem(LS_HIGH, high); });  
-  
-    // polyfill roundRect if missing (kept)  
-    if (!CanvasRenderingContext2D.prototype.roundRect) {  
-      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {  
-        if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;  
-        this.beginPath(); this.moveTo(x+r, y); this.arcTo(x+w, y, x+w, y+h, r); this.arcTo(x+w, y+h, x, y+h, r); this.arcTo(x, y+h, x, y, r); this.arcTo(x, y, x+w, y, r); this.closePath();  
-      };  
-    }  
-  
-    // run init on load  
-    window.addEventListener('load', init);  
-  </script>  </body>  
+  onAuthStateChanged(auth, async (user)=>{
+    currentUser = user;
+    if(user){ // attempt to read user profile (usersPrivate)
+      try{ const pRef = doc(db,'usersPrivate', user.uid); const pSnap = await getDoc(pRef); if(pSnap.exists()) currentProfile = pSnap.data(); else currentProfile = { name: user.displayName || null, slug: null }; }catch(e){ currentProfile = { name: user.displayName || null, slug: null }; }
+      updateHUD(); updateMyRankUI(); watchMyDoc();
+    } else { currentProfile = null; updateHUD(); myRowEl.innerHTML = 'Not signed in — sign in to save & see your exact rank. <button id="btnSignIn3" class="signin">Sign In</button>'; document.getElementById('btnSignIn3').addEventListener('click', doSignIn); }
+    // re-render top list highlight if needed
+  });
+
+  // initialize leaderboard realtime
+  initLeaderboardRealtime();
+
+  /* -------------------------
+     init / boot: spawn some orbs + animation
+  --------------------------*/
+  function init(){ DPR = Math.max(1, window.devicePixelRatio||1); resizeCanvas(); const rect = playCard.getBoundingClientRect(); for(let i=0;i<4;i++) spawnOrbAt(rect.left+rect.width/2 + rand(-120,120), rect.top+rect.height/2 + rand(-80,80)); last = performance.now(); requestAnimationFrame(function f(t){ loop(t); }); updateHUD(); }
+  window.addEventListener('load', init);
+
+  // persist high locally on unload
+  window.addEventListener('beforeunload', ()=>{ localStorage.setItem('galaxy_high', high); });
+
+  </script>
+</body>
 </html>
