@@ -73,6 +73,14 @@
         <div class="play-area">
           <canvas id="playCanvas" class="play-canvas"></canvas>
           <div class="orbit-center"><div id="earthEl" class="earth-game" title="Double-click to sign in">🌎</div></div>
+
+          <!-- extra fun elements -->
+          <div style="position:absolute;left:16px;bottom:16px;z-index:22;display:flex;flex-direction:column;gap:8px">
+            <button id="btnSpawn" class="hud btn">Spawn ×3</button>
+            <button id="btnClear" class="hud btn">Clear</button>
+            <button id="btnDownload" class="hud btn">Download</button>
+          </div>
+
           <div id="hud" class="hud" aria-hidden="false">
             <div>
               <div class="label" id="hudName">Guest</div>
@@ -90,8 +98,19 @@
 
     <aside class="leaderboard" aria-live="polite">
       <h3>Real-time Leaderboard</h3>
-      <div class="small">Top 10 players by High Score — updates live (slug field used as username)</div>
+      <div class="small">Top 10 players — updates live</div>
       <div style="height:10px"></div>
+      <div id="stats" class="leaders" style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1 1 45%;min-width:140px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)">
+          <div style="font-size:0.78rem;color:var(--muted)">Total players</div>
+          <div id="statTotal" style="font-weight:900;font-size:1.18rem">—</div>
+        </div>
+        <div style="flex:1 1 45%;min-width:140px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)">
+          <div style="font-size:0.78rem;color:var(--muted)">Global high</div>
+          <div id="statGlobalHigh" style="font-weight:900;font-size:1.18rem">—</div>
+        </div>
+      </div>
+
       <div id="leaders" class="leaders"></div>
 
       <div class="leader-footer">
@@ -107,7 +126,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
   import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
   import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
-  import { getFirestore, collection, doc, setDoc, getDoc, serverTimestamp, query, orderBy, limit, onSnapshot, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, serverTimestamp, query, orderBy, limit, onSnapshot, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
   // --- firebase config (kept same as provided) ---
   const firebaseConfig = {
@@ -140,6 +159,9 @@
   const profileBtn = document.getElementById('profileBtn');
   const btnSignIn = document.getElementById('btnSignIn');
   const btnSaveLocal = document.getElementById('btnSaveLocal');
+  const btnSpawn = document.getElementById('btnSpawn');
+  const btnClear = document.getElementById('btnClear');
+  const btnDownload = document.getElementById('btnDownload');
 
   // --- visual confetti (simple) ---
   function createConfettiCanvas(){ const c = document.createElement('canvas'); c.style.position='fixed'; c.style.left='0'; c.style.top='0'; c.style.width='100%'; c.style.height='100%'; c.style.pointerEvents='none'; c.style.zIndex=9999; document.body.appendChild(c); const ctx=c.getContext('2d'); function resize(){ c.width = window.innerWidth; c.height = window.innerHeight; } window.addEventListener('resize', resize); resize(); return {c,ctx,parts:[]}; }
@@ -178,6 +200,11 @@
 
   playCard.addEventListener('pointerdown',(e)=>{ if(e.pointerType==='mouse' && e.button!==0) return; const rect = playCard.getBoundingClientRect(); const p={x: e.clientX-rect.left, y: e.clientY-rect.top}; const found = hitTest(p.x,p.y); if(found){ collectOrb(found); return; } spawnOrbAt(e.clientX,e.clientY); });
 
+  // wire extra buttons
+  btnSpawn.addEventListener('click', ()=>{ for(let i=0;i<3;i++) spawnOrbAt(); });
+  btnClear.addEventListener('click', ()=>{ orbs=[]; pops=[]; ctx.clearRect(0,0,W,H); });
+  btnDownload.addEventListener('click', ()=>{ /* keep your existing download implementation or reuse previous code */ alert('Download not implemented in this build — use previous file for download.'); });
+
   // audio
   let audioCtx=null; function ensureAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
   function playTone(freq=420,dur=0.06){ try{ ensureAudio(); const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(audioCtx.destination); const now = audioCtx.currentTime; g.gain.setValueAtTime(0.001,now); g.gain.exponentialRampToValueAtTime(0.12, now+0.01); g.gain.exponentialRampToValueAtTime(0.0001, now+dur); o.start(now); o.stop(now+dur+0.02);}catch(e){} }
@@ -191,16 +218,9 @@
      REAL-TIME LEADERBOARD
      - Top 10 (onSnapshot)
      - Show user's rank (using getCountFromServer)
-     - Uses `slug` field for username when present
+     - Uses `slug` internally for username when present
   --------------------------*/
   const scoresColl = collection(db, 'gameScores');
-  function initLeaderboardRealtime(){
-    const qTop = query(scoresColl, orderBy('high','desc'), limit(10));
-    onSnapshot(qTop, snapshot => {
-      const docs = snapshot.docs.map(d => ({ id:d.id, ...(d.data()) }));
-      renderTopList(docs);
-    });
-  }
 
   function renderTopList(rows){ leadersEl.innerHTML = '';
     rows.forEach((r, idx)=>{
@@ -208,11 +228,9 @@
       const row = el('div','leader-row' + (isYou? ' you' : ''));
       if(isYou) row.classList.add('you');
 
-      // avatar: use first letter of slug or name
       const avatarText = (r.slug && r.slug.length>0) ? r.slug.slice(0,2).toUpperCase() : (r.name? r.name.slice(0,2).toUpperCase() : (r.id||'--').slice(0,2).toUpperCase());
       const avatar = el('div','avatar', avatarText);
 
-      // display name and slug (IMPORTANT: use `slug` field specifically for username)
       const displayName = r.name || r.displayName || 'Anonymous';
       const slugText = r.slug ? ('@' + r.slug) : ('@' + (r.id||'anon').slice(0,6));
 
@@ -227,14 +245,35 @@
     });
   }
 
+  // --- Leaderboard stats: total players and global high ---
+  async function fetchLeaderboardStats(){
+    try{
+      const totalSnap = await getCountFromServer(query(scoresColl));
+      const total = totalSnap.data().count || 0;
+      document.getElementById('statTotal').textContent = total;
+      const topQ = query(scoresColl, orderBy('high','desc'), limit(1));
+      const topDocs = await getDocs(topQ);
+      const globalHigh = (topDocs.docs.length && topDocs.docs[0].data().high) ? topDocs.docs[0].data().high : 0;
+      document.getElementById('statGlobalHigh').textContent = globalHigh;
+    }catch(e){ console.warn('fetchLeaderboardStats failed', e); }
+  }
+  setInterval(fetchLeaderboardStats, 15000);
+  fetchLeaderboardStats();
+
+  // single init function for realtime top 10
+  function initLeaderboardRealtime(){
+    const qTop = query(scoresColl, orderBy('high','desc'), limit(10));
+    onSnapshot(qTop, snapshot => {
+      const docs = snapshot.docs.map(d => ({ id:d.id, ...(d.data()) }));
+      renderTopList(docs);
+    });
+  }
+
   async function updateMyRankUI(){
     if(!currentUser){ myRowEl.innerHTML = 'Not signed in — sign in to save & see your exact rank. <button id="btnSignIn2" class="signin">Sign In</button>'; document.getElementById('btnSignIn2').addEventListener('click', doSignIn); return; }
-    // read my saved high (if any)
     const myRef = doc(db, 'gameScores', currentUser.uid);
     const mySnap = await getDoc(myRef);
     const myHigh = (mySnap.exists() && mySnap.data().high) ? mySnap.data().high : high;
-
-    // count number of docs with high > myHigh
     const q = query(scoresColl, where('high','>', myHigh));
     try{
       const cntSnap = await getCountFromServer(q);
@@ -247,10 +286,8 @@
     }catch(e){ console.warn('rank calc failed', e); }
   }
 
-  // Listen for changes to my doc and update
   function watchMyDoc(){ if(!currentUser) return; const myRef = doc(db,'gameScores', currentUser.uid); onSnapshot(myRef, snap => { updateMyRankUI(); }); }
 
-  // Save to cloud (user must be signed in)
   async function saveScoreToCloud(force=false){ if(!currentUser){ if(force) alert('Sign in required to save to cloud.'); return; }
     try{
       const ref = doc(db, 'gameScores', currentUser.uid);
@@ -262,14 +299,11 @@
   }
 
   // Auto-save every 30 seconds (only when user signed in and high changed)
-  setInterval(()=>{
-    if(currentUser && high && high !== lastSavedHigh){ saveScoreToCloud(false); }
-  }, 30000);
+  setInterval(()=>{ if(currentUser && high && high !== lastSavedHigh){ saveScoreToCloud(false); } }, 30000);
 
-  // Auth UI & wiring
+  // auth UI & wiring
   async function doSignIn(){ try{ await signInWithPopup(auth, provider); }catch(e){ console.warn(e); alert('Sign-in failed'); } }
   profileBtn.addEventListener('click', doSignIn); btnSignIn.addEventListener('click', doSignIn); btnSaveLocal.addEventListener('click', ()=> saveScoreToCloud(true));
-
   earthEl.addEventListener('dblclick', async ()=>{ if(currentUser){ alert('Signed in as ' + (currentUser.displayName || currentUser.email)); return; } try{ await signInWithPopup(auth, provider); }catch(e){ console.warn(e); alert('Sign-in failed'); } });
 
   onAuthStateChanged(auth, async (user)=>{
@@ -280,30 +314,26 @@
   });
 
   // initialize leaderboard realtime
-  function initLeaderboardRealtime(){ const qTop = query(scoresColl, orderBy('high','desc'), limit(10)); onSnapshot(qTop, snapshot => { const docs = snapshot.docs.map(d => ({ id:d.id, ...(d.data()) })); renderTopList(docs); }); }
   initLeaderboardRealtime();
 
   /* -------------------------
      init / boot: spawn some orbs + animation
   --------------------------*/
-function init(){ DPR = Math.max(1, window.devicePixelRatio||1); resizeCanvas(); const rect = playCard.getBoundingClientRect(); for(let i=0;i<5;i++) spawnOrbAt(rect.left+rect.width/2 + rand(-160,160), rect.top+rect.height/2 + rand(-120,120)); last = performance.now(); requestAnimationFrame(function f(t){ loop(t); }); updateHUD(); }
+  function init(){ DPR = Math.max(1, window.devicePixelRatio||1); resizeCanvas(); const rect = playCard.getBoundingClientRect(); for(let i=0;i<5;i++) spawnOrbAt(rect.left+rect.width/2 + rand(-160,160), rect.top+rect.height/2 + rand(-120,120)); last = performance.now(); requestAnimationFrame(function f(t){ loop(t); }); updateHUD(); }
   window.addEventListener('load', init);
-
-  // persist high locally on unload
   window.addEventListener('beforeunload', ()=>{ localStorage.setItem('galaxy_high', high); });
 
   </script>
 
   <!--
-    Index suggestion for Firestore (create in Firebase console):
+    Composite index suggestion (create in Firebase console):
 
     Collection: gameScores
     Composite index (recommended):
       - Field A: high (descending)
       - Field B: lastUpdated (descending)
-    Purpose: speeds up queries that both order by high and may filter/paginate by lastUpdated OR perform more complex queries later. Top-10 (orderBy('high','desc') limit(10)) doesn't strictly need a composite index, but having this composite index allows future combined queries and sorting to be fast.
 
-    Security note: ensure your Firestore security rules allow signed-in users to read the public leaderboard (or create a restricted cloud function endpoint) and allow each user to write only their own gameScores doc (match /gameScores/{uid} -> allow write if request.auth.uid == uid).
+    Security note: ensure Firestore rules allow signed-in users to write only their own doc and allow public reads if you want an open leaderboard.
   -->
 
 </body>
