@@ -1,42 +1,54 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Portfolio Manager — Delete (Client Firestore)</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Portfolio Manager — Resolve & Delete</title>
   <style>
-    body{font-family:Inter,system-ui,Arial;background:#071024;color:#e6eef8;padding:20px}
-    .wrap{max-width:1000px;margin:0 auto}
+    body{font-family:Inter,system-ui,Arial;background:#071024;color:#e6eef8;padding:18px}
+    .wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 360px;gap:16px}
+    .left{min-width:0}
+    h1{margin:0 0 12px}
+    .controls{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    button{padding:8px 12px;border-radius:8px;border:0;cursor:pointer}
+    .danger{background:#ef4444;color:white}
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
     .card{background:rgba(255,255,255,0.03);border-radius:8px;padding:10px}
     img{width:100%;height:140px;object-fit:cover;border-radius:6px}
-    .controls{display:flex;gap:8px;padding:12px 0;align-items:center}
-    button{padding:8px 12px;border-radius:8px;border:0;cursor:pointer}
-    .danger{background:#ef4444;color:white}
+    .meta{font-size:12px;margin-top:8px}
     .muted{color:#9fb0d9;font-size:13px}
+    .console{background:#010617;border:1px solid rgba(255,255,255,0.03);height:80vh;padding:10px;border-radius:8px;overflow:auto;font-family:monospace;font-size:12px;color:#cfe8ff}
+    .log-entry{margin-bottom:6px}
     .spinner{display:inline-block;width:16px;height:16px;border:3px solid rgba(255,255,255,0.12);border-top-color:white;border-radius:50%;animation:spin .9s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Portfolio — Manage & Delete Images</h1>
-    <div class="controls">
-      <label><input id="selectAll" type="checkbox"> Select all</label>
-      <button id="reload">Reload</button>
-      <button id="deleteSelected" class="danger">Delete selected</button>
-      <label style="margin-left:auto" class="muted" id="status">Status: idle</label>
+    <div class="left">
+      <h1>Portfolio — Resolve & Delete</h1>
+      <div class="controls">
+        <label><input id="selectAll" type="checkbox"> Select all</label>
+        <button id="reload">Reload</button>
+        <button id="resolveSelected">Resolve paths</button>
+        <button id="deleteSelected" class="danger">Delete selected</button>
+        <label style="margin-left:auto" class="muted" id="status">Status: idle</label>
+      </div>
+
+      <div id="grid" class="grid"></div>
     </div>
 
-    <div id="grid" class="grid"></div>
+    <div>
+      <h2 style="margin-top:0">Console</h2>
+      <div id="console" class="console"></div>
+    </div>
   </div>
 
   <!-- Firebase v9 modular -->
   <script type="module">
-    // ========== CONFIG: Replace WORKER_URL with your deployed worker ==========
-    const WORKER_URL = "https://dropbox-filebridge.teamgalaxy-interactive.workers.dev/"; // <- set this
+    // ========== CONFIG ==========
+    const WORKER_URL = "https://portfolio-dropbox-handler.teamgalaxy-interactive.workers.dev/"; // <-- REPLACE with deployed worker URL
 
-    // ========== FIREBASE CONFIG (you provided) ==========
     const firebaseConfig = {
       apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
       authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -47,72 +59,80 @@
       measurementId: "G-6C2W9NSNCH"
     };
 
-    // Firebase imports
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.25.0/firebase-app.js";
     import { getFirestore, collection, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.25.0/firebase-firestore.js";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // DOM
     const grid = document.getElementById("grid");
     const statusEl = document.getElementById("status");
     const selectAll = document.getElementById("selectAll");
     const deleteBtn = document.getElementById("deleteSelected");
     const reloadBtn = document.getElementById("reload");
+    const resolveBtn = document.getElementById("resolveSelected");
+    const consoleEl = document.getElementById("console");
+
+    function logConsole(...args) {
+      const line = document.createElement("div");
+      line.className = "log-entry";
+      line.textContent = `[${(new Date()).toLocaleTimeString()}] ${args.map(a => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" ")}`;
+      consoleEl.prepend(line);
+    }
 
     function setStatus(txt, busy=false) {
       statusEl.innerHTML = busy ? `<span class="spinner"></span> ${txt}` : `Status: ${txt}`;
+      logConsole(txt);
     }
 
-    // Helper to construct Dropbox API path based on fileName and folder you told me
+    // Helper to construct candidate dropbox path if needed (fallback)
     function makeDropboxPath(fileName) {
-      // Assumption: files are in App folder path /Apps/teamgalaxy_portfolio/<filename>
-      return `/Portfolio/${fileName}`;
+      return `/Apps/teamgalaxy_portfolio/${fileName}`;
     }
 
+    // Load Firestore portfolioItems
     async function loadItems() {
       setStatus("loading…", true);
       grid.innerHTML = "";
       try {
         const qsnap = await getDocs(collection(db, "portfolioItems"));
         const items = [];
-        qsnap.forEach(d => {
-          const data = d.data();
-          items.push({ docId: d.id, ...data });
-        });
-
-        if (!items.length) {
-          grid.innerHTML = "<div class='muted'>No items</div>";
-          setStatus("No items");
-          return;
-        }
-
+        qsnap.forEach(d => items.push({ docId: d.id, ...d.data() }));
         renderItems(items);
-        setStatus("Loaded " + items.length);
+        setStatus(`Loaded ${items.length}`);
       } catch (err) {
         console.error(err);
         setStatus("Error: " + err.message);
+        logConsole("Firestore load error:", err.message);
       }
     }
 
     function renderItems(items) {
+      if (!items.length) {
+        grid.innerHTML = "<div class='muted'>No items</div>";
+        return;
+      }
       const out = items.map(it => {
-        // Use dropboxUrl as thumbnail; fallback to a placeholder
         const thumb = it.dropboxUrl || "";
         const fileName = it.fileName || "";
-        // store dropboxPath in data-path (constructed)
-        const dropboxPath = makeDropboxPath(fileName);
+        // if document already has a stored path, use it for deletion; else blank for now
+        const storedPath = it.path || it.dropboxPath || "";
+        // data-path will contain storedPath if present, otherwise blank
         return `
-          <div class="card" data-docid="${escapeHtml(it.docId)}" data-path="${escapeHtml(dropboxPath)}">
+          <div class="card" data-docid="${escapeHtml(it.docId)}" data-file="${escapeHtml(fileName)}" data-path="${escapeHtml(storedPath)}">
             <label style="display:block"><input type="checkbox" class="sel" data-docid="${escapeHtml(it.docId)}"></label>
             <img src="${escapeHtml(thumb)}" alt="${escapeHtml(it.title||fileName||'')}" />
             <div class="meta"><strong>${escapeHtml(it.title||fileName||'')}</strong></div>
             <div class="meta">Size: ${escapeHtml(String(it.fileSize||''))} • ${escapeHtml(it.fileType||'')}</div>
             <div class="meta muted">folderId: ${escapeHtml(it.folderId||'')}</div>
             <div class="meta muted">isPublic: ${escapeHtml(String(it.isPublic||''))}</div>
+            <div class="meta muted small pathline">Stored path: <span class="spath">${escapeHtml(storedPath)}</span></div>
+            <div class="meta muted small resolvedline" style="display:none">Resolved: <span class="rpath"></span></div>
           </div>`;
       }).join("");
       grid.innerHTML = out;
+      // attach listener to checkboxes is not necessary beyond selectAll
     }
 
     function escapeHtml(s){ return (s===null||s===undefined)?"":String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -122,65 +142,133 @@
       document.querySelectorAll(".sel").forEach(cb => cb.checked = checked);
     });
 
+    reloadBtn.addEventListener("click", loadItems);
+
+    // Resolve paths for selected items (calls worker /search)
+    resolveBtn.addEventListener("click", async () => {
+      const selected = Array.from(document.querySelectorAll(".sel")).filter(cb => cb.checked);
+      if (!selected.length) { alert("Select items to resolve"); return; }
+
+      setStatus("Resolving paths…", true);
+      for (const cb of selected) {
+        const card = cb.closest(".card");
+        const fileName = card.dataset.file;
+        const storedPath = card.getAttribute("data-path");
+        logConsole("Resolving", fileName, "storedPath:", storedPath);
+        // If storedPath exists, show it; else call worker
+        if (storedPath) {
+          card.querySelector('.spath').textContent = storedPath;
+          card.querySelector('.resolvedline').style.display = 'none';
+          logConsole("Already stored path for", fileName, storedPath);
+          continue;
+        }
+        try {
+          const res = await fetch(WORKER_URL + "/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileName })
+          });
+          const j = await res.json();
+          if (!res.ok || !j.ok) {
+            logConsole("Search failed for", fileName, j);
+            card.querySelector('.resolvedline').style.display = 'block';
+            card.querySelector('.rpath').textContent = "not found";
+            continue;
+          }
+          const first = (j.results && j.results[0]) || null;
+          if (first) {
+            card.querySelector('.resolvedline').style.display = 'block';
+            card.querySelector('.rpath').textContent = first.path || '';
+            logConsole("Resolved", fileName, first.path, first.sharedUrl);
+            // Optionally show sharedUrl as thumbnail if dropboxUrl empty
+            if (!card.querySelector('img').src && first.sharedUrl) {
+              card.querySelector('img').src = first.sharedUrl;
+            }
+            // Optionally persist resolved path back to Firestore? Ask user before enabling auto-write.
+          } else {
+            card.querySelector('.resolvedline').style.display = 'block';
+            card.querySelector('.rpath').textContent = "no match";
+            logConsole("No matches for", fileName);
+          }
+        } catch (err) {
+          logConsole("Worker search error:", err.message || err);
+          card.querySelector('.resolvedline').style.display = 'block';
+          card.querySelector('.rpath').textContent = "error";
+        }
+      }
+      setStatus("Resolve complete");
+    });
+
+    // Delete selected: for each selected, pick stored path or resolved path, call worker bulk-delete and then delete Firestore doc
     deleteBtn.addEventListener("click", async () => {
       const selected = Array.from(document.querySelectorAll(".sel"))
         .filter(cb => cb.checked)
         .map(cb => {
           const card = cb.closest(".card");
-          return { docId: cb.dataset.docid, path: card.getAttribute("data-path") };
+          const docId = card.dataset.docid;
+          const stored = card.getAttribute("data-path") || "";
+          const resolved = card.querySelector('.rpath') ? card.querySelector('.rpath').textContent : "";
+          const chosenPath = stored || (resolved && resolved !== "no match" && resolved !== "error" ? resolved : "");
+          return { docId, path: chosenPath, fileName: card.dataset.file, card };
         });
 
       if (!selected.length) { alert("Select items to delete"); return; }
-      if (!confirm(`Delete ${selected.length} item(s)? This will remove files from Dropbox and delete Firestore docs.`)) return;
+      // ensure every selected has a path
+      const missing = selected.filter(s => !s.path);
+      if (missing.length) {
+        if (!confirm(`${missing.length} selected items have no resolved path. Proceed to try delete anyway (will likely fail)?`)) return;
+      }
+
+      if (!confirm(`Delete ${selected.length} item(s)? This will remove files from Dropbox and then delete Firestore docs.`)) return;
 
       setStatus("Deleting files on Dropbox…", true);
+      logConsole("Deleting items:", selected.map(s => s.path));
 
-      // 1) Call worker to delete files in Dropbox
+      // Call worker bulk-delete
       try {
+        const payload = { items: selected.map(s => ({ path: s.path })), permanent: false };
         const res = await fetch(WORKER_URL + "/bulk-delete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: selected.map(s => ({ path: s.path })), permanent: false })
+          body: JSON.stringify(payload)
         });
         const j = await res.json();
+        logConsole("Worker delete response:", j);
         if (!res.ok) {
-          console.error("Worker error", j);
-          setStatus("Dropbox delete failed: " + (j.error || res.status));
+          setStatus("Dropbox delete failed");
           return;
         }
 
-        // Check per-item results; proceed to delete docs that had ok:true
+        // Determine which paths deleted successfully
         const successPaths = new Set();
         for (const r of j.results || []) {
           if (r.ok) successPaths.add(r.path);
         }
 
-        // 2) Delete corresponding Firestore docs client-side
+        // Delete Firestore docs for items with successful deletion (or warn if failed)
         setStatus("Deleting Firestore docs…", true);
         const deletedDocs = [];
         for (const s of selected) {
-          // only delete doc if Dropbox delete returned ok for its path; if not, still attempt but warn
           if (!successPaths.has(s.path)) {
-            console.warn("Dropbox deletion failed for", s.path, " — still attempting to delete DB doc");
+            logConsole("Dropbox delete failed for path:", s.path, " — attempting DB delete? will still try.");
+            // If you prefer to skip DB delete on failed dropbox, change behavior here.
           }
           try {
             await deleteDoc(doc(db, "portfolioItems", s.docId));
             deletedDocs.push(s.docId);
+            logConsole("Firestore deleted:", s.docId);
           } catch (err) {
-            console.error("Failed to delete doc", s.docId, err);
+            logConsole("Firestore delete failed for", s.docId, err.message || err);
           }
         }
 
         setStatus(`Done. Deleted ${deletedDocs.length} docs.`);
-        // reload view
         loadItems();
       } catch (err) {
-        console.error(err);
-        setStatus("Error: " + err.message);
+        logConsole("Delete flow error:", err);
+        setStatus("Error: " + (err.message || err));
       }
     });
-
-    reloadBtn.addEventListener("click", loadItems);
 
     // initial load
     loadItems();
