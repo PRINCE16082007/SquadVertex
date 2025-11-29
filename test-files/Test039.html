@@ -1,110 +1,189 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dropbox Delete via Worker</title>
+  <title>Portfolio Manager — Delete (Client Firestore)</title>
   <style>
-    :root{font-family:Inter,system-ui,Segoe UI,Arial;--bg:#0f1724;--card:#0b1220;--accent:#7c3aed}
-    body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(180deg,#071024 0%, #081126 100%);color:#e6eef8}
-    .card{width:100%;max-width:600px;background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
-    h1{margin:0 0 12px;font-size:20px}
-    label{display:block;margin:10px 0 6px;font-size:13px;color:#dbeafe}
-    input[type="text"]{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
-    .row{display:flex;gap:8px;align-items:center}
-    button{margin-top:12px;padding:10px 14px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer}
-    .muted{font-size:13px;color:#9fb0d9;margin-top:8px}
-    pre{background:rgba(0,0,0,0.2);padding:12px;border-radius:8px;overflow:auto;color:#dfefff}
-    .spinner{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,0.15);border-top-color:white;border-radius:50%;animation:spin .9s linear infinite;vertical-align:middle}
+    body{font-family:Inter,system-ui,Arial;background:#071024;color:#e6eef8;padding:20px}
+    .wrap{max-width:1000px;margin:0 auto}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+    .card{background:rgba(255,255,255,0.03);border-radius:8px;padding:10px}
+    img{width:100%;height:140px;object-fit:cover;border-radius:6px}
+    .controls{display:flex;gap:8px;padding:12px 0;align-items:center}
+    button{padding:8px 12px;border-radius:8px;border:0;cursor:pointer}
+    .danger{background:#ef4444;color:white}
+    .muted{color:#9fb0d9;font-size:13px}
+    .spinner{display:inline-block;width:16px;height:16px;border:3px solid rgba(255,255,255,0.12);border-top-color:white;border-radius:50%;animation:spin .9s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
-  <div class="card" role="main">
-    <h1>Dropbox — Delete File</h1>
-
-    <label for="path">File path on Dropbox (example: <code>/folder/image.jpg</code>)</label>
-    <input id="path" type="text" placeholder="/folder/image.jpg" value="">
-
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-      <label style="display:flex;gap:8px;align-items:center">
-        <input id="permanent" type="checkbox"> <span class="muted">Permanently delete (skip deleted state)</span>
-      </label>
-      <div class="muted" id="notice">Worker URL must be configured</div>
+  <div class="wrap">
+    <h1>Portfolio — Manage & Delete Images</h1>
+    <div class="controls">
+      <label><input id="selectAll" type="checkbox"> Select all</label>
+      <button id="reload">Reload</button>
+      <button id="deleteSelected" class="danger">Delete selected</button>
+      <label style="margin-left:auto" class="muted" id="status">Status: idle</label>
     </div>
 
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button id="deleteBtn">Delete</button>
-      <button id="clearBtn" style="background:#334155">Clear</button>
-    </div>
-
-    <div id="status" class="muted" style="margin-top:12px"></div>
-
-    <div id="resp" style="margin-top:12px"></div>
-
-    <p style="margin-top:12px" class="muted">Security: don't store refresh token or app secret in this page. The Worker does all auth.</p>
+    <div id="grid" class="grid"></div>
   </div>
 
-  <script>
-    // TODO: Set your deployed Cloudflare Worker URL here (without trailing slash)
-    const WORKER_URL = "https://dropbox-filebridge.teamgalaxy-interactive.workers.dev/"; // <-- set this to your worker
+  <!-- Firebase v9 modular -->
+  <script type="module">
+    // ========== CONFIG: Replace WORKER_URL with your deployed worker ==========
+    const WORKER_URL = "https://dropbox-filebridge.teamgalaxy-interactive.workers.dev/"; // <- set this
 
-    // DOM
-    const pathInput = document.getElementById("path");
-    const permCheckbox = document.getElementById("permanent");
-    const deleteBtn = document.getElementById("deleteBtn");
-    const clearBtn = document.getElementById("clearBtn");
+    // ========== FIREBASE CONFIG (you provided) ==========
+    const firebaseConfig = {
+      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+      authDomain: "teamgalaxy-77344.firebaseapp.com",
+      projectId: "teamgalaxy-77344",
+      storageBucket: "teamgalaxy-77344.firebasestorage.app",
+      messagingSenderId: "770256225320",
+      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+      measurementId: "G-6C2W9NSNCH"
+    };
+
+    // Firebase imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.25.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.25.0/firebase-firestore.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const grid = document.getElementById("grid");
     const statusEl = document.getElementById("status");
-    const respEl = document.getElementById("resp");
-    const noticeEl = document.getElementById("notice");
-
-    if (WORKER_URL.includes("your-worker")) {
-      noticeEl.textContent = "Set WORKER_URL in the script to your worker endpoint";
-    } else {
-      noticeEl.textContent = WORKER_URL;
-    }
+    const selectAll = document.getElementById("selectAll");
+    const deleteBtn = document.getElementById("deleteSelected");
+    const reloadBtn = document.getElementById("reload");
 
     function setStatus(txt, busy=false) {
-      statusEl.innerHTML = busy ? `<span class="spinner"></span> ${txt}` : txt;
+      statusEl.innerHTML = busy ? `<span class="spinner"></span> ${txt}` : `Status: ${txt}`;
     }
 
-    deleteBtn.addEventListener("click", async () => {
-      const path = pathInput.value.trim();
-      if (!path) { setStatus("Enter a valid Dropbox path (e.g. /folder/file.jpg)"); return; }
+    // Helper to construct Dropbox API path based on fileName and folder you told me
+    function makeDropboxPath(fileName) {
+      // Assumption: files are in App folder path /Apps/teamgalaxy_portfolio/<filename>
+      return `/Apps/teamgalaxy_portfolio/${fileName}`;
+    }
 
-      setStatus("Sending delete request…", true);
-      respEl.innerHTML = "";
-
+    async function loadItems() {
+      setStatus("loading…", true);
+      grid.innerHTML = "";
       try {
-        const res = await fetch(WORKER_URL + "/delete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ path, permanent: permCheckbox.checked })
+        const qsnap = await getDocs(collection(db, "portfolioItems"));
+        const items = [];
+        qsnap.forEach(d => {
+          const data = d.data();
+          items.push({ docId: d.id, ...data });
         });
 
-        const text = await res.text();
-        let out;
-        try { out = JSON.parse(text); } catch(e) { out = text; }
-
-        if (!res.ok) {
-          setStatus("Error: " + (out && out.error_summary ? out.error_summary : res.status + " " + res.statusText));
-          respEl.innerHTML = `<pre>${JSON.stringify(out, null, 2)}</pre>`;
+        if (!items.length) {
+          grid.innerHTML = "<div class='muted'>No items</div>";
+          setStatus("No items");
           return;
         }
 
-        setStatus("Success");
-        respEl.innerHTML = `<pre>${JSON.stringify(out, null, 2)}</pre>`;
+        renderItems(items);
+        setStatus("Loaded " + items.length);
       } catch (err) {
-        setStatus("Request failed: " + err.message);
+        console.error(err);
+        setStatus("Error: " + err.message);
+      }
+    }
+
+    function renderItems(items) {
+      const out = items.map(it => {
+        // Use dropboxUrl as thumbnail; fallback to a placeholder
+        const thumb = it.dropboxUrl || "";
+        const fileName = it.fileName || "";
+        // store dropboxPath in data-path (constructed)
+        const dropboxPath = makeDropboxPath(fileName);
+        return `
+          <div class="card" data-docid="${escapeHtml(it.docId)}" data-path="${escapeHtml(dropboxPath)}">
+            <label style="display:block"><input type="checkbox" class="sel" data-docid="${escapeHtml(it.docId)}"></label>
+            <img src="${escapeHtml(thumb)}" alt="${escapeHtml(it.title||fileName||'')}" />
+            <div class="meta"><strong>${escapeHtml(it.title||fileName||'')}</strong></div>
+            <div class="meta">Size: ${escapeHtml(String(it.fileSize||''))} • ${escapeHtml(it.fileType||'')}</div>
+            <div class="meta muted">folderId: ${escapeHtml(it.folderId||'')}</div>
+            <div class="meta muted">isPublic: ${escapeHtml(String(it.isPublic||''))}</div>
+          </div>`;
+      }).join("");
+      grid.innerHTML = out;
+    }
+
+    function escapeHtml(s){ return (s===null||s===undefined)?"":String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    selectAll.addEventListener("change", (e) => {
+      const checked = e.target.checked;
+      document.querySelectorAll(".sel").forEach(cb => cb.checked = checked);
+    });
+
+    deleteBtn.addEventListener("click", async () => {
+      const selected = Array.from(document.querySelectorAll(".sel"))
+        .filter(cb => cb.checked)
+        .map(cb => {
+          const card = cb.closest(".card");
+          return { docId: cb.dataset.docid, path: card.getAttribute("data-path") };
+        });
+
+      if (!selected.length) { alert("Select items to delete"); return; }
+      if (!confirm(`Delete ${selected.length} item(s)? This will remove files from Dropbox and delete Firestore docs.`)) return;
+
+      setStatus("Deleting files on Dropbox…", true);
+
+      // 1) Call worker to delete files in Dropbox
+      try {
+        const res = await fetch(WORKER_URL + "/bulk-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: selected.map(s => ({ path: s.path })), permanent: false })
+        });
+        const j = await res.json();
+        if (!res.ok) {
+          console.error("Worker error", j);
+          setStatus("Dropbox delete failed: " + (j.error || res.status));
+          return;
+        }
+
+        // Check per-item results; proceed to delete docs that had ok:true
+        const successPaths = new Set();
+        for (const r of j.results || []) {
+          if (r.ok) successPaths.add(r.path);
+        }
+
+        // 2) Delete corresponding Firestore docs client-side
+        setStatus("Deleting Firestore docs…", true);
+        const deletedDocs = [];
+        for (const s of selected) {
+          // only delete doc if Dropbox delete returned ok for its path; if not, still attempt but warn
+          if (!successPaths.has(s.path)) {
+            console.warn("Dropbox deletion failed for", s.path, " — still attempting to delete DB doc");
+          }
+          try {
+            await deleteDoc(doc(db, "portfolioItems", s.docId));
+            deletedDocs.push(s.docId);
+          } catch (err) {
+            console.error("Failed to delete doc", s.docId, err);
+          }
+        }
+
+        setStatus(`Done. Deleted ${deletedDocs.length} docs.`);
+        // reload view
+        loadItems();
+      } catch (err) {
+        console.error(err);
+        setStatus("Error: " + err.message);
       }
     });
 
-    clearBtn.addEventListener("click", () => {
-      pathInput.value = "";
-      permCheckbox.checked = false;
-      respEl.innerHTML = "";
-      setStatus("");
-    });
+    reloadBtn.addEventListener("click", loadItems);
+
+    // initial load
+    loadItems();
   </script>
 </body>
 </html>
