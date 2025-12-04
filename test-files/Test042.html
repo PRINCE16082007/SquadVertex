@@ -1,753 +1,913 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>About Team Galaxy — Orbit Playground (Firestore)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&family=Poppins:wght@300;500&display=swap" rel="stylesheet">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>TeamGalaxy Portfolio Manager</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
   <style>
-    /* ---------- GLOBAL ---------- */
     :root{
-      --bg-1:#071018;
-      --panel: rgba(12,18,26,0.55);
-      --accent: #64c2ff;
-      --muted: #9fcff6;
+      --primary-bg: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      --card-bg: rgba(25, 25, 35, 0.9);
+      --glass-border: 1px solid rgba(255,255,255,0.1);
+      --panel-bg: #1e1e1e;
+      --muted: rgba(255,255,255,0.75);
+      --accent: linear-gradient(45deg,#00d4ff,#0077ff);
+      --primary: #00d4ff;
     }
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071018 0%, #081428 60%);color:#eaf7ff;font-family:'Poppins',system-ui,Segoe UI,Roboto,Arial}
-    a { color: var(--accent); text-decoration: none; }
-    /* ---------- TOP BAR (restored) ---------- */
-    .top-bar{height:72px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:rgba(6,12,18,0.45);backdrop-filter: blur(6px);position:sticky;top:0;z-index:601;border-bottom:1px solid rgba(255,255,255,0.03)}
-    .logo{display:flex;align-items:center;gap:12px;font-weight:700;font-family:'Montserrat',sans-serif;color:#fff;cursor:pointer}
-    .logo img{height:42px;filter:drop-shadow(0 6px 18px rgba(36,160,255,0.08))}
-    .nav {display:flex;gap:12px;align-items:center}
-    .nav button{background:transparent;border:0;color:var(--muted);padding:8px 10px;border-radius:8px;cursor:pointer}
-    .nav button:hover{color:var(--accent);background:rgba(100,194,255,0.06)}
-    /* ---------- HERO/PLAYGROUND: blended, single canvas ---------- */
-    .hero-wrap {position:relative;height:420px;margin:18px auto 28px;max-width:1200px;padding:12px;box-sizing:border-box;z-index:10}
-    .playground-card {position:relative;height:100%;border-radius:14px;overflow:hidden;background:linear-gradient(180deg, rgba(6,10,18,0.48), rgba(3,6,12,0.58));box-shadow:0 18px 60px rgba(5,10,20,0.7), inset 0 -40px 80px rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.03)}
-    .play-canvas {position:absolute;inset:0;display:block;mix-blend-mode:screen;opacity:0.98;filter:contrast(1.02) saturate(1.02);pointer-events:none}
-    /* Earth uses a fixed position and won't move programmatically */
-    .orbit-center {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:6;display:flex;align-items:center;justify-content:center;pointer-events:auto}
-    .earth {
-      width:128px;height:128px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-      font-size:72px;line-height:1;cursor:default;
-      box-shadow: 0 18px 40px rgba(4,12,28,0.6), inset -8px -6px 30px rgba(0,0,0,0.45), 0 6px 18px rgba(100,160,255,0.06);
-      border:1px solid rgba(255,255,255,0.04); -webkit-user-select:none; user-select:none;
-      transform-origin:center center;
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background:var(--primary-bg); color:#fff; padding:20px; line-height:1.5;
+      position: relative; overflow-x: hidden;
     }
-    .earth .emoji { filter: drop-shadow(0 8px 18px rgba(0,0,0,0.45)); text-shadow: 0 2px 8px rgba(0,0,0,0.35); }
-    .orbit-ring {position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:420px;height:420px;border-radius:50%;pointer-events:none;z-index:4;mix-blend-mode:overlay;opacity:0.36}
-    /* HUD */
-    .hud {position:absolute;right:18px;top:14px;z-index:18;background:linear-gradient(180deg, rgba(8,14,20,0.56), rgba(6,10,16,0.56));padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);display:flex;gap:10px;align-items:center;backdrop-filter:blur(6px)}
-    .hud .btn{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:6px 10px;border-radius:8px;color:var(--muted);cursor:pointer;font-weight:600}
-    .hud .btn:hover{background:rgba(100,194,255,0.08);color:#fff}
-    .score {font-weight:700;color:#dff8ff}
-    .small-muted{font-size:0.85rem;color:#bfeaff;opacity:0.95}
-    /* Share/download */
-    .share-actions {display:flex;gap:8px;align-items:center}
-    /* ---------- CONTENT & ABOUT (restored) ---------- */
-    .about-main { max-width:900px; margin: 18px auto 50px auto; padding-top: 12px; position: relative; }
-    .about-section { background: rgba(24,31,43,0.97); border-radius: 12px; box-shadow: 0 8px 24px #20294429; padding: 28px 34px; margin-bottom: 22px; color:#e6f6ff; }
-    .about-flex-row { display: flex; align-items: flex-start; gap: 26px; margin-bottom: 18px; flex-wrap: wrap; }
-    .about-img-container { display:flex; justify-content:center; align-items:center; border-radius:12px; overflow:hidden; border:2px solid rgba(255,255,255,0.08); background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00)); }
-    .about-img-left { width: 260px; height: 347px; }
-    .about-img-right { width: 260px; height: 347px; }
-    .about-img-inline { width: 760px; height: 340px; margin: 16px auto 20px auto; border-radius:10px; border:2px solid rgba(255,255,255,0.08); }
-    .about-flex-text { flex: 1 1 340px; font-size: 1.05rem; line-height: 1.7; white-space: pre-line; color: #dff6ff; }
-    .about-section h2 { color: #fab84f; font-size: 1.6rem; margin-top: 0; margin-bottom: 8px; }
-    /* Footer: restored */
-    .footer { min-height:260px; background: linear-gradient(90deg, #181f2b 60%, #232e44 100%); color: #fff; display:flex; gap:20px; align-items:stretch; justify-content:space-between; padding:28px 34px 22px 34px; border-top:2px solid #163053; flex-wrap:wrap }
-    .footer-col { display:flex; flex-direction:column; justify-content:space-between; flex:1 1 45% }
-    .footer-about-title { font-size: 1.16rem; font-weight:700; color:#fab84f; margin-bottom:8px; }
-    .footer-about-text { color:#e5e5e5; line-height:1.45 }
-    .footer-links a { font-size:1.04rem; color:#aaa; display:block; margin-bottom:10px; font-weight:600 }
-    /* misc */
-    .schema-panel { max-width: 1100px; margin: 10px auto; color:#dff; font-family:monospace; background:rgba(0,0,0,0.35); padding:10px; border-radius:8px; font-size:0.95rem; border:1px solid rgba(255,255,255,0.04); }
-    .schema-toggle { cursor:pointer; color:var(--accent); text-decoration:underline; margin-left:6px; font-weight:700 }
-    @media (max-width:900px){ .earth{width:96px;height:96px;font-size:56px} .orbit-ring{width:320px;height:320px} .hero-wrap{height:360px} }
+
+    .container{max-width:1200px;margin:0 auto;position:relative;z-index:10}
+    .header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+    .title { display:flex; align-items:center; gap:12px; }
+    .title h1{ font-size:1.5rem; background:var(--accent); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:0 }
+    .auth-area{display:flex;gap:8px;align-items:center}
+    .auth-btn{background:rgba(255,255,255,0.1);border:0;padding:8px 10px;border-radius:8px;color:#fff;cursor:pointer}
+    .auth-badge{background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:12px;font-size:13px}
+    .stats{display:flex;gap:12px;margin:14px 0 18px;flex-wrap:wrap}
+    .stat-card{background:var(--card-bg);border:var(--glass-border);border-radius:10px;padding:10px 14px;min-width:120px;text-align:center}
+    .stat-number{font-weight:700;font-size:1.2rem;background:var(--accent);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .upload-section{background:var(--card-bg);border:var(--glass-border);padding:14px;border-radius:10px;min-width:420px}
+    .file-input-wrapper{position:relative;display:inline-block;background:rgba(255,255,255,0.02);padding:12px 18px;border-radius:999px;border:2px dashed rgba(255,255,255,0.06);cursor:pointer}
+    .file-input{position:absolute;left:0;top:0;opacity:0;width:100%;height:100%}
+    .upload-btn{background:linear-gradient(45deg,var(--primary),#0077ff);border:0;color:#fff;padding:8px 12px;border-radius:12px;cursor:pointer}
+    .preview-container{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .preview-item{width:88px;height:88px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;position:relative}
+    .preview-item img{width:100%;height:100%;object-fit:cover}
+    .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-top:18px}
+    .image-card{background:var(--card-bg);border:var(--glass-border);border-radius:10px;overflow:hidden;position:relative}
+    .image-preview{width:100%;height:160px;object-fit:cover;background:#222}
+    .image-info{padding:10px}
+    .image-title{font-weight:700}
+    .image-meta{font-size:12px;color:rgba(255,255,255,0.7);margin-top:6px}
+    .image-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .action-btn{background:rgba(255,255,255,0.03);border:var(--glass-border);padding:6px 8px;border-radius:8px;color:#fff;cursor:pointer}
+
+    .pagination { display:flex; gap:8px; align-items:center; justify-content:center; margin-top:16px; flex-wrap:wrap }
+    .page-btn { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.04); color:#fff; padding:8px 10px; border-radius:8px; cursor:pointer; }
+    .page-btn.disabled { opacity:0.5; pointer-events:none; }
+    .page-btn.active { background: linear-gradient(45deg,#00d4ff,#0077ff); color:#000; font-weight:700; }
+
+    /* Loading Screen */
+    .loading-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(8,7,20,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:2000; gap:12px; }
+    .loading-spinner{ width:64px;height:64px;border:6px solid rgba(255,255,255,0.06);border-top:6px solid var(--primary);border-radius:50%;animation:spin 1s linear infinite;}
+    @keyframes spin {0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    .loading-title{ font-size:1.25rem; color:var(--primary); font-weight:700; }
+    .loading-sub{ color:#d7eaff; font-size:0.95rem; opacity:0.9; }
+    .loading-progress{ width:360px; max-width:90%; background:rgba(255,255,255,0.04); border-radius:12px; padding:6px; border:1px solid rgba(255,255,255,0.03); }
+    .loading-bar { height:10px; background:linear-gradient(90deg,#00d4ff,#0077ff); width:0%; border-radius:8px; transition:width 300ms linear; }
+
+    /* Page spinner overlay (shown during page switching/preload) */
+    .page-spinner {
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      transform: translate(-50%, -50%);
+      z-index: 50;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      background: rgba(10,10,15,0.6);
+      padding:14px 18px;
+      border-radius:12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    }
+    .page-spinner .small { color:#d7eaff; font-size:13px; }
+    .page-spinner .mini-spinner { width:36px; height:36px; border:4px solid rgba(255,255,255,0.06); border-top:4px solid var(--primary); border-radius:50%; animation:spin 1s linear infinite; }
+
+    /* Console Panel restored */
+    #console-panel{ position:fixed; left:0; right:0; bottom:0; height:260px; background:var(--panel-bg); color:#d4d4d4; font-family:Consolas,monospace; z-index:99999; display:flex; flex-direction:column; border-top:2px solid #262626; overflow: hidden; box-shadow: 0 -6px 24px rgba(0,0,0,0.6); }
+    #console-header{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#222;border-bottom:1px solid #2a2a2a;flex:0 0 auto}
+    #console-controls{display:flex;gap:8px;align-items:center}
+    #console-controls button, #console-controls select{background:#2b2b2b;color:#fff;border:0;padding:6px 8px;border-radius:6px;cursor:pointer}
+    #console-body{display:flex;flex:1;gap:12px;overflow:hidden;min-height:0}
+    #console-content{flex:1;padding:10px;overflow:auto;border-right:1px solid #2a2a2a;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;font-size:13px}
+    #console-sidebar{width:320px;padding:10px;background:#181818;overflow:auto}
+    .log-entry{padding:6px 4px;border-bottom:1px dashed rgba(255,255,255,0.03);font-size:13px}
+    .small-muted{font-size:12px;color:#9aa}
+
+    .hidden { display: none !important; }
+
+    @media (max-width:720px){ #console-sidebar{display:none} #console-panel{height:280px} }
   </style>
 </head>
 <body>
-  <!-- Top nav (restored) -->
-  <div class="top-bar">
-    <div class="logo" onclick="location.href='dashboard.html'">
-      <img src="https://dl.dropboxusercontent.com/scl/fi/ulfs6ygkeyvr4mar8bkuz/galaxwbewh.png?rlkey=jq9buj80ny6et6jfbfpiuf14l&st=lwkqobqi&dl=0" alt="logo">
-      GalaxyWeb
-    </div>
-    <div class="nav">
-      <button onclick="location.href='posts.html'">Posts</button>
-      <button onclick="location.href='community_chat.html'">Community</button>
-      <button onclick="location.href='about_us.html'">About</button>
-    </div>
-  </div>
-
-  <!-- HERO + PLAYGROUND -->
-  <div class="hero-wrap">
-    <div class="playground-card" id="playgroundCard" aria-label="Orbit playground">
-      <!-- single canvas blended into page (pointer-events none so underlying container receives clicks) -->
-      <canvas id="playCanvas" class="play-canvas" aria-hidden="true"></canvas>
-
-      <!-- Earth fixed DOM element (won't move) -->
-      <div class="orbit-center" role="img" aria-label="Earth">
-        <div class="earth" id="earthEl" tabindex="0"><span class="emoji">🌎</span></div>
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-spinner"></div>
+    <div class="loading-title" id="loadingTitle">Verifying admin access...</div>
+    <div class="loading-sub" id="loadingSub">Preparing your portfolio...</div>
+    <div class="loading-progress" id="loadingProgressWrap" style="display:none">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+        <div id="loadingCount">0 / 0</div>
+        <div id="loadingPercent">0%</div>
       </div>
-
-      <!-- decorative orbit ring -->
-      <div class="orbit-ring" aria-hidden="true">
-        <svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
-          <defs><linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#64c2ff" stop-opacity="0.06"/><stop offset="0.5" stop-color="#a6f0ff" stop-opacity="0.06"/><stop offset="1" stop-color="#64c2ff" stop-opacity="0.02"/></linearGradient></defs>
-          <ellipse cx="100" cy="100" rx="86" ry="42" fill="none" stroke="url(#g1)" stroke-width="2"/>
-          <ellipse cx="100" cy="100" rx="54" ry="26" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="1"/>
-        </svg>
-      </div>
-
-      <!-- HUD -->
-      <div class="hud" role="status" aria-live="polite">
-        <div>
-          <div class="score" id="collected">Collected: 0</div>
-          <div class="small-muted" id="highscore">High: 0</div>
-        </div>
-        <div style="width:8px"></div>
-        <div class="share-actions">
-          <button class="btn" id="btnSpawn">Spawn</button>
-          <button class="btn" id="btnClear">Clear</button>
-          <button class="btn" id="btnAuto">Auto: Off</button>
-          <button class="btn" id="btnSave">Save</button>
-          <button class="btn" id="btnDownload">Download Image</button>
-        </div>
-      </div>
+      <div style="background:rgba(255,255,255,0.04);padding:6px;border-radius:8px"><div class="loading-bar" id="loadingBar" style="width:0%"></div></div>
+      <div style="margin-top:6px;font-size:12px;color:#d4e8ff" id="loadingDetail">Starting...</div>
     </div>
   </div>
 
-  <!-- About content (restored) -->
-  <div class="about-main">
-    <div class="about-section">
-      <div class="about-flex-row">
-        <div class="about-img-container about-img-left">
-          <img src="https://dl.dropboxusercontent.com/scl/fi/4r0o3ymhfol2ndauy5bwb/IMG_20251108_205841.png?rlkey=hagnr2tms6hzf36vc0qgldu4e&st=czyyqfdb&dl=0" alt="Team Galaxy" style="width:100%;height:100%;object-fit:cover" />
-        </div>
-        <div class="about-flex-text">
-          <h2>What is Team Galaxy?</h2>
-          Est. May 2025<br><br>
-          Team Galaxy shines brightly on the competitive stage of World of Tanks Blitz. Our mission is to showcase our skills, push our limits, and aim for the top. With a strong and united roster, we make our mark not only in tournaments but in every battle we fight.<br><br>
-          But Team Galaxy isn't just about victory — it's about having fun, too! Our custom ranking system makes clan missions more exciting and creates a sense of friendly competition among members. Whether you want to fight at the highest level or just relax and enjoy the game with friends, you'll always find your place here.<br><br>
-          In Galaxy, every member is a star. 🌌
-        </div>
+  <div class="container" id="mainContainer" style="display:none; position:relative;">
+    <div class="header">
+      <div class="title">
+        <button class="page-btn back-btn" onclick="goBack()"><i class="fas fa-arrow-left"></i></button>
+        <h1><i class="fas fa-rocket"></i> TeamGalaxy Portfolio Manager</h1>
+      </div>
+      <div class="auth-area">
+        <div id="authBadge" class="auth-badge">Not signed in</div>
+        <button id="btnSignIn" class="auth-btn">Sign in (Google)</button>
+        <button id="btnSignOut" class="auth-btn" style="display:none">Sign out</button>
       </div>
     </div>
 
-    <div class="about-section">
-      <div class="about-flex-row">
-        <div class="about-flex-text">
-          <h2>Clan Events & Activities</h2>
-          At Team Galaxy, we believe that a clan should be more than just a tag next to your name — it should be an experience. That's why we host exclusive member-only events designed to bring our community closer and keep the game exciting.<br><br>
-          One of our biggest traditions is turning weekly clan missions into a fun competition. Members earn stars by completing missions, and these stars contribute to a long-term leaderboard. The higher you climb, the more rewards you can win — from in-game gifts to special Galaxy merchandise.<br><br>
-          These events are perfect for both competitive warriors and laid-back tankers who just want to enjoy the ride while working toward something rewarding.
+    <div class="stats">
+      <div class="stat-card"><div class="stat-number" id="totalImages">0</div><div class="stat-label">Total Images</div></div>
+      <div class="stat-card"><div class="stat-number" id="publicImages">0</div><div class="stat-label">Public</div></div>
+      <div class="stat-card"><div class="stat-number" id="storageUsed">0 MB</div><div class="stat-label">Storage</div></div>
+    </div>
+
+    <div class="controls">
+      <div class="upload-section">
+        <div class="file-input-wrapper" title="Click to select images or drag & drop">
+          <input type="file" id="imageUpload" class="file-input" accept="image/*" multiple>
+          <span><i class="fas fa-cloud-upload-alt"></i> Select images (max 5)</span>
         </div>
-        <div class="about-img-container about-img-right">
-          <img src="https://dl.dropboxusercontent.com/scl/fi/g4wq4m8pkzd32dc7g79dt/1762616781.png?rlkey=m4ctngnu14zl6lffhbw5lvexz&st=bbrct8s5&dl=0" alt="Clan Event" style="width:100%;height:100%;object-fit:cover" />
-        </div>
+        <button id="uploadBtn" class="upload-btn"><i class="fas fa-upload"></i> Upload to Portfolio</button>
+        <div id="previewContainer" class="preview-container"></div>
+        <div id="uploadNotice" class="small-muted">Please select up to <strong>5 images</strong> at once.</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+        <select id="categoryFilter" style="padding:8px;border-radius:8px;background:rgba(0,0,0,0.2);border:var(--glass-border);color:#fff">
+          <option value="all">All categories</option>
+          <option value="web-design">Web Design</option>
+          <option value="ui-ux">UI/UX</option>
+          <option value="photography">Photography</option>
+          <option value="illustration">Illustration</option>
+        </select>
+        <div class="small-muted">Uploads go to Cloudflare Worker → Dropbox (server).</div>
       </div>
     </div>
 
-    <div class="about-section">
-      <h2>How to Apply</h2>
-      <div class="about-img-container about-img-inline">
-        <img src="https://dl.dropboxusercontent.com/scl/fi/extuxsxwz66h4kxz8apek/IMG_20251108_212726.jpg?rlkey=xw6xxxqtx62ahy9bikj0em3i3&st=34gxu7oj&dl=0" alt="Apply Clan" style="width:100%;height:100%;object-fit:cover" />
-      </div>
-      <div class="about-flex-text">
-        Currently, we operate one main clan that welcomes both competitive and casual players.<br><br>
-        <strong>Competitive Player Requirements:</strong>
-        <ul>
-          <li>2400+ WN8 (last 30 days)</li>
-          <li>5,000+ total battles</li>
-          <li>60%+ overall win rate</li>
-        </ul>
-        <strong>Casual Player Requirements:</strong>
-        <ul>
-          <li>10,000+ total battles</li>
-          <li>60%+ overall win rate</li>
-        </ul>
-        <br>
-        If you meet the requirements, simply reach out to us through our official Discord or in-game contact. Our recruitment officers will review your stats and chat with you before inviting you to join.<br><br>
-        💡 Coming Soon: We are planning to launch our second clan to welcome even more players into the Galaxy family. Stay tuned for updates!
+    <div id="loadingIndicator" style="display:none;margin-top:12px"><i class="fas fa-spinner fa-spin"></i> Uploading…</div>
+
+    <div id="portfolioGallery" class="gallery" aria-live="polite"></div>
+
+    <div id="pagination" class="pagination"></div>
+
+    <!-- Page spinner overlay (shown while switching pages) -->
+    <div id="pageSpinner" class="page-spinner hidden" aria-hidden="true">
+      <div class="mini-spinner"></div>
+      <div class="small">Loading page… please wait</div>
+    </div>
+  </div>
+
+  <!-- Console Panel -->
+  <div id="console-panel" aria-live="polite">
+    <div id="console-header">
+      <div class="title">Debug Console</div>
+      <div id="console-controls">
+        <select id="console-level"><option value="all">All</option><option value="log">Log</option><option value="info">Info</option><option value="success">Success</option><option value="warning">Warn</option><option value="error">Error</option></select>
+        <button id="clear-console"><i class="fas fa-trash"></i> Clear</button>
+        <button id="download-console"><i class="fas fa-download"></i> Export</button>
+        <button id="toggle-console">Hide</button>
       </div>
     </div>
 
-    <div class="about-section">
-      <div class="about-flex-row">
-        <div class="about-img-container about-img-left">
-          <img src="https://dl.dropboxusercontent.com/scl/fi/2o26yjla61had31bwpcqh/IMG_20251108_213648.jpg?rlkey=dh5e6uqjquk7bb8jnaofxixt5&st=mt7scwa4&dl=0" alt="Team Philosophy" style="width:100%;height:100%;object-fit:cover" />
-        </div>
-        <div class="about-flex-text">
-          <h2>Our Playstyle & Philosophy</h2>
-          At Team Galaxy, we believe that victory is built on teamwork, strategy, and trust. We don't just play — we play smart, fast, and as one. Every battle is a chance to learn, improve, and grow stronger together.<br><br>
-          Our philosophy is simple: push your limits, respect your team, and enjoy the game. Whether we're fighting for the top spot in a tournament or just having a relaxed evening in platoon, we bring the same passion and dedication to every match.<br><br>
-          We value communication, adaptability, and the drive to become better — because in the Galaxy, every star shines brighter when united. 🌌
-        </div>
-      </div>
-    </div>
+    <div id="console-body">
+      <div id="console-content"></div>
+      <div id="console-sidebar">
+        <div style="margin-bottom:8px"><strong>Auth info</strong></div>
+        <div class="small-muted">Signed-in Gmail:</div>
+        <div id="sidebar-email" style="margin-bottom:8px;color:#dff1ff">—</div>
+        <div class="small-muted">User UID:</div>
+        <div id="sidebar-uid" style="margin-bottom:12px;color:#dff1ff">—</div>
 
-    <div class="about-section">
-      <h2>Achievements & Journey</h2>
-      <div class="about-flex-row">
-        <div class="about-flex-text">
-          Since our formation in May 2025, Team Galaxy has quickly built a name for itself in the Blitz community. While our sights are set on the biggest stages, we've already dominated numerous smaller-scale tournaments and community events — proving that our teamwork and skill can consistently bring home the win.<br><br>
-          <strong>Highlights so far:</strong>
-          <ul>
-            <li>Multiple weekly and community tournament victories.</li>
-            <li>Strong performance in clan mission challenges and internal competitions.</li>
-            <li>Established a solid and active roster of both competitive and casual players.</li>
-            <li>Launched our Galaxy Mission Challenge, turning weekly clan missions into a fun, rewarding contest.</li>
-          </ul>
-          Our journey is just beginning — and each win, no matter the size, brings us closer to our ultimate goal: competing and triumphing at the highest levels.
-        </div>
-        <div class="about-img-container about-img-right">
-          <img src="https://dl.dropboxusercontent.com/scl/fi/athrvawp9mjtjc6psfxhv/1762616303.png?rlkey=4wwayymq6wn1632tquut9fn55&st=f10ldv4f&dl=0" alt="Galaxy Journey" style="width:100%;height:100%;object-fit:cover" />
-        </div>
+        <div style="margin-top:8px"><strong>Fields accessed (aggregated)</strong></div>
+        <div id="sidebar-fields" class="small-muted">—</div>
+
+        <div style="margin-top:12px" class="small-muted">Shortcuts: Ctrl + ` to toggle panel</div>
       </div>
     </div>
   </div>
 
-  <!-- Firestore schema / collection structure info (collapsible) -->
-  <div class="schema-panel" id="schemaPanel">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div><strong>Firestore Collections (structure)</strong></div>
-      <div><span class="schema-toggle" id="schemaToggle">Show/Hide</span></div>
-    </div>
-    <pre id="schemaPre" style="display:none;margin-top:8px;white-space:pre-wrap">
-/* Recommended Firestore structure for the playground (uses UID)
- *
- * Collection: usersPrivate (existing)
- *   Document ID: {uid}
- *     - name: string
- *     - email: string
- *     - slug: string
- *     - profilePhotoUrl: string
- *     - ... other profile fields
- *
- * Collection: publicProfiles (existing)
- *   Document ID: {slug} or {uid}
- *     - name, profilePhotoUrl, visibility, joinDate, publicPostCount, etc.
- *
- * New collection for game stats:
- * Collection: gameScores
- *   Document ID: {uid}
- *     - collected: number        // last saved collected score
- *     - high: number             // user high score
- *     - lastUpdated: timestamp
- *     - saveCount: number
- *     - autoMode: boolean (opt-in)
- *     - clientTs: timestamp (client time when saved)
- *
- * Optional leaderboard view:
- * Collection: leaderboard (or you can query gameScores ordered by 'high')
- *   Document ID: auto-generated or {uid}
- *     - uid: string
- *     - high: number
- *     - displayName: string (optional - avoid sensitive data)
- *     - lastUpdated: timestamp
- *
- * Security note: Use Firestore rules to allow users to write only their own gameScores/{uid} doc.
- */
-    </pre>
-  </div>
+  <div style="height:28px"></div>
 
-  <!-- Footer restored -->
-  <footer class="footer">
-    <div class="footer-col">
-      <div>
-        <div class="footer-about-title">About TeamGalaxy</div>
-        <div class="footer-about-text">
-          TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration. We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!
-        </div>
-      </div>
-      <div style="margin-top:auto">
-        <div style="display:flex;gap:12px">
-          <a href="https://x.com/teamgalaxy_wotb" title="Twitter"><i class="fab fa-twitter"></i></a>
-          <a href="#" title="Facebook"><i class="fab fa-facebook"></i></a>
-          <a href="#" title="Instagram"><i class="fab fa-instagram"></i></a>
-          <a href="#" title="YouTube"><i class="fab fa-youtube"></i></a>
-          <a href="https://discord.gg/26pSCyMRPM" title="Discord"><i class="fab fa-discord"></i></a>
-        </div>
-      </div>
-    </div>
+  <!-- Firebase compat libs v11.9.0 -->
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
 
-    <div class="footer-col">
-      <div class="footer-links">
-        <a href="legal/privacy_policy.html">Privacy Policy</a>
-        <a href="legal/terms_and_conditions.html">Terms & Conditions</a>
-        <a href="about_us.html">About</a>
-      </div>
-      <div>
-        <div class="footer-contact-row"><span class="footer-contact-label"><i class="fa-solid fa-location-dot footer-contact-icon"></i>Address:</span>44 Galaxy St, Universe City, WebLand</div>
-        <div class="footer-contact-row"><span class="footer-contact-label"><i class="fa-solid fa-phone footer-contact-icon"></i>Phone:</span>+91-9876543210</div>
-        <div class="footer-contact-row"><span class="footer-contact-label"><i class="fa-solid fa-envelope footer-contact-icon"></i>Email:</span>support@gmail.com</div>
-      </div>
-    </div>
-  </footer>
+<script>
+/* ==========================================================================
+   TeamGalaxy — Console Panel + App Script
+   Replaces previous script. Drop in as a single <script> tag.
+   - Preserves all behavior
+   - Uses selectedFiles array (safer than assigning input.files)
+   - Surfaces full server responses in console panel for easy debugging
+   ========================================================================== */
 
-  <!-- FIREBASE + GAME LOGIC -->
-  <script type="module">
-    /* ======= FIREBASE INITIALIZATION (v11.9.0) =======
-     * Uses same firebaseConfig you used earlier.
-     * Make sure your Firestore rules allow:
-     *  - authenticated user can write to /gameScores/{uid} only when request.auth.uid == uid
-     *  - read rules as needed (leaderboard maybe public)
-     */
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
-    import { getFirestore, doc, setDoc, updateDoc, getDoc, serverTimestamp, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+(function () {
+  'use strict';
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-      authDomain: "teamgalaxy-77344.firebaseapp.com",
-      projectId: "teamgalaxy-77344",
-      storageBucket: "teamgalaxy-77344.firebasestorage.app",
-      messagingSenderId: "770256225320",
-      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-      measurementId: "G-6C2W9NSNCH"
-    };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
+  /* -------------------------
+     Console Panel Core
+     ------------------------- */
+  (function initConsolePanel() {
+    if (window.consolePanelInitialized) return;
+    window.consolePanelInitialized = true;
 
-    // ---------- Small UI refs ----------
-    const playground = document.getElementById('playgroundCard');
-    const canvas = document.getElementById('playCanvas');
-    const earthEl = document.getElementById('earthEl');
-    const collectedEl = document.getElementById('collected');
-    const highscoreEl = document.getElementById('highscore');
-    const btnSpawn = document.getElementById('btnSpawn');
-    const btnClear = document.getElementById('btnClear');
-    const btnAuto = document.getElementById('btnAuto');
-    const btnSave = document.getElementById('btnSave');
-    const btnDownload = document.getElementById('btnDownload');
-    const schemaToggle = document.getElementById('schemaToggle');
-    const schemaPre = document.getElementById('schemaPre');
+    const content = document.getElementById('console-content');
+    const clearBtn = document.getElementById('clear-console');
+    const toggleBtn = document.getElementById('toggle-console');
+    const downloadBtn = document.getElementById('download-console');
+    const levelSelect = document.getElementById('console-level');
+    const panel = document.getElementById('console-panel');
 
-    // ---------- Local state ----------
-    let DPR = Math.max(1, window.devicePixelRatio || 1);
-    let W = 0, H = 0;
-    let last = performance.now();
-    let nextId = 1;
-    const MAX_ORBS = 30;
-    let orbs = [];
-    let pops = [];
-    let stars = [];
-    const ORB_TYPES = [
-      { name:'common', chance:0.75, size:10, score:1, color:'#8EE7FF' },
-      { name:'uncommon', chance:0.18, size:14, score:3, color:'#FFD57B' },
-      { name:'rare', chance:0.06, size:18, score:6, color:'#B8FF9A' },
-      { name:'epic', chance:0.01, size:22, score:12, color:'#FF9AD6' }
-    ];
+    let isVisible = true;
+    let currentFilter = 'all';
+    const logs = [];
 
-    // storage keys for local fallback
-    const LS_COL = 'galaxy_collected_v_firestore';
-    const LS_HIGH = 'galaxy_high_v_firestore';
-    const LS_AUTO = 'galaxy_auto_v_firestore';
+    function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-    // user score state (keeps in memory and syncs to Firestore on save)
-    let collected = parseInt(localStorage.getItem(LS_COL)) || 0;
-    let high = parseInt(localStorage.getItem(LS_HIGH)) || 0;
-    let autoMode = localStorage.getItem(LS_AUTO) === '1';
-    let currentUser = null; // firebase user
-    let authReady = false;
-
-    // utils
-    function rand(a,b){ return a + Math.random()*(b-a); }
-    function pickType(){
-      const r = Math.random(); let s = 0;
-      for(const t of ORB_TYPES){ s += t.chance; if (r <= s) return t; } return ORB_TYPES[0];
-    }
-    function hexToRgb(hex){ const s = hex.replace('#',''); return { r:parseInt(s.slice(0,2),16), g:parseInt(s.slice(2,4),16), b:parseInt(s.slice(4,6),16) }; }
-
-    // ===== Canvas & rendering setup (single canvas blended into page)
-    const ctx = canvas.getContext('2d', { alpha:true });
-    function resize() {
-      const rect = playground.getBoundingClientRect();
-      W = Math.max(200, Math.floor(rect.width));
-      H = Math.max(160, Math.floor(rect.height));
-      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-      canvas.width = Math.floor(W * DPR); canvas.height = Math.floor(H * DPR);
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      initStars();
-    }
-    window.addEventListener('resize', resize);
-
-    // star background (low-cost)
-    function initStars(){
-      stars.length = 0;
-      const count = Math.max(18, Math.round((W*H)/70000));
-      for(let i=0;i<count;i++) stars.push({ x:Math.random()*W, y:Math.random()*H, s:Math.random()*1.6+0.4, phase:Math.random()*Math.PI*2 });
-    }
-
-    // spawn orb
-    function spawnOrbAt(clientX, clientY){
-      if (orbs.length >= MAX_ORBS) return;
-      const rect = playground.getBoundingClientRect();
-      const cx = rect.left + rect.width/2;
-      const cy = rect.top + rect.height/2;
-      const dx = clientX - cx; const dy = clientY - cy;
-      let radius = Math.hypot(dx, dy);
-      const minRadius = Math.max(72, Math.min(rect.width, rect.height)/6);
-      const maxRadius = Math.min(rect.width, rect.height)/2 - 30;
-      radius = Math.max(minRadius, Math.min(maxRadius, radius));
-      const angle = Math.atan2(dy, dx);
-      const baseSpeed = 0.9 / Math.sqrt(Math.max(1, radius/90));
-      const speed = (Math.random() < 0.5 ? 1 : -1) * baseSpeed * (0.6 + Math.random()*0.9);
-      const type = pickType();
-      const orb = {
-        id: nextId++,
-        angle, radius, speed,
-        size: type.size * (0.9 + Math.random()*0.2),
-        color: type.color, score: type.score, rarity: type.name,
-        rotation: Math.random()*Math.PI*2,
-        rotSpeed: (Math.random()*0.9-0.45)*0.02
-      };
-      orbs.push(orb);
-      playSpawnTone();
-    }
-
-    function burst(n=3){
-      const rect = playground.getBoundingClientRect();
-      for(let i=0;i<n;i++){
-        spawnOrbAt(rect.left + rect.width/2 + rand(-120,120), rect.top + rect.height/2 + rand(-90,90));
-      }
-    }
-
-    // hit test (for touch-friendly big hit radius)
-    function toLocalCoords(clientX, clientY){
-      const rect = playground.getBoundingClientRect();
-      return { x: clientX - rect.left, y: clientY - rect.top };
-    }
-    function hitTest(x,y){
-      let best=null, bestD=Infinity;
-      const rect = playground.getBoundingClientRect();
-      const cx = rect.width/2, cy = rect.height/2;
-      for(const o of orbs){
-        const ox = cx + o.radius * Math.cos(o.angle), oy = cy + o.radius * Math.sin(o.angle);
-        const d = Math.hypot(x-ox, y-oy);
-        const hitR = Math.max(18, o.size*1.6);
-        if (d <= hitR && d < bestD){ best = o; bestD = d; }
-      }
-      return best;
-    }
-
-    function collectOrb(o){
-      if(!o) return;
-      spawnPopForOrb(o);
-      collected += o.score;
-      if (collected > high){ high = collected; localStorage.setItem(LS_HIGH, high); flashHigh(); }
-      localStorage.setItem(LS_COL, collected);
-      collectedEl.textContent = 'Collected: ' + collected;
-      // remove orb
-      orbs = orbs.filter(x => x.id !== o.id);
-      playCollectTone(360 + o.score*48);
-    }
-
-    function spawnPopForOrb(o){
-      const rect = playground.getBoundingClientRect(); const cx = rect.width/2, cy = rect.height/2;
-      const x = cx + o.radius * Math.cos(o.angle); const y = cy + o.radius * Math.sin(o.angle);
-      const rgb = hexToRgb(o.color);
-      const parts = []; const count = Math.min(28, Math.round(6 + o.size*1.2));
-      for(let i=0;i<count;i++){
-        const ang = Math.random()*Math.PI*2;
-        parts.push({ vx: Math.cos(ang)*(0.6 + Math.random()*2.6), vy: Math.sin(ang)*(0.6 + Math.random()*2.6), size: Math.random()*(o.size*0.6)+0.6, color: `rgba(${rgb.r},${rgb.g},${rgb.b},` });
-      }
-      pops.push({ x,y, parts, life:1, lifeMax:1, speed: 42 + o.size*6 });
-    }
-
-    // draw functions (optimized)
-    function drawBackgroundStars(now){
-      ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      for(const s of stars){
-        const a = 0.22 + 0.18*Math.abs(Math.sin(now/1200 + s.phase));
-        ctx.fillStyle = `rgba(210,235,255,${a})`;
-        ctx.beginPath(); ctx.ellipse(s.x, s.y, s.s, s.s, 0,0,Math.PI*2); ctx.fill();
-      }
-      ctx.restore();
-    }
-    function drawOrbits(now, dt){
-      const rect = playground.getBoundingClientRect();
-      const cx = rect.width/2, cy = rect.height/2;
-      ctx.save(); ctx.strokeStyle = 'rgba(160,200,255,0.03)'; ctx.lineWidth = 1;
-      // optional: draw just light ellipse for first N orbs to avoid overload
-      for(const o of orbs){ ctx.beginPath(); ctx.ellipse(cx, cy, o.radius, o.radius, 0, 0, Math.PI*2); ctx.stroke(); }
-      ctx.restore();
-
-      for(const o of orbs){
-        o.angle += o.speed * dt;
-        o.rotation += o.rotSpeed;
-        const x = cx + o.radius * Math.cos(o.angle), y = cy + o.radius * Math.sin(o.angle);
-        // draw glow
-        ctx.save(); ctx.translate(x,y); ctx.rotate(o.rotation);
-        const g = ctx.createRadialGradient(0,0,o.size*0.2, 0,0,o.size*3.2);
-        const rgb = hexToRgb(o.color);
-        g.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.85)`); g.addColorStop(0.25, `rgba(${rgb.r},${rgb.g},${rgb.b},0.28)`); g.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0.0)`);
-        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0,0, o.size*1.9, o.size*0.95, 0,0,Math.PI*2); ctx.fill();
-        // body
-        ctx.fillStyle = '#0c1116'; ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1; ctx.beginPath(); ctx.roundRect(-o.size*0.6, -o.size*0.4, o.size*1.2, o.size*0.8, o.size*0.18); ctx.fill(); ctx.stroke();
-        // panels & little details
-        // left panel
-        ctx.save(); ctx.translate(-o.size*1.05,0); ctx.rotate(Math.sin(now/600 + o.id)*0.05);
-        ctx.fillStyle = '#091521'; ctx.fillRect(-o.size*0.55, -o.size*0.42, o.size*0.6, o.size*0.86);
-        ctx.strokeStyle = 'rgba(60,120,140,0.12)'; ctx.lineWidth=1;
-        for(let i=-2;i<=2;i++){ ctx.beginPath(); ctx.moveTo(-o.size*0.5 + i*(o.size*0.1), -o.size*0.4); ctx.lineTo(-o.size*0.5 + i*(o.size*0.1), o.size*0.4); ctx.stroke(); }
-        ctx.restore();
-        // right panel
-        ctx.save(); ctx.translate(o.size*1.05,0); ctx.rotate(Math.sin(now/700 + o.id)*0.06);
-        ctx.fillStyle = '#091521'; ctx.fillRect(-o.size*0.05, -o.size*0.42, o.size*0.6, o.size*0.86);
-        ctx.strokeStyle = 'rgba(60,120,140,0.12)';
-        for(let i=-2;i<=2;i++){ ctx.beginPath(); ctx.moveTo(-o.size*0.0 + i*(o.size*0.1), -o.size*0.4); ctx.lineTo(-o.size*0.0 + i*(o.size*0.1), o.size*0.4); ctx.stroke(); }
-        ctx.restore();
-        // antenna
-        ctx.beginPath(); ctx.moveTo(o.size*0.64, -o.size*0.02); ctx.lineTo(o.size*0.98, -o.size*0.6); ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1; ctx.stroke();
-        ctx.beginPath(); ctx.arc(o.size*0.98, -o.size*0.6, 1.6, 0, Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.fill();
-        // rarity badge
-        if (o.rarity === 'rare' || o.rarity === 'epic'){
-          ctx.beginPath(); ctx.arc(o.size*0.6, -o.size*0.36, o.size*0.36, 0, Math.PI*2); ctx.fillStyle = o.color; ctx.fill();
-          ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = `${Math.max(7,o.size*0.28)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-          ctx.fillText(o.rarity[0].toUpperCase(), o.size*0.6, -o.size*0.36);
-        }
-
-        ctx.restore();
-        // save screen pos for interaction
-        o.screenX = x; o.screenY = y;
-      }
-    }
-
-    function drawPops(now, dt){
-      ctx.save();
-      for(let i=pops.length-1;i>=0;i--){
-        const p = pops[i];
-        p.life -= dt / 400;
-        const alpha = Math.max(0, p.life / p.lifeMax);
-        for(const part of p.parts){
-          const px = p.x + part.vx * (1 - alpha) * p.speed;
-          const py = p.y + part.vy * (1 - alpha) * p.speed;
-          const s = Math.max(0.6, part.size * alpha);
-          ctx.fillStyle = part.color + (0.85 * alpha) + ')';
-          ctx.beginPath(); ctx.ellipse(px, py, s, s, 0,0,Math.PI*2); ctx.fill();
-        }
-        if (p.life <= 0) pops.splice(i,1);
-      }
-      ctx.restore();
-    }
-
-    function drawVignette(){
-      const g = ctx.createRadialGradient(W/2, H/2, Math.max(W,H)/6, W/2, H/2, Math.max(W,H)/1.0);
-      g.addColorStop(0,'rgba(255,255,255,0)');
-      g.addColorStop(1,'rgba(0,0,0,0.20)');
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-    }
-
-    function loop(now){
-      requestAnimationFrame(loop);
-      updateAndDraw(now);
-    }
-    function updateAndDraw(now){
-      const dt = Math.max(8, now - last); // ms
-      last = now;
-      ctx.clearRect(0,0,W,H);
-      ctx.fillStyle = 'rgba(6,8,12,0.16)';
-      ctx.fillRect(0,0,W,H);
-      drawBackgroundStars(now);
-      drawOrbits(now, dt / 1000);
-      drawPops(now, dt);
-      drawVignette();
-    }
-
-    // pointer handling: we listen on playground (canvas has pointer-events none)
-    function handlePointerDown(e){
-      if(e.pointerType === 'mouse' && e.button !== 0) return;
-      const p = toLocalCoords(e.clientX, e.clientY);
-      const found = hitTest(p.x, p.y);
-      if(found){ collectOrb(found); return; }
-      spawnOrbAt(e.clientX, e.clientY);
-    }
-    playground.addEventListener('pointerdown', handlePointerDown);
-
-    // controls
-    btnSpawn.addEventListener('click', ()=> burst(3));
-    btnClear.addEventListener('click', ()=> { orbs = []; pops = []; ctx.clearRect(0,0,W,H); });
-    btnAuto.addEventListener('click', ()=> { autoMode = !autoMode; localStorage.setItem(LS_AUTO, autoMode ? '1':'0'); btnAuto.textContent = 'Auto: ' + (autoMode ? 'On':'Off'); });
-
-    // auto spawn
-    setInterval(()=> { if (autoMode && orbs.length < 10 && Math.random() < 0.6) burst(1); }, 1400);
-    window.addEventListener('keydown', (e)=> { if (e.code === 'Space'){ e.preventDefault(); const rect=playground.getBoundingClientRect(); spawnOrbAt(rect.left + rect.width/2 + rand(-90,90), rect.top + rect.height/2 + rand(-60,60)); } });
-
-    // simple audio (tones)
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    let audioCtx = null;
-    function ensureAudio(){ if (!audioCtx) audioCtx = new AudioCtx(); }
-    function playTone(freq=420, dur=0.08){ try{ ensureAudio(); const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(audioCtx.destination); const now = audioCtx.currentTime; g.gain.setValueAtTime(0.001, now); g.gain.exponentialRampToValueAtTime(0.12, now + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, now + dur); o.start(now); o.stop(now + dur + 0.02);}catch(e){} }
-    function playSpawnTone(){ playTone(240,0.06); } function playCollectTone(freq){ playTone(freq, 0.12); }
-    document.addEventListener('pointerdown', ()=> { if (!audioCtx) try{ ensureAudio(); }catch(e){} }, { once:true });
-
-    // UI init
-    function initUI(){ collectedEl.textContent = 'Collected: ' + collected; highscoreEl.textContent = 'High: ' + high; btnAuto.textContent = 'Auto: ' + (autoMode ? 'On':'Off'); }
-
-    // save game score to Firestore (uses UID). Throttled by caller usage.
-    async function saveToFirestore() {
-      if (!authReady || !currentUser) {
-        alert('Sign in to save to the cloud. Use the Sign In button in the top-right (Profile) — your UID will be used to store scores.');
-        return;
-      }
+    window.consolePanelLog = function (message, level = 'log') {
       try {
-        const docRef = doc(db, 'gameScores', currentUser.uid);
-        const payload = {
-          collected,
-          high,
-          lastUpdated: serverTimestamp(),
-          clientTs: new Date().toISOString(),
-          saveCount: (await readSaveCount(currentUser.uid)) + 1
-        };
-        // Merge/update
-        await setDoc(docRef, payload, { merge: true });
-        alert('Saved to cloud (gameScores/' + currentUser.uid + ').');
-      } catch (err) {
-        console.error('save fail', err);
-        alert('Save failed: ' + (err.message || err));
+        const ts = new Date();
+        const msg = (typeof message === 'string') ? message : JSON.stringify(message, null, 2);
+        const entry = { ts: ts.toISOString(), level, message: msg };
+        logs.push(entry);
+
+        if (currentFilter !== 'all' && currentFilter !== level) return;
+        if (!content) return;
+
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        const time = ts.toLocaleTimeString();
+        // Use lighter text for the message so level colors stand out
+        div.innerHTML = `<span class="log-ts">[${time}]</span> <strong class="log-level-${level}">${level.toUpperCase()}</strong>: <span style="color:#ddd">${esc(msg)}</span>`;
+        content.appendChild(div);
+        content.scrollTop = content.scrollHeight;
+      } catch (e) {
+        // ignore UI errors
       }
+    };
+
+    // keep original console behavior while mirroring to panel
+    const orig = { log: console.log, info: console.info, warn: console.warn, error: console.error };
+    console.log = function (...a) { orig.log.apply(console, a); window.consolePanelLog(a.join(' '), 'log'); };
+    console.info = function (...a) { orig.info.apply(console, a); window.consolePanelLog(a.join(' '), 'info'); };
+    console.warn = function (...a) { orig.warn.apply(console, a); window.consolePanelLog(a.join(' '), 'warning'); };
+    console.error = function (...a) { orig.error.apply(console, a); window.consolePanelLog(a.join(' '), 'error'); };
+
+    if (clearBtn) clearBtn.onclick = () => { if (content) content.innerHTML = ''; logs.length = 0; };
+    if (toggleBtn) toggleBtn.onclick = () => {
+      isVisible = !isVisible;
+      if (panel) panel.style.display = isVisible ? 'flex' : 'none';
+      toggleBtn.textContent = isVisible ? 'Hide' : 'Show';
+    };
+    if (downloadBtn) downloadBtn.onclick = () => {
+      const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `console-logs-${new Date().toISOString()}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    };
+    if (levelSelect) levelSelect.onchange = function () {
+      currentFilter = this.value;
+      if (content) content.innerHTML = '';
+      logs.forEach(e => {
+        if (currentFilter === 'all' || e.level === currentFilter) window.consolePanelLog(e.message, e.level);
+      });
+    };
+
+    // toggle with Ctrl+`
+    document.addEventListener('keydown', (ev) => { if (ev.ctrlKey && ev.key === '`') { if (toggleBtn) toggleBtn.click(); } });
+  })();
+
+
+  /* -------------------------
+     App config & state
+     ------------------------- */
+  const CONFIG = {
+    CLOUDFLARE_WORKER_URL: 'https://dropbox-filebridge.teamgalaxy-interactive.workers.dev',
+    MAX_UPLOAD: 5,
+    PAGE_SIZE: 12,
+    PRELOAD_MAX_RETRIES: 6,
+    PRELOAD_TIMEOUT_MS: 10000,
+    PRELOAD_CONCURRENCY: 2,
+    PRELOAD_BACKOFF_BASE: 300
+  };
+
+  // Firebase config (preserve as provided)
+  const firebaseConfig = {
+    apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+    authDomain: "teamgalaxy-77344.firebaseapp.com",
+    projectId: "teamgalaxy-77344",
+    storageBucket: "teamgalaxy-77344.firebasestorage.app",
+    messagingSenderId: "770256225320",
+    appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+    measurementId: "G-6C2W9NSNCH"
+  };
+
+  // initialize firebase
+  if (typeof firebase !== 'undefined' && !firebase.apps?.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+  const auth = (typeof firebase !== 'undefined') ? firebase.auth() : null;
+  const db = (typeof firebase !== 'undefined') ? firebase.firestore() : null;
+
+  // local state
+  let selectedFiles = []; // use this instead of assigning input.files (readonly in some browsers)
+  let allItems = [];
+  let currentPage = 1;
+
+  const inputEl = document.getElementById('imageUpload');
+  const preview = document.getElementById('previewContainer');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const loadingIndicator = document.getElementById('loadingIndicator');
+
+
+  /* -------------------------
+     Logging helper
+     ------------------------- */
+  function appLog(msg, level = 'info') {
+    if (level === 'error') console.error(msg);
+    else if (level === 'warning') console.warn(msg);
+    else if (level === 'success') console.info(msg);
+    else console.log(msg);
+    if (window.consolePanelLog) window.consolePanelLog(msg, level === 'success' ? 'success' : level);
+  }
+
+
+  /* -------------------------
+     Access tracking (preserve)
+     ------------------------- */
+  const accessedFields = new Set();
+  function recordAccess(fields, note) {
+    fields = Array.from(fields || []);
+    fields.forEach(f => accessedFields.add(f));
+    const el = document.getElementById('sidebar-fields');
+    if (el) el.textContent = Array.from(accessedFields).sort().join(', ') || '—';
+    appLog(`[FIELDS] ${note || 'access'} → ${fields.join(', ')}`, 'info');
+  }
+
+
+  /* -------------------------
+     Auth UI helpers (preserve)
+     ------------------------- */
+  async function updateAuthUI(user) {
+    const badge = document.getElementById('authBadge');
+    const sidebarEmail = document.getElementById('sidebar-email');
+    const sidebarUid = document.getElementById('sidebar-uid');
+
+    if (!user) {
+      if (badge) badge.textContent = 'Not signed in';
+      if (sidebarEmail) sidebarEmail.textContent = '—';
+      if (sidebarUid) sidebarUid.textContent = '—';
+      const sIn = document.getElementById('btnSignIn'), sOut = document.getElementById('btnSignOut');
+      if (sIn) sIn.style.display = 'inline-block';
+      if (sOut) sOut.style.display = 'none';
+      appLog('No user signed in', 'warning');
+      return;
     }
 
-    async function readSaveCount(uid){
-      try{
-        const docRef = doc(db,'gameScores', uid);
-        const snap = await getDoc(docRef);
-        if (snap.exists()){ return snap.data().saveCount || 0; }
-      }catch(e){ console.warn('readSaveCount err', e); }
-      return 0;
+    try { await user.getIdTokenResult(true); } catch (e) { appLog('getIdTokenResult failed: ' + (e?.message || e), 'error'); }
+
+    if (badge) badge.textContent = user.email || user.uid;
+    if (sidebarEmail) sidebarEmail.textContent = user.email || '—';
+    if (sidebarUid) sidebarUid.textContent = user.uid || '—';
+    const sIn = document.getElementById('btnSignIn'), sOut = document.getElementById('btnSignOut');
+    if (sIn) sIn.style.display = 'none';
+    if (sOut) sOut.style.display = 'inline-block';
+
+    appLog(`Auth: ${user.email || user.uid}`, 'info');
+    recordAccess(['ownerUid', 'u.email', 'u.uid', 'idToken.claims'], 'auth check');
+  }
+
+  const signInBtn = document.getElementById('btnSignIn');
+  const signOutBtn = document.getElementById('btnSignOut');
+
+  if (signInBtn) signInBtn.addEventListener('click', async () => {
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      const res = await auth.signInWithPopup(provider);
+      await updateAuthUI(res.user);
+      appLog('Signed in: ' + res.user.email, 'success');
+    } catch (e) {
+      appLog('Sign-in failed: ' + (e?.message || e), 'error');
     }
+  });
 
-    // image download of current high-score: builds an image with game stats only (no personal data)
-    function downloadHighscoreImage() {
-      // Create an export canvas
-      const w = 1200, h = 640;
-      const c = document.createElement('canvas'); c.width = w; c.height = h;
-      const g = c.getContext('2d');
-      // background gradient
-      const grad = g.createLinearGradient(0,0,0,h);
-      grad.addColorStop(0, '#071018'); grad.addColorStop(1, '#081428');
-      g.fillStyle = grad; g.fillRect(0,0,w,h);
-      // subtle stars
-      for (let i=0;i<120;i++){
-        g.fillStyle = 'rgba(210,235,255,' + (0.03 + Math.random()*0.12) + ')';
-        const x = Math.random()*w, y = Math.random()*h, s = Math.random()*2.6;
-        g.beginPath(); g.ellipse(x,y,s,s,0,0,Math.PI*2); g.fill();
-      }
-      // Earth emoji large (center-left)
-      g.font = '140px serif';
-      g.fillText('🌎', 110, 220);
-      // Title & stats
-      g.fillStyle = '#fff'; g.font = 'bold 38px Poppins, Arial, sans-serif'; g.fillText('Team Galaxy — Orbit Playground', 320, 120);
-      g.fillStyle = '#bfeaff'; g.font = '600 26px Poppins, Arial, sans-serif'; g.fillText('Game stats (public):', 320, 170);
-      g.fillStyle = '#fff'; g.font = '700 64px Poppins, Arial, sans-serif'; g.fillText('High: ' + high, 320, 260);
-      g.fillStyle = '#9fd8ff'; g.font = '600 40px Poppins, Arial, sans-serif'; g.fillText('Collected: ' + collected, 320, 330);
-      // date/time
-      const dt = new Date(); const dtStr = dt.toLocaleString();
-      g.fillStyle = 'rgba(255,255,255,0.7)'; g.font = '400 18px Poppins, Arial, sans-serif'; g.fillText('Generated: ' + dtStr, 320, 380);
-      // small footer
-      g.fillStyle = 'rgba(255,255,255,0.6)'; g.font = '400 16px Poppins, Arial, sans-serif'; g.fillText('No personal data included — Team Galaxy', 40, h - 28);
-      // convert and download
-      c.toBlob(function(blob){
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'teamgalaxy-score-' + Date.now() + '.png';
-        document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(url);
-      }, 'image/png');
+  if (signOutBtn) signOutBtn.addEventListener('click', async () => {
+    try {
+      await auth.signOut();
+      updateAuthUI(null);
+      appLog('Signed out', 'info');
+    } catch (e) {
+      appLog('Sign-out failed: ' + (e?.message || e), 'error');
     }
+  });
 
-    // attach save & download handlers
-    btnSave.addEventListener('click', saveToFirestore);
-    btnDownload.addEventListener('click', downloadHighscoreImage);
 
-    // schema toggle
-    schemaToggle.addEventListener('click', ()=> {
-      schemaPre.style.display = schemaPre.style.display === 'none' ? 'block' : 'none';
-    });
+  /* -------------------------
+     File selection & preview
+     ------------------------- */
+  function trimFiles(fileList) {
+    return Array.from(fileList).slice(0, CONFIG.MAX_UPLOAD);
+  }
 
-    // Authentication: watch state
-    onAuthStateChanged(auth, (user) => {
-      currentUser = user;
-      authReady = true;
-      // update UI if needed
-      if (user) {
-        // try to prefill from Firestore (get user's saved scores)
-        (async ()=>{
-          try{
-            const ref = doc(db,'gameScores', user.uid);
-            const snap = await getDoc(ref);
-            if (snap.exists()){
-              const d = snap.data();
-              // use cloud values preferentially if they exist
-              if (typeof d.high === 'number' && d.high > (parseInt(localStorage.getItem(LS_HIGH))||0)){
-                high = d.high; localStorage.setItem(LS_HIGH, high);
-              }
-              if (typeof d.collected === 'number') { collected = d.collected; localStorage.setItem(LS_COL, collected); }
-              collectedEl.textContent = 'Collected: ' + collected; highscoreEl.textContent = 'High: ' + high;
-            }
-          }catch(e){ console.warn('prefetch gameScores err', e); }
-        })();
-      }
-    });
+  function clearPreview() {
+    if (preview) preview.innerHTML = '';
+    if (uploadBtn) uploadBtn.innerHTML = '<i class="fas fa-upload"></i> Upload to Portfolio';
+  }
 
-    // Download/Share code relies on local or cloud; saving to Firestore requires sign-in
-    // Provide an in-page sign-in shortcut (top right profile is outside scope; quick signin here)
-    // We'll add a lightweight sign-in if user tries to sign-in via double-click Earth
-    earthEl.addEventListener('dblclick', async () => {
-      if (currentUser) { alert('Signed in as: ' + (currentUser.displayName || currentUser.email)); return; }
-      try{
-        await signInWithPopup(auth, provider);
-        alert('Signed in — your UID will be used to save scores.');
-      }catch(e){ console.error('signin err', e); alert('Sign-in failed'); }
-    });
-
-    // small helper: flash high score when regained
-    function flashHigh(){ highscoreEl.style.transform = 'scale(1.06)'; highscoreEl.style.color = '#fff'; setTimeout(()=>{ highscoreEl.style.transform=''; highscoreEl.style.color=''; }, 420); }
-
-    // Save to local periodically (and on unload)
-    setInterval(()=> localStorage.setItem(LS_COL, collected), 2000);
-    window.addEventListener('beforeunload', ()=> localStorage.setItem(LS_COL, collected));
-
-    // init and warmup
-    function init() {
-      DPR = Math.max(1, window.devicePixelRatio || 1);
-      resize();
-      // warmup / spawn initial orbs
-      const rect = playground.getBoundingClientRect();
-      for (let i=0;i<7;i++) spawnOrbAt(rect.left + rect.width/2 + rand(-140,140), rect.top + rect.height/2 + rand(-90,90));
-      initUI();
-      last = performance.now();
-      requestAnimationFrame(loop);
-    }
-    // polyfill roundRect
-    if (!CanvasRenderingContext2D.prototype.roundRect) {
-      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
-        if (w < 2 * r) r = w / 2; if (h < 2 * r) r = h / 2;
-        this.beginPath(); this.moveTo(x+r, y); this.arcTo(x+w, y, x+w, y+h, r); this.arcTo(x+w, y+h, x, y+h, r); this.arcTo(x, y+h, x, y, r); this.arcTo(x, y, x+w, y, r); this.closePath();
+  function renderPreviewFromFiles(files) {
+    if (!preview) return;
+    preview.innerHTML = '';
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const r = new FileReader();
+      r.onload = (e) => {
+        const d = document.createElement('div');
+        d.className = 'preview-item';
+        d.innerHTML = `<img src="${e.target.result}" alt="${escapeHtml(file.name)}"><div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#fff;padding:2px;font-size:10px;text-align:center">${escapeHtml(file.name)}</div>`;
+        preview.appendChild(d);
       };
+      r.readAsDataURL(file);
+    });
+  }
+
+  function handleFileSelect(ev) {
+    const files = ev.target.files || [];
+    if (files.length === 0) { selectedFiles = []; clearPreview(); return; }
+    if (files.length > CONFIG.MAX_UPLOAD) {
+      alert(`You selected ${files.length} files. Only first ${CONFIG.MAX_UPLOAD} will be used.`);
+      selectedFiles = trimFiles(files);
+    } else {
+      selectedFiles = Array.from(files);
+    }
+    if (uploadBtn) uploadBtn.innerHTML = `<i class="fas fa-upload"></i> Upload ${selectedFiles.length} File(s)`;
+    renderPreviewFromFiles(selectedFiles);
+  }
+
+  if (inputEl) inputEl.addEventListener('change', handleFileSelect);
+
+
+  /* -------------------------
+     Upload flow
+     ------------------------- */
+  async function handleUpload() {
+    const files = selectedFiles || [];
+    if (files.length === 0) { alert('Select images first'); return; }
+    if (files.length > CONFIG.MAX_UPLOAD) { alert(`Please select up to ${CONFIG.MAX_UPLOAD} files.`); return; }
+    const user = auth?.currentUser;
+    if (!user) {
+      if (!confirm('You are not signed in. Continue without ownerUid? (recommended: sign in)')) return;
     }
 
-    // start
-    window.addEventListener('load', init);
-    window.addEventListener('resize', ()=> { resize(); initStars(); });
+    if (loadingIndicator) loadingIndicator.style.display = 'inline-block';
+    appLog(`Starting uploads: ${files.length} file(s)`, 'info');
 
-    // quick helper to fetch top leaderboard (optional)
-    async function fetchTopLeaderboard(limitN=10){
-      try{
-        const q = query(collection(db,'gameScores'), orderBy('high', 'desc'), limit(limitN));
-        const snaps = await getDocs(q);
-        return snaps.docs.map(d => ({ id: d.id, ...(d.data()||{}) }));
-      }catch(e){ console.warn('leaderboard fetch failed', e); return []; }
+    const results = await Promise.allSettled(files.map((file, i) => new Promise((resolve, reject) => {
+      setTimeout(async () => {
+        try {
+          const res = await uploadToCloudflareWorker(file, user);
+          resolve(res);
+        } catch (e) {
+          reject(e);
+        }
+      }, i * 700);
+    })));
+
+    const failed = results.filter(r => r.status === 'rejected');
+    if (failed.length) appLog(`${failed.length} upload(s) failed`, 'error');
+    else appLog('All uploads done', 'success');
+
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
+    selectedFiles = [];
+    if (inputEl) inputEl.value = '';
+    clearPreview();
+
+    try { await loadAllMetadataThenShow(); } catch (e) { appLog('Refresh metadata failed: ' + (e?.message || e), 'error'); }
+  }
+
+  if (uploadBtn) uploadBtn.addEventListener('click', handleUpload);
+
+
+  async function uploadToCloudflareWorker(file, user) {
+    const category = (document.getElementById('categoryFilter') && document.getElementById('categoryFilter').value) || 'uncategorized';
+    const form = new FormData();
+    form.append('file', file);
+    form.append('category', category);
+    form.append('title', file.name.replace(/\.[^/.]+$/, ''));
+    form.append('description', `Uploaded ${file.name}`);
+    form.append('isPublic', 'false');
+
+    appLog(`Uploading ${file.name}...`, 'info');
+
+    const endpoint = `${CONFIG.CLOUDFLARE_WORKER_URL.replace(/\/$/, '')}/api/upload`;
+    let resp;
+    try {
+      resp = await fetch(endpoint, { method: 'POST', body: form, mode: 'cors' });
+    } catch (networkErr) {
+      appLog(`Network error while uploading ${file.name}: ${networkErr?.message || networkErr}`, 'error');
+      throw networkErr;
     }
 
-    // expose a little API on window for debugging (optional)
-    window.__galaxy = { spawnOrbAt, burst, fetchTopLeaderboard };
+    // read text first for maximum debug visibility
+    const respText = await resp.text().catch(() => '<no-response-body>');
+    if (!resp.ok) {
+      let parsed = null;
+      try { parsed = JSON.parse(respText); } catch (e) { /* ignore */ }
+      const pretty = parsed ? JSON.stringify(parsed, null, 2) : respText;
+      appLog(`Upload HTTP ${resp.status} for ${file.name}: ${pretty}`, 'error');
+      const msg = `Upload HTTP ${resp.status}: ${(respText || '').substring(0, 200)}`;
+      throw new Error(msg);
+    }
 
-  </script>
+    let res;
+    try { res = JSON.parse(respText); } catch (e) { throw new Error('Invalid JSON from upload endpoint: ' + (respText || '').substring(0, 200)); }
+    if (!res.success) {
+      appLog('Worker returned error: ' + (res.error || JSON.stringify(res)), 'error');
+      throw new Error(res.error || 'Upload failed');
+    }
+
+    // Save metadata into Firestore (preserve original shape)
+    const itemData = {
+      ownerUid: user ? user.uid : null,
+      folderId: null,
+      fileName: res.fileName || file.name,
+      originalName: file.name,
+      fileSize: res.fileSize || file.size || 0,
+      fileType: res.fileType || file.type,
+      dropboxUrl: res.dropboxUrl || res.url || '',
+      uploadDate: new Date(),
+      lastModified: new Date(),
+      category,
+      title: file.name.replace(/\.[^/.]+$/, ''),
+      description: `Uploaded ${file.name}`,
+      isPublic: false,
+      meta: { dimensions: null }
+    };
+
+    recordAccess(Object.keys(itemData), 'create portfolioItems (upload)');
+    try {
+      const docRef = await db.collection('portfolioItems').add(itemData);
+      appLog(`Saved metadata ${docRef.id}`, 'success');
+    } catch (e) {
+      appLog('Failed to save metadata: ' + (e?.message || e), 'error');
+      throw e;
+    }
+
+    return { ok: true, dropboxUrl: itemData.dropboxUrl };
+  }
+
+
+  /* -------------------------
+     Preload helpers
+     ------------------------- */
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function preloadOnce(url, timeoutMs = CONFIG.PRELOAD_TIMEOUT_MS) {
+    return new Promise((resolve, reject) => {
+      if (!url) return reject(new Error('no-url'));
+      const img = new Image();
+      let done = false;
+      const t = setTimeout(() => { if (done) return; done = true; img.src = ''; reject(new Error('timeout')); }, timeoutMs);
+      img.onload = () => { if (done) return; done = true; clearTimeout(t); resolve(); };
+      img.onerror = () => { if (done) return; done = true; clearTimeout(t); reject(new Error('error')); };
+      img.src = url;
+    });
+  }
+
+  async function preloadWithRetries(url, idx, progressCb) {
+    let attempt = 0;
+    while (attempt < CONFIG.PRELOAD_MAX_RETRIES) {
+      attempt++;
+      try {
+        progressCb && progressCb({ idx, attempt, status: 'trying' });
+        await preloadOnce(url, CONFIG.PRELOAD_TIMEOUT_MS);
+        progressCb && progressCb({ idx, attempt, status: 'loaded' });
+        return { ok: true, attempt };
+      } catch (e) {
+        progressCb && progressCb({ idx, attempt, status: 'failed', error: e.message });
+        await sleep(CONFIG.PRELOAD_BACKOFF_BASE * attempt);
+      }
+    }
+    progressCb && progressCb({ idx, attempt: CONFIG.PRELOAD_MAX_RETRIES, status: 'exhausted' });
+    return { ok: false, attempt: CONFIG.PRELOAD_MAX_RETRIES };
+  }
+
+  async function preloadPage(itemsForPage, progressCb) {
+    const total = itemsForPage.length;
+    const results = new Array(total);
+    let nextIndex = 0;
+    let completed = 0;
+    let failed = 0;
+
+    const worker = async () => {
+      while (true) {
+        const i = nextIndex++;
+        if (i >= total) break;
+
+        const url = itemsForPage[i].dropboxUrl || '';
+        const itemProgressCb = ({ attempt, status, error }) => {
+          progressCb && progressCb({
+            total, index: i, attempt, status, error, completed, failed
+          });
+        };
+
+        const res = await preloadWithRetries(url, i, (p) => itemProgressCb(p));
+        results[i] = res;
+        if (res.ok) completed++; else failed++;
+
+        progressCb && progressCb({
+          total, index: i, attempt: res.attempt, status: res.ok ? 'done' : 'failed-final', error: res.ok ? null : 'exhausted', completed, failed
+        });
+      }
+    };
+
+    const workers = [];
+    const c = Math.max(1, Math.min(CONFIG.PRELOAD_CONCURRENCY, total));
+    for (let w = 0; w < c; w++) workers.push(worker());
+    await Promise.all(workers);
+
+    progressCb && progressCb({ total, completed, failed, finished: true });
+    return results;
+  }
+
+
+  /* -------------------------
+     Pagination & rendering
+     ------------------------- */
+  function setPaginationDisabled(disabled) {
+    const container = document.getElementById('pagination');
+    if (!container) return;
+    Array.from(container.querySelectorAll('.page-btn')).forEach(b => {
+      if (disabled) b.classList.add('disabled'); else b.classList.remove('disabled');
+      b.disabled = disabled;
+    });
+  }
+
+  function showPageSpinner(show) {
+    const sp = document.getElementById('pageSpinner');
+    if (!sp) return;
+    if (show) { sp.classList.remove('hidden'); sp.setAttribute('aria-hidden', 'false'); }
+    else { sp.classList.add('hidden'); sp.setAttribute('aria-hidden', 'true'); }
+  }
+
+  async function renderPage(pageNum, options = { showProgress: true }) {
+    currentPage = pageNum;
+    const gallery = document.getElementById('portfolioGallery');
+    if (gallery) gallery.style.display = 'none';
+    showPageSpinner(true);
+
+    const start = (pageNum - 1) * CONFIG.PAGE_SIZE;
+    const pageItems = allItems.slice(start, start + CONFIG.PAGE_SIZE);
+
+    const frag = document.createDocumentFragment();
+    pageItems.forEach(it => {
+      const card = document.createElement('div');
+      card.className = 'image-card';
+      card.dataset.id = it.id;
+      card.dataset.isPublic = it.isPublic ? 'true' : 'false';
+      card.innerHTML = `
+        <img class="image-preview" loading="eager" src="" data-src="${escapeHtml(it.dropboxUrl || '')}" alt="${escapeHtml(it.title || it.originalName || '')}">
+        <div class="image-info">
+          <div class="image-title">${escapeHtml(it.title || it.originalName || 'Untitled')}</div>
+          <div class="image-meta">Size: ${formatFileSize(it.fileSize || 0)} | ${it.meta?.dimensions ? it.meta.dimensions.width + '×' + it.meta.dimensions.height : 'Unknown dims'}</div>
+          <div class="image-actions"><button class="action-btn" onclick="copyToClipboard('${it.dropboxUrl || ''}')"><i class="fas fa-copy"></i> Copy URL</button></div>
+        </div>
+      `;
+      frag.appendChild(card);
+    });
+
+    if (gallery) { gallery.innerHTML = ''; gallery.appendChild(frag); }
+
+    setPaginationDisabled(true);
+
+    if (options.showProgress) {
+      const wrap = document.getElementById('loadingProgressWrap');
+      const total = pageItems.length;
+      const countEl = document.getElementById('loadingCount');
+      const percentEl = document.getElementById('loadingPercent');
+      const bar = document.getElementById('loadingBar');
+      const detail = document.getElementById('loadingDetail');
+      if (wrap) wrap.style.display = 'block';
+      if (countEl) countEl.textContent = `0 / ${total}`;
+      if (percentEl) percentEl.textContent = `0%`;
+      if (bar) bar.style.width = `0%`;
+      if (detail) detail.textContent = `Loading page ${pageNum} images...`;
+    } else {
+      const wrap = document.getElementById('loadingProgressWrap');
+      if (wrap) wrap.style.display = 'none';
+    }
+
+    const results = await preloadPage(pageItems, ({ total, index = null, attempt = null, status = null, error = null, completed = 0, failed = 0 }) => {
+      const doneCount = completed + failed;
+      const percent = total ? Math.round((doneCount / total) * 100) : 0;
+      const countEl = document.getElementById('loadingCount');
+      const percentEl = document.getElementById('loadingPercent');
+      const bar = document.getElementById('loadingBar');
+      const detail = document.getElementById('loadingDetail');
+      if (countEl) countEl.textContent = `${doneCount} / ${total}`;
+      if (percentEl) percentEl.textContent = `${percent}%`;
+      if (bar) bar.style.width = `${percent}%`;
+      if (index !== null && status) {
+        if (detail) detail.textContent = `Item ${index + 1}/${total} — attempt ${attempt} — ${status}${error ? ' (' + error + ')' : ''}`;
+      } else {
+        if (detail) detail.textContent = `Completed ${doneCount} / ${total} — failed ${failed}`;
+      }
+    });
+
+    const cards = document.querySelectorAll('.image-card');
+    cards.forEach((card, idx) => {
+      const img = card.querySelector('.image-preview');
+      const url = img && img.getAttribute('data-src') || '';
+      const res = results[idx] || { ok: false };
+      if (res.ok) {
+        img.src = url;
+        img.setAttribute('data-loaded', 'true');
+      } else {
+        img.src = '';
+        img.setAttribute('data-loaded', 'false');
+      }
+    });
+
+    await sleep(120);
+
+    setPaginationDisabled(false);
+    const wrap = document.getElementById('loadingProgressWrap');
+    if (wrap) wrap.style.display = 'none';
+    showPageSpinner(false);
+    if (gallery) gallery.style.display = 'grid';
+    updateStats();
+    renderPagination();
+
+    if (document.getElementById('mainContainer') && document.getElementById('mainContainer').style.display === 'none') {
+      hideLoadingScreenAndShowMain();
+    }
+  }
+
+  function renderPagination() {
+    const total = allItems.length;
+    const pages = Math.max(1, Math.ceil(total / CONFIG.PAGE_SIZE));
+    const container = document.getElementById('pagination');
+    if (!container) return;
+    container.innerHTML = '';
+    const prev = document.createElement('button');
+    prev.className = 'page-btn';
+    prev.textContent = 'Prev';
+    prev.disabled = currentPage === 1;
+    prev.onclick = () => { if (currentPage > 1) renderPage(currentPage - 1); };
+    container.appendChild(prev);
+
+    for (let p = 1; p <= pages; p++) {
+      const b = document.createElement('button');
+      b.className = 'page-btn' + (p === currentPage ? ' active' : '');
+      b.textContent = p;
+      b.onclick = () => { if (p !== currentPage) renderPage(p); };
+      container.appendChild(b);
+    }
+
+    const next = document.createElement('button');
+    next.className = 'page-btn';
+    next.textContent = 'Next';
+    next.disabled = currentPage === pages;
+    next.onclick = () => { if (currentPage < pages) renderPage(currentPage + 1); };
+    container.appendChild(next);
+  }
+
+  function hideLoadingScreenAndShowMain() {
+    const ls = document.getElementById('loadingScreen');
+    if (!ls) return;
+    ls.style.opacity = '0';
+    setTimeout(() => {
+      ls.classList.add('hidden');
+      const mc = document.getElementById('mainContainer');
+      if (mc) mc.style.display = 'block';
+    }, 300);
+  }
+
+
+  /* -------------------------
+     Metadata load & helpers
+     ------------------------- */
+  async function loadAllMetadataThenShow() {
+    try {
+      appLog('Fetching all portfolio metadata...', 'info');
+      const loadingTitle = document.getElementById('loadingTitle');
+      if (loadingTitle) loadingTitle.textContent = 'Verifying admin and fetching metadata...';
+
+      const snap = await db.collection('portfolioItems').orderBy('uploadDate', 'desc').get();
+      allItems = [];
+      const foundFields = new Set();
+      snap.forEach(doc => { const d = doc.data(); allItems.push({ id: doc.id, ...d }); Object.keys(d || {}).forEach(k => foundFields.add(k)); });
+      recordAccess(Array.from(foundFields), 'read portfolioItems (metadata)');
+      const totalImages = document.getElementById('totalImages');
+      if (totalImages) totalImages.textContent = allItems.length;
+      appLog(`Fetched ${allItems.length} items metadata`, 'info');
+
+      await renderPage(1, { showProgress: true });
+    } catch (e) {
+      appLog('Failed fetching metadata: ' + (e?.message || e), 'error');
+      hideLoadingScreenAndShowMain();
+      throw e;
+    }
+  }
+
+  function updateStats() {
+    const totalImagesEl = document.getElementById('totalImages');
+    if (totalImagesEl) totalImagesEl.textContent = allItems.length;
+    const publicCount = allItems.filter(i => i.isPublic).length;
+    const publicImagesEl = document.getElementById('publicImages');
+    if (publicImagesEl) publicImagesEl.textContent = publicCount;
+    let totMB = 0;
+    allItems.forEach(i => { const fs = i.fileSize || 0; totMB += (fs / 1024 / 1024); });
+    const storageUsed = document.getElementById('storageUsed');
+    if (storageUsed) storageUsed.textContent = `${totMB.toFixed(2)} MB`;
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    if (!bytes) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+  }
+
+  async function copyToClipboard(text) {
+    try { await navigator.clipboard.writeText(text || ''); alert('Copied'); appLog('Copied to clipboard', 'success'); }
+    catch (e) { appLog('Copy fail: ' + (e?.message || e), 'error'); }
+  }
+
+  function escapeHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function goBack() { window.location.href = '../admin_panel.html'; }
+
+
+  /* -------------------------
+     Admin check & init
+     ------------------------- */
+  async function checkAdminAccessAndStart() {
+    try {
+      const user = await new Promise((resolve, reject) => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
+          if (user) {
+            try {
+              const adminQuery = await db.collection('admin').where('gmail', '==', user.email).limit(1).get();
+              if (!adminQuery.empty) { unsubscribe(); resolve(user); } else { unsubscribe(); reject(new Error('Not an admin')); }
+            } catch (err) { unsubscribe(); reject(err); }
+          } else { unsubscribe(); reject(new Error('Not signed in')); }
+        });
+      });
+
+      const loadingTitle = document.getElementById('loadingTitle');
+      if (loadingTitle) loadingTitle.textContent = 'Admin verified — loading metadata';
+      const loadingSub = document.getElementById('loadingSub');
+      if (loadingSub) loadingSub.textContent = `Hello ${user.email}. Loading portfolio...`;
+      await updateAuthUI(user);
+      await loadAllMetadataThenShow();
+    } catch (e) {
+      console.error('Admin error', e);
+      const loadingTitle = document.getElementById('loadingTitle');
+      if (loadingTitle) loadingTitle.textContent = 'Access denied';
+      const loadingSub = document.getElementById('loadingSub');
+      if (loadingSub) loadingSub.textContent = 'Redirecting...';
+      setTimeout(() => window.location.href = 'index.html', 1600);
+    }
+  }
+
+
+  /* -------------------------
+     Init
+     ------------------------- */
+  (function init() {
+    appLog('App init', 'info');
+    checkAdminAccessAndStart();
+  })();
+
+
+  /* -------------------------
+     Expose debug helpers
+     ------------------------- */
+  window.__teamGalaxy = {
+    reloadMetadata: loadAllMetadataThenShow,
+    getSelectedFiles: () => selectedFiles.slice(),
+    setSelectedFiles: (arr) => { selectedFiles = Array.isArray(arr) ? arr.slice(0, CONFIG.MAX_UPLOAD) : []; },
+    config: CONFIG
+  };
+
+})();
+</script>
 </body>
 </html>
