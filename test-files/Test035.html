@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Full Orbit Game — Ultimate Build</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Full Orbit Game — Intelligent Fun Build</title>
 
 <style>
 :root{
@@ -13,56 +12,48 @@
   --accent:#64c2ff;
   --good:#6affd1;
   --danger:#ff6b6b;
-  --bomb:#ffd166;
   --text:#eaf6ff;
   --muted:#9fc9ff;
 }
-
-*{box-sizing:border-box}
+*{box-sizing:border-box;margin:0;padding:0}
 body{
   margin:0;
   background:radial-gradient(circle at top,#071a38,#02060d 70%);
   color:var(--text);
   font-family:Inter,Poppins,Arial,sans-serif;
-  overflow-x: hidden; /* Horizontal scrollbar removed */
+  overflow:hidden; /* prevent scroll in fullscreen */
 }
-
 .container{
   max-width:1200px;
   margin:auto;
-  padding:16px;
+  padding:18px;
 }
-
 header{
+  font-size:1.4rem;
+  font-weight:900;
+  margin-bottom:12px;
   display:flex;
   justify-content:space-between;
   align-items:center;
-  margin-bottom:10px;
 }
-
-.title{
-  font-size:1.4rem;
-  font-weight:900;
-}
-
-.btn{
-  background:rgba(255,255,255,.08);
-  border:1px solid rgba(255,255,255,.12);
-  color:var(--text);
-  padding:8px 12px;
-  border-radius:10px;
-  cursor:pointer;
+.fullscreen-btn {
+  background:var(--accent);
+  color:#000;
+  border:none;
+  padding:4px 10px;
+  border-radius:8px;
   font-weight:700;
+  cursor:pointer;
+  font-size:0.9rem;
 }
-
 .card{
   background:linear-gradient(180deg,#081b3a,#040b18);
   border-radius:16px;
-  padding:12px;
+  padding:14px;
   border:1px solid rgba(255,255,255,.05);
   box-shadow:0 30px 60px rgba(0,0,0,.8);
+  position:relative;
 }
-
 .play{
   position:relative;
   height:560px;
@@ -70,427 +61,319 @@ header{
   overflow:hidden;
   background:radial-gradient(circle,#0a2244,#02060d);
 }
-
 canvas{position:absolute;inset:0;width:100%;height:100%}
-
 .earth{
   position:absolute;
   left:50%;top:50%;
   transform:translate(-50%,-50%);
-  font-size:64px;
+  font-size:66px;
   filter:drop-shadow(0 0 28px rgba(100,194,255,.8));
 }
-
 .hud{
   position:absolute;
-  right:14px;top:14px;
+  right:16px;top:16px;
   background:rgba(6,16,32,.75);
-  padding:10px 14px;
+  padding:12px 16px;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.06);
   display:flex;
-  gap:14px;
-  font-size:.8rem;
+  gap:16px;
 }
+.hud div{text-align:right}
+.hud strong{font-size:1.1rem}
+.hud span{font-size:.75rem;color:var(--muted)}
 
-.hud strong{font-size:1.05rem}
-
-.warning{
+.ai{
   position:absolute;
-  top:50%;
+  left:16px;top:16px;
+  background:rgba(255,255,255,.05);
+  padding:8px 12px;
+  border-radius:10px;
+  font-size:.78rem;
+  border:1px solid rgba(255,255,255,.08);
+}
+.combo{
+  position:absolute;
   left:50%;
-  transform:translate(-50%,-50%);
-  font-weight:900;
-  font-size:1.4rem;
-  color:var(--danger);
+  bottom:18px;
+  transform:translateX(-50%);
+  font-weight:800;
+  color:var(--good);
   opacity:0;
-  transition:.3s;
+  transition:.2s;
 }
+.combo.show{opacity:1}
 
-.warning.show{opacity:1}
-
-.fullscreen{
-  position:absolute;
-  left:14px;
-  bottom:14px;
+/* Fullscreen overlay for mobile orientation prompt */
+#rotatePrompt {
+  position:fixed;
+  inset:0;
+  background:#000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  z-index:10000;
+  color:white;
+  font-size:1.2rem;
+  font-weight:bold;
+  display:none;
 }
-
-/* FULLSCREEN OVERRIDES */
-body.fullscreen-mode {
-  overflow: hidden;
-}
-
-body.fullscreen-mode .container {
-  display: none;
-}
-
-body.fullscreen-mode::backdrop {
-  background: #000;
+#rotatePrompt div {
+  margin-top:20px;
+  color:var(--accent);
 }
 </style>
 </head>
 
 <body>
 
-<div class="container" id="uiRoot">
+<div id="rotatePrompt">
+  📱 Please rotate your device<br>to landscape mode!<br>
+  <div>Then tap anywhere to continue</div>
+</div>
+
+<div class="container">
 <header>
-  <div class="title">🌌 Full Orbit Game</div>
-  <button class="btn" id="fsBtn">⛶ Fullscreen</button>
+  <span>🌌 Full Orbit Game — Intelligent Fun Build</span>
+  <button class="fullscreen-btn" id="fsBtn">⛶ Fullscreen</button>
 </header>
 
 <div class="card">
-<div class="play" id="gameRoot">
+<div class="play">
 <canvas id="c"></canvas>
 <div class="earth">🌍</div>
 
-<div class="warning" id="warn">⚠ ALIEN SHIP INCOMING</div>
+<div class="ai" id="ai">AI: calibrating…</div>
 
 <div class="hud">
-  <div><strong id="score">0</strong><br>Score</div>
-  <div><strong id="combo">0</strong><br>Combo</div>
-  <div><strong id="acc">100%</strong><br>Accuracy</div>
+  <div><strong id="score">0</strong><br><span>Score</span></div>
+  <div><strong id="comboVal">0</strong><br><span>Combo</span></div>
+  <div><strong id="misses">0</strong><br><span>Misses</span></div>
 </div>
 
-<button class="btn fullscreen" id="fsBtn2">⛶</button>
+<div class="combo" id="comboText">COMBO!</div>
 </div>
 </div>
 </div>
 
 <script>
-/* ================= CORE ================= */
-const canvas=document.getElementById("c");
-const ctx=canvas.getContext("2d");
-const scoreEl=score=document.getElementById("score");
-const comboEl=document.getElementById("combo");
-const accEl=document.getElementById("acc");
-const warnEl=document.getElementById("warn");
-const fsBtn=document.getElementById("fsBtn");
-const fsBtn2=document.getElementById("fsBtn2");
-const uiRoot=document.getElementById("uiRoot");
-const gameRoot=document.getElementById("gameRoot");
+/* ================= FULLSCREEN + ORIENTATION ================= */
+const fsBtn = document.getElementById('fsBtn');
+const rotatePrompt = document.getElementById('rotatePrompt');
+const gameCard = document.querySelector('.card');
 
-let DPR=Math.max(1,devicePixelRatio||1),W,H;
-function resize(){
-  W=canvas.offsetWidth;
-  H=canvas.offsetHeight;
-  canvas.width=W*DPR;
-  canvas.height=H*DPR;
-  ctx.setTransform(DPR,0,0,DPR,0,0);
+let isFullscreen = false;
+
+// Check if device is mobile
+const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+function enterFullscreen() {
+  const elem = document.documentElement;
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  } else if (elem.webkitRequestFullscreen) { // Safari
+    elem.webkitRequestFullscreen();
+  } else if (elem.msRequestFullscreen) { // IE11
+    elem.msRequestFullscreen();
+  }
 }
-addEventListener("resize",resize);
+
+function lockLandscape() {
+  if (!screen.orientation) return false;
+  try {
+    // Attempt to lock to landscape
+    return screen.orientation.lock('landscape').then(() => true).catch(() => false);
+  } catch (e) {
+    return false;
+  }
+}
+
+function showRotatePrompt() {
+  rotatePrompt.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function hideRotatePrompt() {
+  rotatePrompt.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+fsBtn?.addEventListener('click', async () => {
+  if (isFullscreen) return; // Already handled internally
+  enterFullscreen();
+});
+
+document.addEventListener('fullscreenchange', async () => {
+  isFullscreen = !!document.fullscreenElement;
+  if (isFullscreen) {
+    // Hide non-game UI
+    document.querySelector('header').style.display = 'none';
+    document.querySelector('.container').style.padding = '0';
+    document.body.style.background = 'black';
+
+    // Mobile: try to lock orientation
+    if (isMobile) {
+      const locked = await lockLandscape();
+      if (!locked) {
+        // Fallback: show rotate prompt if not landscape
+        setTimeout(() => {
+          if (window.innerWidth < window.innerHeight) {
+            showRotatePrompt();
+          }
+        }, 500);
+      }
+    }
+  } else {
+    // Exit fullscreen
+    document.querySelector('header').style.display = 'flex';
+    document.querySelector('.container').style.padding = '18px';
+    document.body.style.background = '';
+    hideRotatePrompt();
+  }
+});
+
+// Tap to dismiss rotate prompt
+document.addEventListener('pointerdown', () => {
+  if (rotatePrompt.style.display === 'flex') {
+    hideRotatePrompt();
+  }
+});
+
+/* ================= CORE ================= */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const scoreEl = document.getElementById("score");
+const comboEl = document.getElementById("comboVal");
+const missEl = document.getElementById("misses");
+const aiEl = document.getElementById("ai");
+const comboText = document.getElementById("comboText");
+
+let DPR = Math.max(1, window.devicePixelRatio || 1), W, H;
+function resize() {
+  W = canvas.offsetWidth; H = canvas.offsetHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener("resize", resize);
 resize();
 
 /* ================= STATE ================= */
-let objects=[];
-let score=0,combo=0;
-let clicks=0,hits=0;
-let lastBoss=performance.now();
-let gameSpeedCap = 0.012; // Speed cap implemented
+let orbs = [];
+let score = 0, combo = 0, misses = 0;
+let clicks = 0, hits = 0, reactionTimes = [];
 
-/* ================= TYPES ================= */
-const TYPES={
-  orb:{emoji:"🔵",score:1},
-  bonus:{emoji:"🔮",score:3},
-  rare:{emoji:"💠",score:6},
-  shield:{emoji:"🛡️",score:8,shield:1},
-  alien:{emoji:"👾",bad:true},
-  bomb:{emoji:"💣",bomb:true},
-  boss:{emoji:"👑",boss:true}
-};
-
-/* ================= HELPERS ================= */
-function accuracy(){
-  return Math.round((hits/Math.max(1,clicks))*100);
+/* ================= SKILL INDEX ================= */
+function skillIndex() {
+  const acc = hits / Math.max(1, clicks);
+  const avg = reactionTimes.reduce((a, b) => a + b, 0) / Math.max(1, reactionTimes.length);
+  const reactScore = Math.max(0, 1 - avg / 1200);
+  return Math.min(1, (acc * 0.6 + reactScore * 0.4));
 }
 
-// Correct counting implementation
-let stats = {
-  totalClicks: 0,
-  totalHits: 0,
-  misses: 0,
-  accuracy: 100,
-  skillIndex: 0
-};
-
-function updateStats(hitType = null) {
-  stats.totalClicks++;
-  if (hitType === 'hit') {
-    stats.totalHits++;
-  } else if (hitType === 'miss') {
-    stats.misses++;
-  }
-  
-  stats.accuracy = Math.round((stats.totalHits / Math.max(1, stats.totalClicks)) * 100);
-  stats.skillIndex = Math.floor((stats.totalHits * 10) - (stats.misses * 5)); // Example calculation
-  
-  accEl.textContent = stats.accuracy + "%";
-  comboEl.textContent = combo;
-  scoreEl.textContent = score;
-}
+/* ================= ORB TYPES ================= */
+const TYPES = [
+  { emoji: "🪨", score: 1, shield: false },
+  { emoji: "💎", score: 3, shield: false },
+  { emoji: "🌟", score: 5, shield: false },
+  { emoji: "🛡️", score: 8, shield: true }
+];
 
 /* ================= SPAWN ================= */
-function spawn(type){
-  const angle=Math.random()*Math.PI*2;
-  const radius=100+Math.random()*(Math.min(W,H)/2-120);
-  const speed=Math.min(gameSpeedCap, 0.004+Math.random()*0.006); // Speed cap applied
+function spawn() {
+  if (orbs.length > 18) return;
+  const t = TYPES[Math.floor(Math.random() * TYPES.length)];
+  const skill = skillIndex();
+  const minSpeed = 0.003;
+  const maxSpeed = 0.012;
+  let speed = minSpeed + skill * 0.007 + Math.random() * 0.003;
+  speed = Math.min(speed, maxSpeed);
 
-  objects.push({
-    type,
-    angle,
-    radius,
-    speed:(Math.random()<0.5?-1:1)*speed,
-    size:32,
-    shield:type.shield||0,
-    born:performance.now()
+  orbs.push({
+    angle: Math.random() * Math.PI * 2,
+    radius: 100 + skill * 80 + Math.random() * 60,
+    speed: (Math.random() < 0.5 ? -1 : 1) * speed,
+    size: 30,
+    emoji: t.emoji,
+    score: t.score,
+    shield: t.shield,
+    shieldHP: t.shield ? 1 : 0,
+    spawnTs: performance.now(),
+    turnChance: skill * 0.005
   });
 }
-
-setInterval(()=>{
-  if(objects.length>18) return;
-  const r=Math.random();
-  if(r<0.6) spawn(TYPES.orb);
-  else if(r<0.75) spawn(TYPES.bonus);
-  else if(r<0.85) spawn(TYPES.shield);
-  else if(r<0.92){
-    warnEl.classList.add("show");
-    setTimeout(()=>warnEl.classList.remove("show"),1200);
-    spawn(TYPES.alien);
-  }
-  else spawn(TYPES.bomb);
-},900);
-
-/* ================= BOSS ================= */
-function spawnBoss(){
-  // Multi-core boss with weak points
-  const cores = 3;
-  objects.push({
-    type:TYPES.boss,
-    angle:0,
-    radius:140,
-    speed:0.002,
-    size:60,
-    hp:6,
-    cores: cores,
-    activeCore: 0, // Only one weak point active at a time
-    corePositions: [
-      { angle: 0, offset: 0 },
-      { angle: Math.PI * 2/3, offset: 0 },
-      { angle: Math.PI * 4/3, offset: 0 }
-    ]
-  });
-  
-  // Cycle active core every 3 seconds
-  setInterval(() => {
-    const boss = objects.find(o => o.type.boss && !o.destroyed);
-    if(boss) {
-      boss.activeCore = (boss.activeCore + 1) % boss.cores;
-    }
-  }, 3000);
-}
-
-setInterval(()=>{
-  if(performance.now()-lastBoss>90000){
-    spawnBoss();
-    lastBoss=performance.now();
-  }
-},2000);
+setInterval(spawn, 800);
 
 /* ================= INPUT ================= */
-canvas.addEventListener("pointerdown",e=>{
+canvas.addEventListener("pointerdown", e => {
   clicks++;
-  const r=canvas.getBoundingClientRect();
-  const x=e.clientX-r.left;
-  const y=e.clientY-r.top;
-  const cx=W/2,cy=H/2;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const cx = W / 2, cy = H / 2;
 
-  let hit=null,dMin=9999;
-  for(const o of objects){
-    const ox=cx+Math.cos(o.angle)*o.radius;
-    const oy=cy+Math.sin(o.angle)*o.radius;
-    const d=Math.hypot(x-ox,y-oy);
-    if(d<o.size && d<dMin){
-      hit=o;dMin=d;
+  let hit = null, bestD = 9999;
+  for (const o of orbs) {
+    const ox = cx + Math.cos(o.angle) * o.radius;
+    const oy = cy + Math.sin(o.angle) * o.radius;
+    const d = Math.hypot(x - ox, y - oy);
+    if (d < o.size && d < bestD) {
+      hit = o; bestD = d;
     }
   }
 
-  if(!hit){
-    combo=0;
-    updateStats('miss');
-    return;
-  }
-
-  hits++;
-  updateStats('hit');
-
-  if(hit.type.bad){
-    combo=0;
-    score=Math.max(0,Math.floor(score*0.9));
-    objects=objects.filter(o=>o!==hit);
-    
-    // Alien punishment: screen distortion
-    gameRoot.style.filter = "distort(0.5)";
-    setTimeout(() => gameRoot.style.filter = "", 2000);
-    
-    updateStats(); // Update UI
-    return;
-  }
-
-  if(hit.type.bomb){
-    // Area blast effect
-    const blastX = cx + Math.cos(hit.angle) * hit.radius;
-    const blastY = cy + Math.sin(hit.angle) * hit.radius;
-    
-    objects = objects.filter(o => {
-      const ox = cx + Math.cos(o.angle) * o.radius;
-      const oy = cy + Math.sin(o.angle) * o.radius;
-      const dist = Math.hypot(ox - blastX, oy - blastY);
-      
-      // Break shields and destroy nearby objects
-      if(dist < 120) {
-        if(o.shield > 0) o.shield = 0;
-        return false;
-      }
-      return true;
-    });
-    
-    combo += 3;
-    objects=objects.filter(o=>o!==hit);
-    updateStats(); // Combo boost
-    return;
-  }
-
-  if(hit.type.boss){
-    // Only damage if hitting active core
-    if(hit.activeCore === hit.corePositions.findIndex(c => c.angle === hit.angle)) {
-      hit.hp--;
-      if(hit.hp<=0){
-        score+=20;
-        spawn(TYPES.bomb); // Guaranteed bomb after win
-        objects=objects.filter(o=>o!==hit);
-        
-        // Difficulty relief after boss win
-        gameSpeedCap = Math.min(0.012, gameSpeedCap + 0.001);
-      }
+  if (hit) {
+    hits++;
+    reactionTimes.push(performance.now() - hit.spawnTs);
+    if (hit.shield && hit.shieldHP > 0) {
+      hit.shieldHP--;
+      return;
     }
-    updateStats(); // Boss mechanics
-    return;
+    orbs = orbs.filter(o => o !== hit);
+    score += hit.score;
+    combo++;
+    scoreEl.textContent = score;
+    comboEl.textContent = combo;
+    comboText.classList.add("show");
+    setTimeout(() => comboText.classList.remove("show"), 300);
+  } else {
+    combo = 0;
+    misses++;
+    comboEl.textContent = combo;
+    missEl.textContent = misses;
   }
-
-  if(hit.shield>0){
-    hit.shield--;
-    updateStats(); // Shield hit
-    return;
-  }
-
-  objects=objects.filter(o=>o!==hit);
-  score+=hit.type.score;
-  combo++;
-  updateStats(); // Regular hit
 });
 
-/* ================= ADAPTIVE DIFFICULTY ================= */
-function adjustDifficulty() {
-  // Based on accuracy, streak, reaction time
-  const currentAccuracy = accuracy();
-  const reactionTime = 1000 / (combo + 1); // Simplified
-  
-  // Adjust parameters
-  gameSpeedCap = 0.004 + (currentAccuracy / 100) * 0.008; // Faster with higher accuracy
-  const spawnRate = 900 - (combo * 5); // Increase spawn rate with combo
-}
-
-setInterval(adjustDifficulty, 5000); // Check every 5 seconds
-
 /* ================= DRAW ================= */
-function loop(){
-  ctx.clearRect(0,0,W,H);
-  const cx=W/2,cy=H/2;
+function loop() {
+  ctx.clearRect(0, 0, W, H);
+  const cx = W / 2, cy = H / 2;
+  const skill = skillIndex();
+  aiEl.textContent = `AI Skill Index: ${skill.toFixed(2)}`;
 
-  for(const o of objects){
-    o.angle+=o.speed;
-    const x=cx+Math.cos(o.angle)*o.radius;
-    const y=cy+Math.sin(o.angle)*o.radius;
+  for (const o of orbs) {
+    if (Math.random() < o.turnChance) o.speed *= -1;
+    o.angle += o.speed;
 
-    // Draw shield if applicable
-    if(o.shield){
+    const x = cx + Math.cos(o.angle) * o.radius;
+    const y = cy + Math.sin(o.angle) * o.radius;
+
+    if (o.shield && o.shieldHP > 0) {
       ctx.beginPath();
-      ctx.strokeStyle="rgba(106,255,209,.8)";
-      ctx.lineWidth=3;
-      ctx.arc(x,y,o.size+6,0,Math.PI*2);
+      ctx.strokeStyle = "rgba(106,255,209,.8)";
+      ctx.lineWidth = 3;
+      ctx.arc(x, y, o.size + 6, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    // Special rendering for boss
-    if(o.type.boss) {
-      // Draw main body
-      ctx.font=o.size+"px serif";
-      ctx.textAlign="center";
-      ctx.textBaseline="middle";
-      ctx.fillText(o.type.emoji,x,y);
-      
-      // Highlight active core
-      const corePos = o.corePositions[o.activeCore];
-      const coreX = x + Math.cos(corePos.angle) * 15;
-      const coreY = y + Math.sin(corePos.angle) * 15;
-      ctx.beginPath();
-      ctx.strokeStyle="#FF0000";
-      ctx.lineWidth=2;
-      ctx.arc(coreX, coreY, 8, 0, Math.PI*2);
-      ctx.stroke();
-    } else {
-      // Regular object rendering
-      ctx.font=o.size+"px serif";
-      ctx.textAlign="center";
-      ctx.textBaseline="middle";
-      ctx.fillText(o.type.emoji,x,y);
-    }
+    ctx.font = "30px serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(o.emoji, x, y);
   }
   requestAnimationFrame(loop);
 }
 loop();
-
-/* ================= FULLSCREEN ================= */
-async function goFullscreen(){
-  try {
-    if(!document.fullscreenElement){
-      await gameRoot.requestFullscreen();
-      
-      // Hide UI elements
-      uiRoot.style.display="none";
-      
-      // Lock orientation to landscape if supported
-      try {
-        if(screen.orientation && screen.orientation.lock){
-          await screen.orientation.lock("landscape");
-        }
-      } catch(e) {
-        console.log("Orientation lock not supported");
-      }
-      
-      // Add class for additional fullscreen styles
-      document.body.classList.add("fullscreen-mode");
-    } else {
-      document.exitFullscreen();
-      uiRoot.style.display="";
-      document.body.classList.remove("fullscreen-mode");
-    }
-  } catch(err) {
-    console.error("Fullscreen error:", err);
-    alert("Could not enter fullscreen mode. Please ensure your browser supports this feature.");
-  }
-}
-fsBtn.onclick=goFullscreen;
-fsBtn2.onclick=goFullscreen;
-
-// Listen for fullscreen changes to handle fallbacks
-document.addEventListener("fullscreenchange", () => {
-  if (!document.fullscreenElement) {
-    // User exited fullscreen manually
-    uiRoot.style.display="";
-    document.body.classList.remove("fullscreen-mode");
-  }
-});
 </script>
-
 </body>
 </html>
