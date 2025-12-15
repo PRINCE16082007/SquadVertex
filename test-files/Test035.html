@@ -21,12 +21,16 @@ body{
   background:radial-gradient(circle at top,#071a38,#02060d 70%);
   color:var(--text);
   font-family:Inter,Poppins,Arial,sans-serif;
-  overflow:hidden; /* prevent scroll in fullscreen */
+  overflow:hidden;
 }
 .container{
   max-width:1200px;
   margin:auto;
   padding:18px;
+  width:100%;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
 }
 header{
   font-size:1.4rem;
@@ -53,13 +57,20 @@ header{
   border:1px solid rgba(255,255,255,.05);
   box-shadow:0 30px 60px rgba(0,0,0,.8);
   position:relative;
+  flex-grow:1;
+  display:flex;
+  flex-direction:column;
 }
 .play{
   position:relative;
-  height:560px;
+  flex-grow:1;
+  min-height:500px; /* fallback */
   border-radius:14px;
   overflow:hidden;
   background:radial-gradient(circle,#0a2244,#02060d);
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 canvas{position:absolute;inset:0;width:100%;height:100%}
 .earth{
@@ -68,6 +79,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
   transform:translate(-50%,-50%);
   font-size:66px;
   filter:drop-shadow(0 0 28px rgba(100,194,255,.8));
+  pointer-events:none;
 }
 .hud{
   position:absolute;
@@ -104,7 +116,19 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 }
 .combo.show{opacity:1}
 
-/* Fullscreen overlay for mobile orientation prompt */
+.difficulty-bar {
+  position:absolute;
+  bottom:16px;
+  left:16px;
+  background:rgba(0,0,0,0.5);
+  padding:6px 10px;
+  border-radius:10px;
+  font-size:0.8rem;
+  border:1px solid var(--accent);
+  color:var(--accent);
+  pointer-events:none;
+}
+
 #rotatePrompt {
   position:fixed;
   inset:0;
@@ -145,6 +169,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 <div class="earth">🌍</div>
 
 <div class="ai" id="ai">AI: calibrating…</div>
+<div class="difficulty-bar" id="diffBar">Level: Easy</div>
 
 <div class="hud">
   <div><strong id="score">0</strong><br><span>Score</span></div>
@@ -161,11 +186,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 /* ================= FULLSCREEN + ORIENTATION ================= */
 const fsBtn = document.getElementById('fsBtn');
 const rotatePrompt = document.getElementById('rotatePrompt');
-const gameCard = document.querySelector('.card');
+const diffBar = document.getElementById('diffBar');
 
 let isFullscreen = false;
-
-// Check if device is mobile
 const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 function enterFullscreen() {
@@ -182,7 +205,6 @@ function enterFullscreen() {
 function lockLandscape() {
   if (!screen.orientation) return false;
   try {
-    // Attempt to lock to landscape
     return screen.orientation.lock('landscape').then(() => true).catch(() => false);
   } catch (e) {
     return false;
@@ -200,23 +222,19 @@ function hideRotatePrompt() {
 }
 
 fsBtn?.addEventListener('click', async () => {
-  if (isFullscreen) return; // Already handled internally
+  if (isFullscreen) return;
   enterFullscreen();
 });
 
 document.addEventListener('fullscreenchange', async () => {
   isFullscreen = !!document.fullscreenElement;
   if (isFullscreen) {
-    // Hide non-game UI
     document.querySelector('header').style.display = 'none';
     document.querySelector('.container').style.padding = '0';
     document.body.style.background = 'black';
-
-    // Mobile: try to lock orientation
     if (isMobile) {
       const locked = await lockLandscape();
       if (!locked) {
-        // Fallback: show rotate prompt if not landscape
         setTimeout(() => {
           if (window.innerWidth < window.innerHeight) {
             showRotatePrompt();
@@ -225,7 +243,6 @@ document.addEventListener('fullscreenchange', async () => {
       }
     }
   } else {
-    // Exit fullscreen
     document.querySelector('header').style.display = 'flex';
     document.querySelector('.container').style.padding = '18px';
     document.body.style.background = '';
@@ -233,7 +250,6 @@ document.addEventListener('fullscreenchange', async () => {
   }
 });
 
-// Tap to dismiss rotate prompt
 document.addEventListener('pointerdown', () => {
   if (rotatePrompt.style.display === 'flex') {
     hideRotatePrompt();
@@ -271,6 +287,15 @@ function skillIndex() {
   return Math.min(1, (acc * 0.6 + reactScore * 0.4));
 }
 
+/* ================= DIFFICULTY SYSTEM ================= */
+function getDifficultyLevel(skill) {
+  if (skill < 0.15) return { level: "Easy", color: "#6affd1", orbCount: 15, speed: 0.003, shieldProb: 0.1 };
+  if (skill < 0.35) return { level: "Medium", color: "#64c2ff", orbCount: 18, speed: 0.006, shieldProb: 0.15 };
+  if (skill < 0.55) return { level: "Hard", color: "#ffaa00", orbCount: 20, speed: 0.009, shieldProb: 0.2 };
+  if (skill < 0.75) return { level: "Pro", color: "#ff6b6b", orbCount: 22, speed: 0.011, shieldProb: 0.25 };
+  return { level: "Elite", color: "#d400ff", orbCount: 25, speed: 0.012, shieldProb: 0.3 }; // Max Speed Cap
+}
+
 /* ================= ORB TYPES ================= */
 const TYPES = [
   { emoji: "🪨", score: 1, shield: false },
@@ -281,13 +306,20 @@ const TYPES = [
 
 /* ================= SPAWN ================= */
 function spawn() {
-  if (orbs.length > 18) return;
-  const t = TYPES[Math.floor(Math.random() * TYPES.length)];
   const skill = skillIndex();
-  const minSpeed = 0.003;
-  const maxSpeed = 0.012;
-  let speed = minSpeed + skill * 0.007 + Math.random() * 0.003;
-  speed = Math.min(speed, maxSpeed);
+  const diff = getDifficultyLevel(skill);
+  
+  // Update difficulty display
+  diffBar.textContent = `Level: ${diff.level}`;
+  diffBar.style.color = diff.color;
+  diffBar.style.borderColor = diff.color;
+
+  if (orbs.length >= diff.orbCount) return;
+
+  const t = TYPES[Math.floor(Math.random() * TYPES.length)];
+  const baseSpeed = diff.speed;
+  let speed = baseSpeed + Math.random() * 0.003;
+  speed = Math.min(speed, 0.012); // Cap again just in case
 
   orbs.push({
     angle: Math.random() * Math.PI * 2,
@@ -296,8 +328,8 @@ function spawn() {
     size: 30,
     emoji: t.emoji,
     score: t.score,
-    shield: t.shield,
-    shieldHP: t.shield ? 1 : 0,
+    shield: t.shield || Math.random() < diff.shieldProb,
+    shieldHP: (t.shield || Math.random() < diff.shieldProb) ? 1 : 0,
     spawnTs: performance.now(),
     turnChance: skill * 0.005
   });
