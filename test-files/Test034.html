@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Full Orbit Game — Adaptive AI</title>
+<title>Full Orbit Game — Intelligent Fun Build</title>
 
 <style>
 :root{
   --bg:#030916;
   --panel:#0a1833;
   --accent:#64c2ff;
+  --good:#6affd1;
   --danger:#ff6b6b;
-  --shield:#6affd1;
   --text:#eaf6ff;
   --muted:#9fc9ff;
 }
@@ -57,40 +57,57 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 .hud{
   position:absolute;
   right:16px;top:16px;
-  background:rgba(6,16,32,.7);
-  padding:10px 14px;
+  background:rgba(6,16,32,.75);
+  padding:12px 16px;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.06);
+  display:flex;
+  gap:16px;
 }
+.hud div{text-align:right}
 .hud strong{font-size:1.1rem}
-.hud span{font-size:.78rem;color:var(--muted)}
+.hud span{font-size:.75rem;color:var(--muted)}
 .ai{
   position:absolute;
   left:16px;top:16px;
   background:rgba(255,255,255,.05);
   padding:8px 12px;
   border-radius:10px;
-  font-size:.8rem;
+  font-size:.78rem;
   border:1px solid rgba(255,255,255,.08);
 }
+.combo{
+  position:absolute;
+  left:50%;
+  bottom:18px;
+  transform:translateX(-50%);
+  font-weight:800;
+  color:var(--good);
+  opacity:0;
+  transition:.2s;
+}
+.combo.show{opacity:1}
 </style>
 </head>
 
 <body>
 <div class="container">
-<header>🌌 Full Orbit Game — Adaptive AI Mode</header>
+<header>🌌 Full Orbit Game — Intelligent Fun Test Build</header>
 
 <div class="card">
 <div class="play">
 <canvas id="c"></canvas>
 <div class="earth">🌍</div>
 
-<div class="ai" id="ai">AI: observing…</div>
+<div class="ai" id="ai">AI: calibrating…</div>
 
 <div class="hud">
-<div><strong id="score">0</strong><br><span>Score</span></div>
-<div><strong id="high">0</strong><br><span>High</span></div>
+  <div><strong id="score">0</strong><br><span>Score</span></div>
+  <div><strong id="comboVal">0</strong><br><span>Combo</span></div>
+  <div><strong id="misses">0</strong><br><span>Misses</span></div>
 </div>
+
+<div class="combo" id="comboText">COMBO!</div>
 </div>
 </div>
 </div>
@@ -100,8 +117,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
 const canvas=document.getElementById("c");
 const ctx=canvas.getContext("2d");
 const scoreEl=document.getElementById("score");
-const highEl=document.getElementById("high");
+const comboEl=document.getElementById("comboVal");
+const missEl=document.getElementById("misses");
 const aiEl=document.getElementById("ai");
+const comboText=document.getElementById("comboText");
 
 let DPR=Math.max(1,devicePixelRatio||1),W,H;
 function resize(){
@@ -112,20 +131,21 @@ function resize(){
 addEventListener("resize",resize);resize();
 
 /* ================= STATE ================= */
-let orbs=[],score=0,high=0,lastClick=0;
+let orbs=[];
+let score=0,combo=0,misses=0;
 let clicks=0,hits=0,reactionTimes=[];
 
-/* ================= AI METRICS ================= */
+/* ================= SKILL INDEX ================= */
 function skillIndex(){
-  const acc = hits/Math.max(1,clicks);
-  const avgReact = reactionTimes.reduce((a,b)=>a+b,0)/Math.max(1,reactionTimes.length);
-  const reactScore = Math.max(0,1-(avgReact/1200));
-  return Math.min(1,(acc*0.6 + reactScore*0.4));
+  const acc=hits/Math.max(1,clicks);
+  const avg=reactionTimes.reduce((a,b)=>a+b,0)/Math.max(1,reactionTimes.length);
+  const reactScore=Math.max(0,1-avg/1200);
+  return Math.min(1,(acc*0.6+reactScore*0.4));
 }
 
 /* ================= ORB TYPES ================= */
 const TYPES=[
- {emoji:"🟢",score:1,shield:false},
+ {emoji:"🔵",score:1,shield:false},
  {emoji:"🔮",score:3,shield:false},
  {emoji:"💠",score:5,shield:false},
  {emoji:"🛡️",score:8,shield:true}
@@ -133,27 +153,32 @@ const TYPES=[
 
 /* ================= SPAWN ================= */
 function spawn(){
-  if(orbs.length>22) return;
+  if(orbs.length>18) return;
+
   const t=TYPES[Math.floor(Math.random()*TYPES.length)];
-  const ai=skillIndex();
-  const speedBase=0.003+ai*0.012;
+  const skill=skillIndex();
+
+  const minSpeed=0.003;
+  const maxSpeed=0.012; // SPEED LIMIT
+  let speed=minSpeed+skill*0.007+Math.random()*0.003;
+  speed=Math.min(speed,maxSpeed);
 
   orbs.push({
     angle:Math.random()*Math.PI*2,
-    radius:90+Math.random()*(Math.min(W,H)/2-120),
-    speed:(Math.random()<0.5?-1:1)*(speedBase+Math.random()*0.006),
-    accel:(Math.random()<ai?0.0003:0),
+    radius:100+skill*80+Math.random()*60,
+    speed:(Math.random()<0.5?-1:1)*speed,
     size:30,
+    emoji:t.emoji,
+    score:t.score,
     shield:t.shield,
     shieldHP:t.shield?1:0,
-    emoji:t.emoji,
     spawnTs:performance.now(),
-    chaos:Math.random()<ai*0.4
+    turnChance:skill*0.005
   });
 }
-setInterval(spawn,600);
+setInterval(spawn,800);
 
-/* ================= CLICK ================= */
+/* ================= INPUT ================= */
 canvas.addEventListener("pointerdown",e=>{
   clicks++;
   const rect=canvas.getBoundingClientRect();
@@ -161,27 +186,37 @@ canvas.addEventListener("pointerdown",e=>{
   const y=e.clientY-rect.top;
   const cx=W/2,cy=H/2;
 
-  let best=null,bestD=9999;
+  let hit=null,bestD=9999;
   for(const o of orbs){
     const ox=cx+Math.cos(o.angle)*o.radius;
     const oy=cy+Math.sin(o.angle)*o.radius;
     const d=Math.hypot(x-ox,y-oy);
     if(d<o.size && d<bestD){
-      best=o;bestD=d;
+      hit=o;bestD=d;
     }
   }
 
-  if(best){
+  if(hit){
     hits++;
-    reactionTimes.push(performance.now()-best.spawnTs);
-    if(best.shield && best.shieldHP>0){
-      best.shieldHP--;
+    reactionTimes.push(performance.now()-hit.spawnTs);
+
+    if(hit.shield && hit.shieldHP>0){
+      hit.shieldHP--;
       return;
     }
-    orbs=orbs.filter(o=>o!==best);
-    score+=best.score;
+
+    orbs=orbs.filter(o=>o!==hit);
+    score+=hit.score;
+    combo++;
     scoreEl.textContent=score;
-    if(score>high){high=score;highEl.textContent=high;}
+    comboEl.textContent=combo;
+    comboText.classList.add("show");
+    setTimeout(()=>comboText.classList.remove("show"),300);
+  }else{
+    combo=0;
+    misses++;
+    comboEl.textContent=combo;
+    missEl.textContent=misses;
   }
 });
 
@@ -189,12 +224,11 @@ canvas.addEventListener("pointerdown",e=>{
 function loop(){
   ctx.clearRect(0,0,W,H);
   const cx=W/2,cy=H/2;
-  const ai=skillIndex();
-  aiEl.textContent=`AI Skill Index: ${ai.toFixed(2)}`;
+  const skill=skillIndex();
+  aiEl.textContent=`AI Skill Index: ${skill.toFixed(2)}`;
 
   for(const o of orbs){
-    if(o.chaos && Math.random()<0.01) o.speed*=-1;
-    o.speed+=o.accel;
+    if(Math.random()<o.turnChance) o.speed*=-1;
     o.angle+=o.speed;
 
     const x=cx+Math.cos(o.angle)*o.radius;
@@ -202,7 +236,7 @@ function loop(){
 
     if(o.shield && o.shieldHP>0){
       ctx.beginPath();
-      ctx.strokeStyle="rgba(106,255,209,0.8)";
+      ctx.strokeStyle="rgba(106,255,209,.8)";
       ctx.lineWidth=3;
       ctx.arc(x,y,o.size+6,0,Math.PI*2);
       ctx.stroke();
