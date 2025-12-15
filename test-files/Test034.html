@@ -3,280 +3,219 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Full Orbit Game — Advanced</title>
+<title>Full Orbit Game — Adaptive AI</title>
 
 <style>
 :root{
-  --bg:#040b16;
-  --card:#0a1630;
+  --bg:#030916;
+  --panel:#0a1833;
   --accent:#64c2ff;
-  --accent2:#ffb86b;
+  --danger:#ff6b6b;
+  --shield:#6affd1;
   --text:#eaf6ff;
   --muted:#9fc9ff;
 }
-
 *{box-sizing:border-box}
 body{
   margin:0;
-  background:radial-gradient(circle at top,#081b38,#02060d 70%);
+  background:radial-gradient(circle at top,#071a38,#02060d 70%);
   color:var(--text);
   font-family:Inter,Poppins,Arial,sans-serif;
 }
-
 .container{
   max-width:1200px;
   margin:auto;
   padding:18px;
 }
-
 header{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  margin-bottom:14px;
-}
-
-.title{
   font-size:1.4rem;
   font-weight:900;
+  margin-bottom:12px;
 }
-
-.game-card{
-  background:linear-gradient(180deg,#081a35,#040b18);
+.card{
+  background:linear-gradient(180deg,#081b3a,#040b18);
   border-radius:16px;
   padding:14px;
-  box-shadow:0 30px 60px rgba(0,0,0,.8);
   border:1px solid rgba(255,255,255,.05);
+  box-shadow:0 30px 60px rgba(0,0,0,.8);
 }
-
-.play-area{
+.play{
   position:relative;
   height:560px;
   border-radius:14px;
   overflow:hidden;
-  background:radial-gradient(circle,#0a2040,#02060d);
+  background:radial-gradient(circle,#0a2244,#02060d);
 }
-
-canvas{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-}
-
+canvas{position:absolute;inset:0;width:100%;height:100%}
 .earth{
   position:absolute;
-  left:50%;
-  top:50%;
+  left:50%;top:50%;
   transform:translate(-50%,-50%);
-  font-size:64px;
-  filter:drop-shadow(0 0 24px rgba(100,194,255,.7));
+  font-size:66px;
+  filter:drop-shadow(0 0 28px rgba(100,194,255,.8));
 }
-
 .hud{
   position:absolute;
-  top:16px;
-  right:16px;
-  background:rgba(5,14,28,.7);
-  backdrop-filter:blur(6px);
-  border-radius:12px;
+  right:16px;top:16px;
+  background:rgba(6,16,32,.7);
   padding:10px 14px;
-  display:flex;
-  gap:16px;
+  border-radius:12px;
   border:1px solid rgba(255,255,255,.06);
 }
-
-.hud div{text-align:right}
 .hud strong{font-size:1.1rem}
 .hud span{font-size:.78rem;color:var(--muted)}
-
-.level{
+.ai{
   position:absolute;
-  left:16px;
-  top:16px;
+  left:16px;top:16px;
   background:rgba(255,255,255,.05);
   padding:8px 12px;
   border-radius:10px;
-  font-weight:800;
+  font-size:.8rem;
   border:1px solid rgba(255,255,255,.08);
 }
 </style>
 </head>
 
 <body>
-
 <div class="container">
-<header>
-  <div class="title">🌌 Full Orbit Game — Advanced</div>
-</header>
+<header>🌌 Full Orbit Game — Adaptive AI Mode</header>
 
-<div class="game-card">
-  <div class="play-area">
-    <canvas id="canvas"></canvas>
-    <div class="earth">🌍</div>
+<div class="card">
+<div class="play">
+<canvas id="c"></canvas>
+<div class="earth">🌍</div>
 
-    <div class="level" id="levelLabel">Level 1 · Easy</div>
+<div class="ai" id="ai">AI: observing…</div>
 
-    <div class="hud">
-      <div>
-        <strong id="score">0</strong>
-        <span>Collected</span>
-      </div>
-      <div>
-        <strong id="high">0</strong>
-        <span>High</span>
-      </div>
-    </div>
-  </div>
+<div class="hud">
+<div><strong id="score">0</strong><br><span>Score</span></div>
+<div><strong id="high">0</strong><br><span>High</span></div>
+</div>
+</div>
 </div>
 </div>
 
 <script>
-/* ===============================
-   CORE SETUP
-================================ */
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const scoreEl = document.getElementById("score");
-const highEl = document.getElementById("high");
-const levelEl = document.getElementById("levelLabel");
+/* ================= CORE ================= */
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
+const scoreEl=document.getElementById("score");
+const highEl=document.getElementById("high");
+const aiEl=document.getElementById("ai");
 
-let DPR = Math.max(1, window.devicePixelRatio || 1);
-let W,H;
-
+let DPR=Math.max(1,devicePixelRatio||1),W,H;
 function resize(){
-  W = canvas.offsetWidth;
-  H = canvas.offsetHeight;
-  canvas.width = W * DPR;
-  canvas.height = H * DPR;
+  W=canvas.offsetWidth;H=canvas.offsetHeight;
+  canvas.width=W*DPR;canvas.height=H*DPR;
   ctx.setTransform(DPR,0,0,DPR,0,0);
 }
-window.addEventListener("resize",resize);
-resize();
+addEventListener("resize",resize);resize();
 
-/* ===============================
-   GAME STATE
-================================ */
-let orbs = [];
-let particles = [];
-let score = 0;
-let high = 0;
+/* ================= STATE ================= */
+let orbs=[],score=0,high=0,lastClick=0;
+let clicks=0,hits=0,reactionTimes=[];
 
-/* ===============================
-   DIFFICULTY SYSTEM
-================================ */
-const LEVELS = [
-  {name:"Easy", spawn:1600, speed:0.004, max:10},
-  {name:"Normal", spawn:1200, speed:0.006, max:14},
-  {name:"Hard", spawn:900, speed:0.008, max:18},
-  {name:"Insane", spawn:600, speed:0.011, max:24}
-];
-
-function currentLevel(){
-  if(score < 20) return 0;
-  if(score < 50) return 1;
-  if(score < 100) return 2;
-  return 3;
+/* ================= AI METRICS ================= */
+function skillIndex(){
+  const acc = hits/Math.max(1,clicks);
+  const avgReact = reactionTimes.reduce((a,b)=>a+b,0)/Math.max(1,reactionTimes.length);
+  const reactScore = Math.max(0,1-(avgReact/1200));
+  return Math.min(1,(acc*0.6 + reactScore*0.4));
 }
 
-/* ===============================
-   ORB TYPES
-================================ */
-const TYPES = [
-  {emoji:"🛰️", score:1, chance:0.7},
-  {emoji:"🌟", score:3, chance:0.2},
-  {emoji:"🔥", score:6, chance:0.1}
+/* ================= ORB TYPES ================= */
+const TYPES=[
+ {emoji:"🟢",score:1,shield:false},
+ {emoji:"🔮",score:3,shield:false},
+ {emoji:"💠",score:5,shield:false},
+ {emoji:"🛡️",score:8,shield:true}
 ];
 
-function pickType(){
-  let r=Math.random(), s=0;
-  for(const t of TYPES){
-    s+=t.chance;
-    if(r<=s) return t;
-  }
-  return TYPES[0];
-}
-
-/* ===============================
-   SPAWN
-================================ */
-function spawnOrb(){
-  const lvl = LEVELS[currentLevel()];
-  if(orbs.length >= lvl.max) return;
-
-  const t = pickType();
-  const angle = Math.random()*Math.PI*2;
-  const radius = 90 + Math.random()*(Math.min(W,H)/2 - 120);
+/* ================= SPAWN ================= */
+function spawn(){
+  if(orbs.length>22) return;
+  const t=TYPES[Math.floor(Math.random()*TYPES.length)];
+  const ai=skillIndex();
+  const speedBase=0.003+ai*0.012;
 
   orbs.push({
-    angle,
-    radius,
-    speed:(Math.random()<0.5?-1:1)*(lvl.speed+Math.random()*0.003),
-    size:28,
-    ...t
+    angle:Math.random()*Math.PI*2,
+    radius:90+Math.random()*(Math.min(W,H)/2-120),
+    speed:(Math.random()<0.5?-1:1)*(speedBase+Math.random()*0.006),
+    accel:(Math.random()<ai?0.0003:0),
+    size:30,
+    shield:t.shield,
+    shieldHP:t.shield?1:0,
+    emoji:t.emoji,
+    spawnTs:performance.now(),
+    chaos:Math.random()<ai*0.4
   });
 }
+setInterval(spawn,600);
 
-setInterval(spawnOrb, 400);
-
-/* ===============================
-   HIT TEST
-================================ */
+/* ================= CLICK ================= */
 canvas.addEventListener("pointerdown",e=>{
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  const cx = W/2, cy = H/2;
+  clicks++;
+  const rect=canvas.getBoundingClientRect();
+  const x=e.clientX-rect.left;
+  const y=e.clientY-rect.top;
+  const cx=W/2,cy=H/2;
 
-  let best=null, bestD=Infinity;
-
+  let best=null,bestD=9999;
   for(const o of orbs){
-    const ox = cx + Math.cos(o.angle)*o.radius;
-    const oy = cy + Math.sin(o.angle)*o.radius;
-    const d = Math.hypot(x-ox,y-oy);
-    if(d < o.size && d < bestD){
-      best=o;
-      bestD=d;
+    const ox=cx+Math.cos(o.angle)*o.radius;
+    const oy=cy+Math.sin(o.angle)*o.radius;
+    const d=Math.hypot(x-ox,y-oy);
+    if(d<o.size && d<bestD){
+      best=o;bestD=d;
     }
   }
 
   if(best){
-    orbs = orbs.filter(o=>o!==best);
-    score += best.score;
-    scoreEl.textContent = score;
-
-    if(score>high){
-      high=score;
-      highEl.textContent=high;
+    hits++;
+    reactionTimes.push(performance.now()-best.spawnTs);
+    if(best.shield && best.shieldHP>0){
+      best.shieldHP--;
+      return;
     }
+    orbs=orbs.filter(o=>o!==best);
+    score+=best.score;
+    scoreEl.textContent=score;
+    if(score>high){high=score;highEl.textContent=high;}
   }
 });
 
-/* ===============================
-   DRAW LOOP
-================================ */
+/* ================= DRAW ================= */
 function loop(){
   ctx.clearRect(0,0,W,H);
-
-  const cx=W/2, cy=H/2;
-  const lvl=currentLevel();
-  levelEl.textContent = `Level ${lvl+1} · ${LEVELS[lvl].name}`;
+  const cx=W/2,cy=H/2;
+  const ai=skillIndex();
+  aiEl.textContent=`AI Skill Index: ${ai.toFixed(2)}`;
 
   for(const o of orbs){
+    if(o.chaos && Math.random()<0.01) o.speed*=-1;
+    o.speed+=o.accel;
     o.angle+=o.speed;
+
     const x=cx+Math.cos(o.angle)*o.radius;
     const y=cy+Math.sin(o.angle)*o.radius;
 
-    ctx.font="32px serif";
+    if(o.shield && o.shieldHP>0){
+      ctx.beginPath();
+      ctx.strokeStyle="rgba(106,255,209,0.8)";
+      ctx.lineWidth=3;
+      ctx.arc(x,y,o.size+6,0,Math.PI*2);
+      ctx.stroke();
+    }
+
+    ctx.font="30px serif";
     ctx.textAlign="center";
     ctx.textBaseline="middle";
     ctx.fillText(o.emoji,x,y);
   }
-
   requestAnimationFrame(loop);
 }
 loop();
 </script>
-
 </body>
 </html>
