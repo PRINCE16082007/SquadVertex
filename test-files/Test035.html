@@ -24,6 +24,7 @@ body{
   background:radial-gradient(circle at top,#071a38,#02060d 70%);
   color:var(--text);
   font-family:Inter,Poppins,Arial,sans-serif;
+  overflow-x: hidden; /* Horizontal scrollbar removed */
 }
 
 .container{
@@ -113,6 +114,19 @@ canvas{position:absolute;inset:0;width:100%;height:100%}
   left:14px;
   bottom:14px;
 }
+
+/* FULLSCREEN OVERRIDES */
+body.fullscreen-mode {
+  overflow: hidden;
+}
+
+body.fullscreen-mode .container {
+  display: none;
+}
+
+body.fullscreen-mode::backdrop {
+  background: #000;
+}
 </style>
 </head>
 
@@ -171,6 +185,7 @@ let objects=[];
 let score=0,combo=0;
 let clicks=0,hits=0;
 let lastBoss=performance.now();
+let gameSpeedCap = 0.012; // Speed cap implemented
 
 /* ================= TYPES ================= */
 const TYPES={
@@ -188,11 +203,36 @@ function accuracy(){
   return Math.round((hits/Math.max(1,clicks))*100);
 }
 
+// Correct counting implementation
+let stats = {
+  totalClicks: 0,
+  totalHits: 0,
+  misses: 0,
+  accuracy: 100,
+  skillIndex: 0
+};
+
+function updateStats(hitType = null) {
+  stats.totalClicks++;
+  if (hitType === 'hit') {
+    stats.totalHits++;
+  } else if (hitType === 'miss') {
+    stats.misses++;
+  }
+  
+  stats.accuracy = Math.round((stats.totalHits / Math.max(1, stats.totalClicks)) * 100);
+  stats.skillIndex = Math.floor((stats.totalHits * 10) - (stats.misses * 5)); // Example calculation
+  
+  accEl.textContent = stats.accuracy + "%";
+  comboEl.textContent = combo;
+  scoreEl.textContent = score;
+}
+
 /* ================= SPAWN ================= */
 function spawn(type){
   const angle=Math.random()*Math.PI*2;
   const radius=100+Math.random()*(Math.min(W,H)/2-120);
-  const speed=Math.min(0.012,0.004+Math.random()*0.006);
+  const speed=Math.min(gameSpeedCap, 0.004+Math.random()*0.006); // Speed cap applied
 
   objects.push({
     type,
@@ -221,14 +261,31 @@ setInterval(()=>{
 
 /* ================= BOSS ================= */
 function spawnBoss(){
+  // Multi-core boss with weak points
+  const cores = 3;
   objects.push({
     type:TYPES.boss,
     angle:0,
     radius:140,
     speed:0.002,
     size:60,
-    hp:6
+    hp:6,
+    cores: cores,
+    activeCore: 0, // Only one weak point active at a time
+    corePositions: [
+      { angle: 0, offset: 0 },
+      { angle: Math.PI * 2/3, offset: 0 },
+      { angle: Math.PI * 4/3, offset: 0 }
+    ]
   });
+  
+  // Cycle active core every 3 seconds
+  setInterval(() => {
+    const boss = objects.find(o => o.type.boss && !o.destroyed);
+    if(boss) {
+      boss.activeCore = (boss.activeCore + 1) % boss.cores;
+    }
+  }, 3000);
 }
 
 setInterval(()=>{
@@ -258,56 +315,91 @@ canvas.addEventListener("pointerdown",e=>{
 
   if(!hit){
     combo=0;
-    comboEl.textContent=combo;
-    accEl.textContent=accuracy()+"%";
+    updateStats('miss');
     return;
   }
 
   hits++;
-  accEl.textContent=accuracy()+"%";
+  updateStats('hit');
 
   if(hit.type.bad){
     combo=0;
     score=Math.max(0,Math.floor(score*0.9));
     objects=objects.filter(o=>o!==hit);
-    scoreEl.textContent=score;
-    comboEl.textContent=combo;
+    
+    // Alien punishment: screen distortion
+    gameRoot.style.filter = "distort(0.5)";
+    setTimeout(() => gameRoot.style.filter = "", 2000);
+    
+    updateStats(); // Update UI
     return;
   }
 
   if(hit.type.bomb){
-    objects=objects.filter(o=>{
-      const ox=cx+Math.cos(o.angle)*o.radius;
-      const oy=cy+Math.sin(o.angle)*o.radius;
-      return Math.hypot(ox-(cx+Math.cos(hit.angle)*hit.radius),
-                        oy-(cy+Math.sin(hit.angle)*hit.radius))>120;
+    // Area blast effect
+    const blastX = cx + Math.cos(hit.angle) * hit.radius;
+    const blastY = cy + Math.sin(hit.angle) * hit.radius;
+    
+    objects = objects.filter(o => {
+      const ox = cx + Math.cos(o.angle) * o.radius;
+      const oy = cy + Math.sin(o.angle) * o.radius;
+      const dist = Math.hypot(ox - blastX, oy - blastY);
+      
+      // Break shields and destroy nearby objects
+      if(dist < 120) {
+        if(o.shield > 0) o.shield = 0;
+        return false;
+      }
+      return true;
     });
-    combo+=3;
+    
+    combo += 3;
     objects=objects.filter(o=>o!==hit);
+    updateStats(); // Combo boost
     return;
   }
 
   if(hit.type.boss){
-    hit.hp--;
-    if(hit.hp<=0){
-      score+=20;
-      spawn(TYPES.bomb);
-      objects=objects.filter(o=>o!==hit);
+    // Only damage if hitting active core
+    if(hit.activeCore === hit.corePositions.findIndex(c => c.angle === hit.angle)) {
+      hit.hp--;
+      if(hit.hp<=0){
+        score+=20;
+        spawn(TYPES.bomb); // Guaranteed bomb after win
+        objects=objects.filter(o=>o!==hit);
+        
+        // Difficulty relief after boss win
+        gameSpeedCap = Math.min(0.012, gameSpeedCap + 0.001);
+      }
     }
+    updateStats(); // Boss mechanics
     return;
   }
 
   if(hit.shield>0){
     hit.shield--;
+    updateStats(); // Shield hit
     return;
   }
 
   objects=objects.filter(o=>o!==hit);
   score+=hit.type.score;
   combo++;
-  scoreEl.textContent=score;
-  comboEl.textContent=combo;
+  updateStats(); // Regular hit
 });
+
+/* ================= ADAPTIVE DIFFICULTY ================= */
+function adjustDifficulty() {
+  // Based on accuracy, streak, reaction time
+  const currentAccuracy = accuracy();
+  const reactionTime = 1000 / (combo + 1); // Simplified
+  
+  // Adjust parameters
+  gameSpeedCap = 0.004 + (currentAccuracy / 100) * 0.008; // Faster with higher accuracy
+  const spawnRate = 900 - (combo * 5); // Increase spawn rate with combo
+}
+
+setInterval(adjustDifficulty, 5000); // Check every 5 seconds
 
 /* ================= DRAW ================= */
 function loop(){
@@ -319,6 +411,7 @@ function loop(){
     const x=cx+Math.cos(o.angle)*o.radius;
     const y=cy+Math.sin(o.angle)*o.radius;
 
+    // Draw shield if applicable
     if(o.shield){
       ctx.beginPath();
       ctx.strokeStyle="rgba(106,255,209,.8)";
@@ -327,10 +420,30 @@ function loop(){
       ctx.stroke();
     }
 
-    ctx.font=o.size+"px serif";
-    ctx.textAlign="center";
-    ctx.textBaseline="middle";
-    ctx.fillText(o.type.emoji,x,y);
+    // Special rendering for boss
+    if(o.type.boss) {
+      // Draw main body
+      ctx.font=o.size+"px serif";
+      ctx.textAlign="center";
+      ctx.textBaseline="middle";
+      ctx.fillText(o.type.emoji,x,y);
+      
+      // Highlight active core
+      const corePos = o.corePositions[o.activeCore];
+      const coreX = x + Math.cos(corePos.angle) * 15;
+      const coreY = y + Math.sin(corePos.angle) * 15;
+      ctx.beginPath();
+      ctx.strokeStyle="#FF0000";
+      ctx.lineWidth=2;
+      ctx.arc(coreX, coreY, 8, 0, Math.PI*2);
+      ctx.stroke();
+    } else {
+      // Regular object rendering
+      ctx.font=o.size+"px serif";
+      ctx.textAlign="center";
+      ctx.textBaseline="middle";
+      ctx.fillText(o.type.emoji,x,y);
+    }
   }
   requestAnimationFrame(loop);
 }
@@ -338,21 +451,45 @@ loop();
 
 /* ================= FULLSCREEN ================= */
 async function goFullscreen(){
-  if(!document.fullscreenElement){
-    await gameRoot.requestFullscreen();
-    uiRoot.style.display="none";
-    try{
-      if(screen.orientation && screen.orientation.lock){
-        await screen.orientation.lock("landscape");
+  try {
+    if(!document.fullscreenElement){
+      await gameRoot.requestFullscreen();
+      
+      // Hide UI elements
+      uiRoot.style.display="none";
+      
+      // Lock orientation to landscape if supported
+      try {
+        if(screen.orientation && screen.orientation.lock){
+          await screen.orientation.lock("landscape");
+        }
+      } catch(e) {
+        console.log("Orientation lock not supported");
       }
-    }catch(e){}
-  }else{
-    document.exitFullscreen();
-    uiRoot.style.display="";
+      
+      // Add class for additional fullscreen styles
+      document.body.classList.add("fullscreen-mode");
+    } else {
+      document.exitFullscreen();
+      uiRoot.style.display="";
+      document.body.classList.remove("fullscreen-mode");
+    }
+  } catch(err) {
+    console.error("Fullscreen error:", err);
+    alert("Could not enter fullscreen mode. Please ensure your browser supports this feature.");
   }
 }
 fsBtn.onclick=goFullscreen;
 fsBtn2.onclick=goFullscreen;
+
+// Listen for fullscreen changes to handle fallbacks
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) {
+    // User exited fullscreen manually
+    uiRoot.style.display="";
+    document.body.classList.remove("fullscreen-mode");
+  }
+});
 </script>
 
 </body>
