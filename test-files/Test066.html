@@ -6,11 +6,11 @@
 <title>GitHub Repo Analyzer — SquadVertex (Advanced)</title>
 
 <!-- Firebase compat (kept) -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js "></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js "></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js "></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js "></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- Prism.js for syntax highlighting -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
@@ -453,6 +453,10 @@ document.querySelectorAll('.tab').forEach(t=>{
     const tab = t.dataset.tab;
     document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x===t));
     document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id===tab));
+    // Clear details when leaving the details tab
+    if (tab !== 'details') {
+        window.currentFile = null;
+    }
   });
 });
 
@@ -478,7 +482,7 @@ function extractComments(content, language) {
     notes: [],
     optimizes: []
   };
-  
+
   // Language-specific comment patterns
   const patterns = {
     js: [
@@ -502,18 +506,18 @@ function extractComments(content, language) {
       { regex: /\/\//, type: 'line' } // CSS doesn't have // comments but we'll handle /* */ comments
     ]
   };
-  
+
   const langPatterns = patterns[language] || patterns.js;
-  
+
   lines.forEach((line, index) => {
     const lineNumber = index + 1;
-    
+
     langPatterns.forEach(pattern => {
       const matches = line.match(pattern.regex);
       if (matches) {
         matches.forEach(match => {
           const upperMatch = match.toUpperCase();
-          
+
           // Extract different types of comments
           if (upperMatch.includes('TODO')) {
             const text = match
@@ -597,7 +601,7 @@ function extractComments(content, language) {
       }
     });
   });
-  
+
   return comments;
 }
 
@@ -614,7 +618,7 @@ function extractTechStack(files) {
     'pom.xml': ['spring', 'hibernate', 'mybatis'],
     'build.gradle': ['spring', 'hibernate']
   };
-  
+
   // Find dependency files
   for (const file of files) {
     const fileName = file.name.toLowerCase();
@@ -622,13 +626,13 @@ function extractTechStack(files) {
       // Try to load the content to extract dependencies
       if (file.content) {
         const content = file.content.toLowerCase();
-        
+
         // Process based on file type
         if (fileName === 'package.json') {
           try {
             const pkg = JSON.parse(file.content);
             const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-            
+
             for (const [dep, version] of Object.entries(deps)) {
               const lowerDep = dep.toLowerCase();
               if (stackMap['package.json'].some(tech => lowerDep.includes(tech))) {
@@ -658,7 +662,7 @@ function extractTechStack(files) {
       }
     }
   }
-  
+
   return techStack;
 }
 
@@ -666,19 +670,19 @@ function extractTechStack(files) {
 function calculateSpaghettiMeter(content) {
   const lines = content.split('\n');
   let maxIndentation = 0;
-  
+
   for (const line of lines) {
     if (line.trim()) { // Only consider non-empty lines
       // Count leading spaces/tabs
       const leadingSpaces = line.search(/\S|$/);
       const indentLevel = Math.floor(leadingSpaces / 2); // Assuming 2 spaces per indentation level
-      
+
       if (indentLevel > maxIndentation) {
         maxIndentation = indentLevel;
       }
     }
   }
-  
+
   return maxIndentation;
 }
 
@@ -687,30 +691,30 @@ function calculateBusFactor(contributors) {
   if (!contributors || contributors.length === 0) {
     return { factor: 1, description: 'No contributor data available' };
   }
-  
+
   // Sort contributors by contributions
   const sortedContribs = [...contributors].sort((a, b) => b.contributions - a.contributions);
-  
+
   // Calculate percentage of work done by top contributors
   const totalCommits = sortedContribs.reduce((sum, contrib) => sum + contrib.contributions, 0);
   if (totalCommits === 0) {
     return { factor: 1, description: 'No commits found' };
   }
-  
+
   let cumulativePercentage = 0;
   let busFactor = 0;
-  
+
   for (const contrib of sortedContribs) {
     const contributionPercentage = (contrib.contributions / totalCommits) * 100;
     cumulativePercentage += contributionPercentage;
     busFactor++;
-    
+
     // If one person did majority of the work, it's high risk
     if (cumulativePercentage >= 80) {
       break;
     }
   }
-  
+
   let description = '';
   if (busFactor === 1) {
     description = `Hero Developer detected (${sortedContribs[0]?.login || 'Unknown'} doing majority work)`;
@@ -721,7 +725,7 @@ function calculateBusFactor(contributors) {
   } else {
     description = `Healthy team (work distributed across multiple contributors)`;
   }
-  
+
   return { factor: busFactor, description };
 }
 
@@ -734,18 +738,18 @@ function computeFileStats(content, language) {
     comments: extractComments(content, language),
     spaghettiLevel: calculateSpaghettiMeter(content)
   };
-  
+
   let totalComments = 0;
-  
+
   lines.forEach(line => {
     if (line.trim()) { // Only count non-empty lines
       stats.loc++;
-      
+
       // Check if line is a comment
       if (language === 'py' && line.trim().startsWith('#')) {
         stats.commentLines++;
         totalComments++;
-      } else if ((language === 'js' || language === 'ts' || language === 'css') && 
+      } else if ((language === 'js' || language === 'ts' || language === 'css') &&
                 (line.trim().startsWith('//') || line.trim().startsWith('/*') || line.trim().startsWith('*'))) {
         stats.commentLines++;
         totalComments++;
@@ -755,16 +759,16 @@ function computeFileStats(content, language) {
       }
     }
   });
-  
+
   // Calculate total important comments
-  stats.totalImportantComments = 
-    stats.comments.todos.length + 
-    stats.comments.fixes.length + 
-    stats.comments.bugs.length + 
-    stats.comments.hacks.length + 
-    stats.comments.notes.length + 
+  stats.totalImportantComments =
+    stats.comments.todos.length +
+    stats.comments.fixes.length +
+    stats.comments.bugs.length +
+    stats.comments.hacks.length +
+    stats.comments.notes.length +
     stats.comments.optimizes.length;
-  
+
   return stats;
 }
 
@@ -784,44 +788,44 @@ async function computeRepoStats(files, owner, repo, token) {
     busFactor: 1,
     techStack: []
   };
-  
+
   // Calculate totals
   for (const file of files) {
     stats.totalSize += file.size || 0;
-    
+
     // Track largest file
     if ((file.size || 0) > stats.largestFile.size) {
-      stats.largestFile = { 
-        size: file.size || 0, 
-        path: file.path, 
-        lines: file.lines || 0 
+      stats.largestFile = {
+        size: file.size || 0,
+        path: file.path,
+        lines: file.lines || 0
       };
     }
-    
+
     // Language distribution
     const ext = file.path.split('.').pop().toLowerCase();
     stats.languageDistribution[ext] = (stats.languageDistribution[ext] || 0) + 1;
-    
+
     // Add to total LOC if available
     if (file.lines) {
       stats.totalLoc += file.lines;
     }
-    
+
     // If content is available, calculate LOC from content
     if (file.content) {
       const lines = file.content.split(/\r\n|\n/).length;
-      stats.totalLoc += lines;
+      stats.totalLoc += lines; // Note: This might double count if lines are already set, depending on logic flow
     }
   }
-  
+
   // Calculate average file size
   if (files.length > 0) {
     stats.avgFileSize = stats.totalSize / files.length;
   }
-  
+
   // Extract tech stack
   stats.techStack = extractTechStack(files);
-  
+
   // Calculate spaghetti level based on files with content
   let maxSpaghetti = 0;
   for (const file of files) {
@@ -833,7 +837,7 @@ async function computeRepoStats(files, owner, repo, token) {
     }
   }
   stats.spaghettiLevel = maxSpaghetti;
-  
+
   // Get contributors data
   try {
     const contributorsUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contributors`;
@@ -849,10 +853,10 @@ async function computeRepoStats(files, owner, repo, token) {
     stats.busFactor = 1; // Default to 1 if can't fetch
     stats.busFactorDesc = 'Could not fetch contributor data';
   }
-  
+
   // Store for later use
   window.repoStats = stats;
-  
+
   return stats;
 }
 
@@ -860,35 +864,36 @@ async function computeRepoStats(files, owner, repo, token) {
 function generateViralStats(files) {
   const stats = window.repoStats;
   const viralStats = [];
-  
+
   // Procrastination Counter
-  const totalImportantComments = stats.totalImportantComments;
+  const totalImportantComments = stats.totalImportantComments || 0;
   viralStats.push({
     title: "The Procrastination Counter",
     highlight: `${totalImportantComments} items pending`,
-    description: totalImportantComments > 20 
-      ? "This repo has a lot of pending work! Good luck!" 
-      : totalImportantComments > 10 
-        ? "Some pending tasks found. Time to tackle them!" 
+    description: totalImportantComments > 20
+      ? "This repo has a lot of pending work! Good luck!"
+      : totalImportantComments > 10
+        ? "Some pending tasks found. Time to tackle them!"
         : "Not too many pending items. Well done!"
   });
-  
+
   // The Villain File
-  if (stats.largestFile.path) {
-    const lines = stats.largestFile.lines || Math.round(stats.largestFile.size / 50); // Estimate if lines not known
+  if (stats.largestFile && stats.largestFile.path) {
+    const lines = stats.largestFile.lines || Math.round((stats.largestFile.size || 0) / 50); // Estimate if lines not known
     viralStats.push({
       title: "The Villain File",
       highlight: `${stats.largestFile.path} (${lines} lines)`,
-      description: lines > 2000 
-        ? "This file is massive! Needs serious refactoring." 
-        : lines > 1000 
-          ? "Large file detected. Consider splitting it." 
+      description: lines > 2000
+        ? "This file is massive! Needs serious refactoring."
+        : lines > 1000
+          ? "Large file detected. Consider splitting it."
           : "File size looks reasonable."
     });
   }
-  
+
   // The Ghost Index
-  const commentRatio = stats.totalComments > 0 ? (stats.totalComments / stats.totalLoc * 100).toFixed(2) : 0;
+  const totalLoc = stats.totalLoc || 1; // Avoid division by zero
+  const commentRatio = stats.totalComments > 0 ? (stats.totalComments / totalLoc * 100).toFixed(2) : 0;
   let ghostDesc = "";
   if (commentRatio < 5) {
     ghostDesc = "Documentation? We don't do that here.";
@@ -899,33 +904,33 @@ function generateViralStats(files) {
   } else {
     ghostDesc = "Moderately documented.";
   }
-  
+
   viralStats.push({
     title: "The Ghost Index",
     highlight: `${commentRatio}% comment ratio`,
     description: ghostDesc
   });
-  
+
   return viralStats;
 }
 
 /* ========= Render viral stats ========= */
 function renderViralStats(viralStats) {
   const container = el('advancedStatsContent');
-  
+
   if (viralStats.length === 0) {
     container.innerHTML = '<div class="no-comments">Run analysis to see advanced stats!</div>';
     return;
   }
-  
+
   let html = '';
-  
+
   // Add spaghetti meter card
   if (window.repoStats.spaghettiLevel !== undefined) {
     const spaghettiLevel = window.repoStats.spaghettiLevel;
     let spaghettiClass = '';
     let spaghettiText = '';
-    
+
     if (spaghettiLevel <= 3) {
       spaghettiClass = 'spaghetti-clean';
       spaghettiText = 'Clean Code 💎';
@@ -939,7 +944,7 @@ function renderViralStats(viralStats) {
       spaghettiClass = 'spaghetti-max';
       spaghettiText = `High Complexity 🍝 (Depth: ${spaghettiLevel})`;
     }
-    
+
     html += `
       <div class="spaghetti-meter">
         <div class="spaghetti-title">Spaghetti Meter 🍝</div>
@@ -950,13 +955,13 @@ function renderViralStats(viralStats) {
       </div>
     `;
   }
-  
+
   // Add bus factor card
   if (window.repoStats.busFactor !== undefined) {
     const busFactor = window.repoStats.busFactor;
     let busClass = '';
     let busText = '';
-    
+
     if (busFactor === 1) {
       busClass = 'bus-critical';
       busText = 'Critical Risk!';
@@ -970,9 +975,9 @@ function renderViralStats(viralStats) {
       busClass = 'bus-low';
       busText = 'Low Risk';
     }
-    
+
     const busDescription = window.repoStats.busFactorDesc || 'Distribution of work among contributors';
-    
+
     html += `
       <div class="bus-factor">
         <div class="bus-title">Bus Factor 🚌</div>
@@ -981,7 +986,7 @@ function renderViralStats(viralStats) {
       </div>
     `;
   }
-  
+
   // Add TODO counter alert card
   if (window.repoStats.totalImportantComments > 10) {
     html += `
@@ -991,7 +996,7 @@ function renderViralStats(viralStats) {
       </div>
     `;
   }
-  
+
   // Add tech stack card
   if (window.repoStats.techStack && window.repoStats.techStack.length > 0) {
     const techStack = window.repoStats.techStack;
@@ -1005,7 +1010,7 @@ function renderViralStats(viralStats) {
     techHTML += '</div></div>';
     html += techHTML;
   }
-  
+
   // Add viral stats cards
   viralStats.forEach(stat => {
     html += `
@@ -1017,12 +1022,12 @@ function renderViralStats(viralStats) {
       </div>
     `;
   });
-  
+
   // Add share button
   html += '<button class="share-btn" onclick="shareStats()">Share These Stats</button>';
-  
+
   container.innerHTML = html;
-  
+
   // Animate spaghetti bar after DOM is updated
   setTimeout(() => {
     const spaghettiBar = document.getElementById('spaghettiBar');
@@ -1042,7 +1047,7 @@ function shareStats() {
     alert("Run analysis first to generate stats!");
     return;
   }
-  
+
   const text = `Check out this GitHub repo analysis!\n\n`;
   navigator.clipboard.writeText(text)
     .then(() => alert("Stats copied to clipboard!"))
@@ -1078,6 +1083,7 @@ async function analyzeRepo(){
     const repoDetailsUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
     const repoRes = await fetch(repoDetailsUrl, token ? { headers: { 'Authorization': 'token ' + token } } : {});
     const repoDetails = repoRes.ok ? await repoRes.json() : null;
+
 
     // filter blobs
     let files = data.tree.filter(i => i.type === 'blob');
@@ -1127,12 +1133,12 @@ async function analyzeRepo(){
 async function updateUIAfterAnalysis(files, repoDetails, owner, repo, token){
   // Compute overall stats (with async operations)
   const stats = await computeRepoStats(files, owner, repo, token);
-  
+
   // Standard stats
   el('totalFiles').textContent = files.length;
   el('totalSize').textContent = formatBytes(stats.totalSize);
   el('totalLoc').textContent = stats.totalLoc;
-  
+
   // Calculate repo age if details available
   if (repoDetails && repoDetails.created_at) {
     const createdDate = new Date(repoDetails.created_at);
@@ -1143,7 +1149,7 @@ async function updateUIAfterAnalysis(files, repoDetails, owner, repo, token){
   } else {
     el('repoAge').textContent = '—';
   }
-  
+
   // Deep insights
   const langDist = Object.entries(stats.languageDistribution)
     .map(([ext, count]) => `${ext}: ${count}`)
@@ -1184,7 +1190,7 @@ async function updateUIAfterAnalysis(files, repoDetails, owner, repo, token){
 
   // populate charts (but do not fetch content)
   renderCharts(files);
-  
+
   // Generate and render viral stats
   const viralStats = generateViralStats(files);
   renderViralStats(viralStats);
@@ -1227,7 +1233,7 @@ function renderCharts(files){
     const ctx1 = el('typeChart').getContext('2d');
     window.charts.typeChart = new Chart(ctx1, {
       type: 'doughnut',
-       { labels, datasets: [{ data }] },
+      data: { labels, datasets: [{ data }] },
       options: { plugins:{legend:{position:'bottom'}}}
     });
 
@@ -1239,7 +1245,7 @@ function renderCharts(files){
     const ctx2 = el('sizeChart').getContext('2d');
     window.charts.sizeChart = new Chart(ctx2, {
       type:'bar',
-       { labels: sizeLabels, datasets: [{ label: 'Size (KB)', data: sizeValues }] },
+      data: { labels: sizeLabels, datasets: [{ label: 'Size (KB)', data: sizeValues }] },
       options: { indexAxis: 'y', plugins:{legend:{display:false}} }
     });
   }catch(e){
@@ -1278,8 +1284,8 @@ async function loadSingleFile(rawUrl, path){
         showFileContent(path, content);
         // update lines/columns in analysisData
         const fileObj = window.analysisData.find(f => f.path === path);
-        if(fileObj){ 
-          fileObj.lines = content.split(/\r\n|\n/).length; 
+        if(fileObj){
+          fileObj.lines = content.split(/\r\n|\n/).length;
           fileObj.columns = Math.max(...content.split(/\r\n|\n/).map(l=>l.length), 0);
           fileObj.content = content;
         }
@@ -1303,8 +1309,8 @@ async function loadSingleFile(rawUrl, path){
       showFileContent(path, text);
       // update stats
       const fileObj = window.analysisData.find(f => f.path === path);
-      if(fileObj){ 
-        fileObj.lines = text.split(/\r\n|\n/).length; 
+      if(fileObj){
+        fileObj.lines = text.split(/\r\n|\n/).length;
         fileObj.columns = Math.max(...text.split(/\r\n|\n/).map(l=>l.length), 0);
         fileObj.content = text;
       }
@@ -1322,11 +1328,11 @@ async function loadSingleFile(rawUrl, path){
 function showFileContent(path, content){
   const target = el('fileDetailsInner');
   const safePath = safeDecodeURIPath(path);
-  
+
   // Determine language for syntax highlighting
   const extension = path.split('.').pop().toLowerCase();
   let language = 'clike'; // default
-  
+
   if (extension === 'js' || extension === 'ts' || extension === 'json') {
     language = extension;
   } else if (extension === 'py') {
@@ -1338,16 +1344,16 @@ function showFileContent(path, content){
   } else if (extension === 'md') {
     language = 'markdown';
   }
-  
+
   // Store content for copy functionality
   window.currentCode = content;
-  
+
   // Compute file-specific stats
   const fileStats = computeFileStats(content, language);
-  
+
   // Extract comments from the code
   const comments = fileStats.comments;
-  
+
   // Create the file content display with syntax highlighting and copy button
   target.innerHTML = `
     <h3 style="margin-top:0">${safePath}</h3>
@@ -1359,12 +1365,12 @@ function showFileContent(path, content){
       <pre><code class="language-${language}">${escapeHtml(content)}</code></pre>
     </div>
   `;
-  
+
   // Add spaghetti meter for this file
   if (fileStats.spaghettiLevel !== undefined) {
     let spaghettiClass = '';
     let spaghettiText = '';
-    
+
     if (fileStats.spaghettiLevel <= 3) {
       spaghettiClass = 'spaghetti-clean';
       spaghettiText = 'Clean Code 💎';
@@ -1378,7 +1384,7 @@ function showFileContent(path, content){
       spaghettiClass = 'spaghetti-max';
       spaghettiText = `High Complexity 🍝 (Depth: ${fileStats.spaghettiLevel})`;
     }
-    
+
     target.insertAdjacentHTML('beforeend', `
       <div class="spaghetti-meter">
         <div class="spaghetti-title">Spaghetti Meter for this file 🍝</div>
@@ -1389,11 +1395,11 @@ function showFileContent(path, content){
       </div>
     `);
   }
-  
+
   // Add comments section if any were found
   if (fileStats.totalImportantComments > 0) {
     let commentsHTML = '<div class="comments-section"><h4>Important Comments Found:</h4>';
-    
+
     // Add different comment types
     if (comments.todos.length > 0) {
       commentsHTML += `<h5>TODOs (${comments.todos.length}):</h5>`;
@@ -1406,7 +1412,7 @@ function showFileContent(path, content){
         `;
       });
     }
-    
+
     if (comments.fixes.length > 0) {
       commentsHTML += `<h5>FIXMEs (${comments.fixes.length}):</h5>`;
       comments.fixes.forEach(comment => {
@@ -1418,7 +1424,7 @@ function showFileContent(path, content){
         `;
       });
     }
-    
+
     if (comments.bugs.length > 0) {
       commentsHTML += `<h5>BUGs (${comments.bugs.length}):</h5>`;
       comments.bugs.forEach(comment => {
@@ -1430,7 +1436,7 @@ function showFileContent(path, content){
         `;
       });
     }
-    
+
     if (comments.hacks.length > 0) {
       commentsHTML += `<h5>HACKs (${comments.hacks.length}):</h5>`;
       comments.hacks.forEach(comment => {
@@ -1442,11 +1448,11 @@ function showFileContent(path, content){
         `;
       });
     }
-    
+
     commentsHTML += '</div>';
     target.insertAdjacentHTML('beforeend', commentsHTML);
   }
-  
+
   // Highlight the code using Prism.js
   setTimeout(() => {
     Prism.highlightAllUnder(target);
@@ -1459,7 +1465,7 @@ function copyCode() {
     showError('No code available to copy');
     return;
   }
-  
+
   navigator.clipboard.writeText(window.currentCode)
     .then(() => {
       // Show temporary success indicator
@@ -1506,14 +1512,14 @@ async function fetchTopNContent(){
 function escapeForAttr(s){ return (s||'').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
 function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function downloadDirect(url, name){ fetch(url).then(r=>r.blob()).then(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download = name || 'file'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),3000)}).catch(e=>alert('Download failed: '+e)); }
-function switchToDetails(path){ document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab==='details')); document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id==='details')); }
+function switchToDetails(path){ document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab==='details')); document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id==='details')); window.currentFile = path; }
 
 /* ========= Event binds ========= */
 el('analyzeBtn').addEventListener('click', analyzeRepo);
 el('fetchTopContentBtn').addEventListener('click', fetchTopNContent);
 el('exportBtn').addEventListener('click', ()=> {
   if(!window.analysisData || window.analysisData.length===0){ alert('No data'); return; }
-  const blob = new Blob([JSON.stringify(window.analysisData,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='analysis.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+  const blob = new Blob([JSON.stringify(window.analysisData,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download = 'analysis.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),4000);
 });
 el('searchFilter').addEventListener('input', ()=> renderFilesTable(window.analysisData || []));
 
@@ -1537,7 +1543,7 @@ el('loadCacheBtn').addEventListener('click', ()=>{
   analyzeRepo = async function(){
     await origAnalyze();
     try{
-      if(window.analysisData) localStorage.setItem('lastAnalysis', JSON.stringify({timestamp:new Date().toISOString(),  window.analysisData}));
+      if(window.analysisData) localStorage.setItem('lastAnalysis', JSON.stringify({timestamp:new Date().toISOString(), data: window.analysisData})); // Added 'data:' property
     }catch(e){ console.warn('cache fail', e); }
   };
 })();
