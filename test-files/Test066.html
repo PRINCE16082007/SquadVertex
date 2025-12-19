@@ -1,1555 +1,174 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>GitHub Repo Analyzer — SquadVertex (Advanced)</title>
-
-<!-- Firebase compat (kept) -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<!-- Prism.js for syntax highlighting -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
-
-<style>
-:root{
-  --bg:#0f0f0f;--card:rgba(30,30,40,0.85);--muted:#b0b0b0;--gold:#ffd700;--accent:linear-gradient(45deg,#ffd700,#ff8c00);
-  --blue: #3b82f6; --orange: #f97316; --purple: #a855f7; --green: #10b981; --red: #ef4444; --yellow: #eab308;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family: "Segoe UI", Tahoma, Verdana, sans-serif; background:var(--bg); color:#fff; padding:18px; min-height:100vh}
-.container{max-width:1200px;margin:0 auto}
-.header{background:var(--card);padding:18px;border-radius:12px;border:1px solid rgba(255,215,0,0.12);text-align:center;margin-bottom:14px}
-.header h1{background:var(--accent);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:1.8rem}
-.controls{display:grid;grid-template-columns:1fr 380px;gap:14px;margin-bottom:14px}
-@media(max-width:920px){.controls{grid-template-columns:1fr}}
-.card{background:var(--card);padding:14px;border-radius:10px;border:1px solid rgba(255,215,0,0.06)}
-.input{display:block;width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,215,0,0.06);background:rgba(0,0,0,0.32);color:#fff;margin-bottom:8px}
-.row{display:flex;gap:8px;align-items:center}
-.btn{padding:8px 12px;border-radius:8px;border:none;cursor:pointer;background:var(--accent);color:#070707;font-weight:700}
-.small{padding:6px 8px;font-size:13px}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
-.stat{background:linear-gradient(180deg, rgba(0,0,0,0.2), rgba(255,255,255,0.01));padding:10px;border-radius:8px;text-align:center;border:1px solid rgba(255,215,0,0.06)}
-.stat .v{font-weight:800;background:var(--accent);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:1.1rem}
-.tabs{display:flex;gap:8px;margin:12px 0;border-bottom:1px solid rgba(255,215,0,0.04)}
-.tab{padding:8px 12px;cursor:pointer}
-.tab.active{color:var(--gold);border-bottom:3px solid var(--gold)}
-.tab-content{display:none;padding-top:12px}
-.tab-content.active{display:block}
-.table{overflow:auto}
-table{width:100%;border-collapse:collapse}
-th,td{padding:8px;text-align:left;border-bottom:1px solid rgba(255,215,0,0.03);font-size:13px}
-th{background:rgba(255,215,0,0.04);color:var(--gold)}
-.file-type{background:rgba(255,215,0,0.06);padding:4px 6px;border-radius:6px;font-size:12px}
-.loading{color:var(--muted);padding:10px}
-.error{background:rgba(239,68,68,0.08);border:1px solid #ef4444;color:#ffb3b3;padding:10px;border-radius:8px;margin:8px 0}
-.controls-right{display:flex;flex-direction:column;gap:10px}
-.footer-note{color:var(--muted);font-size:12px;margin-top:8px}
-
-/* Syntax highlighting container */
-.code-container {
-  position: relative;
-  margin-top: 8px;
-}
-.code-actions {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  gap: 6px;
-  z-index: 10;
-}
-.copy-btn {
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: rgba(0,0,0,0.6);
-  color: white;
-  border: 1px solid rgba(255,255,255,0.1);
-  cursor: pointer;
-  font-size: 12px;
-}
-.copy-btn:hover {
-  background: rgba(0,0,0,0.8);
-}
-pre[class*="language-"] {
-  margin-top: 28px;
-  border-radius: 8px;
-  overflow: auto;
-  max-height: 420px;
-}
-
-/* Comments section */
-.comments-section {
-  margin-top: 16px;
-  padding: 12px;
-  background: rgba(0,0,0,0.2);
-  border-radius: 8px;
-}
-.comment-item {
-  padding: 8px;
-  margin-bottom: 8px;
-  background: rgba(255,255,255,0.05);
-  border-left: 3px solid var(--gold);
-  border-radius: 0 4px 4px 0;
-}
-.comment-meta {
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 4px;
-}
-.comment-text {
-  font-size: 13px;
-}
-.no-comments {
-  color: var(--muted);
-  font-style: italic;
-  text-align: center;
-  padding: 12px;
-}
-
-/* Bento grid styles */
-.bento-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.stat-card {
-  background: rgba(30,30,40,0.8);
-  border-radius: 12px;
-  padding: 1rem;
-  border: 1px solid rgba(255,215,0,0.06);
-  transition: all 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-.stat-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--gold);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-.stat-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-.stat-value {
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-}
-.stat-label {
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-/* Key stats cards */
-.loc-card { border-top: 3px solid var(--blue); }
-.loc-card .stat-value { color: var(--blue); }
-
-.size-card { border-top: 3px solid var(--orange); }
-.size-card .stat-value { color: var(--orange); }
-
-.files-card { border-top: 3px solid var(--purple); }
-.files-card .stat-value { color: var(--purple); }
-
-.age-card { border-top: 3px solid var(--green); }
-.age-card .stat-value { color: var(--green); }
-
-/* Tech stack badges */
-.tech-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-.tech-badge {
-  background: rgba(255,215,0,0.1);
-  color: var(--gold);
-  padding: 0.25rem 0.75rem;
-  border-radius: 99px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  border: 1px solid rgba(255,215,0,0.2);
-}
-
-/* Spaghetti meter */
-.spaghetti-meter {
-  background: rgba(30,30,40,0.8);
-  border-radius: 12px;
-  padding: 1rem;
-  border: 1px solid rgba(255,215,0,0.06);
-  margin-top: 1rem;
-}
-.spaghetti-title {
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.spaghetti-bar-container {
-  height: 10px;
-  background: rgba(0,0,0,0.3);
-  border-radius: 5px;
-  overflow: hidden;
-  margin: 0.5rem 0;
-}
-.spaghetti-bar {
-  height: 100%;
-  width: 0%;
-  border-radius: 5px;
-  transition: width 1s ease;
-}
-.spaghetti-clean { background: var(--green); }
-.spaghetti-medium { background: var(--yellow); }
-.spaghetti-high { background: var(--orange); }
-.spaghetti-max { background: var(--red); }
-.spaghetti-text {
-  font-size: 0.9rem;
-  color: var(--muted);
-  margin-top: 0.25rem;
-}
-
-/* Bus factor */
-.bus-factor {
-  background: rgba(30,30,40,0.8);
-  border-radius: 12px;
-  padding: 1rem;
-  border: 1px solid rgba(255,215,0,0.06);
-  margin-top: 1rem;
-}
-.bus-title {
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.bus-factor-value {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin: 0.5rem 0;
-}
-.bus-low { color: var(--green); }
-.bus-medium { color: var(--yellow); }
-.bus-high { color: var(--orange); }
-.bus-critical { color: var(--red); }
-
-/* Alert cards */
-.alert-card {
-  background: rgba(30,30,40,0.8);
-  border-radius: 12px;
-  padding: 1rem;
-  border: 1px solid rgba(255,215,0,0.06);
-  margin-top: 1rem;
-  border-left: 4px solid var(--red);
-}
-.alert-title {
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.alert-content {
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-/* Share button */
-.share-btn {
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: linear-gradient(45deg, #6ee7b7, #34d399);
-  color: #070707;
-  border: none;
-  cursor: pointer;
-  font-weight: 700;
-  margin-top: 10px;
-  width: 100%;
-}
-</style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>GitHub Repo Analyzer — SquadVertex (Modular)</title>
+    
+    <!-- External CSS -->
+    <link rel="stylesheet" href="styles1.css">
+    
+    <!-- Prism.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-<div class="container">
-  <div class="header card">
-    <h1>🚀 GitHub Repo Analyzer — SquadVertex (Advanced)</h1>
-    <div style="color:var(--muted);margin-top:6px">Overview & Details fixed • Lazy content fetch • Rate-limit aware • Token support • Syntax highlighting • Copy code • Comment extraction • Advanced stats • Tech stack • Spaghetti meter • Bus factor</div>
-  </div>
-
-  <div class="controls">
-    <div class="card">
-      <div style="margin-bottom:10px"><strong>Repository</strong></div>
-      <input id="owner" class="input" placeholder="owner" value="PRINCE16082007">
-      <input id="repo" class="input" placeholder="repo" value="SquadVertex">
-      <input id="branch" class="input" placeholder="branch" value="main">
-      <input id="root" class="input" placeholder="root path (optional)" value="test-files">
-
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <input id="extensions" class="input" style="flex:1" placeholder=".js,.py" value=".js,.ts,.py,.html,.css,.json,.md">
-      </div>
-
-      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-        <input id="minSize" class="input" style="width:120px" type="number" placeholder="min size bytes" value="0">
-        <input id="maxContentFetch" class="input" style="width:120px" type="number" placeholder="content fetch N" value="10" title="Max files to fetch content for (0 = none)">
-      </div>
-
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <input id="ghToken" class="input" placeholder="GitHub token (optional)" title="Use a personal token to increase rate limit">
-      </div>
-
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button id="analyzeBtn" class="btn">🔄 Analyze</button>
-        <button id="fetchTopContentBtn" class="btn small" style="background:linear-gradient(45deg,#60a5fa,#3b82f6)">📄 Fetch top N file content</button>
-        <button id="exportBtn" class="btn small" style="background:linear-gradient(45deg,#4ade80,#22c55e)">📥 Export</button>
-      </div>
-
-      <div class="footer-note">
-        Tip: By default we do NOT fetch each file’s content (lazy). Use "Fetch top N" or click a file to load content. This saves API tokens & bandwidth.
-      </div>
-    </div>
-
-    <div class="card controls-right">
-      <div style="margin-bottom:6px"><strong>Standard Stats</strong></div>
-      <div class="bento-grid" id="standardStats">
-        <div class="stat-card loc-card">
-          <div class="stat-icon">📝</div>
-          <div class="stat-value" id="totalLoc">0</div>
-          <div class="stat-label">Lines of Code</div>
+    <div class="container">
+        <div class="header card">
+            <h1>🚀 GitHub Repo Analyzer — SquadVertex (Modular)</h1>
+            <div style="color:var(--muted);margin-top:6px">Modular Design • Lazy Content Fetch • Rate Limit Aware • Syntax Highlighting • Advanced Stats</div>
         </div>
-        <div class="stat-card files-card">
-          <div class="stat-icon">📁</div>
-          <div class="stat-value" id="totalFiles">0</div>
-          <div class="stat-label">Total Files</div>
+
+        <div class="controls">
+            <div class="card">
+                <div style="margin-bottom:10px"><strong>Repository</strong></div>
+                <input id="owner" class="input" placeholder="owner" value="PRINCE16082007">
+                <input id="repo" class="input" placeholder="repo" value="SquadVertex">
+                <input id="branch" class="input" placeholder="branch" value="main">
+                <input id="root" class="input" placeholder="root path (optional)" value="test-files">
+
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <input id="extensions" class="input" style="flex:1" placeholder=".js,.py" value=".js,.ts,.py,.html,.css,.json,.md">
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+                    <input id="minSize" class="input" style="width:120px" type="number" placeholder="min size bytes" value="0">
+                    <input id="maxContentFetch" class="input" style="width:120px" type="number" placeholder="content fetch N" value="10" title="Max files to fetch content for (0 = none)">
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <input id="ghToken" class="input" placeholder="GitHub token (optional)" title="Use a personal token to increase rate limit">
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button id="analyzeBtn" class="btn">🔄 Analyze</button>
+                    <button id="fetchTopContentBtn" class="btn small" style="background:linear-gradient(45deg,#60a5fa,#3b82f6)">📄 Fetch top N file content</button>
+                    <button id="exportBtn" class="btn small" style="background:linear-gradient(45deg,#4ade80,#22c55e)">📥 Export</button>
+                </div>
+
+                <div class="footer-note">
+                    Tip: By default we do NOT fetch each file's content (lazy). Use "Fetch top N" or click a file to load content. This saves API tokens & bandwidth.
+                </div>
+            </div>
+
+            <div class="card controls-right">
+                <div style="margin-bottom:6px"><strong>Standard Stats</strong></div>
+                <div class="bento-grid" id="standardStats">
+                    <div class="stat-card loc-card">
+                        <div class="stat-icon">📝</div>
+                        <div class="stat-value" id="totalLoc">0</div>
+                        <div class="stat-label">Lines of Code</div>
+                    </div>
+                    <div class="stat-card files-card">
+                        <div class="stat-icon">📁</div>
+                        <div class="stat-value" id="totalFiles">0</div>
+                        <div class="stat-label">Total Files</div>
+                    </div>
+                    <div class="stat-card size-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-value" id="totalSize">0 Bytes</div>
+                        <div class="stat-label">Total Size</div>
+                    </div>
+                    <div class="stat-card age-card">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-value" id="repoAge">—</div>
+                        <div class="stat-label">Repo Age</div>
+                    </div>
+                </div>
+
+                <div style="margin-top:6px"><strong>Deep Insights</strong></div>
+                <div id="deepInsights" style="color:var(--muted);font-size:13px">
+                    <div>Language distribution: —</div>
+                    <div>Avg file size: —</div>
+                    <div>Last update: —</div>
+                </div>
+
+                <div style="margin-top:6px"><strong>Tech Stack</strong></div>
+                <div id="techStack" class="tech-stack">
+                    <span class="tech-badge">No data</span>
+                </div>
+
+                <div style="margin-top:6px"><strong>Search / Filter</strong></div>
+                <input id="searchFilter" class="input" placeholder="Filter by filename or path">
+
+                <div style="margin-top:6px"><strong>Charts</strong></div>
+                <div style="display:flex;gap:8px">
+                    <button id="showChartsBtn" class="btn small">Show charts</button>
+                    <button id="loadCacheBtn" class="btn small" style="background:linear-gradient(45deg,#f59e0b,#f97316)">Load cache</button>
+                </div>
+
+                <div id="rateInfo" class="footer-note" style="margin-top:8px;color:var(--muted)"></div>
+            </div>
         </div>
-        <div class="stat-card size-card">
-          <div class="stat-icon">📊</div>
-          <div class="stat-value" id="totalSize">0 Bytes</div>
-          <div class="stat-label">Total Size</div>
+
+        <!-- Tabs -->
+        <div class="card" style="margin-bottom:12px">
+            <div class="tabs">
+                <div class="tab active" data-tab="overview">📈 Overview</div>
+                <div class="tab" data-tab="files">📁 Files</div>
+                <div class="tab" data-tab="charts">📊 Charts</div>
+                <div class="tab" data-tab="details">📋 Details</div>
+                <div class="tab" data-tab="fun">🎯 Advanced</div>
+            </div>
+
+            <!-- Overview: now contains the stats + small summary -->
+            <div id="overview" class="tab-content active">
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                    <div style="flex:1">
+                        <h3 style="margin-bottom:8px">Summary</h3>
+                        <div id="summaryText" style="color:var(--muted)">No analysis run yet.</div>
+                    </div>
+                    <div style="width:360px">
+                        <h3 style="margin-bottom:8px">Top files</h3>
+                        <div id="topFilesList" style="color:var(--muted)">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Files table -->
+            <div id="files" class="tab-content">
+                <div class="table">
+                    <table>
+                        <thead><tr><th>Name</th><th>Path</th><th>Size</th><th>Type</th><th>Lines</th><th>Actions</th></tr></thead>
+                        <tbody id="filesTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="filesNote" style="color:var(--muted);margin-top:8px">Click 🔍 to load file content (this will perform a single request for that file).</div>
+            </div>
+
+            <!-- Charts -->
+            <div id="charts" class="tab-content">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div class="chart-container"><canvas id="typeChart"></canvas></div>
+                    <div class="chart-container"><canvas id="sizeChart"></canvas></div>
+                    <div class="chart-container"><canvas id="locChart"></canvas></div>
+                    <div class="chart-container"><canvas id="languageChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Details -->
+            <div id="details" class="tab-content">
+                <div id="fileDetailsInner" style="color:var(--muted)">Select a file to view details.</div>
+            </div>
+
+            <!-- Advanced Stats -->
+            <div id="fun" class="tab-content">
+                <div id="advancedStatsContainer">
+                    <h3 style="margin-bottom:12px">Advanced Analysis</h3>
+                    <div id="advancedStatsContent" style="color:var(--muted);text-align:center;">Run analysis to see advanced stats!</div>
+                </div>
+            </div>
         </div>
-        <div class="stat-card age-card">
-          <div class="stat-icon">📅</div>
-          <div class="stat-value" id="repoAge">—</div>
-          <div class="stat-label">Repo Age</div>
-        </div>
-      </div>
 
-      <div style="margin-top:6px"><strong>Deep Insights</strong></div>
-      <div id="deepInsights" style="color:var(--muted);font-size:13px">
-        <div>Language distribution: —</div>
-        <div>Avg file size: —</div>
-        <div>Last update: —</div>
-      </div>
-
-      <div style="margin-top:6px"><strong>Tech Stack</strong></div>
-      <div id="techStack" class="tech-stack">
-        <span class="tech-badge">No data</span>
-      </div>
-
-      <div style="margin-top:6px"><strong>Search / Filter</strong></div>
-      <input id="searchFilter" class="input" placeholder="Filter by filename or path">
-
-      <div style="margin-top:6px"><strong>Charts</strong></div>
-      <div style="display:flex;gap:8px">
-        <button id="showChartsBtn" class="btn small">Show charts</button>
-        <button id="loadCacheBtn" class="btn small" style="background:linear-gradient(45deg,#f59e0b,#f97316)">Load cache</button>
-      </div>
-
-      <div id="rateInfo" class="footer-note" style="margin-top:8px;color:var(--muted)"></div>
-    </div>
-  </div>
-
-  <!-- Tabs -->
-  <div class="card" style="margin-bottom:12px">
-    <div class="tabs">
-      <div class="tab active" data-tab="overview">📈 Overview</div>
-      <div class="tab" data-tab="files">📁 Files</div>
-      <div class="tab" data-tab="charts">📊 Charts</div>
-      <div class="tab" data-tab="details">📋 Details</div>
-      <div class="tab" data-tab="fun">🎯 Advanced</div>
+        <div id="loading" class="loading" style="display:none"></div>
+        <div id="error" class="error" style="display:none"></div>
     </div>
 
-    <!-- Overview: now contains the stats + small summary -->
-    <div id="overview" class="tab-content active">
-      <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <div style="flex:1">
-          <h3 style="margin-bottom:8px">Summary</h3>
-          <div id="summaryText" style="color:var(--muted)">No analysis run yet.</div>
-        </div>
-        <div style="width:360px">
-          <h3 style="margin-bottom:8px">Top files</h3>
-          <div id="topFilesList" style="color:var(--muted)">—</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Files table -->
-    <div id="files" class="tab-content">
-      <div class="table">
-        <table>
-          <thead><tr><th>Name</th><th>Path</th><th>Size</th><th>Type</th><th>Lines</th><th>Actions</th></tr></thead>
-          <tbody id="filesTableBody"></tbody>
-        </table>
-      </div>
-      <div id="filesNote" style="color:var(--muted);margin-top:8px">Click 🔍 to load file content (this will perform a single request for that file).</div>
-    </div>
-
-    <!-- Charts -->
-    <div id="charts" class="tab-content">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div style="background:rgba(0,0,0,0.25);padding:10px;border-radius:8px"><canvas id="typeChart"></canvas></div>
-        <div style="background:rgba(0,0,0,0.25);padding:10px;border-radius:8px"><canvas id="sizeChart"></canvas></div>
-      </div>
-    </div>
-
-    <!-- Details -->
-    <div id="details" class="tab-content">
-      <div id="fileDetailsInner" style="color:var(--muted)">Select a file to view details.</div>
-    </div>
-
-    <!-- Advanced Stats -->
-    <div id="fun" class="tab-content">
-      <div id="advancedStatsContainer">
-        <h3 style="margin-bottom:12px">Advanced Analysis</h3>
-        <div id="advancedStatsContent" style="color:var(--muted);text-align:center;">Run analysis to see advanced stats!</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="loading" class="loading" style="display:none"></div>
-  <div id="error" class="error" style="display:none"></div>
-</div>
-
-<script>
-/* ========= Globals + safe defaults ========= */
-window.analysisData = window.analysisData || []; // array of file objects
-window.currentFile = window.currentFile || null;
-window.charts = window.charts || {typeChart:null, sizeChart:null};
-window.currentCode = ""; // Store current code for copying
-window.repoStats = {}; // Store computed repo statistics
-window.contributors = []; // Store contributor data
-
-/* ========= Helpers ========= */
-function el(id){ return document.getElementById(id); }
-function showLoading(txt){ el('loading').style.display='block'; el('loading').textContent=txt || 'Working...'; }
-function hideLoading(){ el('loading').style.display='none'; }
-function showError(msg){ el('error').style.display='block'; el('error').textContent = msg; }
-function hideError(){ el('error').style.display='none'; el('error').textContent = ''; }
-function formatBytes(bytes){ if(!bytes && bytes !== 0) return '0 Bytes'; const k=1024; const sizes=['Bytes','KB','MB','GB']; const i = bytes===0?0:Math.floor(Math.log(bytes)/Math.log(k)); return (bytes/Math.pow(k,i)).toFixed(2)+' '+sizes[i]; }
-function getFileType(name){ const ext = (name.split('.').pop()||'').toLowerCase(); const map={'js':'JavaScript','ts':'TypeScript','py':'Python','html':'HTML','css':'CSS','json':'JSON','md':'Markdown'}; return map[ext]||(ext?ext.toUpperCase():'Unknown'); }
-function safeDecodeURIPath(p){ try { return decodeURIComponent(p); } catch(e){ return p; } }
-
-/* ========= Tab switching ========= */
-document.querySelectorAll('.tab').forEach(t=>{
-  t.addEventListener('click', () => {
-    const tab = t.dataset.tab;
-    document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x===t));
-    document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id===tab));
-    // Clear details when leaving the details tab
-    if (tab !== 'details') {
-        window.currentFile = null;
-    }
-  });
-});
-
-/* ========= Rate-limit aware fetch wrapper ========= */
-async function ghFetch(url, token){
-  const headers = { 'Accept': 'application/vnd.github.v3+json' };
-  if(token) headers['Authorization'] = 'token ' + token;
-  const res = await fetch(url, { headers });
-  // return response and parsed headers info
-  const remaining = parseInt(res.headers.get('x-ratelimit-remaining') || '0', 10);
-  const resetEpoch = parseInt(res.headers.get('x-ratelimit-reset') || '0', 10);
-  return { res, remaining, resetEpoch };
-}
-
-/* ========= Enhanced comment extraction ========= */
-function extractComments(content, language) {
-  const lines = content.split('\n');
-  const comments = {
-    todos: [],
-    fixes: [],
-    bugs: [],
-    hacks: [],
-    notes: [],
-    optimizes: []
-  };
-
-  // Language-specific comment patterns
-  const patterns = {
-    js: [
-      { regex: /\/\*(.*?)\*\//gs, type: 'block' },
-      { regex: /\/\/(.*)$/gm, type: 'line' }
-    ],
-    ts: [
-      { regex: /\/\*(.*?)\*\//gs, type: 'block' },
-      { regex: /\/\/(.*)$/gm, type: 'line' }
-    ],
-    py: [
-      { regex: /""".*?"""/gs, type: 'block' },
-      { regex: /'''.*?'''/gs, type: 'block' },
-      { regex: /#(.*)$/gm, type: 'line' }
-    ],
-    html: [
-      { regex: /<!--(.*?)-->/gs, type: 'block' }
-    ],
-    css: [
-      { regex: /\/\*(.*?)\*\//gs, type: 'block' },
-      { regex: /\/\//, type: 'line' } // CSS doesn't have // comments but we'll handle /* */ comments
-    ]
-  };
-
-  const langPatterns = patterns[language] || patterns.js;
-
-  lines.forEach((line, index) => {
-    const lineNumber = index + 1;
-
-    langPatterns.forEach(pattern => {
-      const matches = line.match(pattern.regex);
-      if (matches) {
-        matches.forEach(match => {
-          const upperMatch = match.toUpperCase();
-
-          // Extract different types of comments
-          if (upperMatch.includes('TODO')) {
-            const text = match
-              .replace(/\/\*/, '')
-              .replace(/\*\//, '')
-              .replace(/\/\//, '')
-              .replace(/#/g, '')
-              .replace(/<!--/g, '')
-              .replace(/-->/g, '')
-              .replace(/"""/g, '')
-              .replace(/'''/g, '')
-              .trim();
-            comments.todos.push({ line: lineNumber, text, original: match });
-          }
-          if (upperMatch.includes('FIXME')) {
-            const text = match
-              .replace(/\/\*/, '')
-              .replace(/\*\//, '')
-              .replace(/\/\//, '')
-              .replace(/#/g, '')
-              .replace(/<!--/g, '')
-              .replace(/-->/g, '')
-              .replace(/"""/g, '')
-              .replace(/'''/g, '')
-              .trim();
-            comments.fixes.push({ line: lineNumber, text, original: match });
-          }
-          if (upperMatch.includes('BUG')) {
-            const text = match
-              .replace(/\/\*/, '')
-              .replace(/\*\//, '')
-              .replace(/\/\//, '')
-              .replace(/#/g, '')
-              .replace(/<!--/g, '')
-              .replace(/-->/g, '')
-              .replace(/"""/g, '')
-              .replace(/'''/g, '')
-              .trim();
-            comments.bugs.push({ line: lineNumber, text, original: match });
-          }
-          if (upperMatch.includes('HACK')) {
-            const text = match
-              .replace(/\/\*/, '')
-              .replace(/\*\//, '')
-              .replace(/\/\//, '')
-              .replace(/#/g, '')
-              .replace(/<!--/g, '')
-              .replace(/-->/g, '')
-              .replace(/"""/g, '')
-              .replace(/'''/g, '')
-              .trim();
-            comments.hacks.push({ line: lineNumber, text, original: match });
-          }
-          if (upperMatch.includes('NOTE')) {
-            const text = match
-              .replace(/\/\*/, '')
-              .replace(/\*\//, '')
-              .replace(/\/\//, '')
-              .replace(/#/g, '')
-              .replace(/<!--/g, '')
-              .replace(/-->/g, '')
-              .replace(/"""/g, '')
-              .replace(/'''/g, '')
-              .trim();
-            comments.notes.push({ line: lineNumber, text, original: match });
-          }
-          if (upperMatch.includes('OPTIMIZE')) {
-            const text = match
-              .replace(/\/\*/, '')
-              .replace(/\*\//, '')
-              .replace(/\/\//, '')
-              .replace(/#/g, '')
-              .replace(/<!--/g, '')
-              .replace(/-->/g, '')
-              .replace(/"""/g, '')
-              .replace(/'''/g, '')
-              .trim();
-            comments.optimizes.push({ line: lineNumber, text, original: match });
-          }
-        });
-      }
-    });
-  });
-
-  return comments;
-}
-
-/* ========= Extract tech stack from dependency files ========= */
-function extractTechStack(files) {
-  const techStack = [];
-  const stackMap = {
-    'package.json': ['react', 'vue', 'angular', 'svelte', 'next', 'nuxt', 'express', 'fastify', 'nestjs', 'tailwindcss', 'bootstrap', 'jquery', 'redux', 'mobx', 'axios', 'lodash', 'moment', 'typescript'],
-    'requirements.txt': ['django', 'flask', 'fastapi', 'requests', 'numpy', 'pandas', 'matplotlib', 'tensorflow', 'pytorch', 'scipy', 'sqlalchemy'],
-    'composer.json': ['laravel', 'symfony', 'zend', 'yii', 'drupal'],
-    'Gemfile': ['rails', 'sinatra', 'jekyll'],
-    'go.mod': ['gin', 'echo', 'fiber', 'gorilla/mux'],
-    'Cargo.toml': ['tokio', 'actix-web', 'rocket'],
-    'pom.xml': ['spring', 'hibernate', 'mybatis'],
-    'build.gradle': ['spring', 'hibernate']
-  };
-
-  // Find dependency files
-  for (const file of files) {
-    const fileName = file.name.toLowerCase();
-    if (fileName in stackMap) {
-      // Try to load the content to extract dependencies
-      if (file.content) {
-        const content = file.content.toLowerCase();
-
-        // Process based on file type
-        if (fileName === 'package.json') {
-          try {
-            const pkg = JSON.parse(file.content);
-            const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-
-            for (const [dep, version] of Object.entries(deps)) {
-              const lowerDep = dep.toLowerCase();
-              if (stackMap['package.json'].some(tech => lowerDep.includes(tech))) {
-                if (!techStack.includes(dep)) {
-                  techStack.push(dep);
-                }
-              }
-            }
-          } catch (e) {
-            console.error('Error parsing package.json:', e);
-          }
-        } else if (fileName === 'requirements.txt') {
-          const lines = file.content.split('\n');
-          for (const line of lines) {
-            const trimmed = line.trim().toLowerCase();
-            if (trimmed && !trimmed.startsWith('#')) {
-              const depName = trimmed.split(/[>=<~!]/)[0];
-              if (stackMap['requirements.txt'].some(tech => depName.includes(tech))) {
-                if (!techStack.includes(depName)) {
-                  techStack.push(depName);
-                }
-              }
-            }
-          }
-        }
-        // Additional files can be processed similarly...
-      }
-    }
-  }
-
-  return techStack;
-}
-
-/* ========= Calculate spaghetti meter (code complexity) ========= */
-function calculateSpaghettiMeter(content) {
-  const lines = content.split('\n');
-  let maxIndentation = 0;
-
-  for (const line of lines) {
-    if (line.trim()) { // Only consider non-empty lines
-      // Count leading spaces/tabs
-      const leadingSpaces = line.search(/\S|$/);
-      const indentLevel = Math.floor(leadingSpaces / 2); // Assuming 2 spaces per indentation level
-
-      if (indentLevel > maxIndentation) {
-        maxIndentation = indentLevel;
-      }
-    }
-  }
-
-  return maxIndentation;
-}
-
-/* ========= Calculate bus factor (contribution risk) ========= */
-function calculateBusFactor(contributors) {
-  if (!contributors || contributors.length === 0) {
-    return { factor: 1, description: 'No contributor data available' };
-  }
-
-  // Sort contributors by contributions
-  const sortedContribs = [...contributors].sort((a, b) => b.contributions - a.contributions);
-
-  // Calculate percentage of work done by top contributors
-  const totalCommits = sortedContribs.reduce((sum, contrib) => sum + contrib.contributions, 0);
-  if (totalCommits === 0) {
-    return { factor: 1, description: 'No commits found' };
-  }
-
-  let cumulativePercentage = 0;
-  let busFactor = 0;
-
-  for (const contrib of sortedContribs) {
-    const contributionPercentage = (contrib.contributions / totalCommits) * 100;
-    cumulativePercentage += contributionPercentage;
-    busFactor++;
-
-    // If one person did majority of the work, it's high risk
-    if (cumulativePercentage >= 80) {
-      break;
-    }
-  }
-
-  let description = '';
-  if (busFactor === 1) {
-    description = `Hero Developer detected (${sortedContribs[0]?.login || 'Unknown'} doing majority work)`;
-  } else if (busFactor === 2) {
-    description = `High risk (2 people doing majority of work)`;
-  } else if (busFactor <= 4) {
-    description = `Medium risk (4 or fewer people doing majority of work)`;
-  } else {
-    description = `Healthy team (work distributed across multiple contributors)`;
-  }
-
-  return { factor: busFactor, description };
-}
-
-/* ========= Compute file statistics ========= */
-function computeFileStats(content, language) {
-  const lines = content.split('\n');
-  const stats = {
-    loc: 0,
-    commentLines: 0,
-    comments: extractComments(content, language),
-    spaghettiLevel: calculateSpaghettiMeter(content)
-  };
-
-  let totalComments = 0;
-
-  lines.forEach(line => {
-    if (line.trim()) { // Only count non-empty lines
-      stats.loc++;
-
-      // Check if line is a comment
-      if (language === 'py' && line.trim().startsWith('#')) {
-        stats.commentLines++;
-        totalComments++;
-      } else if ((language === 'js' || language === 'ts' || language === 'css') &&
-                (line.trim().startsWith('//') || line.trim().startsWith('/*') || line.trim().startsWith('*'))) {
-        stats.commentLines++;
-        totalComments++;
-      } else if (language === 'html' && line.includes('<!--')) {
-        stats.commentLines++;
-        totalComments++;
-      }
-    }
-  });
-
-  // Calculate total important comments
-  stats.totalImportantComments =
-    stats.comments.todos.length +
-    stats.comments.fixes.length +
-    stats.comments.bugs.length +
-    stats.comments.hacks.length +
-    stats.comments.notes.length +
-    stats.comments.optimizes.length;
-
-  return stats;
-}
-
-/* ========= Compute overall repo statistics ========= */
-async function computeRepoStats(files, owner, repo, token) {
-  const stats = {
-    totalLoc: 0,
-    languageDistribution: {},
-    avgFileSize: 0,
-    totalSize: 0,
-    largestFile: { size: 0, path: '', lines: 0 },
-    commentRatio: 0,
-    totalComments: 0,
-    totalImportantComments: 0,
-    lastUpdate: null,
-    spaghettiLevel: 0,
-    busFactor: 1,
-    techStack: []
-  };
-
-  // Calculate totals
-  for (const file of files) {
-    stats.totalSize += file.size || 0;
-
-    // Track largest file
-    if ((file.size || 0) > stats.largestFile.size) {
-      stats.largestFile = {
-        size: file.size || 0,
-        path: file.path,
-        lines: file.lines || 0
-      };
-    }
-
-    // Language distribution
-    const ext = file.path.split('.').pop().toLowerCase();
-    stats.languageDistribution[ext] = (stats.languageDistribution[ext] || 0) + 1;
-
-    // Add to total LOC if available
-    if (file.lines) {
-      stats.totalLoc += file.lines;
-    }
-
-    // If content is available, calculate LOC from content
-    if (file.content) {
-      const lines = file.content.split(/\r\n|\n/).length;
-      stats.totalLoc += lines; // Note: This might double count if lines are already set, depending on logic flow
-    }
-  }
-
-  // Calculate average file size
-  if (files.length > 0) {
-    stats.avgFileSize = stats.totalSize / files.length;
-  }
-
-  // Extract tech stack
-  stats.techStack = extractTechStack(files);
-
-  // Calculate spaghetti level based on files with content
-  let maxSpaghetti = 0;
-  for (const file of files) {
-    if (file.content) {
-      const fileSpaghetti = calculateSpaghettiMeter(file.content);
-      if (fileSpaghetti > maxSpaghetti) {
-        maxSpaghetti = fileSpaghetti;
-      }
-    }
-  }
-  stats.spaghettiLevel = maxSpaghetti;
-
-  // Get contributors data
-  try {
-    const contributorsUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contributors`;
-    const { res } = await ghFetch(contributorsUrl, token);
-    if (res.ok) {
-      window.contributors = await res.json();
-      const busFactorResult = calculateBusFactor(window.contributors);
-      stats.busFactor = busFactorResult.factor;
-      stats.busFactorDesc = busFactorResult.description;
-    }
-  } catch (e) {
-    console.error('Error fetching contributors:', e);
-    stats.busFactor = 1; // Default to 1 if can't fetch
-    stats.busFactorDesc = 'Could not fetch contributor data';
-  }
-
-  // Store for later use
-  window.repoStats = stats;
-
-  return stats;
-}
-
-/* ========= Generate viral/fun stats ========= */
-function generateViralStats(files) {
-  const stats = window.repoStats;
-  const viralStats = [];
-
-  // Procrastination Counter
-  const totalImportantComments = stats.totalImportantComments || 0;
-  viralStats.push({
-    title: "The Procrastination Counter",
-    highlight: `${totalImportantComments} items pending`,
-    description: totalImportantComments > 20
-      ? "This repo has a lot of pending work! Good luck!"
-      : totalImportantComments > 10
-        ? "Some pending tasks found. Time to tackle them!"
-        : "Not too many pending items. Well done!"
-  });
-
-  // The Villain File
-  if (stats.largestFile && stats.largestFile.path) {
-    const lines = stats.largestFile.lines || Math.round((stats.largestFile.size || 0) / 50); // Estimate if lines not known
-    viralStats.push({
-      title: "The Villain File",
-      highlight: `${stats.largestFile.path} (${lines} lines)`,
-      description: lines > 2000
-        ? "This file is massive! Needs serious refactoring."
-        : lines > 1000
-          ? "Large file detected. Consider splitting it."
-          : "File size looks reasonable."
-    });
-  }
-
-  // The Ghost Index
-  const totalLoc = stats.totalLoc || 1; // Avoid division by zero
-  const commentRatio = stats.totalComments > 0 ? (stats.totalComments / totalLoc * 100).toFixed(2) : 0;
-  let ghostDesc = "";
-  if (commentRatio < 5) {
-    ghostDesc = "Documentation? We don't do that here.";
-  } else if (commentRatio < 15) {
-    ghostDesc = "Could use more documentation.";
-  } else if (commentRatio > 30) {
-    ghostDesc = "Extremely well documented!";
-  } else {
-    ghostDesc = "Moderately documented.";
-  }
-
-  viralStats.push({
-    title: "The Ghost Index",
-    highlight: `${commentRatio}% comment ratio`,
-    description: ghostDesc
-  });
-
-  return viralStats;
-}
-
-/* ========= Render viral stats ========= */
-function renderViralStats(viralStats) {
-  const container = el('advancedStatsContent');
-
-  if (viralStats.length === 0) {
-    container.innerHTML = '<div class="no-comments">Run analysis to see advanced stats!</div>';
-    return;
-  }
-
-  let html = '';
-
-  // Add spaghetti meter card
-  if (window.repoStats.spaghettiLevel !== undefined) {
-    const spaghettiLevel = window.repoStats.spaghettiLevel;
-    let spaghettiClass = '';
-    let spaghettiText = '';
-
-    if (spaghettiLevel <= 3) {
-      spaghettiClass = 'spaghetti-clean';
-      spaghettiText = 'Clean Code 💎';
-    } else if (spaghettiLevel <= 5) {
-      spaghettiClass = 'spaghetti-medium';
-      spaghettiText = 'Moderately Complex ⚠️';
-    } else if (spaghettiLevel <= 8) {
-      spaghettiClass = 'spaghetti-high';
-      spaghettiText = 'Complex Nesting 🍝';
-    } else {
-      spaghettiClass = 'spaghetti-max';
-      spaghettiText = `High Complexity 🍝 (Depth: ${spaghettiLevel})`;
-    }
-
-    html += `
-      <div class="spaghetti-meter">
-        <div class="spaghetti-title">Spaghetti Meter 🍝</div>
-        <div class="spaghetti-bar-container">
-          <div class="spaghetti-bar ${spaghettiClass}" id="spaghettiBar" style="width: 0%"></div>
-        </div>
-        <div class="spaghetti-text">Maximum indentation level: ${spaghettiLevel}</div>
-      </div>
-    `;
-  }
-
-  // Add bus factor card
-  if (window.repoStats.busFactor !== undefined) {
-    const busFactor = window.repoStats.busFactor;
-    let busClass = '';
-    let busText = '';
-
-    if (busFactor === 1) {
-      busClass = 'bus-critical';
-      busText = 'Critical Risk!';
-    } else if (busFactor === 2) {
-      busClass = 'bus-high';
-      busText = 'High Risk!';
-    } else if (busFactor <= 4) {
-      busClass = 'bus-medium';
-      busText = 'Medium Risk';
-    } else {
-      busClass = 'bus-low';
-      busText = 'Low Risk';
-    }
-
-    const busDescription = window.repoStats.busFactorDesc || 'Distribution of work among contributors';
-
-    html += `
-      <div class="bus-factor">
-        <div class="bus-title">Bus Factor 🚌</div>
-        <div class="bus-factor-value ${busClass}">Factor: ${busFactor}</div>
-        <div class="description">${busDescription}</div>
-      </div>
-    `;
-  }
-
-  // Add TODO counter alert card
-  if (window.repoStats.totalImportantComments > 10) {
-    html += `
-      <div class="alert-card">
-        <div class="alert-title">⚠️ High TODO Count</div>
-        <div class="alert-content">This repo has ${window.repoStats.totalImportantComments} pending TODOs. Consider addressing them.</div>
-      </div>
-    `;
-  }
-
-  // Add tech stack card
-  if (window.repoStats.techStack && window.repoStats.techStack.length > 0) {
-    const techStack = window.repoStats.techStack;
-    let techHTML = '<div class="stat-card"><div class="stat-icon">⚙️</div><div class="stat-label">Tech Stack</div><div class="tech-stack">';
-    techStack.slice(0, 10).forEach(tech => {
-      techHTML += `<span class="tech-badge">${tech}</span>`;
-    });
-    if (techStack.length > 10) {
-      techHTML += `<span class="tech-badge">+${techStack.length - 10} more</span>`;
-    }
-    techHTML += '</div></div>';
-    html += techHTML;
-  }
-
-  // Add viral stats cards
-  viralStats.forEach(stat => {
-    html += `
-      <div class="stat-card">
-        <div class="stat-icon">🎯</div>
-        <div class="stat-value">${stat.highlight}</div>
-        <div class="stat-label">${stat.title}</div>
-        <div class="description" style="margin-top: 0.5rem; font-size: 0.9rem;">${stat.description}</div>
-      </div>
-    `;
-  });
-
-  // Add share button
-  html += '<button class="share-btn" onclick="shareStats()">Share These Stats</button>';
-
-  container.innerHTML = html;
-
-  // Animate spaghetti bar after DOM is updated
-  setTimeout(() => {
-    const spaghettiBar = document.getElementById('spaghettiBar');
-    if (spaghettiBar) {
-      const spaghettiLevel = window.repoStats.spaghettiLevel;
-      const maxLevel = 10; // Max expected indentation level
-      const percentage = Math.min(100, (spaghettiLevel / maxLevel) * 100);
-      spaghettiBar.style.width = `${percentage}%`;
-    }
-  }, 100);
-}
-
-/* ========= Share stats function ========= */
-function shareStats() {
-  const stats = window.repoStats;
-  if (!stats) {
-    alert("Run analysis first to generate stats!");
-    return;
-  }
-
-  const text = `Check out this GitHub repo analysis!\n\n`;
-  navigator.clipboard.writeText(text)
-    .then(() => alert("Stats copied to clipboard!"))
-    .catch(err => console.error('Failed to copy: ', err));
-}
-
-/* ========= Main analyze function (NO bulk content fetching by default) ========= */
-async function analyzeRepo(){
-  hideError();
-  showLoading('Fetching repo tree from GitHub...');
-  try{
-    const owner = el('owner').value.trim(), repo = el('repo').value.trim(), branch = el('branch').value.trim() || 'main';
-    if(!owner || !repo) throw new Error('Owner & repo required');
-    const root = (el('root').value || '').trim();
-    const extensions = (el('extensions').value || '').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-    const minSize = parseInt(el('minSize').value) || 0;
-    const token = (el('ghToken').value || '').trim();
-
-    // fetch the tree (recursive)
-    const treeUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
-    const { res, remaining, resetEpoch } = await ghFetch(treeUrl, token);
-    // rate info
-    el('rateInfo').textContent = `GitHub rate remaining: ${remaining} — reset ${ new Date(resetEpoch*1000).toLocaleString() }`;
-
-    if(!res.ok){
-      const txt = await res.text();
-      throw new Error(`GitHub API error ${res.status}: ${txt.substring(0,200)}`);
-    }
-    const data = await res.json();
-    if(!data.tree) throw new Error('Invalid tree response');
-
-    // fetch repo details to get creation/update dates
-    const repoDetailsUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-    const repoRes = await fetch(repoDetailsUrl, token ? { headers: { 'Authorization': 'token ' + token } } : {});
-    const repoDetails = repoRes.ok ? await repoRes.json() : null;
-
-
-    // filter blobs
-    let files = data.tree.filter(i => i.type === 'blob');
-    if(root){
-      const rootNorm = root.replace(/^\/*/,'').replace(/\/*$/,'') + '/';
-      files = files.filter(f => f.path.startsWith(rootNorm));
-    }
-    // apply ext and minSize
-    files = files.filter(item => {
-      const pathLower = item.path.toLowerCase();
-      const extMatch = extensions.length ? extensions.some(ext => pathLower.endsWith(ext)) : true;
-      const sizeOk = (typeof item.size === 'number') ? item.size > minSize : true;
-      return extMatch && sizeOk;
-    });
-
-    // Build minimal file objects WITHOUT fetching content (lazy)
-    const built = files.map(f => ({
-      path: f.path,
-      name: f.path.split('/').pop(),
-      size: f.size || 0,
-      url: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encodeURI(f.path)}`,
-      type: getFileType(f.path),
-      lines: null,  // unknown until we fetch content
-      columns: null,
-      content: null // Will store content when fetched
-    }));
-
-    // Save
-    window.analysisData = built;
-    await updateUIAfterAnalysis(built, repoDetails, owner, repo, token);
-
-    hideLoading();
-
-    // If remaining low, warn user and avoid any automatic content fetches
-    if(remaining < 5){
-      showError(`Warning: GitHub rate limit low (${remaining} remaining). Avoid fetching many files now or provide a personal token.`);
-    }
-
-  }catch(err){
-    hideLoading();
-    showError('Analysis error: ' + (err.message || err));
-    console.error(err);
-  }
-}
-
-/* ========= Update UI (Overview, Files table, Charts) ========= */
-async function updateUIAfterAnalysis(files, repoDetails, owner, repo, token){
-  // Compute overall stats (with async operations)
-  const stats = await computeRepoStats(files, owner, repo, token);
-
-  // Standard stats
-  el('totalFiles').textContent = files.length;
-  el('totalSize').textContent = formatBytes(stats.totalSize);
-  el('totalLoc').textContent = stats.totalLoc;
-
-  // Calculate repo age if details available
-  if (repoDetails && repoDetails.created_at) {
-    const createdDate = new Date(repoDetails.created_at);
-    const now = new Date();
-    const diffTime = Math.abs(now - createdDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    el('repoAge').textContent = `${diffDays} days`;
-  } else {
-    el('repoAge').textContent = '—';
-  }
-
-  // Deep insights
-  const langDist = Object.entries(stats.languageDistribution)
-    .map(([ext, count]) => `${ext}: ${count}`)
-    .join(', ');
-  document.querySelector('#deepInsights div:first-child').textContent = `Language distribution: ${langDist || '—'}`;
-  document.querySelector('#deepInsights div:nth-child(2)').textContent = `Avg file size: ${formatBytes(stats.avgFileSize)}`;
-  document.querySelector('#deepInsights div:nth-child(3)').textContent = `Last update: ${repoDetails?.updated_at ? new Date(repoDetails.updated_at).toLocaleDateString() : '—'}`;
-
-  // Tech stack
-  const techStackEl = el('techStack');
-  if (stats.techStack.length > 0) {
-    techStackEl.innerHTML = '';
-    stats.techStack.slice(0, 8).forEach(tech => {
-      const badge = document.createElement('span');
-      badge.className = 'tech-badge';
-      badge.textContent = tech;
-      techStackEl.appendChild(badge);
-    });
-    if (stats.techStack.length > 8) {
-      const moreBadge = document.createElement('span');
-      moreBadge.className = 'tech-badge';
-      moreBadge.textContent = `+${stats.techStack.length - 8} more`;
-      techStackEl.appendChild(moreBadge);
-    }
-  } else {
-    techStackEl.innerHTML = '<span class="tech-badge">No data</span>';
-  }
-
-  // Summary text
-  el('summaryText').textContent = `Found ${files.length} files (${formatBytes(stats.totalSize)}, ${stats.totalLoc} LOC). Largest: ${stats.largestFile.path || '—'}. Average size: ${formatBytes(stats.avgFileSize)}. Content NOT fetched by default to save rate tokens.`;
-
-  // Top files list (by size)
-  const top = [...files].sort((a,b)=> (b.size||0) - (a.size||0)).slice(0,8);
-  el('topFilesList').innerHTML = top.map(t=> `<div style="margin-bottom:6px">${t.name} — <span style="color:var(--muted)">${formatBytes(t.size)}</span></div>`).join('') || '—';
-
-  // Files table (apply current search filter)
-  renderFilesTable(files);
-
-  // populate charts (but do not fetch content)
-  renderCharts(files);
-
-  // Generate and render viral stats
-  const viralStats = generateViralStats(files);
-  renderViralStats(viralStats);
-}
-
-/* ========= Render files table ========= */
-function renderFilesTable(files){
-  const search = (el('searchFilter').value || '').toLowerCase();
-  const filtered = files.filter(f=> (f.name + ' ' + f.path).toLowerCase().includes(search));
-  const tbody = el('filesTableBody');
-  tbody.innerHTML = '';
-
-  filtered.forEach(f=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${f.name}</td>
-      <td style="max-width:420px;word-break:break-all">${f.path}</td>
-      <td>${formatBytes(f.size)}</td>
-      <td><span class="file-type">${f.type}</span></td>
-      <td>${f.lines === null ? '—' : f.lines}</td>
-      <td style="white-space:nowrap">
-        <button class="btn small" onclick="loadSingleFile('${escapeForAttr(f.url)}','${escapeForAttr(f.path)}')">🔍 Load</button>
-        <button class="btn small" style="background:linear-gradient(45deg,#3b82f6,#2563eb)" onclick="downloadDirect('${escapeForAttr(f.url)}','${escapeForAttr(f.name)}')">📥</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-/* ========= Charts ========= */
-function renderCharts(files){
-  try{
-    // type distribution
-    const counts = {};
-    files.forEach(f=> counts[f.type] = (counts[f.type]||0) + 1 );
-    const labels = Object.keys(counts).slice(0,20);
-    const data = labels.map(l=> counts[l]);
-
-    if(window.charts.typeChart) window.charts.typeChart.destroy();
-    const ctx1 = el('typeChart').getContext('2d');
-    window.charts.typeChart = new Chart(ctx1, {
-      type: 'doughnut',
-      data: { labels, datasets: [{ data }] },
-      options: { plugins:{legend:{position:'bottom'}}}
-    });
-
-    // top sizes
-    const top = [...files].sort((a,b)=> (b.size||0)-(a.size||0)).slice(0,10);
-    const sizeLabels = top.map(t=> t.name);
-    const sizeValues = top.map(t=> Math.round((t.size||0)/1024)); // KB
-    if(window.charts.sizeChart) window.charts.sizeChart.destroy();
-    const ctx2 = el('sizeChart').getContext('2d');
-    window.charts.sizeChart = new Chart(ctx2, {
-      type:'bar',
-      data: { labels: sizeLabels, datasets: [{ label: 'Size (KB)', data: sizeValues }] },
-      options: { indexAxis: 'y', plugins:{legend:{display:false}} }
-    });
-  }catch(e){
-    console.warn('charts err', e);
-  }
-}
-
-/* ========= On-demand single file load (safe: checks rate limit, size) ========= */
-async function loadSingleFile(rawUrl, path){
-  hideError();
-  showLoading('Fetching file content (on-demand)...');
-  try{
-    const token = (el('ghToken').value || '').trim();
-    // small rate-limit safety: do a HEAD or conditional call? We do a fetch and read headers
-    // Use the GitHub raw URL (raw.githubusercontent) which doesn't provide rate-limit headers.
-    // Instead, use the API blob endpoint to also grab size and content with token-aware headers if token is present.
-    // We'll try the raw URL first (fast), but if token is present use API blob to be counted toward rate-limits accurately.
-
-    // If token provided, use GitHub API contents endpoint for path parsing
-    if(token){
-      // extract owner/repo/branch from inputs to build API contents URL
-      const owner = el('owner').value.trim(), repo = el('repo').value.trim(), branch = el('branch').value.trim() || 'main';
-      const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
-      const { res, remaining } = await ghFetch(apiUrl, token);
-      el('rateInfo').textContent = `GitHub rate remaining: ${remaining}`;
-      if(!res.ok) {
-        // fallback to raw if content endpoint blocked
-        const text = await (await fetch(rawUrl)).text();
-        showFileContent(path, text);
-        return;
-      }
-      const blobMeta = await res.json();
-      // if content comes base64 encoded
-      if(blobMeta && blobMeta.content){
-        const content = atob(blobMeta.content.replace(/\s/g,''));
-        showFileContent(path, content);
-        // update lines/columns in analysisData
-        const fileObj = window.analysisData.find(f => f.path === path);
-        if(fileObj){
-          fileObj.lines = content.split(/\r\n|\n/).length;
-          fileObj.columns = Math.max(...content.split(/\r\n|\n/).map(l=>l.length), 0);
-          fileObj.content = content;
-        }
-        renderFilesTable(window.analysisData);
-        hideLoading();
-        switchToDetails(path);
-        return;
-      } else {
-        // fallback raw
-        const text = await (await fetch(rawUrl)).text();
-        showFileContent(path, text);
-        hideLoading();
-        switchToDetails(path);
-        return;
-      }
-    } else {
-      // No token -> use raw.githubusercontent which is fast but not rate-header-aware
-      const r = await fetch(rawUrl);
-      if(!r.ok) throw new Error(`HTTP ${r.status}`);
-      const text = await r.text();
-      showFileContent(path, text);
-      // update stats
-      const fileObj = window.analysisData.find(f => f.path === path);
-      if(fileObj){
-        fileObj.lines = text.split(/\r\n|\n/).length;
-        fileObj.columns = Math.max(...text.split(/\r\n|\n/).map(l=>l.length), 0);
-        fileObj.content = text;
-      }
-      renderFilesTable(window.analysisData);
-      hideLoading();
-      switchToDetails(path);
-    }
-  }catch(err){
-    hideLoading();
-    showError('File load error: ' + (err.message || err));
-    console.error(err);
-  }
-}
-
-function showFileContent(path, content){
-  const target = el('fileDetailsInner');
-  const safePath = safeDecodeURIPath(path);
-
-  // Determine language for syntax highlighting
-  const extension = path.split('.').pop().toLowerCase();
-  let language = 'clike'; // default
-
-  if (extension === 'js' || extension === 'ts' || extension === 'json') {
-    language = extension;
-  } else if (extension === 'py') {
-    language = 'python';
-  } else if (extension === 'html' || extension === 'htm') {
-    language = 'markup';
-  } else if (extension === 'css') {
-    language = 'css';
-  } else if (extension === 'md') {
-    language = 'markdown';
-  }
-
-  // Store content for copy functionality
-  window.currentCode = content;
-
-  // Compute file-specific stats
-  const fileStats = computeFileStats(content, language);
-
-  // Extract comments from the code
-  const comments = fileStats.comments;
-
-  // Create the file content display with syntax highlighting and copy button
-  target.innerHTML = `
-    <h3 style="margin-top:0">${safePath}</h3>
-    <div style="color:var(--muted);margin-bottom:8px">Size: ${content.length} bytes • ${content.split(/\r\n|\n/).length} lines</div>
-    <div class="code-container">
-      <div class="code-actions">
-        <button class="copy-btn" onclick="copyCode()">📋 Copy</button>
-      </div>
-      <pre><code class="language-${language}">${escapeHtml(content)}</code></pre>
-    </div>
-  `;
-
-  // Add spaghetti meter for this file
-  if (fileStats.spaghettiLevel !== undefined) {
-    let spaghettiClass = '';
-    let spaghettiText = '';
-
-    if (fileStats.spaghettiLevel <= 3) {
-      spaghettiClass = 'spaghetti-clean';
-      spaghettiText = 'Clean Code 💎';
-    } else if (fileStats.spaghettiLevel <= 5) {
-      spaghettiClass = 'spaghetti-medium';
-      spaghettiText = 'Moderately Complex ⚠️';
-    } else if (fileStats.spaghettiLevel <= 8) {
-      spaghettiClass = 'spaghetti-high';
-      spaghettiText = 'Complex Nesting 🍝';
-    } else {
-      spaghettiClass = 'spaghetti-max';
-      spaghettiText = `High Complexity 🍝 (Depth: ${fileStats.spaghettiLevel})`;
-    }
-
-    target.insertAdjacentHTML('beforeend', `
-      <div class="spaghetti-meter">
-        <div class="spaghetti-title">Spaghetti Meter for this file 🍝</div>
-        <div class="spaghetti-bar-container">
-          <div class="spaghetti-bar ${spaghettiClass}" style="width: ${(fileStats.spaghettiLevel/10)*100}%"></div>
-        </div>
-        <div class="spaghetti-text">Maximum indentation level: ${fileStats.spaghettiLevel}</div>
-      </div>
-    `);
-  }
-
-  // Add comments section if any were found
-  if (fileStats.totalImportantComments > 0) {
-    let commentsHTML = '<div class="comments-section"><h4>Important Comments Found:</h4>';
-
-    // Add different comment types
-    if (comments.todos.length > 0) {
-      commentsHTML += `<h5>TODOs (${comments.todos.length}):</h5>`;
-      comments.todos.forEach(comment => {
-        commentsHTML += `
-          <div class="comment-item">
-            <div class="comment-meta">Line ${comment.line}</div>
-            <div class="comment-text">${escapeHtml(comment.text)}</div>
-          </div>
-        `;
-      });
-    }
-
-    if (comments.fixes.length > 0) {
-      commentsHTML += `<h5>FIXMEs (${comments.fixes.length}):</h5>`;
-      comments.fixes.forEach(comment => {
-        commentsHTML += `
-          <div class="comment-item">
-            <div class="comment-meta">Line ${comment.line}</div>
-            <div class="comment-text">${escapeHtml(comment.text)}</div>
-          </div>
-        `;
-      });
-    }
-
-    if (comments.bugs.length > 0) {
-      commentsHTML += `<h5>BUGs (${comments.bugs.length}):</h5>`;
-      comments.bugs.forEach(comment => {
-        commentsHTML += `
-          <div class="comment-item">
-            <div class="comment-meta">Line ${comment.line}</div>
-            <div class="comment-text">${escapeHtml(comment.text)}</div>
-          </div>
-        `;
-      });
-    }
-
-    if (comments.hacks.length > 0) {
-      commentsHTML += `<h5>HACKs (${comments.hacks.length}):</h5>`;
-      comments.hacks.forEach(comment => {
-        commentsHTML += `
-          <div class="comment-item">
-            <div class="comment-meta">Line ${comment.line}</div>
-            <div class="comment-text">${escapeHtml(comment.text)}</div>
-          </div>
-        `;
-      });
-    }
-
-    commentsHTML += '</div>';
-    target.insertAdjacentHTML('beforeend', commentsHTML);
-  }
-
-  // Highlight the code using Prism.js
-  setTimeout(() => {
-    Prism.highlightAllUnder(target);
-  }, 10);
-}
-
-/* ========= Copy code functionality ========= */
-function copyCode() {
-  if (!window.currentCode) {
-    showError('No code available to copy');
-    return;
-  }
-
-  navigator.clipboard.writeText(window.currentCode)
-    .then(() => {
-      // Show temporary success indicator
-      const btn = document.querySelector('.copy-btn');
-      const originalText = btn.textContent;
-      btn.textContent = '✓ Copied!';
-      setTimeout(() => {
-        btn.textContent = originalText;
-      }, 2000);
-    })
-    .catch(err => {
-      showError('Failed to copy code: ' + err);
-    });
-}
-
-/* ========= Bulk fetch for top N files (controlled) ========= */
-async function fetchTopNContent(){
-  hideError();
-  const maxN = parseInt(el('maxContentFetch').value) || 0;
-  if(maxN <= 0){ alert('Set a positive number in "content fetch N" to use this feature.'); return; }
-  if(!window.analysisData || window.analysisData.length === 0){ alert('Run analysis first.'); return; }
-
-  const token = (el('ghToken').value || '').trim();
-  // sort top by size
-  const top = [...window.analysisData].sort((a,b)=> (b.size||0)-(a.size||0)).slice(0,maxN);
-  showLoading(`Fetching content for top ${top.length} files... (this uses ${top.length} requests)`);
-  let counter = 0;
-  for(const f of top){
-    try{
-      await loadSingleFile(f.url, f.path);
-      counter++;
-      showLoading(`Fetched ${counter}/${top.length}...`);
-      // small delay to be gentle on API
-      await new Promise(r=>setTimeout(r, 250));
-    }catch(e){
-      console.warn('top fetch err', e);
-    }
-  }
-  hideLoading();
-  alert(`Done fetching content for ${counter}/${top.length} files.`);
-}
-
-/* ========= Utilities ========= */
-function escapeForAttr(s){ return (s||'').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
-function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function downloadDirect(url, name){ fetch(url).then(r=>r.blob()).then(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download = name || 'file'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),3000)}).catch(e=>alert('Download failed: '+e)); }
-function switchToDetails(path){ document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab==='details')); document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id==='details')); window.currentFile = path; }
-
-/* ========= Event binds ========= */
-el('analyzeBtn').addEventListener('click', analyzeRepo);
-el('fetchTopContentBtn').addEventListener('click', fetchTopNContent);
-el('exportBtn').addEventListener('click', ()=> {
-  if(!window.analysisData || window.analysisData.length===0){ alert('No data'); return; }
-  const blob = new Blob([JSON.stringify(window.analysisData,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download = 'analysis.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),4000);
-});
-el('searchFilter').addEventListener('input', ()=> renderFilesTable(window.analysisData || []));
-
-// load cache
-el('loadCacheBtn').addEventListener('click', ()=>{
-  try{
-    const raw = localStorage.getItem('lastAnalysis');
-    if(!raw) return alert('No cached analysis found');
-    const obj = JSON.parse(raw);
-    if(!obj.data) return alert('Invalid cache');
-    window.analysisData = obj.data;
-    updateUIAfterAnalysis(window.analysisData);
-    alert('Loaded cached analysis from ' + (obj.timestamp||'unknown'));
-  }catch(e){ alert('Load cache failed: '+e) }
-});
-
-/* ========= Local caching after analysis (auto) ========= */
-(function autoCacheHook(){
-  // after each successful analyzeRepo, we cache inside analyzeRepo. But if you want to save manually, do:
-  const origAnalyze = analyzeRepo;
-  analyzeRepo = async function(){
-    await origAnalyze();
-    try{
-      if(window.analysisData) localStorage.setItem('lastAnalysis', JSON.stringify({timestamp:new Date().toISOString(), data: window.analysisData})); // Added 'data:' property
-    }catch(e){ console.warn('cache fail', e); }
-  };
-})();
-
-/* ========= Initial console note ========= */
-console.log('Advanced analyzer loaded — Overview & Details fixed. Analysis is lazy by default. Use token to raise rate limits.');
-</script>
+    <!-- External JavaScript -->
+    <script src="logic1.js"></script>
 </body>
 </html>
