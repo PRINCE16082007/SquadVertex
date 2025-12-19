@@ -1,145 +1,1229 @@
-// logic1.js
-(() => {
-    // AutoArrange module encapsulating the logic
-    const AutoArrange = {
-        init: function() {
-            this.createButton();
-            this.createModal();
-            this.attachEvents();
-        },
-        createButton: function() {
-            const btn = document.createElement('button');
-            btn.id = 'autoArrangeBtn';
-            btn.className = 'btn btn-primary m-2';
-            btn.textContent = 'Auto Arrange';
-            // find your toolbar container (or fallback to body)
-            const container = document.querySelector('.toolbar') || document.body;
-            container.appendChild(btn);
-        },
-        createModal: function() {
-            const rooms = window.rooms || [];
-            let roomsOptions = rooms.map(r =>
-                `<option value="${r.id}">${r.name}</option>`
-            ).join('') || '<option disabled>No rooms</option>';
+/* ========= Globals + safe defaults ========= */
+window.analysisData = window.analysisData || []; // array of file objects
+window.currentFile = window.currentFile || null;
+window.charts = window.charts || {typeChart:null, sizeChart:null, locChart: null, languageChart: null};
+window.currentCode = ""; // Store current code for copying
+window.repoStats = {}; // Store computed repo statistics
+window.contributors = []; // Store contributor data
+const CACHE_KEY = 'githubRepoAnalysisCache'; // Unique key for local storage
 
-            const streams = Array.from(new Set((window.students||[]).map(s => s.stream).filter(Boolean)));
-            const buildStreamOpts = arr => arr.map(stream =>
-                `<option value="stream_${stream}">${stream}</option>`
-            ).join('');
+/* ========= Helpers ========= */
+function el(id){ return document.getElementById(id); }
+function showLoading(txt){ el('loading').style.display='block'; el('loading').textContent=txt || 'Working...'; }
+function hideLoading(){ el('loading').style.display='none'; }
+function showError(msg){ el('error').style.display='block'; el('error').textContent = msg; }
+function hideError(){ el('error').style.display='none'; el('error').textContent = ''; }
+function formatBytes(bytes){ if(!bytes && bytes !== 0) return '0 Bytes'; const k=1024; const sizes=['Bytes','KB','MB','GB']; const i = bytes===0?0:Math.floor(Math.log(bytes)/Math.log(k)); return (bytes/Math.pow(k,i)).toFixed(2)+' '+sizes[i]; }
+function getFileType(name){ const ext = (name.split('.').pop()||'').toLowerCase(); const map={'js':'JavaScript','ts':'TypeScript','py':'Python','html':'HTML','css':'CSS','json':'JSON','md':'Markdown'}; return map[ext]||(ext?ext.toUpperCase():'Unknown'); }
+function safeDecodeURIPath(p){ try { return decodeURIComponent(p); } catch(e){ return p; } }
 
-            const modalHtml = `
-<div class="modal" tabindex="-1" id="autoArrangeModal">
-  <div class="modal-dialog"><div class="modal-content">
-    <div class="modal-header">
-      <h5 class="modal-title">Auto-Arrange Settings</h5>
-      <button type="button" class="close" data-dismiss="modal">&times;</button>
-    </div>
-    <div class="modal-body">
-      <form id="autoArrangeForm">
-        <div class="form-group">
-          <label>Select Rooms</label>
-          <select multiple class="form-control" id="roomsSelect">${roomsOptions}</select>
-        </div>
-        <div class="form-group">
-          <label>Gender Preference</label><br>
-          ${['mixed','boys','girls','custom'].map(g =>
-            `<div class="form-check form-check-inline">
-               <input class="form-check-input" type="radio" name="genderPref" id="gender${g}" value="${g}" ${g==='mixed'?'checked':''}>
-               <label class="form-check-label" for="gender${g}">${g.charAt(0).toUpperCase()+g.slice(1)}</label>
-             </div>`
-          ).join('')}
-        </div>
-        <div class="form-group form-check">
-          <input type="checkbox" class="form-check-input" id="streamGroup">
-          <label class="form-check-label" for="streamGroup">Group by Stream</label>
-        </div>
-        <div class="form-group form-check">
-          <input type="checkbox" class="form-check-input" id="noSameNeighbors">
-          <label class="form-check-label" for="noSameNeighbors">Disallow same-class neighbors</label>
-        </div>
-        <div class="form-group">
-          <label>Empty seats between</label>
-          <input type="number" min="0" class="form-control" id="emptySeats" value="0">
-        </div>
-        <div class="form-group">
-          <label>Front-row priority</label>
-          <select class="form-control" id="frontPriority">
-            <option value="">None</option>
-            <option value="gender_female">Girls</option>
-            <option value="gender_male">Boys</option>
-            ${buildStreamOpts(streams)}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Back-row priority</label>
-          <select class="form-control" id="backPriority">
-            <option value="">None</option>
-            <option value="gender_female">Girls</option>
-            <option value="gender_male">Boys</option>
-            ${buildStreamOpts(streams)}
-          </select>
-        </div>
-      </form>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" data-dismiss="modal">Close</button>
-      <button class="btn btn-primary" id="applyAutoArrange">Generate</button>
-    </div>
-  </div></div>
-</div>`;
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-        },
-        attachEvents: function() {
-            document.getElementById('autoArrangeBtn')
-              .addEventListener('click', () => $('#autoArrangeModal').modal('show'));
-            document.getElementById('applyAutoArrange')
-              .addEventListener('click', e => this.handleFormSubmit(e));
-        },
-        handleFormSubmit: function(e) {
-            e.preventDefault();
-            const rules = this.gatherRules();
-            if (!rules.rooms.length) {
-                alert('Select at least one room');
-                return;
-            }
-            this.generateArrangement(rules);
-        },
-        gatherRules: function() {
-            return {
-                rooms: Array.from(document.getElementById('roomsSelect').selectedOptions).map(o=>o.value),
-                genderPref: document.querySelector('input[name="genderPref"]:checked').value,
-                groupByStream: document.getElementById('streamGroup').checked,
-                noSameNeighbors: document.getElementById('noSameNeighbors').checked,
-                emptySeats: parseInt(document.getElementById('emptySeats').value)||0,
-                frontPriority: document.getElementById('frontPriority').value,
-                backPriority: document.getElementById('backPriority').value
-            };
-        },
-        generateArrangement: function(rules) {
-            const all = window.students.slice();
-            rules.rooms.forEach(rid => {
-                const arr = this.arrangeRoom(rid, rules, all);
-                if (typeof window.applySeatingArrangement === 'function') {
-                    window.applySeatingArrangement(rid, arr);
-                } else console.log(rid, arr);
-            });
-            alert('Auto-arranged!');
-            $('#autoArrangeModal').modal('hide');
-        },
-        arrangeRoom: function(roomId, rules, allStudents) {
-            // Filter students assigned to this room (or all if none)
-            let list = allStudents.filter(s => s.roomId==roomId);
-            // [apply front/back priorities, grouping, gender sort, neighbor-check, empty seats…]
-            // (see full implementation above)
-            // return a 2D array [[stu, null, stu…], …]
-            return /* …computed grid… */;
-        }
-        // …plus helpers like reorderNoSame()…
-    };
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => AutoArrange.init());
-    } else {
-      AutoArrange.init();
+/* ========= Tab switching ========= */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', () => {
+    const tab = t.dataset.tab;
+    document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x===t));
+    document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id===tab));
+    // Clear details when leaving the details tab
+    if (tab !== 'details') {
+        window.currentFile = null;
     }
-})();
+  });
+});
+
+/* ========= Rate-limit aware fetch wrapper ========= */
+async function ghFetch(url, token){
+  const headers = { 'Accept': 'application/vnd.github.v3+json' };
+  if(token) headers['Authorization'] = 'token ' + token;
+  const res = await fetch(url, { headers });
+  // return response and parsed headers info
+  const remaining = parseInt(res.headers.get('x-ratelimit-remaining') || '0', 10);
+  const resetEpoch = parseInt(res.headers.get('x-ratelimit-reset') || '0', 10);
+  return { res, remaining, resetEpoch };
+}
+
+/* ========= Enhanced comment extraction ========= */
+function extractComments(content, language) {
+  const lines = content.split('\n');
+  const comments = {
+    todos: [],
+    fixes: [],
+    bugs: [],
+    hacks: [],
+    notes: [],
+    optimizes: []
+  };
+
+  // Language-specific comment patterns
+  const patterns = {
+    js: [
+      { regex: /\/\*(.*?)\*\//gs, type: 'block' },
+      { regex: /\/\/(.*)$/gm, type: 'line' }
+    ],
+    ts: [
+      { regex: /\/\*(.*?)\*\//gs, type: 'block' },
+      { regex: /\/\/(.*)$/gm, type: 'line' }
+    ],
+    py: [
+      { regex: /""".*?"""/gs, type: 'block' },
+      { regex: /'''.*?'''/gs, type: 'block' },
+      { regex: /#(.*)$/gm, type: 'line' }
+    ],
+    html: [
+      { regex: /<!--(.*?)-->/gs, type: 'block' }
+    ],
+    css: [
+      { regex: /\/\*(.*?)\*\//gs, type: 'block' },
+      { regex: /\/\//, type: 'line' } // CSS doesn't have // comments but we'll handle /* */ comments
+    ]
+  };
+
+  const langPatterns = patterns[language] || patterns.js;
+
+  lines.forEach((line, index) => {
+    const lineNumber = index + 1;
+
+    langPatterns.forEach(pattern => {
+      const matches = line.match(pattern.regex);
+      if (matches) {
+        matches.forEach(match => {
+          const upperMatch = match.toUpperCase();
+
+          // Extract different types of comments
+          if (upperMatch.includes('TODO')) {
+            const text = match
+              .replace(/\/\*/, '')
+              .replace(/\*\//, '')
+              .replace(/\/\//, '')
+              .replace(/#/g, '')
+              .replace(/<!--/g, '')
+              .replace(/-->/g, '')
+              .replace(/"""/g, '')
+              .replace(/'''/g, '')
+              .trim();
+            comments.todos.push({ line: lineNumber, text, original: match });
+          }
+          if (upperMatch.includes('FIXME')) {
+            const text = match
+              .replace(/\/\*/, '')
+              .replace(/\*\//, '')
+              .replace(/\/\//, '')
+              .replace(/#/g, '')
+              .replace(/<!--/g, '')
+              .replace(/-->/g, '')
+              .replace(/"""/g, '')
+              .replace(/'''/g, '')
+              .trim();
+            comments.fixes.push({ line: lineNumber, text, original: match });
+          }
+          if (upperMatch.includes('BUG')) {
+            const text = match
+              .replace(/\/\*/, '')
+              .replace(/\*\//, '')
+              .replace(/\/\//, '')
+              .replace(/#/g, '')
+              .replace(/<!--/g, '')
+              .replace(/-->/g, '')
+              .replace(/"""/g, '')
+              .replace(/'''/g, '')
+              .trim();
+            comments.bugs.push({ line: lineNumber, text, original: match });
+          }
+          if (upperMatch.includes('HACK')) {
+            const text = match
+              .replace(/\/\*/, '')
+              .replace(/\*\//, '')
+              .replace(/\/\//, '')
+              .replace(/#/g, '')
+              .replace(/<!--/g, '')
+              .replace(/-->/g, '')
+              .replace(/"""/g, '')
+              .replace(/'''/g, '')
+              .trim();
+            comments.hacks.push({ line: lineNumber, text, original: match });
+          }
+          if (upperMatch.includes('NOTE')) {
+            const text = match
+              .replace(/\/\*/, '')
+              .replace(/\*\//, '')
+              .replace(/\/\//, '')
+              .replace(/#/g, '')
+              .replace(/<!--/g, '')
+              .replace(/-->/g, '')
+              .replace(/"""/g, '')
+              .replace(/'''/g, '')
+              .trim();
+            comments.notes.push({ line: lineNumber, text, original: match });
+          }
+          if (upperMatch.includes('OPTIMIZE')) {
+            const text = match
+              .replace(/\/\*/, '')
+              .replace(/\*\//, '')
+              .replace(/\/\//, '')
+              .replace(/#/g, '')
+              .replace(/<!--/g, '')
+              .replace(/-->/g, '')
+              .replace(/"""/g, '')
+              .replace(/'''/g, '')
+              .trim();
+            comments.optimizes.push({ line: lineNumber, text, original: match });
+          }
+        });
+      }
+    });
+  });
+
+  return comments;
+}
+
+/* ========= Extract tech stack from dependency files ========= */
+async function extractTechStackFromFiles(files, owner, repo, token) {
+  const techStack = new Set();
+  const dependencyFiles = ['package.json', 'requirements.txt', 'composer.json', 'Gemfile', 'go.mod', 'Cargo.toml', 'pom.xml', 'build.gradle'];
+
+  for (const file of files) {
+    const fileName = file.name.toLowerCase();
+    if (dependencyFiles.includes(fileName)) {
+      // Try to load content for dependency files
+      if (!file.content) {
+        // If content is not loaded yet, fetch it (be careful with rate limits)
+        try {
+            const fileUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${file.path}`;
+            const response = await fetch(fileUrl);
+            if (response.ok) {
+                file.content = await response.text();
+            } else {
+                console.warn(`Could not fetch content for ${file.path}: ${response.status}`);
+                continue; // Skip this file if fetch fails
+            }
+        } catch (e) {
+            console.error(`Error fetching content for ${file.path}:`, e);
+            continue; // Skip this file if fetch fails
+        }
+      }
+
+      if (file.content) {
+        if (fileName === 'package.json') {
+          try {
+            const pkg = JSON.parse(file.content);
+            const deps = { ...pkg.dependencies, ...pkg.devDependencies, ...pkg.peerDependencies };
+            for (const depName of Object.keys(deps)) {
+              // Add the dependency name itself
+              techStack.add(depName);
+              // Add common sub-packages or extract specific frameworks
+              if (depName.includes('react')) techStack.add('React');
+              if (depName.includes('vue')) techStack.add('Vue');
+              if (depName.includes('angular')) techStack.add('Angular');
+              if (depName.includes('express')) techStack.add('Express.js');
+              if (depName.includes('fastify')) techStack.add('Fastify');
+              if (depName.includes('nestjs')) techStack.add('NestJS');
+              if (depName.includes('tailwind')) techStack.add('Tailwind CSS');
+              if (depName.includes('bootstrap')) techStack.add('Bootstrap');
+              if (depName.includes('jquery')) techStack.add('jQuery');
+              if (depName.includes('redux')) techStack.add('Redux');
+              if (depName.includes('mobx')) techStack.add('MobX');
+              if (depName.includes('axios')) techStack.add('Axios');
+              if (depName.includes('lodash')) techStack.add('Lodash');
+              if (depName.includes('moment')) techStack.add('Moment.js');
+              if (depName.includes('typescript')) techStack.add('TypeScript');
+              // Add more mappings as needed
+            }
+          } catch (e) {
+            console.error('Error parsing package.json:', e);
+          }
+        } else if (fileName === 'requirements.txt') {
+          const lines = file.content.split('\n');
+          for (const line of lines) {
+            const trimmed = line.trim().toLowerCase();
+            if (trimmed && !trimmed.startsWith('#')) {
+              const depName = trimmed.split(/[>=<~!]/)[0];
+              techStack.add(depName);
+              // Add common Python frameworks
+              if (depName.includes('django')) techStack.add('Django');
+              if (depName.includes('flask')) techStack.add('Flask');
+              if (depName.includes('fastapi')) techStack.add('FastAPI');
+              if (depName.includes('requests')) techStack.add('Requests');
+              if (depName.includes('numpy')) techStack.add('NumPy');
+              if (depName.includes('pandas')) techStack.add('Pandas');
+              if (depName.includes('matplotlib')) techStack.add('Matplotlib');
+              if (depName.includes('tensorflow')) techStack.add('TensorFlow');
+              if (depName.includes('pytorch')) techStack.add('PyTorch');
+              if (depName.includes('sqlalchemy')) techStack.add('SQLAlchemy');
+            }
+          }
+        }
+        // Add other file types (Gemfile, composer.json, etc.) similarly if needed
+      }
+    }
+  }
+
+  return Array.from(techStack);
+}
+
+/* ========= Calculate spaghetti meter (code complexity) ========= */
+function calculateSpaghettiMeter(content) {
+  const lines = content.split('\n');
+  let maxIndentation = 0;
+
+  for (const line of lines) {
+    if (line.trim()) { // Only consider non-empty lines
+      // Count leading spaces/tabs
+      const leadingSpaces = line.search(/\S|$/);
+      const indentLevel = Math.floor(leadingSpaces / 2); // Assuming 2 spaces per indentation level
+
+      if (indentLevel > maxIndentation) {
+        maxIndentation = indentLevel;
+      }
+    }
+  }
+
+  return maxIndentation;
+}
+
+/* ========= Calculate bus factor (contribution risk) ========= */
+function calculateBusFactor(contributors) {
+  if (!contributors || contributors.length === 0) {
+    return { factor: 1, description: 'No contributor data available' };
+  }
+
+  // Sort contributors by contributions
+  const sortedContribs = [...contributors].sort((a, b) => b.contributions - a.contributions);
+
+  // Calculate percentage of work done by top contributors
+  const totalCommits = sortedContribs.reduce((sum, contrib) => sum + contrib.contributions, 0);
+  if (totalCommits === 0) {
+    return { factor: 1, description: 'No commits found' };
+  }
+
+  let cumulativePercentage = 0;
+  let busFactor = 0;
+
+  for (const contrib of sortedContribs) {
+    const contributionPercentage = (contrib.contributions / totalCommits) * 100;
+    cumulativePercentage += contributionPercentage;
+    busFactor++;
+
+    // If one person did majority of the work, it's high risk
+    if (cumulativePercentage >= 80) {
+      break;
+    }
+  }
+
+  let description = '';
+  if (busFactor === 1) {
+    description = `Hero Developer detected (${sortedContribs[0]?.login || 'Unknown'} doing majority work)`;
+  } else if (busFactor === 2) {
+    description = `High risk (2 people doing majority of work)`;
+  } else if (busFactor <= 4) {
+    description = `Medium risk (4 or fewer people doing majority of work)`;
+  } else {
+    description = `Healthy team (work distributed across multiple contributors)`;
+  }
+
+  return { factor: busFactor, description };
+}
+
+/* ========= Compute file statistics (including LOC from content) ========= */
+function computeFileStats(content, language) {
+  const lines = content.split('\n');
+  const stats = {
+    loc: 0,
+    commentLines: 0,
+    comments: extractComments(content, language),
+    spaghettiLevel: calculateSpaghettiMeter(content)
+  };
+
+  let totalComments = 0;
+
+  lines.forEach(line => {
+    if (line.trim()) { // Only count non-empty lines
+      stats.loc++;
+
+      // Check if line is a comment
+      if (language === 'py' && line.trim().startsWith('#')) {
+        stats.commentLines++;
+        totalComments++;
+      } else if ((language === 'js' || language === 'ts' || language === 'css') &&
+                (line.trim().startsWith('//') || line.trim().startsWith('/*') || line.trim().startsWith('*'))) {
+        stats.commentLines++;
+        totalComments++;
+      } else if (language === 'html' && line.includes('<!--')) {
+        stats.commentLines++;
+        totalComments++;
+      }
+    }
+  });
+
+  // Calculate total important comments
+  stats.totalImportantComments =
+    stats.comments.todos.length +
+    stats.comments.fixes.length +
+    stats.comments.bugs.length +
+    stats.comments.hacks.length +
+    stats.comments.notes.length +
+    stats.comments.optimizes.length;
+
+  return stats;
+}
+
+/* ========= Compute overall repo statistics from full analysis data ========= */
+async function computeRepoStatsFromFullAnalysis(files, owner, repo, token) {
+  const stats = {
+    totalLoc: 0,
+    totalFiles: files.length,
+    totalSize: 0,
+    languageDistribution: {},
+    largestFile: { size: 0, path: '', lines: 0 },
+    avgFileSize: 0,
+    lastUpdate: null,
+    spaghettiLevel: 0,
+    busFactor: 1,
+    busFactorDesc: 'Could not fetch contributor data',
+    techStack: [],
+    totalImportantComments: 0
+  };
+
+  // Calculate totals and distributions
+  for (const file of files) {
+    stats.totalSize += file.size || 0;
+
+    // Track largest file
+    if ((file.size || 0) > stats.largestFile.size) {
+      stats.largestFile = {
+        size: file.size || 0,
+        path: file.path,
+        lines: file.lines || 0
+      };
+    }
+
+    // Language distribution based on extension
+    const ext = file.path.split('.').pop().toLowerCase();
+    stats.languageDistribution[ext] = (stats.languageDistribution[ext] || 0) + 1;
+
+    // If content is available, calculate LOC from content and add to total
+    if (file.content) {
+      const fileLines = file.content.split(/\r\n|\n/).length;
+      stats.totalLoc += fileLines;
+      // Also add to totalImportantComments if file stats are available
+      const language = ext; // Simplified, ideally get from showFileContent logic
+      const fileStats = computeFileStats(file.content, language);
+      stats.totalImportantComments += fileStats.totalImportantComments;
+    } else if (file.lines) {
+      // Fallback to pre-fetched lines if content not available
+      stats.totalLoc += file.lines;
+    }
+  }
+
+  // Calculate average file size
+  if (files.length > 0) {
+    stats.avgFileSize = stats.totalSize / files.length;
+  }
+
+  // Extract tech stack
+  stats.techStack = await extractTechStackFromFiles(files, owner, repo, token);
+
+  // Calculate spaghetti level based on files with content
+  let maxSpaghetti = 0;
+  for (const file of files) {
+    if (file.content) {
+      const fileSpaghetti = calculateSpaghettiMeter(file.content);
+      if (fileSpaghetti > maxSpaghetti) {
+        maxSpaghetti = fileSpaghetti;
+      }
+    }
+  }
+  stats.spaghettiLevel = maxSpaghetti;
+
+  // Get contributors data
+  try {
+    const contributorsUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contributors`;
+    const { res } = await ghFetch(contributorsUrl, token);
+    if (res.ok) {
+      window.contributors = await res.json();
+      const busFactorResult = calculateBusFactor(window.contributors);
+      stats.busFactor = busFactorResult.factor;
+      stats.busFactorDesc = busFactorResult.description;
+    }
+  } catch (e) {
+    console.error('Error fetching contributors:', e);
+    stats.busFactor = 1; // Default to 1 if can't fetch
+    stats.busFactorDesc = 'Could not fetch contributor data';
+  }
+
+  // Store for later use
+  window.repoStats = stats;
+  return stats;
+}
+
+
+/* ========= Generate viral/fun stats ========= */
+function generateViralStats() {
+  const stats = window.repoStats;
+  const viralStats = [];
+
+  if (!stats) return viralStats; // Return empty if stats not available
+
+  // Procrastination Counter
+  const totalImportantComments = stats.totalImportantComments || 0;
+  viralStats.push({
+    title: "The Procrastination Counter",
+    highlight: `${totalImportantComments} items pending`,
+    description: totalImportantComments > 20
+      ? "This repo has a lot of pending work! Good luck!"
+      : totalImportantComments > 10
+        ? "Some pending tasks found. Time to tackle them!"
+        : "Not too many pending items. Well done!"
+  });
+
+  // The Villain File
+  if (stats.largestFile && stats.largestFile.path) {
+    const lines = stats.largestFile.lines || Math.round((stats.largestFile.size || 0) / 50); // Estimate if lines not known
+    viralStats.push({
+      title: "The Villain File",
+      highlight: `${stats.largestFile.path} (${lines} lines)`,
+      description: lines > 2000
+        ? "This file is massive! Needs serious refactoring."
+        : lines > 1000
+          ? "Large file detected. Consider splitting it."
+          : "File size looks reasonable."
+    });
+  }
+
+  // The Ghost Index
+  const totalLoc = stats.totalLoc || 1; // Avoid division by zero
+  const commentRatio = stats.totalComments > 0 ? (stats.totalComments / totalLoc * 100).toFixed(2) : 0;
+  let ghostDesc = "";
+  if (commentRatio < 5) {
+    ghostDesc = "Documentation? We don't do that here.";
+  } else if (commentRatio < 15) {
+    ghostDesc = "Could use more documentation.";
+  } else if (commentRatio > 30) {
+    ghostDesc = "Extremely well documented!";
+  } else {
+    ghostDesc = "Moderately documented.";
+  }
+
+  viralStats.push({
+    title: "The Ghost Index",
+    highlight: `${commentRatio}% comment ratio`,
+    description: ghostDesc
+  });
+
+  return viralStats;
+}
+
+/* ========= Render viral stats ========= */
+function renderViralStats(viralStats) {
+  const container = el('advancedStatsContent');
+
+  if (viralStats.length === 0) {
+    container.innerHTML = '<div class="no-comments">Run analysis to see advanced stats!</div>';
+    return;
+  }
+
+  let html = '';
+
+  // Add spaghetti meter card
+  if (window.repoStats.spaghettiLevel !== undefined) {
+    const spaghettiLevel = window.repoStats.spaghettiLevel;
+    let spaghettiClass = '';
+    let spaghettiText = '';
+
+    if (spaghettiLevel <= 3) {
+      spaghettiClass = 'spaghetti-clean';
+      spaghettiText = 'Clean Code 💎';
+    } else if (spaghettiLevel <= 5) {
+      spaghettiClass = 'spaghetti-medium';
+      spaghettiText = 'Moderately Complex ⚠️';
+    } else if (spaghettiLevel <= 8) {
+      spaghettiClass = 'spaghetti-high';
+      spaghettiText = 'Complex Nesting 🍝';
+    } else {
+      spaghettiClass = 'spaghetti-max';
+      spaghettiText = `High Complexity 🍝 (Depth: ${spaghettiLevel})`;
+    }
+
+    html += `
+      <div class="spaghetti-meter">
+        <div class="spaghetti-title">Spaghetti Meter 🍝</div>
+        <div class="spaghetti-bar-container">
+          <div class="spaghetti-bar ${spaghettiClass}" id="spaghettiBar" style="width: 0%"></div>
+        </div>
+        <div class="spaghetti-text">Maximum indentation level: ${spaghettiLevel}</div>
+      </div>
+    `;
+  }
+
+  // Add bus factor card
+  if (window.repoStats.busFactor !== undefined) {
+    const busFactor = window.repoStats.busFactor;
+    let busClass = '';
+    let busText = '';
+
+    if (busFactor === 1) {
+      busClass = 'bus-critical';
+      busText = 'Critical Risk!';
+    } else if (busFactor === 2) {
+      busClass = 'bus-high';
+      busText = 'High Risk!';
+    } else if (busFactor <= 4) {
+      busClass = 'bus-medium';
+      busText = 'Medium Risk';
+    } else {
+      busClass = 'bus-low';
+      busText = 'Low Risk';
+    }
+
+    const busDescription = window.repoStats.busFactorDesc || 'Distribution of work among contributors';
+
+    html += `
+      <div class="bus-factor">
+        <div class="bus-title">Bus Factor 🚌</div>
+        <div class="bus-factor-value ${busClass}">Factor: ${busFactor}</div>
+        <div class="description">${busDescription}</div>
+      </div>
+    `;
+  }
+
+  // Add TODO counter alert card
+  if (window.repoStats.totalImportantComments > 10) {
+    html += `
+      <div class="alert-card">
+        <div class="alert-title">⚠️ High TODO Count</div>
+        <div class="alert-content">This repo has ${window.repoStats.totalImportantComments} pending TODOs. Consider addressing them.</div>
+      </div>
+    `;
+  }
+
+  // Add tech stack card
+  if (window.repoStats.techStack && window.repoStats.techStack.length > 0) {
+    const techStack = window.repoStats.techStack;
+    let techHTML = '<div class="stat-card"><div class="stat-icon">⚙️</div><div class="stat-label">Tech Stack</div><div class="tech-stack">';
+    techStack.slice(0, 10).forEach(tech => {
+      techHTML += `<span class="tech-badge">${tech}</span>`;
+    });
+    if (techStack.length > 10) {
+      techHTML += `<span class="tech-badge">+${techStack.length - 10} more</span>`;
+    }
+    techHTML += '</div></div>';
+    html += techHTML;
+  }
+
+  // Add viral stats cards
+  viralStats.forEach(stat => {
+    html += `
+      <div class="stat-card">
+        <div class="stat-icon">🎯</div>
+        <div class="stat-value">${stat.highlight}</div>
+        <div class="stat-label">${stat.title}</div>
+        <div class="description" style="margin-top: 0.5rem; font-size: 0.9rem;">${stat.description}</div>
+      </div>
+    `;
+  });
+
+  // Add share button
+  html += '<button class="share-btn" onclick="shareStats()">Share These Stats</button>';
+
+  container.innerHTML = html;
+
+  // Animate spaghetti bar after DOM is updated
+  setTimeout(() => {
+    const spaghettiBar = document.getElementById('spaghettiBar');
+    if (spaghettiBar) {
+      const spaghettiLevel = window.repoStats.spaghettiLevel;
+      const maxLevel = 10; // Max expected indentation level
+      const percentage = Math.min(100, (spaghettiLevel / maxLevel) * 100);
+      spaghettiBar.style.width = `${percentage}%`;
+    }
+  }, 100);
+}
+
+/* ========= Share stats function ========= */
+function shareStats() {
+  const stats = window.repoStats;
+  if (!stats) {
+    alert("Run analysis first to generate stats!");
+    return;
+  }
+
+  // Prepare URL for stats card with parameters
+  const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '') + 'stats-card.html';
+  const params = new URLSearchParams({
+    totalLoc: stats.totalLoc,
+    totalFiles: stats.totalFiles,
+    totalSize: stats.totalSize,
+    repoAge: document.getElementById('repoAge').textContent,
+    spaghettiLevel: stats.spaghettiLevel,
+    busFactor: stats.busFactor,
+    busFactorDesc: stats.busFactorDesc,
+    totalImportantComments: stats.totalImportantComments
+  });
+
+  // Add tech stack as comma-separated string
+  if (stats.techStack && stats.techStack.length > 0) {
+    params.append('techStack', stats.techStack.join(','));
+  }
+
+  const fullUrl = `${baseUrl}?${params.toString()}`;
+  
+  // Copy URL to clipboard
+  navigator.clipboard.writeText(fullUrl)
+    .then(() => alert("Shareable stats URL copied to clipboard!"))
+    .catch(err => console.error('Failed to copy: ', err));
+}
+
+/* ========= Main analyze function (NO bulk content fetching by default) ========= */
+async function analyzeRepo(){
+  hideError();
+  showLoading('Fetching repo tree from GitHub...');
+  try{
+    const owner = el('owner').value.trim(), repo = el('repo').value.trim(), branch = el('branch').value.trim() || 'main';
+    if(!owner || !repo) throw new Error('Owner & repo required');
+    const root = (el('root').value || '').trim();
+    const extensions = (el('extensions').value || '').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+    const minSize = parseInt(el('minSize').value) || 0;
+    const token = (el('ghToken').value || '').trim();
+
+    // fetch the tree (recursive)
+    const treeUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
+    const { res, remaining, resetEpoch } = await ghFetch(treeUrl, token);
+    // rate info
+    el('rateInfo').textContent = `GitHub rate remaining: ${remaining} — reset ${ new Date(resetEpoch*1000).toLocaleString() }`;
+
+    if(!res.ok){
+      const txt = await res.text();
+      throw new Error(`GitHub API error ${res.status}: ${txt.substring(0,200)}`);
+    }
+    const data = await res.json();
+    if(!data.tree) throw new Error('Invalid tree response');
+
+    // fetch repo details to get creation/update dates
+    const repoDetailsUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+    const repoRes = await fetch(repoDetailsUrl, token ? { headers: { 'Authorization': 'token ' + token } } : {});
+    const repoDetails = repoRes.ok ? await repoRes.json() : null;
+
+
+    // filter blobs
+    let files = data.tree.filter(i => i.type === 'blob');
+    if(root){
+      const rootNorm = root.replace(/^\/*/,'').replace(/\/*$/,'') + '/';
+      files = files.filter(f => f.path.startsWith(rootNorm));
+    }
+    // apply ext and minSize
+    files = files.filter(item => {
+      const pathLower = item.path.toLowerCase();
+      const extMatch = extensions.length ? extensions.some(ext => pathLower.endsWith(ext)) : true;
+      const sizeOk = (typeof item.size === 'number') ? item.size > minSize : true;
+      return extMatch && sizeOk;
+    });
+
+    // Build minimal file objects WITHOUT fetching content (lazy)
+    const built = files.map(f => ({
+      path: f.path,
+      name: f.path.split('/').pop(),
+      size: f.size || 0,
+      url: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encodeURI(f.path)}`,
+      type: getFileType(f.path),
+      lines: null,  // unknown until we fetch content
+      columns: null,
+      content: null // Will store content when fetched
+    }));
+
+    // Save to global state
+    window.analysisData = built;
+    // Perform full analysis including stats calculation and tech stack
+    const stats = await computeRepoStatsFromFullAnalysis(built, owner, repo, token);
+    // Update UI with calculated stats
+    updateUIAfterAnalysis(built, repoDetails, owner, repo, token);
+
+    // Cache the full analysis data
+    try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+            timestamp: new Date().toISOString(),
+            owner,
+            repo,
+            branch,
+            data: built,
+            stats: stats // Store the calculated stats too
+        }));
+        
+        // Also store stats in localStorage for the stats card
+        localStorage.setItem('repoStats', JSON.stringify(stats));
+    } catch (e) {
+        console.warn('Cache save failed: ', e);
+        showError('Could not save analysis to cache.');
+    }
+
+    hideLoading();
+
+    // If remaining low, warn user and avoid any automatic content fetches
+    if(remaining < 5){
+      showError(`Warning: GitHub rate limit low (${remaining} remaining). Avoid fetching many files now or provide a personal token.`);
+    }
+
+  }catch(err){
+    hideLoading();
+    showError('Analysis error: ' + (err.message || err));
+    console.error(err);
+  }
+}
+
+/* ========= Update UI (Overview, Files table, Charts) ========= */
+async function updateUIAfterAnalysis(files, repoDetails, owner, repo, token){
+  // Use pre-calculated stats from global state or re-calculate if needed
+  let stats = window.repoStats; // Use existing if available from analyzeRepo
+  if (!stats || Object.keys(stats).length === 0) {
+      stats = await computeRepoStatsFromFullAnalysis(files, owner, repo, token);
+  }
+
+  // Standard stats - Update directly
+  el('totalFiles').textContent = stats.totalFiles;
+  el('totalSize').textContent = formatBytes(stats.totalSize);
+  el('totalLoc').textContent = stats.totalLoc;
+
+  // Calculate repo age if details available
+  if (repoDetails && repoDetails.created_at) {
+    const createdDate = new Date(repoDetails.created_at);
+    const now = new Date();
+    const diffTime = Math.abs(now - createdDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    el('repoAge').textContent = `${diffDays} days`;
+  } else {
+    el('repoAge').textContent = '—';
+  }
+
+  // Deep insights
+  const langDist = Object.entries(stats.languageDistribution)
+    .map(([ext, count]) => `${ext}: ${count}`)
+    .join(', ');
+  document.querySelector('#deepInsights div:first-child').textContent = `Language distribution: ${langDist || '—'}`;
+  document.querySelector('#deepInsights div:nth-child(2)').textContent = `Avg file size: ${formatBytes(stats.avgFileSize)}`;
+  document.querySelector('#deepInsights div:nth-child(3)').textContent = `Last update: ${repoDetails?.updated_at ? new Date(repoDetails.updated_at).toLocaleDateString() : '—'}`;
+
+  // Tech stack - Fixed
+  const techStackEl = el('techStack');
+  if (stats.techStack && stats.techStack.length > 0) {
+    techStackEl.innerHTML = '';
+    stats.techStack.slice(0, 8).forEach(tech => {
+      const badge = document.createElement('span');
+      badge.className = 'tech-badge';
+      badge.textContent = tech;
+      techStackEl.appendChild(badge);
+    });
+    if (stats.techStack.length > 8) {
+      const moreBadge = document.createElement('span');
+      moreBadge.className = 'tech-badge';
+      moreBadge.textContent = `+${stats.techStack.length - 8} more`;
+      techStackEl.appendChild(moreBadge);
+    }
+  } else {
+    techStackEl.innerHTML = '<span class="tech-badge">No data</span>';
+  }
+
+  // Summary text
+  el('summaryText').textContent = `Found ${files.length} files (${formatBytes(stats.totalSize)}, ${stats.totalLoc} LOC). Largest: ${stats.largestFile.path || '—'}. Average size: ${formatBytes(stats.avgFileSize)}. Content NOT fetched by default to save rate tokens.`;
+
+  // Top files list (by size)
+  const top = [...files].sort((a,b)=> (b.size||0) - (a.size||0)).slice(0,8);
+  el('topFilesList').innerHTML = top.map(t=> `<div style="margin-bottom:6px">${t.name} — <span style="color:var(--muted)">${formatBytes(t.size)}</span></div>`).join('') || '—';
+
+  // Files table (apply current search filter)
+  renderFilesTable(files);
+
+  // populate charts (but do not fetch content)
+  renderCharts(files);
+
+  // Generate and render viral stats
+  const viralStats = generateViralStats();
+  renderViralStats(viralStats);
+}
+
+/* ========= Render files table ========= */
+function renderFilesTable(files){
+  const search = (el('searchFilter').value || '').toLowerCase();
+  const filtered = files.filter(f=> (f.name + ' ' + f.path).toLowerCase().includes(search));
+  const tbody = el('filesTableBody');
+  tbody.innerHTML = '';
+
+  filtered.forEach(f=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${f.name}</td>
+      <td style="max-width:420px;word-break:break-all">${f.path}</td>
+      <td>${formatBytes(f.size)}</td>
+      <td><span class="file-type">${f.type}</span></td>
+      <td>${f.lines === null ? '—' : f.lines}</td>
+      <td style="white-space:nowrap">
+        <button class="btn small" onclick="loadSingleFile('${escapeForAttr(f.url)}','${escapeForAttr(f.path)}')">🔍 Load</button>
+        <button class="btn small" style="background:linear-gradient(45deg,#3b82f6,#2563eb)" onclick="downloadDirect('${escapeForAttr(f.url)}','${escapeForAttr(f.name)}')">📥</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ========= Charts ========= */
+function renderCharts(files){
+  try{
+    // Type distribution (Doughnut)
+    const counts = {};
+    files.forEach(f=> counts[f.type] = (counts[f.type]||0) + 1 );
+    const labels = Object.keys(counts).slice(0,20);
+    const data = labels.map(l=> counts[l]);
+
+    if(window.charts.typeChart) window.charts.typeChart.destroy();
+    const ctx1 = el('typeChart').getContext('2d');
+    window.charts.typeChart = new Chart(ctx1, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data }] },
+      options: { plugins:{legend:{position:'bottom'}}}
+    });
+
+    // Top sizes (Horizontal Bar)
+    const top = [...files].sort((a,b)=> (b.size||0)-(a.size||0)).slice(0,10);
+    const sizeLabels = top.map(t=> t.name);
+    const sizeValues = top.map(t=> Math.round((t.size||0)/1024)); // KB
+    if(window.charts.sizeChart) window.charts.sizeChart.destroy();
+    const ctx2 = el('sizeChart').getContext('2d');
+    window.charts.sizeChart = new Chart(ctx2, {
+      type:'bar',
+      data: { labels: sizeLabels, datasets: [{ label: 'Size (KB)', data: sizeValues }] },
+      options: { indexAxis: 'y', plugins:{legend:{display:false}} }
+    });
+
+    // Lines of Code by File (Bar Chart) - Show top 10 files with known LOC
+    const locFiles = [...files].filter(f => f.lines !== null && f.lines !== undefined).sort((a,b) => b.lines - a.lines).slice(0, 10);
+    const locLabels = locFiles.map(f => f.name);
+    const locData = locFiles.map(f => f.lines);
+    if(window.charts.locChart) window.charts.locChart.destroy();
+    const ctx3 = el('locChart').getContext('2d');
+    window.charts.locChart = new Chart(ctx3, {
+      type: 'bar',
+      data: { labels: locLabels, datasets: [{ label: 'Lines of Code', data: locData, backgroundColor: 'rgba(59, 130, 246, 0.6)' }] },
+      options: { plugins:{legend:{position:'top'}} }
+    });
+
+    // Language Distribution (Pie Chart)
+    const langCounts = {};
+    files.forEach(f => {
+        const ext = f.path.split('.').pop().toLowerCase();
+        langCounts[ext] = (langCounts[ext] || 0) + 1;
+    });
+    const langLabels = Object.keys(langCounts).slice(0, 10); // Top 10 languages
+    const langData = langLabels.map(l => langCounts[l]);
+    if(window.charts.languageChart) window.charts.languageChart.destroy();
+    const ctx4 = el('languageChart').getContext('2d');
+    window.charts.languageChart = new Chart(ctx4, {
+      type: 'pie',
+      data: { labels: langLabels, datasets: [{ data: langData, backgroundColor: [
+        'rgba(255, 99, 132, 0.6)',
+        'rgba(54, 162, 235, 0.6)',
+        'rgba(255, 206, 86, 0.6)',
+        'rgba(75, 192, 192, 0.6)',
+        'rgba(153, 102, 255, 0.6)',
+        'rgba(255, 159, 64, 0.6)',
+        'rgba(199, 199, 199, 0.6)',
+        'rgba(83, 102, 255, 0.6)',
+        'rgba(255, 99, 255, 0.6)',
+        'rgba(99, 255, 132, 0.6)'
+      ] }] },
+      options: { plugins:{legend:{position:'bottom'}} }
+    });
+
+  }catch(e){
+    console.warn('charts err', e);
+  }
+}
+
+/* ========= On-demand single file load (safe: checks rate limit, size) ========= */
+async function loadSingleFile(rawUrl, path){
+  hideError();
+  showLoading('Fetching file content (on-demand)...');
+  try{
+    const token = (el('ghToken').value || '').trim();
+    // small rate-limit safety: do a HEAD or conditional call? We do a fetch and read headers
+    // Use the GitHub raw URL (raw.githubusercontent) which doesn't provide rate-limit headers.
+    // Instead, use the API blob endpoint to also grab size and content with token-aware headers if token is present.
+    // We'll try the raw URL first (fast), but if token is present use API blob to be counted toward rate-limits accurately.
+
+    // If token provided, use GitHub API contents endpoint for path parsing
+    if(token){
+      // extract owner/repo/branch from inputs to build API contents URL
+      const owner = el('owner').value.trim(), repo = el('repo').value.trim(), branch = el('branch').value.trim() || 'main';
+      const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
+      const { res, remaining } = await ghFetch(apiUrl, token);
+      el('rateInfo').textContent = `GitHub rate remaining: ${remaining}`;
+      if(!res.ok) {
+        // fallback to raw if content endpoint blocked
+        const text = await (await fetch(rawUrl)).text();
+        showFileContent(path, text);
+        return;
+      }
+      const blobMeta = await res.json();
+      // if content comes base64 encoded
+      if(blobMeta && blobMeta.content){
+        const content = atob(blobMeta.content.replace(/\s/g,''));
+        showFileContent(path, content);
+        // update lines/columns in analysisData
+        const fileObj = window.analysisData.find(f => f.path === path);
+        if(fileObj){
+          fileObj.lines = content.split(/\r\n|\n/).length;
+          fileObj.columns = Math.max(...content.split(/\r\n|\n/).map(l=>l.length), 0);
+          fileObj.content = content;
+        }
+        renderFilesTable(window.analysisData);
+        hideLoading();
+        switchToDetails(path);
+        return;
+      } else {
+        // fallback raw
+        const text = await (await fetch(rawUrl)).text();
+        showFileContent(path, text);
+        hideLoading();
+        switchToDetails(path);
+        return;
+      }
+    } else {
+      // No token -> use raw.githubusercontent which is fast but not rate-header-aware
+      const r = await fetch(rawUrl);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const text = await r.text();
+      showFileContent(path, text);
+      // update stats
+      const fileObj = window.analysisData.find(f => f.path === path);
+      if(fileObj){
+        fileObj.lines = text.split(/\r\n|\n/).length;
+        fileObj.columns = Math.max(...text.split(/\r\n|\n/).map(l=>l.length), 0);
+        fileObj.content = text;
+      }
+      renderFilesTable(window.analysisData);
+      hideLoading();
+      switchToDetails(path);
+    }
+  }catch(err){
+    hideLoading();
+    showError('File load error: ' + (err.message || err));
+    console.error(err);
+  }
+}
+
+function showFileContent(path, content){
+  const target = el('fileDetailsInner');
+  const safePath = safeDecodeURIPath(path);
+
+  // Determine language for syntax highlighting
+  const extension = path.split('.').pop().toLowerCase();
+  let language = 'clike'; // default
+
+  if (extension === 'js' || extension === 'ts' || extension === 'json') {
+    language = extension;
+  } else if (extension === 'py') {
+    language = 'python';
+  } else if (extension === 'html' || extension === 'htm') {
+    language = 'markup';
+  } else if (extension === 'css') {
+    language = 'css';
+  } else if (extension === 'md') {
+    language = 'markdown';
+  }
+
+  // Store content for copy functionality
+  window.currentCode = content;
+
+  // Compute file-specific stats
+  const fileStats = computeFileStats(content, language);
+
+  // Extract comments from the code
+  const comments = fileStats.comments;
+
+  // Create the file content display with syntax highlighting and copy button
+  target.innerHTML = `
+    <h3 style="margin-top:0">${safePath}</h3>
+    <div style="color:var(--muted);margin-bottom:8px">Size: ${content.length} bytes • ${content.split(/\r\n|\n/).length} lines</div>
+    <div class="code-container">
+      <div class="code-actions">
+        <button class="copy-btn" onclick="copyCode()">📋 Copy</button>
+      </div>
+      <pre><code class="language-${language}">${escapeHtml(content)}</code></pre>
+    </div>
+  `;
+
+  // Add spaghetti meter for this file
+  if (fileStats.spaghettiLevel !== undefined) {
+    let spaghettiClass = '';
+    let spaghettiText = '';
+
+    if (fileStats.spaghettiLevel <= 3) {
+      spaghettiClass = 'spaghetti-clean';
+      spaghettiText = 'Clean Code 💎';
+    } else if (fileStats.spaghettiLevel <= 5) {
+      spaghettiClass = 'spaghetti-medium';
+      spaghettiText = 'Moderately Complex ⚠️';
+    } else if (fileStats.spaghettiLevel <= 8) {
+      spaghettiClass = 'spaghetti-high';
+      spaghettiText = 'Complex Nesting 🍝';
+    } else {
+      spaghettiClass = 'spaghetti-max';
+      spaghettiText = `High Complexity 🍝 (Depth: ${fileStats.spaghettiLevel})`;
+    }
+
+    target.insertAdjacentHTML('beforeend', `
+      <div class="spaghetti-meter">
+        <div class="spaghetti-title">Spaghetti Meter for this file 🍝</div>
+        <div class="spaghetti-bar-container">
+          <div class="spaghetti-bar ${spaghettiClass}" style="width: ${(fileStats.spaghettiLevel/10)*100}%"></div>
+        </div>
+        <div class="spaghetti-text">Maximum indentation level: ${fileStats.spaghettiLevel}</div>
+      </div>
+    `);
+  }
+
+  // Add comments section if any were found
+  if (fileStats.totalImportantComments > 0) {
+    let commentsHTML = '<div class="comments-section"><h4>Important Comments Found:</h4>';
+
+    // Add different comment types
+    if (comments.todos.length > 0) {
+      commentsHTML += `<h5>TODOs (${comments.todos.length}):</h5>`;
+      comments.todos.forEach(comment => {
+        commentsHTML += `
+          <div class="comment-item">
+            <div class="comment-meta">Line ${comment.line}</div>
+            <div class="comment-text">${escapeHtml(comment.text)}</div>
+          </div>
+        `;
+      });
+    }
+
+    if (comments.fixes.length > 0) {
+      commentsHTML += `<h5>FIXMEs (${comments.fixes.length}):</h5>`;
+      comments.fixes.forEach(comment => {
+        commentsHTML += `
+          <div class="comment-item">
+            <div class="comment-meta">Line ${comment.line}</div>
+            <div class="comment-text">${escapeHtml(comment.text)}</div>
+          </div>
+        `;
+      });
+    }
+
+    if (comments.bugs.length > 0) {
+      commentsHTML += `<h5>BUGs (${comments.bugs.length}):</h5>`;
+      comments.bugs.forEach(comment => {
+        commentsHTML += `
+          <div class="comment-item">
+            <div class="comment-meta">Line ${comment.line}</div>
+            <div class="comment-text">${escapeHtml(comment.text)}</div>
+          </div>
+        `;
+      });
+    }
+
+    if (comments.hacks.length > 0) {
+      commentsHTML += `<h5>HACKs (${comments.hacks.length}):</h5>`;
+      comments.hacks.forEach(comment => {
+        commentsHTML += `
+          <div class="comment-item">
+            <div class="comment-meta">Line ${comment.line}</div>
+            <div class="comment-text">${escapeHtml(comment.text)}</div>
+          </div>
+        `;
+      });
+    }
+
+    commentsHTML += '</div>';
+    target.insertAdjacentHTML('beforeend', commentsHTML);
+  }
+
+  // Highlight the code using Prism.js
+  setTimeout(() => {
+    Prism.highlightAllUnder(target);
+  }, 10);
+}
+
+/* ========= Copy code functionality ========= */
+function copyCode() {
+  if (!window.currentCode) {
+    showError('No code available to copy');
+    return;
+  }
+
+  navigator.clipboard.writeText(window.currentCode)
+    .then(() => {
+      // Show temporary success indicator
+      const btn = document.querySelector('.copy-btn');
+      const originalText = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 2000);
+    })
+    .catch(err => {
+      showError('Failed to copy code: ' + err);
+    });
+}
+
+/* ========= Bulk fetch for top N files (controlled) ========= */
+async function fetchTopNContent(){
+  hideError();
+  const maxN = parseInt(el('maxContentFetch').value) || 0;
+  if(maxN <= 0){ alert('Set a positive number in "content fetch N" to use this feature.'); return; }
+  if(!window.analysisData || window.analysisData.length === 0){ alert('Run analysis first.'); return; }
+
+  const token = (el('ghToken').value || '').trim();
+  // sort top by size
+  const top = [...window.analysisData].sort((a,b)=> (b.size||0)-(a.size||0)).slice(0,maxN);
+  showLoading(`Fetching content for top ${top.length} files... (this uses ${top.length} requests)`);
+  let counter = 0;
+  for(const f of top){
+    try{
+      await loadSingleFile(f.url, f.path);
+      counter++;
+      showLoading(`Fetched ${counter}/${top.length}...`);
+      // small delay to be gentle on API
+      await new Promise(r=>setTimeout(r, 250));
+    }catch(e){
+      console.warn('top fetch err', e);
+    }
+  }
+  hideLoading();
+  alert(`Done fetching content for ${counter}/${top.length} files.`);
+}
+
+/* ========= Utilities ========= */
+function escapeForAttr(s){ return (s||'').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function downloadDirect(url, name){ fetch(url).then(r=>r.blob()).then(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download = name || 'file'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),3000)}).catch(e=>alert('Download failed: '+e)); }
+function switchToDetails(path){ document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab==='details')); document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id==='details')); window.currentFile = path; }
+
+/* ========= Event binds ========= */
+el('analyzeBtn').addEventListener('click', analyzeRepo);
+el('fetchTopContentBtn').addEventListener('click', fetchTopNContent);
+el('exportBtn').addEventListener('click', ()=> {
+  if(!window.analysisData || window.analysisData.length===0){ alert('No data'); return; }
+  const blob = new Blob([JSON.stringify(window.analysisData,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download = 'analysis.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+});
+el('searchFilter').addEventListener('input', ()=> renderFilesTable(window.analysisData || []));
+
+// load cache
+el('loadCacheBtn').addEventListener('click', ()=>{
+  try{
+    const raw = localStorage.getItem(CACHE_KEY); // Use the defined cache key
+    if(!raw) return alert('No cached analysis found');
+    const obj = JSON.parse(raw);
+    if(!obj.data) return alert('Invalid cache');
+    window.analysisData = obj.data;
+    // Also restore stats if they were cached
+    if (obj.stats) {
+        window.repoStats = obj.stats;
+    }
+    // Update UI using the cached data and stats
+    updateUIAfterAnalysis(window.analysisData, null, obj.owner, obj.repo, null); // Pass owner/repo from cache
+    alert('Loaded cached analysis from ' + (obj.timestamp||'unknown'));
+  }catch(e){ alert('Load cache failed: '+e) }
+});
+
+/* ========= Local caching after analysis (auto) ========= */
+// Caching is now handled directly inside analyzeRepo function after stats calculation
+
+/* ========= Initial console note ========= */
+console.log('Advanced analyzer loaded — Modular Structure Implemented. Analysis is lazy by default. Use token to raise rate limits.');
