@@ -372,6 +372,8 @@ async function computeRepoStatsFromFullAnalysis(files, owner, repo, token) {
     totalFiles: files.length,
     totalSize: 0,
     languageDistribution: {},
+    fileTypes: {},
+    locByLanguage: {},
     largestFile: { size: 0, path: '', lines: 0 },
     avgFileSize: 0,
     lastUpdate: null,
@@ -398,11 +400,21 @@ async function computeRepoStatsFromFullAnalysis(files, owner, repo, token) {
     // Language distribution based on extension
     const ext = file.path.split('.').pop().toLowerCase();
     stats.languageDistribution[ext] = (stats.languageDistribution[ext] || 0) + 1;
+    
+    // File type distribution
+    const fileType = getFileType(file.path);
+    stats.fileTypes[fileType] = (stats.fileTypes[fileType] || 0) + 1;
 
     // If content is available, calculate LOC from content and add to total
     if (file.content) {
       const fileLines = file.content.split(/\r\n|\n/).length;
       stats.totalLoc += fileLines;
+      
+      // Track LOC by language
+      if (ext) {
+        stats.locByLanguage[ext] = (stats.locByLanguage[ext] || 0) + fileLines;
+      }
+      
       // Also add to totalImportantComments if file stats are available
       const language = ext; // Simplified, ideally get from showFileContent logic
       const fileStats = computeFileStats(file.content, language);
@@ -442,11 +454,13 @@ async function computeRepoStatsFromFullAnalysis(files, owner, repo, token) {
       const busFactorResult = calculateBusFactor(window.contributors);
       stats.busFactor = busFactorResult.factor;
       stats.busFactorDesc = busFactorResult.description;
+      stats.contributors = window.contributors; // Store contributors for stats card
     }
   } catch (e) {
     console.error('Error fetching contributors:', e);
     stats.busFactor = 1; // Default to 1 if can't fetch
     stats.busFactorDesc = 'Could not fetch contributor data';
+    stats.contributors = []; // Default to empty array
   }
 
   // Store for later use
@@ -646,7 +660,7 @@ function shareStats() {
   }
 
   // Prepare URL for stats card with parameters
-  const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '') + 'Test067.html';
+  const baseUrl = window.location.origin + window.location.pathname.replace('Test066.html', '') + 'test-files/Test067.html';
   const params = new URLSearchParams({
     totalLoc: stats.totalLoc,
     totalFiles: stats.totalFiles,
@@ -655,12 +669,34 @@ function shareStats() {
     spaghettiLevel: stats.spaghettiLevel,
     busFactor: stats.busFactor,
     busFactorDesc: stats.busFactorDesc,
-    totalImportantComments: stats.totalImportantComments
+    totalImportantComments: stats.totalImportantComments,
+    repoName: `${el('owner').value}/${el('repo').value}`,
+    description: stats.description || 'Repository analysis report'
   });
 
   // Add tech stack as comma-separated string
   if (stats.techStack && stats.techStack.length > 0) {
     params.append('techStack', stats.techStack.join(','));
+  }
+
+  // Add contributors as JSON string
+  if (stats.contributors && stats.contributors.length > 0) {
+    params.append('contributors', encodeURIComponent(JSON.stringify(stats.contributors)));
+  }
+
+  // Add language distribution as JSON string
+  if (stats.languageDistribution) {
+    params.append('languageDistribution', encodeURIComponent(JSON.stringify(stats.languageDistribution)));
+  }
+
+  // Add file types as JSON string
+  if (stats.fileTypes) {
+    params.append('fileTypes', encodeURIComponent(JSON.stringify(stats.fileTypes)));
+  }
+
+  // Add LOC by language as JSON string
+  if (stats.locByLanguage) {
+    params.append('locByLanguage', encodeURIComponent(JSON.stringify(stats.locByLanguage)));
   }
 
   const fullUrl = `${baseUrl}?${params.toString()}`;
