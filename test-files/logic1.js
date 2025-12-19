@@ -646,7 +646,7 @@ function shareStats() {
   }
 
   // Prepare URL for stats card with parameters
-  const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '') + 'stats-card.html';
+  const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '') + 'Test067.html';
   const params = new URLSearchParams({
     totalLoc: stats.totalLoc,
     totalFiles: stats.totalFiles,
