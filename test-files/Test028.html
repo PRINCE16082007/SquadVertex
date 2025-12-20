@@ -509,7 +509,7 @@
       <div class="profile-section">
         <img src="https://ui-avatars.com/api/?name=Prince+Gahlot&background=4361ee&color=fff" alt="Profile" class="profile-img">
         <div class="profile-name">Prince Gahlot</div>
-        <div class="profile-email">prince.gahlot@example.com</div>
+        <div class="profile-email" id="userEmail">Loading...</div>
       </div>
 
       <div class="menu-title">Navigation</div>
@@ -545,7 +545,7 @@
           </a>
         </li>
         <li class="nav-item">
-          <a href="#" class="nav-link">
+          <a href="#" class="nav-link" id="logoutBtn">
             <i class="fas fa-sign-out-alt"></i>
             <span>Logout</span>
           </a>
@@ -567,26 +567,26 @@
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-label">2026 Total Income</div>
-          <div class="stat-value">₹245,000</div>
+          <div class="stat-value" id="totalIncome">₹0</div>
           <div class="stat-change change-up">
             <i class="fas fa-arrow-up"></i>
-            <span>12% from last month</span>
+            <span id="incomeChange">0% from last month</span>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Monthly Target</div>
-          <div class="stat-value">₹45,000</div>
+          <div class="stat-value" id="monthlyTarget">₹0</div>
           <div class="stat-change change-up">
             <i class="fas fa-check-circle"></i>
-            <span>On track</span>
+            <span id="targetStatus">Calculating...</span>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Transactions</div>
-          <div class="stat-value">42</div>
+          <div class="stat-value" id="transactionCount">0</div>
           <div class="stat-change change-up">
             <i class="fas fa-arrow-up"></i>
-            <span>5 new today</span>
+            <span id="newToday">0 new today</span>
           </div>
         </div>
       </div>
@@ -595,16 +595,16 @@
       <div class="hero-section">
         <div class="goal-header">
           <div class="goal-title">2026 GOAL PROGRESS</div>
-          <div class="goal-amount">₹245,000 / ₹500,000</div>
+          <div class="goal-amount" id="progressAmount">₹0 / ₹500,000</div>
         </div>
         
         <div class="progress-container">
           <div class="progress-bar">
-            <div class="progress-fill progress-mid" id="progressFill" style="width: 49%;"></div>
+            <div class="progress-fill progress-low" id="progressFill" style="width: 0%;"></div>
           </div>
           <div class="progress-text">
-            <span>Progress: 49%</span>
-            <span class="remaining-amount">₹255,000 remaining</span>
+            <span id="progressPercentage">0%</span>
+            <span class="remaining-amount" id="remainingAmount">₹500,000 remaining</span>
           </div>
         </div>
       </div>
@@ -648,35 +648,11 @@
             </tr>
           </thead>
           <tbody id="ledgerBody">
-            <tr>
-              <td>Dec 20, 2025</td>
-              <td>ABC Corporation</td>
-              <td class="amount-col">₹45,000</td>
-            </tr>
-            <tr>
-              <td>Dec 18, 2025</td>
-              <td>XYZ Ltd</td>
-              <td class="amount-col">₹32,500</td>
-            </tr>
-            <tr>
-              <td>Dec 15, 2025</td>
-              <td>Global Solutions</td>
-              <td class="amount-col">₹28,000</td>
-            </tr>
-            <tr>
-              <td>Dec 12, 2025</td>
-              <td>Tech Innovations</td>
-              <td class="amount-col">₹55,000</td>
-            </tr>
-            <tr>
-              <td>Dec 10, 2025</td>
-              <td>Prime Services</td>
-              <td class="amount-col">₹42,000</td>
-            </tr>
+            <!-- Data will be loaded from Firebase -->
           </tbody>
         </table>
         
-        <div id="emptyState" class="empty-state" style="display: none;">
+        <div id="emptyState" class="empty-state">
           <i class="fas fa-file-invoice"></i>
           <h3>No Transactions Yet</h3>
           <p>Add your first payment to get started</p>
@@ -691,6 +667,36 @@
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
 
   <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // DOM Elements
+    const loadingScreen = document.getElementById('loadingScreen');
+    const userEmail = document.getElementById('userEmail');
+    const totalIncome = document.getElementById('totalIncome');
+    const monthlyTarget = document.getElementById('monthlyTarget');
+    const transactionCount = document.getElementById('transactionCount');
+    const progressFill = document.getElementById('progressFill');
+    const progressAmount = document.getElementById('progressAmount');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const remainingAmount = document.getElementById('remainingAmount');
+    const ledgerBody = document.getElementById('ledgerBody');
+    const emptyState = document.getElementById('emptyState');
+    const addPaymentBtn = document.getElementById('addPaymentBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+
     // Set current date
     const today = new Date();
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
@@ -700,14 +706,143 @@
     const dateInput = document.getElementById('date');
     dateInput.valueAsDate = today;
 
-    // Simulate authentication check
-    setTimeout(() => {
-      document.getElementById('loadingScreen').style.opacity = '0';
-      document.getElementById('loadingScreen').style.visibility = 'hidden';
-    }, 2000);
+    // Authentication State Observer
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        // Verify user against admin email from mySpace/credentials
+        try {
+          const credentialsDoc = await db.collection('mySpace').doc('credentials').get();
+          if (credentialsDoc.exists) {
+            const adminEmail = credentialsDoc.data().admin_email;
+            
+            if (user.email === adminEmail) {
+              // User authenticated successfully
+              userEmail.textContent = user.email;
+              
+              // Load dashboard data
+              loadData();
+              
+              // Hide loading screen after a brief delay
+              setTimeout(() => {
+                loadingScreen.style.opacity = '0';
+                loadingScreen.style.visibility = 'hidden';
+              }, 1000);
+            } else {
+              // Unauthorized user
+              alert('Access denied. Unauthorized user.');
+              auth.signOut();
+            }
+          } else {
+            // Credentials document doesn't exist
+            alert('Credentials not found. Contact administrator.');
+            auth.signOut();
+          }
+        } catch (error) {
+          console.error('Error verifying user:', error);
+          alert('Authentication error. Please try again.');
+          auth.signOut();
+        }
+      } else {
+        // Redirect to login if not authenticated
+        window.location.href = 'login.html'; // Adjust path as needed
+      }
+    });
 
-    // Simulate adding payment
-    document.getElementById('addPaymentBtn').addEventListener('click', function() {
+    // Function to load dashboard data from Firebase
+    async function loadData() {
+      try {
+        // Get all transactions from mySpace collection
+        const snapshot = await db.collection('mySpace')
+          .where('type', '==', 'payment')
+          .orderBy('date_received', 'desc')
+          .get();
+
+        const transactions = [];
+        let totalAmount = 0;
+        let transactionCountValue = 0;
+        
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          transactions.push(data);
+          totalAmount += data.amount;
+          transactionCountValue++;
+        });
+
+        // Update UI with loaded data
+        updateDashboardUI(totalAmount, transactionCountValue, transactions);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    }
+
+    // Function to update dashboard UI
+    function updateDashboardUI(total, count, transactions) {
+      // Update total income
+      totalIncome.textContent = `₹${total.toLocaleString()}`;
+      
+      // Update transaction count
+      transactionCount.textContent = count;
+      
+      // Calculate monthly target (example: 1/12 of annual goal)
+      const annualGoal = 500000;
+      const monthlyGoal = Math.round(annualGoal / 12);
+      monthlyTarget.textContent = `₹${monthlyGoal.toLocaleString()}`;
+      
+      // Calculate progress percentage
+      const percentage = Math.min(100, (total / 500000) * 100);
+      progressFill.style.width = `${percentage}%`;
+      progressAmount.textContent = `₹${total.toLocaleString()} / ₹500,000`;
+      progressPercentage.textContent = `${Math.round(percentage)}%`;
+      const remaining = 500000 - total;
+      remainingAmount.textContent = `₹${remaining.toLocaleString()} remaining`;
+      
+      // Update progress bar color
+      if (percentage >= 80) {
+        progressFill.className = 'progress-fill progress-high';
+      } else if (percentage >= 50) {
+        progressFill.className = 'progress-fill progress-mid';
+      } else {
+        progressFill.className = 'progress-fill progress-low';
+      }
+      
+      // Update ledger
+      renderLedger(transactions);
+    }
+
+    // Function to render ledger
+    function renderLedger(transactions) {
+      // Clear existing rows
+      ledgerBody.innerHTML = '';
+      
+      if (transactions.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      
+      emptyState.style.display = 'none';
+      
+      transactions.forEach(transaction => {
+        const row = document.createElement('tr');
+        
+        // Format date
+        const formattedDate = new Date(transaction.date_received).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        
+        row.innerHTML = `
+          <td>${formattedDate}</td>
+          <td>${transaction.source}</td>
+          <td class="amount-col">₹${transaction.amount.toLocaleString()}</td>
+        `;
+        
+        ledgerBody.appendChild(row);
+      });
+    }
+
+    // Add payment button event listener
+    addPaymentBtn.addEventListener('click', async () => {
       const amount = document.getElementById('amount').value;
       const source = document.getElementById('source').value;
       const date = document.getElementById('date').value;
@@ -717,58 +852,41 @@
         return;
       }
       
-      // Format date for display
-      const formattedDate = new Date(date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-      
-      // Add to ledger
-      const ledgerBody = document.getElementById('ledgerBody');
-      const newRow = document.createElement('tr');
-      newRow.innerHTML = `
-        <td>${formattedDate}</td>
-        <td>${source}</td>
-        <td class="amount-col">₹${parseInt(amount).toLocaleString()}</td>
-      `;
-      ledgerBody.insertBefore(newRow, ledgerBody.firstChild);
-      
-      // Clear form
-      document.getElementById('amount').value = '';
-      document.getElementById('source').value = '';
-      document.getElementById('date').valueAsDate = today;
-      
-      // Update total and progress (simulated)
-      const totalElement = document.querySelector('.stat-value');
-      let currentTotal = parseInt(totalElement.textContent.replace(/[₹,]/g, ''));
-      currentTotal += parseInt(amount);
-      totalElement.textContent = `₹${currentTotal.toLocaleString()}`;
-      
-      // Update progress bar
-      const progressFill = document.getElementById('progressFill');
-      const percentage = Math.min(100, (currentTotal / 500000) * 100);
-      progressFill.style.width = `${percentage}%`;
-      
-      if (percentage >= 80) {
-        progressFill.className = 'progress-fill progress-high';
-      } else if (percentage >= 50) {
-        progressFill.className = 'progress-fill progress-mid';
-      } else {
-        progressFill.className = 'progress-fill progress-low';
+      try {
+        // Add transaction to Firebase
+        await db.collection('mySpace').add({
+          type: 'payment',
+          amount: parseInt(amount),
+          source: source,
+          date_received: new Date(date),
+          created_at: new Date()
+        });
+        
+        // Clear form
+        document.getElementById('amount').value = '';
+        document.getElementById('source').value = '';
+        document.getElementById('date').valueAsDate = today;
+        
+        // Reload data to reflect new transaction
+        loadData();
+        
+        alert('Payment added successfully!');
+      } catch (error) {
+        console.error('Error adding payment:', error);
+        alert('Error adding payment. Please try again.');
       }
-      
-      // Update remaining amount
-      const remaining = 500000 - currentTotal;
-      document.querySelector('.remaining-amount').textContent = `₹${remaining.toLocaleString()} remaining`;
-      
-      // Show success message
-      alert('Payment added successfully!');
     });
 
-    // Firebase initialization (simulated)
-    // In a real implementation, you would initialize Firebase here
-    // and verify the user's email matches the admin email
+    // Logout button event listener
+    logoutBtn.addEventListener('click', () => {
+      auth.signOut()
+        .then(() => {
+          window.location.href = 'login.html'; // Adjust path as needed
+        })
+        .catch((error) => {
+          console.error('Logout error:', error);
+        });
+    });
   </script>
 </body>
 </html>
