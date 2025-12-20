@@ -1,288 +1,774 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Secure Chat Device Lock + Fingerprint Guard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The 2026 Executive Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #4361ee;
+      --secondary: #3a0ca3;
+      --success: #06d6a0;
+      --warning: #ffd166;
+      --danger: #ef476f;
+      --dark: #1a1a2e;
+      --light: #f8f9fa;
+      --gray: #6c757d;
+      --card-bg: #ffffff;
+      --body-bg: #f5f7fa;
+      --border: #e0e0e0;
+      --shadow: 0 4px 12px rgba(0,0,0,0.05);
+      --progress-low: #ef476f;
+      --progress-mid: #ffd166;
+      --progress-high: #06d6a0;
+    }
 
-<style>
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
-    color: white;
-    height: 100vh;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .container {
-    background: rgba(0,0,0,0.45);
-    padding: 2.5rem;
-    border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.7);
-    max-width: 420px;
-    width: 90%;
-    text-align: center;
-  }
-  button {
-    padding: 0.9rem 1.8rem;
-    font-size: 1.1rem;
-    background: #0078d7;
-    border: none;
-    border-radius: 8px;
-    color: white;
-    cursor: pointer;
-    transition: background 0.3s ease;
-    margin-top: 1.3rem;
-  }
-  button:hover {
-    background: #005fa3;
-  }
-  #protectedContent {
-    display: none;
-    margin-top: 1.5rem;
-    background: rgba(255,255,255,0.1);
-    padding: 1rem 1.5rem;
-    border-radius: 10px;
-  }
-  #consoleLog {
-    margin-top: 1rem;
-    background: rgba(0,0,0,0.7);
-    color: #00ff00;
-    font-family: monospace;
-    height: 150px;
-    overflow-y: auto;
-    white-space: pre-line;
-    padding: 0.5rem;
-    border-radius: 8px;
-  }
-  #signOutBtn {
-    background: #d9534f;
-    margin-top: 1rem;
-    display:none;
-  }
-</style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-<!-- Load reCAPTCHA v3 -->
-<script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--body-bg);
+      color: var(--dark);
+      line-height: 1.6;
+    }
 
-<!-- Firebase compat SDKs (v9.22.2) -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>
+    /* Loading Screen */
+    #loadingScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--body-bg);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 0.5s, visibility 0.5s;
+    }
 
-<!-- FingerprintJS -->
-<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(67, 97, 238, 0.2);
+      border-top: 5px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
 
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 1.2rem;
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    /* Main Layout */
+    .dashboard-container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      background: var(--card-bg);
+      padding: 25px 15px;
+      box-shadow: var(--shadow);
+      height: 100vh;
+      position: fixed;
+      overflow-y: auto;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      margin-bottom: 30px;
+      padding: 0 10px;
+    }
+
+    .logo-icon {
+      font-size: 28px;
+      color: var(--primary);
+      margin-right: 12px;
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .profile-section {
+      padding: 15px;
+      margin-bottom: 25px;
+      background: var(--body-bg);
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .profile-img {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--primary);
+      margin: 0 auto 15px;
+      display: block;
+    }
+
+    .profile-name {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 5px;
+    }
+
+    .profile-email {
+      font-size: 0.85rem;
+      color: var(--gray);
+      word-break: break-all;
+    }
+
+    .menu-title {
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      color: var(--gray);
+      margin: 20px 15px 10px;
+    }
+
+    .nav-menu {
+      list-style: none;
+    }
+
+    .nav-item {
+      margin-bottom: 5px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      padding: 12px 15px;
+      text-decoration: none;
+      color: var(--dark);
+      border-radius: 8px;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .nav-link i {
+      margin-right: 12px;
+      font-size: 1.1rem;
+      width: 24px;
+      text-align: center;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      background: rgba(67, 97, 238, 0.1);
+      color: var(--primary);
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      margin-left: 260px;
+      padding: 30px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .page-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .date-display {
+      font-size: 1rem;
+      color: var(--gray);
+    }
+
+    /* Dashboard Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--gray);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      font-family: 'Roboto Mono', monospace;
+      color: var(--dark);
+    }
+
+    .stat-change {
+      display: flex;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 0.9rem;
+    }
+
+    .change-up {
+      color: var(--success);
+    }
+
+    .change-down {
+      color: var(--danger);
+    }
+
+    /* Hero Section */
+    .hero-section {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: var(--shadow);
+    }
+
+    .goal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .goal-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--gray);
+    }
+
+    .goal-amount {
+      font-size: 2.2rem;
+      font-weight: 700;
+      font-family: 'Roboto Mono', monospace;
+      color: var(--dark);
+    }
+
+    .progress-container {
+      margin: 25px 0;
+    }
+
+    .progress-bar {
+      height: 20px;
+      background: #e9ecef;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 0.5s ease;
+    }
+
+    .progress-low { background: var(--progress-low); }
+    .progress-mid { background: var(--progress-mid); }
+    .progress-high { background: var(--progress-high); }
+
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: var(--gray);
+    }
+
+    .remaining-amount {
+      font-weight: 600;
+      color: var(--dark);
+    }
+
+    /* Cash In Form */
+    .cash-in-section {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 30px;
+      box-shadow: var(--shadow);
+    }
+
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: var(--dark);
+      display: flex;
+      align-items: center;
+    }
+
+    .section-title i {
+      margin-right: 10px;
+      color: var(--primary);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: var(--dark);
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      transition: border 0.3s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+    }
+
+    .btn {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--secondary);
+      transform: translateY(-2px);
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    /* Ledger Section */
+    .ledger-section {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: var(--shadow);
+    }
+
+    .ledger-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .ledger-table th {
+      text-align: left;
+      padding: 12px 15px;
+      border-bottom: 2px solid var(--border);
+      color: var(--gray);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .ledger-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ledger-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .amount-col {
+      font-weight: 600;
+      color: var(--success);
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--gray);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      color: #e0e0e0;
+    }
+
+    /* Responsive */
+    @media (max-width: 992px) {
+      .sidebar {
+        width: 80px;
+      }
+      .logo-text, .profile-name, .profile-email, .menu-title, .nav-link span {
+        display: none;
+      }
+      .logo {
+        justify-content: center;
+      }
+      .nav-link {
+        justify-content: center;
+      }
+      .nav-link i {
+        margin-right: 0;
+      }
+      .main-content {
+        margin-left: 80px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+      }
+      .main-content {
+        margin-left: 0;
+      }
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
+  <!-- Loading Screen -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <div class="loading-text">Verifying Access...</div>
+  </div>
 
-<div class="container" id="authSection">
-  <h2>🔐 Firebase Secure Device + Fingerprint Guard</h2>
-  <p id="userInfo">Please sign in first.</p>
-  <button id="signInBtn">Sign In with Google</button>
-  <button id="authBtn" style="display:none;">Authenticate with Fingerprint</button>
-  <button id="signOutBtn">Sign Out</button>
-  <p id="status" style="margin-top: 1rem;"></p>
-  <div id="consoleLog"></div>
-</div>
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">
+          <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="logo-text">Executive Dashboard</div>
+      </div>
 
-<div class="container" id="protectedContent">
-  <h3>✅ Access Granted!</h3>
-  <p>Welcome to the protected section of the site. Enjoy your stay! 🎉</p>
-</div>
+      <div class="profile-section">
+        <img src="https://ui-avatars.com/api/?name=Prince+Gahlot&background=4361ee&color=fff" alt="Profile" class="profile-img">
+        <div class="profile-name">Prince Gahlot</div>
+        <div class="profile-email">prince.gahlot@example.com</div>
+      </div>
 
-<script>
-  // Your Firebase config
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-  };
+      <div class="menu-title">Navigation</div>
+      <ul class="nav-menu">
+        <li class="nav-item">
+          <a href="#" class="nav-link active">
+            <i class="fas fa-home"></i>
+            <span>Dashboard</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link">
+            <i class="fas fa-wallet"></i>
+            <span>Cash Flow</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link">
+            <i class="fas fa-chart-pie"></i>
+            <span>Analytics</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link">
+            <i class="fas fa-file-invoice-dollar"></i>
+            <span>Invoices</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link">
+            <i class="fas fa-cog"></i>
+            <span>Settings</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span>
+          </a>
+        </li>
+      </ul>
+    </div>
 
-  firebase.initializeApp(firebaseConfig);
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title">Executive Dashboard</h1>
+        <div class="date-display">
+          <i class="far fa-calendar-alt"></i>
+          <span id="current-date">December 20, 2025</span>
+        </div>
+      </div>
 
-  // Activate App Check
-  try {
-    const appCheckProvider = new firebase.appCheck.ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx');
-    firebase.appCheck().activate(appCheckProvider, true);
-    console.log("App Check activated.");
-  } catch (e) {
-    console.warn("App Check activation failed:", e);
-  }
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">2026 Total Income</div>
+          <div class="stat-value">₹245,000</div>
+          <div class="stat-change change-up">
+            <i class="fas fa-arrow-up"></i>
+            <span>12% from last month</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Monthly Target</div>
+          <div class="stat-value">₹45,000</div>
+          <div class="stat-change change-up">
+            <i class="fas fa-check-circle"></i>
+            <span>On track</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Transactions</div>
+          <div class="stat-value">42</div>
+          <div class="stat-change change-up">
+            <i class="fas fa-arrow-up"></i>
+            <span>5 new today</span>
+          </div>
+        </div>
+      </div>
 
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  const provider = new firebase.auth.GoogleAuthProvider();
+      <!-- Hero Section -->
+      <div class="hero-section">
+        <div class="goal-header">
+          <div class="goal-title">2026 GOAL PROGRESS</div>
+          <div class="goal-amount">₹245,000 / ₹500,000</div>
+        </div>
+        
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div class="progress-fill progress-mid" id="progressFill" style="width: 49%;"></div>
+          </div>
+          <div class="progress-text">
+            <span>Progress: 49%</span>
+            <span class="remaining-amount">₹255,000 remaining</span>
+          </div>
+        </div>
+      </div>
 
-  // Elements
-  const signInBtn = document.getElementById("signInBtn");
-  const authBtn = document.getElementById("authBtn");
-  const signOutBtn = document.getElementById("signOutBtn");
-  const userInfo = document.getElementById("userInfo");
-  const statusText = document.getElementById("status");
-  const authSection = document.getElementById("authSection");
-  const protectedContent = document.getElementById("protectedContent");
-  const consoleLog = document.getElementById("consoleLog");
+      <!-- Cash In Form -->
+      <div class="cash-in-section">
+        <h2 class="section-title"><i class="fas fa-plus-circle"></i> Add New Payment</h2>
+        
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="amount">Amount (₹)</label>
+            <input type="number" id="amount" class="form-control" placeholder="Enter amount" min="1">
+          </div>
+          
+          <div class="form-group">
+            <label for="source">Source / Client</label>
+            <input type="text" id="source" class="form-control" placeholder="Enter source">
+          </div>
+          
+          <div class="form-group">
+            <label for="date">Date Received</label>
+            <input type="date" id="date" class="form-control" value="2025-12-20">
+          </div>
+        </div>
+        
+        <button id="addPaymentBtn" class="btn btn-primary btn-block">
+          <i class="fas fa-plus"></i> ADD PAYMENT
+        </button>
+      </div>
 
-  let visitorId = null;
+      <!-- Ledger Section -->
+      <div class="ledger-section">
+        <h2 class="section-title"><i class="fas fa-book"></i> Payment Ledger</h2>
+        
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Source</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerBody">
+            <tr>
+              <td>Dec 20, 2025</td>
+              <td>ABC Corporation</td>
+              <td class="amount-col">₹45,000</td>
+            </tr>
+            <tr>
+              <td>Dec 18, 2025</td>
+              <td>XYZ Ltd</td>
+              <td class="amount-col">₹32,500</td>
+            </tr>
+            <tr>
+              <td>Dec 15, 2025</td>
+              <td>Global Solutions</td>
+              <td class="amount-col">₹28,000</td>
+            </tr>
+            <tr>
+              <td>Dec 12, 2025</td>
+              <td>Tech Innovations</td>
+              <td class="amount-col">₹55,000</td>
+            </tr>
+            <tr>
+              <td>Dec 10, 2025</td>
+              <td>Prime Services</td>
+              <td class="amount-col">₹42,000</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div id="emptyState" class="empty-state" style="display: none;">
+          <i class="fas fa-file-invoice"></i>
+          <h3>No Transactions Yet</h3>
+          <p>Add your first payment to get started</p>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  // Logger
-  function logToConsole(message) {
-    const timestamp = new Date().toLocaleTimeString();
-    consoleLog.textContent += `[${timestamp}] ${message}\n`;
-    consoleLog.scrollTop = consoleLog.scrollHeight;
-  }
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
 
-  // FingerprintJS ID
-  async function generateFingerprint() {
-    const fp = await FingerprintJS.load();
-    const result = await fp.get();
-    return result.visitorId;
-  }
+  <script>
+    // Set current date
+    const today = new Date();
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('current-date').textContent = today.toLocaleDateString('en-US', options);
+    
+    // Set default date to today
+    const dateInput = document.getElementById('date');
+    dateInput.valueAsDate = today;
 
-  // Convert user UID hex -> Uint8Array
-  function uidToUint8Array(uid) {
-    if (uid.length % 2 !== 0) return new Uint8Array();
-    return new Uint8Array(uid.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-  }
+    // Simulate authentication check
+    setTimeout(() => {
+      document.getElementById('loadingScreen').style.opacity = '0';
+      document.getElementById('loadingScreen').style.visibility = 'hidden';
+    }, 2000);
 
-  // Request WebAuthn fingerprint
-  async function requestFingerprintWebAuthn() {
-    const user = auth.currentUser;
-    if (!user) {
-      alert("Please sign in first.");
-      return;
-    }
-    statusText.textContent = "Requesting fingerprint scan...";
-    logToConsole("Starting WebAuthn fingerprint request...");
-
-    try {
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
-
-      const publicKey = {
-        challenge,
-        rp: { name: "Firebase Fingerprint Guard" },
-        user: {
-          id: uidToUint8Array(user.uid),
-          name: user.email,
-          displayName: user.email,
-        },
-        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
-        timeout: 60000,
-        authenticatorSelection: {
-          authenticatorAttachment: "platform",
-          userVerification: "required",
-        },
-        attestation: "none",
-      };
-
-      const credential = await navigator.credentials.create({ publicKey });
-
-      if (credential) {
-        logToConsole("Fingerprint authenticated successfully.");
-        statusText.textContent = "Fingerprint authenticated successfully!";
-
-        await db.collection("userSessions").doc(user.uid).collection("fingerprints").add({
-          user_email: user.email,
-          success: true,
-          type: credential.type,
-          created_at: new Date().toISOString(),
-        });
-
-        authSection.style.display = "none";
-        protectedContent.style.display = "block";
-        logToConsole("Access granted.");
+    // Simulate adding payment
+    document.getElementById('addPaymentBtn').addEventListener('click', function() {
+      const amount = document.getElementById('amount').value;
+      const source = document.getElementById('source').value;
+      const date = document.getElementById('date').value;
+      
+      if (!amount || !source || !date) {
+        alert('Please fill in all fields');
+        return;
       }
-    } catch (error) {
-      logToConsole("Fingerprint auth failed: " + error.message);
-      statusText.textContent = "Fingerprint authentication failed: " + error.message;
-    }
-  }
-
-  // -------------------
-  // SERVER VERIFIED SIGN-IN
-  // -------------------
-  signInBtn.onclick = async () => {
-    try {
-      // reCAPTCHA
-      const token = await grecaptcha.execute(
-        '6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx',
-        { action: 'login' }
-      );
-      logToConsole("reCAPTCHA token acquired.");
-
-      // Fingerprint
-      visitorId = await generateFingerprint();
-      logToConsole("Device Fingerprint: " + visitorId);
-
-      // Sign in with Google popup if not already
-      if (!auth.currentUser) {
-        await auth.signInWithPopup(provider);
-        logToConsole(`Sign-in successful: ${auth.currentUser.email}`);
-      }
-      const user = auth.currentUser;
-
-      // Send details to server
-      const res = await fetch("/functions/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recaptchaToken: token,
-          uid: user.uid,
-          email: user.email,
-          visitorId,
-        }),
+      
+      // Format date for display
+      const formattedDate = new Date(date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
       });
-      const data = await res.json();
-
-      if (data.ok) {
-        logToConsole("✅ Server verified user + device.");
-        authBtn.style.display = "inline-block";
-        statusText.textContent = "Please authenticate your fingerprint to continue.";
+      
+      // Add to ledger
+      const ledgerBody = document.getElementById('ledgerBody');
+      const newRow = document.createElement('tr');
+      newRow.innerHTML = `
+        <td>${formattedDate}</td>
+        <td>${source}</td>
+        <td class="amount-col">₹${parseInt(amount).toLocaleString()}</td>
+      `;
+      ledgerBody.insertBefore(newRow, ledgerBody.firstChild);
+      
+      // Clear form
+      document.getElementById('amount').value = '';
+      document.getElementById('source').value = '';
+      document.getElementById('date').valueAsDate = today;
+      
+      // Update total and progress (simulated)
+      const totalElement = document.querySelector('.stat-value');
+      let currentTotal = parseInt(totalElement.textContent.replace(/[₹,]/g, ''));
+      currentTotal += parseInt(amount);
+      totalElement.textContent = `₹${currentTotal.toLocaleString()}`;
+      
+      // Update progress bar
+      const progressFill = document.getElementById('progressFill');
+      const percentage = Math.min(100, (currentTotal / 500000) * 100);
+      progressFill.style.width = `${percentage}%`;
+      
+      if (percentage >= 80) {
+        progressFill.className = 'progress-fill progress-high';
+      } else if (percentage >= 50) {
+        progressFill.className = 'progress-fill progress-mid';
       } else {
-        logToConsole("❌ Verification failed: " + data.reason);
-        statusText.textContent = "Access denied: " + data.reason;
-        await auth.signOut();
+        progressFill.className = 'progress-fill progress-low';
       }
-    } catch (err) {
-      logToConsole("Error: " + err.message);
-      statusText.textContent = "Error: " + err.message;
-    }
-  };
+      
+      // Update remaining amount
+      const remaining = 500000 - currentTotal;
+      document.querySelector('.remaining-amount').textContent = `₹${remaining.toLocaleString()} remaining`;
+      
+      // Show success message
+      alert('Payment added successfully!');
+    });
 
-  // On Auth State Changed
-  auth.onAuthStateChanged(async user => {
-    if (user) {
-      userInfo.textContent = `Signed in as: ${user.email}`;
-      signInBtn.style.display = "none";
-      signOutBtn.style.display = "inline-block";
-      protectedContent.style.display = "none";
-      logToConsole(`User signed in: ${user.email}`);
-    } else {
-      userInfo.textContent = "Please sign in first.";
-      signInBtn.style.display = "inline-block";
-      authBtn.style.display = "none";
-      signOutBtn.style.display = "none";
-      protectedContent.style.display = "none";
-      logToConsole("User signed out");
-    }
-  });
-
-  // Sign Out
-  signOutBtn.onclick = async () => {
-    await auth.signOut();
-    logToConsole("User signed out");
-  };
-
-  // Fingerprint Auth
-  authBtn.onclick = requestFingerprintWebAuthn;
-</script>
+    // Firebase initialization (simulated)
+    // In a real implementation, you would initialize Firebase here
+    // and verify the user's email matches the admin email
+  </script>
 </body>
 </html>
