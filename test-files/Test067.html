@@ -5,7 +5,338 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Enhanced Repo Stats Card — SquadVertex</title>
     
-    <link rel="stylesheet" href="styles1.css">
+    <style>
+        :root{
+            --bg:#0f0f0f;--card:rgba(30,30,40,0.85);--muted:#b0b0b0;--gold:#ffd700;--accent:linear-gradient(45deg,#ffd700,#ff8c00);
+            --blue: #3b82f6; --orange: #f97316; --purple: #a855f7; --green: #10b981; --red: #ef4444; --yellow: #eab308;
+        }
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family: "Segoe UI", Tahoma, Verdana, sans-serif; background:var(--bg); color:#fff; padding:18px; min-height:100vh; background: linear-gradient(135deg, #0f0f0f, #1a1a2e, #16213e); position: relative; overflow-x: hidden;}
+        
+        /* Animated background elements */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 10% 20%, rgba(120, 119, 198, 0.1) 0%, transparent 20%),
+                        radial-gradient(circle at 90% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 20%);
+            z-index: -1;
+        }
+        
+        .container{max-width:1400px;margin:0 auto; position: relative; z-index: 1;}
+        
+        .header{
+            background: var(--card);
+            padding: 18px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,215,0,0.12);
+            text-align: center;
+            margin-bottom: 14px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .header h1{background:var(--accent);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:1.8rem}
+        
+        .enhanced-stats-card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid rgba(255,215,0,0.06);
+            margin-bottom: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Glassmorphism effect for the card */
+        .enhanced-stats-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,215,0,0.05), transparent);
+            transform: rotate(45deg);
+            z-index: -1;
+        }
+        
+        .enhanced-stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,215,0,0.1);
+        }
+        
+        .enhanced-stats-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            background: var(--accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .repo-info {
+            color: var(--muted);
+            font-size: 1rem;
+        }
+        
+        .detailed-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.2rem;
+            margin: 1.5rem 0;
+        }
+        
+        .detailed-stat {
+            background: rgba(0,0,0,0.25);
+            padding: 1.2rem;
+            border-radius: 12px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid rgba(255,215,0,0.06);
+        }
+        
+        .detailed-stat:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        
+        .detailed-stat-value {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+        
+        .detailed-stat-label {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+        
+        .spaghetti-meter {
+            background: rgba(30,30,40,0.8);
+            border-radius: 12px;
+            padding: 1.2rem;
+            border: 1px solid rgba(255,215,0,0.06);
+            margin: 1.2rem 0;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .spaghetti-title {
+            font-weight: bold;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .spaghetti-bar-container {
+            height: 12px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 0.75rem 0;
+        }
+        .spaghetti-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: 6px;
+            transition: width 1s ease;
+        }
+        .spaghetti-clean { background: var(--green); }
+        .spaghetti-medium { background: var(--yellow); }
+        .spaghetti-high { background: var(--orange); }
+        .spaghetti-max { background: var(--red); }
+        .spaghetti-text {
+            font-size: 0.95rem;
+            color: var(--muted);
+            margin-top: 0.5rem;
+        }
+        
+        .bus-factor {
+            background: rgba(30,30,40,0.8);
+            border-radius: 12px;
+            padding: 1.2rem;
+            border: 1px solid rgba(255,215,0,0.06);
+            margin: 1.2rem 0;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .bus-title {
+            font-weight: bold;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .bus-factor-value {
+            font-size: 1.6rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        .bus-low { color: var(--green); }
+        .bus-medium { color: var(--yellow); }
+        .bus-high { color: var(--orange); }
+        .bus-critical { color: var(--red); }
+        
+        .alert-card {
+            background: rgba(30,30,40,0.8);
+            border-radius: 12px;
+            padding: 1.2rem;
+            border: 1px solid rgba(255,215,0,0.06);
+            margin: 1.2rem 0;
+            border-left: 4px solid var(--red);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .alert-title {
+            font-weight: bold;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .alert-content {
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+        
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        .tech-badge {
+            background: rgba(255,215,0,0.1);
+            color: var(--gold);
+            padding: 0.4rem 1rem;
+            border-radius: 99px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid rgba(255,215,0,0.2);
+            transition: transform 0.2s ease;
+        }
+        .tech-badge:hover {
+            transform: scale(1.05);
+        }
+        
+        .contributors-section {
+            margin: 1.5rem 0;
+        }
+        
+        .contributors-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        
+        .contributor-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1.2rem;
+            background: rgba(0,0,0,0.25);
+            border-radius: 12px;
+            transition: transform 0.3s ease;
+            border: 1px solid rgba(255,215,0,0.06);
+            min-width: 140px;
+        }
+        
+        .contributor-card:hover {
+            transform: translateY(-5px);
+            background: rgba(0,0,0,0.35);
+        }
+        
+        .contributor-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 0.75rem;
+            border: 2px solid var(--gold);
+            transition: transform 0.3s ease;
+        }
+        
+        .contributor-card:hover .contributor-avatar {
+            transform: scale(1.1);
+        }
+        
+        .contributor-name {
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+            text-align: center;
+        }
+        
+        .contributor-contributions {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+        
+        /* Top contributor styles */
+        .top-contributor .contributor-avatar {
+            width: 90px;
+            height: 90px;
+            border: 3px solid var(--gold);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+        
+        .top-contributor .contributor-name {
+            color: var(--gold);
+            font-size: 1.1rem;
+        }
+        
+        .description-section {
+            margin: 1.5rem 0;
+            padding: 1.2rem;
+            background: rgba(0,0,0,0.25);
+            border-radius: 12px;
+            border: 1px solid rgba(255,215,0,0.06);
+        }
+        
+        .description-section h4 {
+            margin-bottom: 0.75rem;
+            color: var(--gold);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .description-section p {
+            color: var(--muted);
+            line-height: 1.6;
+        }
+        
+        .stats-charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        
+        .stats-chart-container {
+            background: rgba(0,0,0,0.25);
+            padding: 1rem;
+            border-radius: 12px;
+            height: 250px;
+            border: 1px solid rgba(255,215,0,0.06);
+        }
+        
+        .loading{color:var(--muted);padding:10px; text-align: center; font-size: 1.1rem;}
+        .error{background:rgba(239,68,68,0.08);border:1px solid #ef4444;color:#ffb3b3;padding:10px;border-radius:8px;margin:8px 0; text-align: center; font-size: 1.1rem;}
+    </style>
     
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -45,8 +376,8 @@
             // Header with title
             html += `
             <div class="enhanced-stats-header">
-                <h2 class="enhanced-stats-title">Repository Analysis Report</h2>
-                <div style="color:var(--muted);font-size:0.9rem;">${data.repoName || 'Analysis'}</div>
+                <h2 class="enhanced-stats-title">🚀 Repository Analysis Report</h2>
+                <div class="repo-info">${data.repoName || 'Analysis'}</div>
             </div>
             `;
             
@@ -162,7 +493,7 @@
             
             // Add tech stack if available
             if (data.techStack && Array.isArray(data.techStack) && data.techStack.length > 0) {
-                html += '<div class="description-section"><h4>Tech Stack</h4><div class="tech-stack">';
+                html += '<div class="description-section"><h4>⚙️ Tech Stack</h4><div class="tech-stack">';
                 data.techStack.slice(0, 10).forEach(tech => {
                     html += `<span class="tech-badge">${tech}</span>`;
                 });
@@ -174,7 +505,7 @@
             
             // Add contributors section if available
             if (data.contributors && Array.isArray(data.contributors) && data.contributors.length > 0) {
-                html += '<div class="contributors-section"><h3 style="margin-bottom:1rem;color:var(--gold)">Contributors</h3><div class="contributors-grid">';
+                html += '<div class="contributors-section"><h3 style="margin-bottom:1.2rem;color:var(--gold);display:flex;align-items:center;gap:0.5rem;">👥 Contributors</h3><div class="contributors-grid">';
                 
                 // Sort contributors by contributions to identify top contributor
                 const sortedContributors = [...data.contributors].sort((a, b) => b.contributions - a.contributions);
@@ -185,7 +516,7 @@
                     
                     html += `
                     <div class="${className}">
-                        <img src="${contributor.avatar_url || 'https://via.placeholder.com/60'}" alt="${contributor.login || 'Contributor'}" class="contributor-avatar">
+                        <img src="${contributor.avatar_url || 'https://via.placeholder.com/70'}" alt="${contributor.login || 'Contributor'}" class="contributor-avatar">
                         <div class="contributor-name">${contributor.login || 'Unknown'}</div>
                         <div class="contributor-contributions">${contributor.contributions || 0} commits</div>
                     </div>`;
@@ -197,24 +528,32 @@
             // Add detailed description section
             if (data.description) {
                 html += `<div class="description-section">
-                    <h4>Description</h4>
+                    <h4>📝 Description</h4>
                     <p>${data.description}</p>
                 </div>`;
             }
             
             // Add charts container
-            html += '<div class="stats-charts-container">';
-            
-            // Language distribution chart placeholder
-            html += '<div class="stats-chart-container"><canvas id="languageChartCard"></canvas></div>';
-            
-            // File type distribution chart placeholder
-            html += '<div class="stats-chart-container"><canvas id="typeChartCard"></canvas></div>';
-            
-            // LOC by language chart placeholder
-            html += '<div class="stats-chart-container"><canvas id="locChartCard"></canvas></div>';
-            
-            html += '</div>';
+            if (data.languageDistribution || data.fileTypes || data.locByLanguage) {
+                html += '<div class="stats-charts-container">';
+                
+                // Language distribution chart placeholder
+                if (data.languageDistribution) {
+                    html += '<div class="stats-chart-container"><canvas id="languageChartCard"></canvas></div>';
+                }
+                
+                // File type distribution chart placeholder
+                if (data.fileTypes) {
+                    html += '<div class="stats-chart-container"><canvas id="typeChartCard"></canvas></div>';
+                }
+                
+                // LOC by language chart placeholder
+                if (data.locByLanguage) {
+                    html += '<div class="stats-chart-container"><canvas id="locChartCard"></canvas></div>';
+                }
+                
+                html += '</div>';
+            }
             
             html += '</div>';
             
@@ -254,10 +593,10 @@
             // Create a pie chart
             new Chart(ctx, {
                 type: 'pie',
-                data: {
+                 {
                     labels: labels,
                     datasets: [{
-                        data: data,
+                         data,
                         backgroundColor: [
                             'rgba(255, 99, 132, 0.6)',
                             'rgba(54, 162, 235, 0.6)',
@@ -301,10 +640,10 @@
             // Create a doughnut chart
             new Chart(ctx, {
                 type: 'doughnut',
-                data: {
+                 {
                     labels: labels,
                     datasets: [{
-                        data: data,
+                         data,
                         backgroundColor: [
                             'rgba(255, 99, 132, 0.6)',
                             'rgba(54, 162, 235, 0.6)',
@@ -352,7 +691,7 @@
                     labels: labels,
                     datasets: [{
                         label: 'Lines of Code',
-                        data: data,
+                         data,
                         backgroundColor: 'rgba(59, 130, 246, 0.6)',
                         borderColor: 'rgba(59, 130, 246, 1)',
                         borderWidth: 1
@@ -429,7 +768,7 @@
                     renderEnhancedStatsCard(data);
                     return;
                 } catch (e) {
-                    console.error('Error parsing cached data: ', e);
+                    console.error('Error parsing cached  ', e);
                 }
             }
             
