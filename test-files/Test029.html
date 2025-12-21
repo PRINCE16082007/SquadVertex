@@ -218,7 +218,7 @@
       color: var(--dark);
     }
 
-    .profile-role {
+    .profile-email {
       font-size: 1rem;
       color: var(--gray);
       margin-bottom: 10px;
@@ -441,20 +441,38 @@
       width: 100%;
     }
 
-    /* Ledger Section */
-    .ledger-section {
+    /* Recent Transactions Section */
+    .recent-transactions {
       background: var(--card-bg);
       border-radius: 12px;
       padding: 25px;
       box-shadow: var(--shadow);
+      margin-bottom: 30px;
     }
 
-    .ledger-table {
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .view-all {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .view-all:hover {
+      text-decoration: underline;
+    }
+
+    .transactions-table {
       width: 100%;
       border-collapse: collapse;
     }
 
-    .ledger-table th {
+    .transactions-table th {
       text-align: left;
       padding: 12px 15px;
       border-bottom: 2px solid var(--border);
@@ -463,12 +481,12 @@
       font-size: 0.9rem;
     }
 
-    .ledger-table td {
+    .transactions-table td {
       padding: 12px 15px;
       border-bottom: 1px solid var(--border);
     }
 
-    .ledger-table tr:last-child td {
+    .transactions-table tr:last-child td {
       border-bottom: none;
     }
 
@@ -495,7 +513,7 @@
       .sidebar {
         width: 80px;
       }
-      .logo-text, .profile-name, .profile-role, .stat-value, .stat-label, .menu-title, .nav-link span {
+      .logo-text, .profile-name, .profile-email, .stat-value, .stat-label, .menu-title, .nav-link span {
         display: none;
       }
       .logo {
@@ -613,21 +631,21 @@
 
       <!-- Profile Card -->
       <div class="profile-card">
-        <img src="https://ui-avatars.com/api/?name=Prince+Gahlot&background=4361ee&color=fff" alt="Profile" class="profile-img">
+        <img src="" alt="Profile" class="profile-img" id="profileImage">
         <div class="profile-info">
-          <div class="profile-name">Prince Gahlot</div>
-          <div class="profile-role">Admin</div>
+          <div class="profile-name" id="profileName">Loading...</div>
+          <div class="profile-email" id="profileEmail">Loading...</div>
           <div class="profile-stats">
             <div class="stat-item">
-              <div class="stat-value">₹245,000</div>
+              <div class="stat-value" id="profileIncome">₹0</div>
               <div class="stat-label">Total Income</div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">49%</div>
+              <div class="stat-value" id="profileGoal">0%</div>
               <div class="stat-label">Goal Progress</div>
             </div>
             <div class="stat-item">
-              <div class="stat-value">42</div>
+              <div class="stat-value" id="profileTransactions">0</div>
               <div class="stat-label">Transactions</div>
             </div>
           </div>
@@ -706,11 +724,14 @@
         </button>
       </div>
 
-      <!-- Ledger Section -->
-      <div class="ledger-section">
-        <h2 class="section-title"><i class="fas fa-book"></i> Payment Ledger</h2>
+      <!-- Recent Transactions Section -->
+      <div class="recent-transactions">
+        <div class="section-header">
+          <h2 class="section-title"><i class="fas fa-history"></i> Recent Transactions</h2>
+          <a href="#" class="view-all">View All</a>
+        </div>
         
-        <table class="ledger-table">
+        <table class="transactions-table">
           <thead>
             <tr>
               <th>Date</th>
@@ -718,15 +739,15 @@
               <th>Amount</th>
             </tr>
           </thead>
-          <tbody id="ledgerBody">
-            <!-- Data will be loaded from Firebase -->
+          <tbody id="recentTransactionsBody">
+            <!-- Recent transactions will be loaded here -->
           </tbody>
         </table>
         
-        <div id="emptyState" class="empty-state">
+        <div id="recentEmptyState" class="empty-state">
           <i class="fas fa-file-invoice"></i>
-          <h3>No Transactions Yet</h3>
-          <p>Add your first payment to get started</p>
+          <h3>No Recent Transactions</h3>
+          <p>Add your first payment to see it here</p>
         </div>
       </div>
     </div>
@@ -755,6 +776,12 @@
 
     // DOM Elements
     const loadingScreen = document.getElementById('loadingScreen');
+    const profileImage = document.getElementById('profileImage');
+    const profileName = document.getElementById('profileName');
+    const profileEmail = document.getElementById('profileEmail');
+    const profileIncome = document.getElementById('profileIncome');
+    const profileGoal = document.getElementById('profileGoal');
+    const profileTransactions = document.getElementById('profileTransactions');
     const totalIncome = document.getElementById('totalIncome');
     const monthlyTarget = document.getElementById('monthlyTarget');
     const transactionCount = document.getElementById('transactionCount');
@@ -762,8 +789,8 @@
     const progressAmount = document.getElementById('progressAmount');
     const progressPercentage = document.getElementById('progressPercentage');
     const remainingAmount = document.getElementById('remainingAmount');
-    const ledgerBody = document.getElementById('ledgerBody');
-    const emptyState = document.getElementById('emptyState');
+    const recentTransactionsBody = document.getElementById('recentTransactionsBody');
+    const recentEmptyState = document.getElementById('recentEmptyState');
     const addPaymentBtn = document.getElementById('addPaymentBtn');
     const logoutBtn = document.getElementById('logoutBtn');
 
@@ -786,8 +813,20 @@
             const adminEmail = credentialsDoc.data().admin_email;
             
             if (user.email === adminEmail) {
-              // User authenticated successfully
-              document.querySelector('.profile-name').textContent = user.displayName || user.email.split('@')[0];
+              // Set profile information
+              profileName.textContent = user.displayName || user.email.split('@')[0];
+              profileEmail.textContent = user.email;
+              
+              // Set profile image if available
+              if (user.photoURL) {
+                profileImage.src = user.photoURL;
+              } else {
+                // Fallback to initials-based avatar
+                const initials = user.displayName ? 
+                  user.displayName.split(' ').map(n => n[0]).join('').substring(0, 2) : 
+                  user.email.substring(0, 2);
+                profileImage.src = `https://ui-avatars.com/api/?name=${initials}&background=4361ee&color=fff`;
+              }
               
               // Load dashboard data
               loadData();
@@ -821,11 +860,9 @@
     // Function to load dashboard data from Firebase
     async function loadData() {
       try {
-        // Get all transactions from mySpace collection
-        const snapshot = await db.collection('mySpace')
-          .where('type', '==', 'payment')
-          .orderBy('date_received', 'desc')
-          .get();
+        // Get all transactions from transactions/2026/subcollection
+        const transactionsRef = db.collection('transactions').doc('2026').collection('transactions');
+        const snapshot = await transactionsRef.orderBy('date_received', 'desc').get();
 
         const transactions = [];
         let totalAmount = 0;
@@ -849,9 +886,11 @@
     function updateDashboardUI(total, count, transactions) {
       // Update total income
       totalIncome.textContent = `₹${total.toLocaleString()}`;
+      profileIncome.textContent = `₹${total.toLocaleString()}`;
       
       // Update transaction count
       transactionCount.textContent = count;
+      profileTransactions.textContent = count;
       
       // Calculate monthly target (example: 1/12 of annual goal)
       const annualGoal = 500000;
@@ -860,6 +899,7 @@
       
       // Calculate progress percentage
       const percentage = Math.min(100, (total / 500000) * 100);
+      profileGoal.textContent = `${Math.round(percentage)}%`;
       progressFill.style.width = `${percentage}%`;
       progressAmount.textContent = `₹${total.toLocaleString()} / ₹500,000`;
       progressPercentage.textContent = `${Math.round(percentage)}%`;
@@ -875,23 +915,26 @@
         progressFill.className = 'progress-fill progress-low';
       }
       
-      // Update ledger
-      renderLedger(transactions);
+      // Update recent transactions (only last 7)
+      updateRecentTransactions(transactions);
     }
 
-    // Function to render ledger
-    function renderLedger(transactions) {
+    // Function to update recent transactions table
+    function updateRecentTransactions(transactions) {
       // Clear existing rows
-      ledgerBody.innerHTML = '';
+      recentTransactionsBody.innerHTML = '';
       
       if (transactions.length === 0) {
-        emptyState.style.display = 'block';
+        recentEmptyState.style.display = 'block';
         return;
       }
       
-      emptyState.style.display = 'none';
+      recentEmptyState.style.display = 'none';
       
-      transactions.forEach(transaction => {
+      // Show only the last 7 transactions
+      const recent = transactions.slice(0, 7);
+      
+      recent.forEach(transaction => {
         const row = document.createElement('tr');
         
         // Format date
@@ -907,7 +950,7 @@
           <td class="amount-col">₹${transaction.amount.toLocaleString()}</td>
         `;
         
-        ledgerBody.appendChild(row);
+        recentTransactionsBody.appendChild(row);
       });
     }
 
@@ -923,9 +966,8 @@
       }
       
       try {
-        // Add transaction to Firebase
-        await db.collection('mySpace').add({
-          type: 'payment',
+        // Add transaction to Firebase (in subcollection)
+        await db.collection('transactions').doc('2026').collection('transactions').add({
           amount: parseInt(amount),
           source: source,
           date_received: new Date(date),
