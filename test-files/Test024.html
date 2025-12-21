@@ -447,370 +447,370 @@
   <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
 
   <script>
-    // Firebase Configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
+  // Firebase Configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+    authDomain: "squadvertex2007.firebaseapp.com",
+    projectId: "squadvertex2007",
+    storageBucket: "squadvertex2007.appspot.com",
+    messagingSenderId: "168905083514",
+    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
+  };
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
 
-    // DOM Elements
-    const loadingScreen = document.getElementById('loadingScreen');
-    const totalIncome = document.getElementById('totalIncome');
-    const incomeChange = document.getElementById('incomeChange');
-    const topSource = document.getElementById('topSource');
-    const topSourceValue = document.getElementById('topSourceValue');
-    const avgTransaction = document.getElementById('avgTransaction');
-    const avgChange = document.getElementById('avgChange');
-    const growthRate = document.getElementById('growthRate');
-    const growthChange = document.getElementById('growthChange');
-    const logoutBtn = document.getElementById('logoutBtn');
+  // DOM Elements
+  const loadingScreen = document.getElementById('loadingScreen');
+  const totalIncome = document.getElementById('totalIncome');
+  const incomeChange = document.getElementById('incomeChange');
+  const topSource = document.getElementById('topSource');
+  const topSourceValue = document.getElementById('topSourceValue');
+  const avgTransaction = document.getElementById('avgTransaction');
+  const avgChange = document.getElementById('avgChange');
+  const growthRate = document.getElementById('growthRate');
+  const growthChange = document.getElementById('growthChange');
+  const logoutBtn = document.getElementById('logoutBtn');
 
-    // Set current date
-    const today = new Date();
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    document.getElementById('current-date').textContent = today.toLocaleDateString('en-US', options);
+  // Set current date
+  const today = new Date();
+  const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  document.getElementById('current-date').textContent = today.toLocaleDateString('en-US', options);
 
-    // Authentication State Observer
-    auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        // Verify user against admin email from mySpace/credentials
-        try {
-          const credentialsDoc = await db.collection('mySpace').doc('credentials').get();
-          if (credentialsDoc.exists) {
-            const adminEmail = credentialsDoc.data().admin_email;
+  // Authentication State Observer
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      // Verify user against admin email from mySpace/credentials
+      try {
+        const credentialsDoc = await db.collection('mySpace').doc('credentials').get();
+        if (credentialsDoc.exists) {
+          const adminEmail = credentialsDoc.data().admin_email;
+          
+          if (user.email === adminEmail) {
+            // Load analytics data
+            loadAnalyticsData();
             
-            if (user.email === adminEmail) {
-              // Load analytics data
-              loadAnalyticsData();
-              
-              // Hide loading screen after a brief delay
-              setTimeout(() => {
-                loadingScreen.style.opacity = '0';
-                loadingScreen.style.visibility = 'hidden';
-              }, 1000);
-            } else {
-              // Unauthorized user
-              alert('Access denied. Unauthorized user.');
-              auth.signOut();
-            }
+            // Hide loading screen after a brief delay
+            setTimeout(() => {
+              loadingScreen.style.opacity = '0';
+              loadingScreen.style.visibility = 'hidden';
+            }, 1000);
           } else {
-            // Credentials document doesn't exist
-            alert('Credentials not found. Contact administrator.');
+            // Unauthorized user
+            alert('Access denied. Unauthorized user.');
             auth.signOut();
           }
-        } catch (error) {
-          console.error('Error verifying user:', error);
-          alert('Authentication error. Please try again.');
+        } else {
+          // Credentials document doesn't exist
+          alert('Credentials not found. Contact administrator.');
           auth.signOut();
         }
-      } else {
-        // Redirect to login if not authenticated
-        window.location.href = 'login.html'; // Adjust path as needed
-      }
-    });
-
-    // Function to load analytics data
-    async function loadAnalyticsData() {
-      try {
-        // Get all transactions from mySpace/2026/subcollection
-        const transactionsRef = db.collection('mySpace').doc('2026').collection('transactions');
-        const snapshot = await transactionsRef.orderBy('date_received', 'desc').get();
-
-        const transactions = [];
-        
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          transactions.push(data);
-        });
-
-        // Calculate and update stats
-        updateStats(transactions);
-        
-        // Process data and render charts
-        renderCharts(transactions);
       } catch (error) {
-        console.error('Error loading analytics ', error);
+        console.error('Error verifying user:', error);
+        alert('Authentication error. Please try again.');
+        auth.signOut();
       }
+    } else {
+      // Redirect to login if not authenticated
+      window.location.href = 'login.html'; // Adjust path as needed
     }
+  });
 
-    // Function to calculate and update stats
-    function updateStats(transactions) {
-      if (transactions.length === 0) return;
+  // Function to load analytics data
+  async function loadAnalyticsData() {
+    try {
+      // Get all transactions from mySpace/2026/subcollection
+      const transactionsRef = db.collection('mySpace').doc('2026').collection('transactions');
+      const snapshot = await transactionsRef.orderBy('date_received', 'desc').get();
+
+      const transactions = [];
       
-      // Calculate total income
-      const totalIncomeValue = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
-      totalIncome.textContent = `₹${totalIncomeValue.toLocaleString()}`;
-      
-      // Calculate income change from last year (placeholder calculation)
-      const lastYearIncome = totalIncomeValue * 0.9; // Placeholder
-      const incomeChangePercent = totalIncomeValue > 0 ? 
-        Math.round(((totalIncomeValue - lastYearIncome) / lastYearIncome) * 100) : 0;
-      incomeChange.innerHTML = `
-        <i class="fas fa-arrow-${incomeChangePercent >= 0 ? 'up' : 'down'}"></i>
-        <span>${incomeChangePercent >= 0 ? '+' : ''}${incomeChangePercent}% from last year</span>
-      `;
-      incomeChange.className = `stat-change ${incomeChangePercent >= 0 ? 'change-up' : 'change-down'}`;
-      
-      // Calculate top revenue source
-      const sources = {};
-      transactions.forEach(transaction => {
-        if (sources[transaction.source]) {
-          sources[transaction.source] += transaction.amount;
-        } else {
-          sources[transaction.source] = transaction.amount;
-        }
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        transactions.push(data);
       });
+
+      // Calculate and update stats
+      updateStats(transactions);
       
-      let topSourceName = '';
-      let topSourceAmount = 0;
-      for (const [source, amount] of Object.entries(sources)) {
-        if (amount > topSourceAmount) {
-          topSourceAmount = amount;
-          topSourceName = source;
-        }
+      // Process data and render charts
+      renderCharts(transactions);
+    } catch (error) {
+      console.error('Error loading analytics ', error);
+    }
+  }
+
+  // Function to calculate and update stats
+  function updateStats(transactions) {
+    if (transactions.length === 0) return;
+    
+    // Calculate total income
+    const totalIncomeValue = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+    totalIncome.textContent = `₹${totalIncomeValue.toLocaleString()}`;
+    
+    // Calculate income change from last year (placeholder calculation)
+    const lastYearIncome = totalIncomeValue * 0.9; // Placeholder
+    const incomeChangePercent = totalIncomeValue > 0 ? 
+      Math.round(((totalIncomeValue - lastYearIncome) / lastYearIncome) * 100) : 0;
+    incomeChange.innerHTML = `
+      <i class="fas fa-arrow-${incomeChangePercent >= 0 ? 'up' : 'down'}"></i>
+      <span>${incomeChangePercent >= 0 ? '+' : ''}${incomeChangePercent}% from last year</span>
+    `;
+    incomeChange.className = `stat-change ${incomeChangePercent >= 0 ? 'change-up' : 'change-down'}`;
+    
+    // Calculate top revenue source
+    const sources = {};
+    transactions.forEach(transaction => {
+      if (sources[transaction.source]) {
+        sources[transaction.source] += transaction.amount;
+      } else {
+        sources[transaction.source] = transaction.amount;
       }
-      
-      topSource.textContent = topSourceName;
-      topSourceValue.innerHTML = `
-        <i class="fas fa-chart-line"></i>
-        <span>₹${topSourceAmount.toLocaleString()} this year</span>
-      `;
-      
-      // Calculate average transaction size
-      const avgTransactionValue = totalIncomeValue / transactions.length;
-      avgTransaction.textContent = `₹${Math.round(avgTransactionValue).toLocaleString()}`;
-      
-      // Calculate average change from last quarter (placeholder)
-      const avgChangeValue = 12; // Placeholder
-      avgChange.innerHTML = `
-        <i class="fas fa-arrow-up"></i>
-        <span>+${avgChangeValue}% from last quarter</span>
-      `;
-      avgChange.className = 'stat-change change-up';
-      
-      // Calculate monthly growth rate
-      const monthlyGrowth = 7.2; // Placeholder
-      growthRate.textContent = `${monthlyGrowth}%`;
-      growthChange.innerHTML = `
-        <i class="fas fa-arrow-up"></i>
-        <span>Consistent growth</span>
-      `;
-      growthChange.className = 'stat-change change-up';
-    }
-
-    // Function to render charts
-    function renderCharts(transactions) {
-      // Prepare data for monthly earnings chart
-      const monthlyData = {
-        'Jan': 0,
-        'Feb': 0,
-        'Mar': 0,
-        'Apr': 0,
-        'May': 0,
-        'Jun': 0,
-        'Jul': 0,
-        'Aug': 0,
-        'Sep': 0,
-        'Oct': 0,
-        'Nov': 0,
-        'Dec': 0
-      };
-
-      // Aggregate earnings by month
-      transactions.forEach(transaction => {
-        const date = transaction.date_received.toDate ? 
-          transaction.date_received.toDate() : 
-          new Date(transaction.date_received);
-        const month = date.toLocaleString('default', { month: 'short' });
-        monthlyData[month] += transaction.amount;
-      });
-
-      // Monthly Earnings Line Chart
-      const monthlyCtx = document.getElementById('monthlyEarningsChart').getContext('2d');
-      new Chart(monthlyCtx, {
-        type: 'line',
-         {
-          labels: Object.keys(monthlyData),
-          datasets: [{
-            label: 'Earnings (₹)',
-             Object.values(monthlyData),
-            borderColor: '#4361ee',
-            backgroundColor: 'rgba(67, 97, 238, 0.1)',
-            borderWidth: 3,
-            pointBackgroundColor: '#4361ee',
-            pointRadius: 5,
-            pointHoverRadius: 7,
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false
-            },
-            tooltip: {
-              mode: 'index',
-              intersect: false,
-              callbacks: {
-                label: function(context) {
-                  return `₹${context.parsed.y.toLocaleString()}`;
-                }
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                callback: function(value) {
-                  return '₹' + value.toLocaleString();
-                }
-              }
-            }
-          }
-        }
-      });
-
-      // Revenue by Source Pie Chart
-      const sources = {};
-      transactions.forEach(transaction => {
-        if (sources[transaction.source]) {
-          sources[transaction.source] += transaction.amount;
-        } else {
-          sources[transaction.source] = transaction.amount;
-        }
-      });
-
-      const sourceCtx = document.getElementById('revenueBySourceChart').getContext('2d');
-      new Chart(sourceCtx, {
-        type: 'doughnut',
-         {
-          labels: Object.keys(sources),
-          datasets: [{
-             Object.values(sources),
-            backgroundColor: [
-              '#4361ee',
-              '#3a0ca3',
-              '#7209b7',
-              '#f72585',
-              '#4cc9f0',
-              '#4895ef',
-              '#560bad'
-            ],
-            borderWidth: 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'right',
-              labels: {
-                padding: 20,
-                usePointStyle: true,
-                pointStyle: 'circle'
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const label = context.label || '';
-                  const value = context.parsed;
-                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                  const percentage = Math.round((value / total) * 100);
-                  return `${label}: ₹${value.toLocaleString()} (${percentage}%)`;
-                }
-              }
-            }
-          }
-        }
-      });
-
-      // Transaction Volume Bar Chart
-      const volumeData = {
-        'Jan': 0,
-        'Feb': 0,
-        'Mar': 0,
-        'Apr': 0,
-        'May': 0,
-        'Jun': 0,
-        'Jul': 0,
-        'Aug': 0,
-        'Sep': 0,
-        'Oct': 0,
-        'Nov': 0,
-        'Dec': 0
-      };
-
-      // Count transactions by month
-      transactions.forEach(transaction => {
-        const date = transaction.date_received.toDate ? 
-          transaction.date_received.toDate() : 
-          new Date(transaction.date_received);
-        const month = date.toLocaleString('default', { month: 'short' });
-        volumeData[month] += 1;
-      });
-
-      const volumeCtx = document.getElementById('transactionVolumeChart').getContext('2d');
-      new Chart(volumeCtx, {
-        type: 'bar',
-         {
-          labels: Object.keys(volumeData),
-          datasets: [{
-            label: 'Number of Transactions',
-             Object.values(volumeData),
-            backgroundColor: 'rgba(67, 97, 238, 0.7)',
-            borderColor: '#4361ee',
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return `${context.parsed.y} transactions`;
-                }
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true
-            }
-          }
-        }
-      });
-    }
-
-    // Logout button event listener
-    logoutBtn.addEventListener('click', () => {
-      auth.signOut()
-        .then(() => {
-          window.location.href = 'login.html'; // Adjust path as needed
-        })
-        .catch((error) => {
-          console.error('Logout error:', error);
-        });
     });
-  </script>
+    
+    let topSourceName = '';
+    let topSourceAmount = 0;
+    for (const [source, amount] of Object.entries(sources)) {
+      if (amount > topSourceAmount) {
+        topSourceAmount = amount;
+        topSourceName = source;
+      }
+    }
+    
+    topSource.textContent = topSourceName;
+    topSourceValue.innerHTML = `
+      <i class="fas fa-chart-line"></i>
+      <span>₹${topSourceAmount.toLocaleString()} this year</span>
+    `;
+    
+    // Calculate average transaction size
+    const avgTransactionValue = totalIncomeValue / transactions.length;
+    avgTransaction.textContent = `₹${Math.round(avgTransactionValue).toLocaleString()}`;
+    
+    // Calculate average change from last quarter (placeholder)
+    const avgChangeValue = 12; // Placeholder
+    avgChange.innerHTML = `
+      <i class="fas fa-arrow-up"></i>
+      <span>+${avgChangeValue}% from last quarter</span>
+    `;
+    avgChange.className = 'stat-change change-up';
+    
+    // Calculate monthly growth rate
+    const monthlyGrowth = 7.2; // Placeholder
+    growthRate.textContent = `${monthlyGrowth}%`;
+    growthChange.innerHTML = `
+      <i class="fas fa-arrow-up"></i>
+      <span>Consistent growth</span>
+    `;
+    growthChange.className = 'stat-change change-up';
+  }
+
+  // Function to render charts
+  function renderCharts(transactions) {
+    // Prepare data for monthly earnings chart
+    const monthlyData = {
+      'Jan': 0,
+      'Feb': 0,
+      'Mar': 0,
+      'Apr': 0,
+      'May': 0,
+      'Jun': 0,
+      'Jul': 0,
+      'Aug': 0,
+      'Sep': 0,
+      'Oct': 0,
+      'Nov': 0,
+      'Dec': 0
+    };
+
+    // Aggregate earnings by month
+    transactions.forEach(transaction => {
+      const date = transaction.date_received.toDate ? 
+        transaction.date_received.toDate() : 
+        new Date(transaction.date_received);
+      const month = date.toLocaleString('default', { month: 'short' });
+      monthlyData[month] += transaction.amount;
+    });
+
+    // Monthly Earnings Line Chart
+    const monthlyCtx = document.getElementById('monthlyEarningsChart').getContext('2d');
+    new Chart(monthlyCtx, {
+      type: 'line',
+      data: {
+        labels: Object.keys(monthlyData),
+        datasets: [{
+          label: 'Earnings (₹)',
+          data: Object.values(monthlyData),
+          borderColor: '#4361ee',
+          backgroundColor: 'rgba(67, 97, 238, 0.1)',
+          borderWidth: 3,
+          pointBackgroundColor: '#4361ee',
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: function(context) {
+                return `₹${context.parsed.y.toLocaleString()}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return '₹' + value.toLocaleString();
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Revenue by Source Pie Chart
+    const sources = {};
+    transactions.forEach(transaction => {
+      if (sources[transaction.source]) {
+        sources[transaction.source] += transaction.amount;
+      } else {
+        sources[transaction.source] = transaction.amount;
+      }
+    });
+
+    const sourceCtx = document.getElementById('revenueBySourceChart').getContext('2d');
+    new Chart(sourceCtx, {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(sources),
+        datasets: [{
+          data: Object.values(sources),
+          backgroundColor: [
+            '#4361ee',
+            '#3a0ca3',
+            '#7209b7',
+            '#f72585',
+            '#4cc9f0',
+            '#4895ef',
+            '#560bad'
+          ],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              padding: 20,
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.parsed;
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = Math.round((value / total) * 100);
+                return `${label}: ₹${value.toLocaleString()} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Transaction Volume Bar Chart
+    const volumeData = {
+      'Jan': 0,
+      'Feb': 0,
+      'Mar': 0,
+      'Apr': 0,
+      'May': 0,
+      'Jun': 0,
+      'Jul': 0,
+      'Aug': 0,
+      'Sep': 0,
+      'Oct': 0,
+      'Nov': 0,
+      'Dec': 0
+    };
+
+    // Count transactions by month
+    transactions.forEach(transaction => {
+      const date = transaction.date_received.toDate ? 
+        transaction.date_received.toDate() : 
+        new Date(transaction.date_received);
+      const month = date.toLocaleString('default', { month: 'short' });
+      volumeData[month] += 1;
+    });
+
+    const volumeCtx = document.getElementById('transactionVolumeChart').getContext('2d');
+    new Chart(volumeCtx, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(volumeData),
+        datasets: [{
+          label: 'Number of Transactions',
+          data: Object.values(volumeData),
+          backgroundColor: 'rgba(67, 97, 238, 0.7)',
+          borderColor: '#4361ee',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return `${context.parsed.y} transactions`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  // Logout button event listener
+  logoutBtn.addEventListener('click', () => {
+    auth.signOut()
+      .then(() => {
+        window.location.href = 'login.html'; // Adjust path as needed
+      })
+      .catch((error) => {
+        console.error('Logout error:', error);
+      });
+  });
+</script>
 </body>
 </html>
