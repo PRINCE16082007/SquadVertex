@@ -40,6 +40,43 @@
       overflow-x: hidden;
     }
 
+    /* Loading Screen */
+    #loadingScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--body-bg);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 0.5s, visibility 0.5s;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(67, 97, 238, 0.2);
+      border-top: 5px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 1.2rem;
+      color: var(--primary);
+      font-weight: 500;
+    }
+
     /* Main Layout */
     .dashboard-container {
       display: flex;
@@ -273,6 +310,12 @@
   </style>
 </head>
 <body>
+  <!-- Loading Screen -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading Analytics...</div>
+  </div>
+
   <div class="dashboard-container">
     <!-- Sidebar -->
     <div class="sidebar">
@@ -420,6 +463,7 @@
     const db = firebase.firestore();
 
     // DOM Elements
+    const loadingScreen = document.getElementById('loadingScreen');
     const totalIncome = document.getElementById('totalIncome');
     const incomeChange = document.getElementById('incomeChange');
     const topSource = document.getElementById('topSource');
@@ -447,6 +491,12 @@
             if (user.email === adminEmail) {
               // Load analytics data
               loadAnalyticsData();
+              
+              // Hide loading screen after a brief delay
+              setTimeout(() => {
+                loadingScreen.style.opacity = '0';
+                loadingScreen.style.visibility = 'hidden';
+              }, 1000);
             } else {
               // Unauthorized user
               alert('Access denied. Unauthorized user.');
@@ -479,12 +529,6 @@
         
         snapshot.forEach(doc => {
           const data = doc.data();
-          // Ensure date is properly formatted
-          if (data.date_received) {
-            data.date_received = data.date_received.toDate ? 
-              data.date_received.toDate() : 
-              new Date(data.date_received);
-          }
           transactions.push(data);
         });
 
@@ -583,10 +627,11 @@
 
       // Aggregate earnings by month
       transactions.forEach(transaction => {
-        if (transaction.date_received) {
-          const month = transaction.date_received.toLocaleString('default', { month: 'short' });
-          monthlyData[month] += transaction.amount;
-        }
+        const date = transaction.date_received.toDate ? 
+          transaction.date_received.toDate() : 
+          new Date(transaction.date_received);
+        const month = date.toLocaleString('default', { month: 'short' });
+        monthlyData[month] += transaction.amount;
       });
 
       // Monthly Earnings Line Chart
@@ -712,10 +757,11 @@
 
       // Count transactions by month
       transactions.forEach(transaction => {
-        if (transaction.date_received) {
-          const month = transaction.date_received.toLocaleString('default', { month: 'short' });
-          volumeData[month] += 1;
-        }
+        const date = transaction.date_received.toDate ? 
+          transaction.date_received.toDate() : 
+          new Date(transaction.date_received);
+        const month = date.toLocaleString('default', { month: 'short' });
+        volumeData[month] += 1;
       });
 
       const volumeCtx = document.getElementById('transactionVolumeChart').getContext('2d');
