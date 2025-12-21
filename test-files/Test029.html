@@ -785,6 +785,9 @@
     const totalIncome = document.getElementById('totalIncome');
     const monthlyTarget = document.getElementById('monthlyTarget');
     const transactionCount = document.getElementById('transactionCount');
+    const incomeChange = document.getElementById('incomeChange');
+    const targetStatus = document.getElementById('targetStatus');
+    const newToday = document.getElementById('newToday');
     const progressFill = document.getElementById('progressFill');
     const progressAmount = document.getElementById('progressAmount');
     const progressPercentage = document.getElementById('progressPercentage');
@@ -860,30 +863,42 @@
     // Function to load dashboard data from Firebase
     async function loadData() {
       try {
-        // Get all transactions from transactions/2026/subcollection
-        const transactionsRef = db.collection('transactions').doc('2026').collection('transactions');
+        // Get all transactions from mySpace/2026/subcollection
+        const transactionsRef = db.collection('mySpace').doc('2026').collection('transactions');
         const snapshot = await transactionsRef.orderBy('date_received', 'desc').get();
 
         const transactions = [];
         let totalAmount = 0;
         let transactionCountValue = 0;
+        let todayCount = 0;
+        
+        // Calculate today's date for comparison
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
         
         snapshot.forEach(doc => {
           const data = doc.data();
           transactions.push(data);
           totalAmount += data.amount;
           transactionCountValue++;
+          
+          // Check if transaction was created today
+          const transactionDate = data.date_received.toDate ? data.date_received.toDate() : new Date(data.date_received);
+          transactionDate.setHours(0, 0, 0, 0);
+          if (transactionDate.getTime() === todayDate.getTime()) {
+            todayCount++;
+          }
         });
 
         // Update UI with loaded data
-        updateDashboardUI(totalAmount, transactionCountValue, transactions);
+        updateDashboardUI(totalAmount, transactionCountValue, todayCount, transactions);
       } catch (error) {
         console.error('Error loading data:', error);
       }
     }
 
     // Function to update dashboard UI
-    function updateDashboardUI(total, count, transactions) {
+    function updateDashboardUI(total, count, todayCount, transactions) {
       // Update total income
       totalIncome.textContent = `₹${total.toLocaleString()}`;
       profileIncome.textContent = `₹${total.toLocaleString()}`;
@@ -914,6 +929,28 @@
       } else {
         progressFill.className = 'progress-fill progress-low';
       }
+      
+      // Calculate income change from last month
+      const lastMonthIncome = total * 0.9; // Placeholder for actual last month calculation
+      const changePercentage = total > 0 ? Math.round(((total - lastMonthIncome) / lastMonthIncome) * 100) : 0;
+      incomeChange.textContent = `${changePercentage >= 0 ? '+' : ''}${changePercentage}% from last month`;
+      incomeChange.className = `stat-change ${changePercentage >= 0 ? 'change-up' : 'change-down'}`;
+      
+      // Update target status
+      const monthlyProgress = (total / 12) / monthlyGoal * 100; // Average monthly progress
+      if (monthlyProgress >= 100) {
+        targetStatus.textContent = 'On track';
+        targetStatus.className = 'stat-change change-up';
+      } else if (monthlyProgress >= 80) {
+        targetStatus.textContent = 'Slightly behind';
+        targetStatus.className = 'stat-change change-down';
+      } else {
+        targetStatus.textContent = 'Behind schedule';
+        targetStatus.className = 'stat-change change-down';
+      }
+      
+      // Update new today count
+      newToday.textContent = `${todayCount} new today`;
       
       // Update recent transactions (only last 7)
       updateRecentTransactions(transactions);
@@ -966,8 +1003,8 @@
       }
       
       try {
-        // Add transaction to Firebase (in subcollection)
-        await db.collection('transactions').doc('2026').collection('transactions').add({
+        // Add transaction to Firebase (in mySpace/2026/subcollection)
+        await db.collection('mySpace').doc('2026').collection('transactions').add({
           amount: parseInt(amount),
           source: source,
           date_received: new Date(date),
