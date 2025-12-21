@@ -1,961 +1,542 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>About Team Galaxy</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <style>
-    :root{
-      --accent: #64c2ff;
-      --muted: #9fd8ff;
-      --panel: rgba(24,31,43,0.97);
-      --glass: rgba(10,18,28,0.55);
-      --bg-grad-1: #08131a;
-      --bg-grad-2: #0f1722;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamGalaxy - Invoice Generator</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    /* Basic reset */
-    * { box-sizing: border-box; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
-    html,body { height: 100%; margin:0; padding:0; }
-    body {
-      margin: 0;
-      font-family: "Poppins", Arial, sans-serif;
-      color: #fff;
-      background: linear-gradient(180deg,var(--bg-grad-1) 0%, var(--bg-grad-2) 100%);
-      -webkit-font-smoothing:antialiased;
-      overflow-x: hidden;
-    }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+        }
 
-    a { color: inherit; text-decoration: none; }
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
 
-    /* Top bar */
-    .top-bar {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      height:76px;
-      padding:0 18px;
-      gap:12px;
-      background: rgba(8,12,18,0.6);
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-      position: sticky;
-      top: 0;
-      z-index: 120;
-      backdrop-filter: blur(8px);
-    }
-    .logo-title { display:flex; align-items:center; gap:10px; font-weight:700; font-family: Montserrat, sans-serif; font-size:1.18rem; cursor:pointer; white-space:nowrap; }
-    .logo-title img { height:44px; display:block; filter: drop-shadow(0 0 8px rgba(97,218,251,0.6)); }
+        .invoice-header {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            padding: 2rem;
+            position: relative;
+        }
 
-    .hamburger {
-      display: none;
-      background:none; border:none; color:#e6f8ff; font-size:1.1rem; padding:8px; cursor:pointer;
-    }
+        .company-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-    .nav-buttons { display:flex; gap:12px; align-items:center; }
-    .nav-btn, .profile-btn { background:none; border:none; color:#e6f8ff; padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:600; }
-    .nav-btn:hover, .profile-btn:hover { color:var(--accent); background: rgba(255,255,255,0.03); }
+        .company-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
 
-    .more-options { position:relative; }
-    .dropdown-content { display:none; position:absolute; right:0; top:48px; min-width:160px; background: rgba(18,26,36,0.98); border-radius:8px; padding:6px 0; box-shadow:0 10px 34px rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.04); }
-    .more-options:hover .dropdown-content { display:block; }
-    .dropdown-content a { display:block; padding:10px 12px; color:#e6f8ff; font-weight:600; }
+        .invoice-title {
+            text-align: right;
+        }
 
-    /* stars background (full page) */
-    .stars { position:fixed; inset:0; z-index:-1; pointer-events:none; overflow:hidden; }
-    .star { position:absolute; border-radius:50%; background: rgba(255,255,255,0.95); opacity:0.18; animation: twinkle var(--duration,5s) infinite ease-in-out; }
-    @keyframes twinkle { 0%,100%{opacity:0.2} 50%{opacity:1} }
+        .invoice-title h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
 
-    /* container */
-    .container { max-width:1200px; margin:14px auto 28px; padding:0 18px; box-sizing:border-box; }
+        .invoice-details {
+            background: #f1f5f9;
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
 
-    /* Play area */
-    .orbit-playground { position:relative; height:540px; max-width:100%; margin:12px auto 8px; }
-    .play-card {
-      position:relative;
-      height:100%;
-      border-radius:14px;
-      overflow:visible;
-      background: linear-gradient(180deg, rgba(6,10,18,0.6), rgba(3,6,12,0.6));
-      border:1px solid rgba(255,255,255,0.03);
-      box-shadow:0 14px 40px rgba(0,0,0,0.6);
-    }
-    .play-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; z-index:1; }
-    .nebula-canvas { position:absolute; inset:0; z-index:2; pointer-events:none; }
+        .client-info h3, .invoice-meta h3 {
+            color: #475569;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
 
-    /* Left static HUD — absolute on desktop, flow above play area on small screens */
-    .hud-left {
-      position:absolute; left:16px; top:14px; z-index:40;
-      display:flex; gap:10px; align-items:center; padding:8px 10px; border-radius:12px;
-      background: linear-gradient(180deg, rgba(8,14,22,0.6), rgba(10,18,30,0.36));
-      border:1px solid rgba(255,255,255,0.06); backdrop-filter: blur(6px);
-      box-shadow:0 8px 22px rgba(2,8,20,0.5); min-width:180px;
-    }
-    .hud-left .avatar { width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:#bfeaff;background:linear-gradient(180deg,#0b2b3a,#06202a); border:2px solid rgba(150,220,255,0.12); }
-    .hud-left .title{ font-weight:700; color:#fff; font-size:1rem; }
-    .hud-left .subtitle{ color:var(--muted); font-weight:600; font-size:0.82rem; }
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+        }
 
-    /* Right HUD */
-    .hud-small { position:absolute; right:14px; top:14px; z-index:38; background:rgba(6,10,18,0.6); padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.04); display:flex; gap:12px; align-items:center; backdrop-filter: blur(6px); }
-    .hud-small .label { font-weight:800; color:#fff; }
-    .hud-small .muted { color:var(--muted); font-weight:700; font-size:0.85rem; }
-    .hud-small .btn { background:transparent; border:1px solid rgba(255,255,255,0.04); padding:6px 8px; border-radius:8px; color:#bfeaff; cursor:pointer; font-weight:600; }
-    .hud-small .btn:hover { background: rgba(100,194,255,0.06); color:#fff; }
+        .invoice-table th {
+            background: #f8fafc;
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
+            font-weight: 600;
+            color: #475569;
+        }
 
-    /* center earth wrapper (keeps center) */
-    .orbit-center { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:6; display:flex; align-items:center; justify-content:center; pointer-events:auto; }
-    .earth-game { width:120px; height:120px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:56px; box-shadow:0 10px 28px rgba(4,12,28,0.6), inset -6px -4px 20px rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.04); background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.04), rgba(0,0,0,0.18)); -webkit-user-select:none; user-select:none; pointer-events:auto; }
+        .invoice-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
 
-    /* Play Full Game button */
-    .play-full-btn { position:absolute; right:14px; bottom:14px; z-index:42; background: linear-gradient(90deg,#64c2ff 0%, #8ee7ff 50%, #d7fbff 100%); color:#052027; padding:10px 14px; border-radius:12px; border:none; font-weight:800; cursor:pointer; display:flex; gap:8px; align-items:center; box-shadow:0 12px 36px rgba(6,16,28,0.5); }
-    .play-full-btn:hover { transform: translateY(-2px); transition: transform .12s ease; box-shadow:0 18px 48px rgba(6,20,36,0.6); }
+        .amount-cell {
+            text-align: right;
+        }
 
-    /* About content skeleton (Part 2 will fill) */
-    .about-main { max-width:1100px; margin:28px auto 40px auto; padding-top:0; }
+        .summary {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-top: 2px solid #e2e8f0;
+        }
 
-    /* Footer skeleton (Part 3 will fill) */
-    .footer { min-height:260px; padding:28px 36px; display:flex; gap:24px; flex-wrap:wrap; }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+        }
 
-    /* Responsiveness */
-    @media (max-width:1200px){
-      .orbit-playground{ height:500px; }
-    }
-    @media (max-width:900px){
-      .hamburger{ display:block; }
-      .nav-buttons{ position:absolute; top:76px; right:0; background: rgba(8,12,20,0.98); flex-direction:column; gap:8px; padding:18px; width:260px; border-radius:8px; display:none; box-shadow:0 18px 60px rgba(0,0,0,0.7); }
-      .nav-buttons.show{ display:flex; }
-      .logo-title{ flex:1 1 auto; }
-      .orbit-playground{ height:420px; }
-      .about-main{ margin-top:18px; padding:0 12px; }
-      .hud-left{ position: static; margin:10px auto 6px; left:auto; top:auto; display:flex; }
-      .hud-small{ position:absolute; right:12px; top:12px; }
-      .play-full-btn{ right:12px; bottom:12px; }
-    }
-    @media (max-width:700px){
-      .orbit-playground{ height:360px; }
-      .about-main{ margin-top:12px; }
-      .hud-left{ width:calc(100% - 36px); }
-      .nav-buttons{ width:100%; right:0; left:0; top:76px; border-radius:0; }
-    }
-    @media (max-width:520px){
-      .orbit-playground{ height:320px; }
-      .hud-left .title{ font-size:0.98rem; }
-      .hud-left .subtitle{ font-size:0.78rem; }
-      .hud-small .label{ font-size:0.9rem; }
-      .nav-buttons{ padding:14px; }
-    }
+        .total-row {
+            font-weight: 600;
+            font-size: 1.1rem;
+            border-top: 2px solid #e2e8f0;
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
 
-    /* Utility */
-    .hidden { display:none !important; }
+        .footer {
+            background: #f1f5f9;
+            padding: 2rem;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
 
-    /* About & image styles kept from original structure (Part 2 relies on these classes) */
-    .about-section { background: rgba(24,31,43,0.97); border-radius: 12px; box-shadow: 0 8px 24px #20294429; padding: 28px 32px; margin-bottom: 24px; }
-    .about-flex-row { display: flex; align-items: flex-start; gap: 28px; margin-bottom: 22px; flex-wrap: wrap; }
-    .about-img-container { display:flex; justify-content:center; align-items:center; border-radius:12px; background:transparent; box-shadow:0 2px 24px #23274680; overflow:hidden; flex-shrink:0; border:2px solid rgba(255,255,255,0.12); position:relative; }
-    .about-img-container img { width:100%; height:100%; object-fit:cover; display:block; }
-    .about-img-left { width:260px; height:347px; }
-    .about-img-right { width:260px; height:347px; }
-    .about-img-inline { width:100%; height:340px; border-radius:10px; border:2px solid rgba(255,255,255,0.12); box-shadow:0 2px 20px #23274680; display:block; }
-    .about-flex-text { flex:1 1 340px; font-size:1rem; line-height:1.7; color:#fff; }
-    .about-section h2 { color:#fab84f; font-size:1.7rem; margin-top:0; margin-bottom:10px; }
-    .about-section ul { margin:12px 0 12px 20px; }
-    .about-section ul li { font-size:1rem; margin-bottom:6px; color:#bfeaff; }
-    .footer-about-title { font-size:1.2rem; font-weight:bold; color:#fab84f; margin-bottom:6px; }
-    .footer-about-text { color:#e5e5e5; margin-bottom:12px; }
-    .footer-social a { color:#fff; font-size:1.5rem; margin-right:10px; }
-    .footer-links a { display:block; color:#aaa; margin-bottom:8px; font-weight:600; }
-  </style>
+        .tax-statement {
+            font-style: italic;
+            color: #64748b;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 1rem 0.5rem;
+        }
+
+        .btn:hover {
+            background: #4f46e5;
+        }
+
+        .form-section {
+            padding: 2rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .items-section {
+            margin: 2rem 0;
+        }
+
+        .item-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+
+        .remove-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+                margin: 0;
+            }
+            
+            .print-hidden {
+                display: none !important;
+            }
+        }
+    </style>
 </head>
 <body>
-  <!-- Stars background -->
-  <div class="stars" id="stars"></div>
+    <div class="container">
+        <div id="invoice-preview" style="display: none;">
+            <!-- Invoice will be generated here -->
+        </div>
 
-  <!-- Header -->
-  <header class="top-bar">
-    <button class="hamburger" id="hamburgerBtn" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+        <div id="invoice-form" class="form-section">
+            <h2 style="margin-bottom: 2rem; text-align: center;">Create New Invoice</h2>
+            
+            <div class="form-grid">
+                <div>
+                    <div class="form-group">
+                        <label>Client Name *</label>
+                        <input type="text" id="clientName" required placeholder="Enter client name">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Client Email *</label>
+                        <input type="email" id="clientEmail" required placeholder="Enter client email">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Client Address</label>
+                        <textarea id="clientAddress" rows="3" placeholder="Enter client address"></textarea>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="form-group">
+                        <label>Invoice Date *</label>
+                        <input type="date" id="invoiceDate" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Due Date</label>
+                        <input type="date" id="dueDate" placeholder="Leave blank for default">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Currency</label>
+                        <select id="currency">
+                            <option value="EUR">EUR (€)</option>
+                            <option value="USD">$ (USD)</option>
+                            <option value="INR">₹ (INR)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
 
-    <div class="logo-title" onclick="window.location.href='dashboard.html'">
-      <img src="https://dl.dropboxusercontent.com/scl/fi/v5d7xte4tksarsdufk4ay/image.png?rlkey=ca8p4jsfcw1pnqr79q8uympso&st=ikst5uy1&dl=0" alt="Logo">
-      GalaxyWeb
+            <div class="items-section">
+                <h3>Invoice Items</h3>
+                <div id="items-container">
+                    <div class="item-row">
+                        <input type="text" class="item-desc" placeholder="Description" required>
+                        <input type="number" class="item-qty" placeholder="Qty" required min="1">
+                        <input type="number" class="item-rate" placeholder="Rate" required min="0" step="0.01">
+                        <button class="remove-btn" onclick="removeItem(this)">✕</button>
+                    </div>
+                </div>
+                
+                <button type="button" onclick="addItem()" class="btn" style="background: #10b981;">Add Item</button>
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem;" class="print-hidden">
+                <button onclick="generateInvoice()" class="btn">Generate Invoice</button>
+                <button onclick="printInvoice()" class="btn" style="background: #f59e0b;">Print Invoice</button>
+            </div>
+        </div>
     </div>
 
-    <nav class="nav-buttons" id="navButtons" aria-hidden="false">
-      <button class="nav-btn" onclick="window.location.href='dashboard.html'">Home</button>
-      <button class="nav-btn" onclick="window.location.href='about_us.html'">Team Galaxy</button>
-      <div class="more-options">
-        <button class="nav-btn">More ▼</button>
-        <div class="dropdown-content" id="moreDropdown" aria-hidden="true">
-          <a href="galaxy_blogs.html">Blog</a>
-          <a href="galaxy_portfolio.html">Portfolio</a>
-          <a href="posts.html">Posts</a>
-          <a href="community_chat.html">Community Chat</a>
-          <a href="galaxy_studio.html">Galaxy Design</a>
-        </div>
-      </div>
-
-      <button id="profileBtn" class="profile-btn" title="Sign In">Sign In</button>
-      <div id="profileMenu" class="dropdown-content" style="right:18px; display:none;">
-        <a href="/teamgalaxy/user_management/user_profile.html" id="profileLink">Profile</a>
-        <a href="#" id="logoutLink">Logout</a>
-      </div>
-    </nav>
-  </header>
-
-  <div class="container">
-    <!-- Play area -->
-    <div class="orbit-playground" id="orbitPlay">
-      <div class="play-card" id="playCard" aria-label="Orbit playground">
-        <canvas id="playCanvas" class="play-canvas" aria-hidden="true"></canvas>
-        <!-- nebula canvas will be appended by JS -->
-        <!-- LEFT STATIC HUD (injected by JS) -->
-        <!-- RIGHT HUD (name/slug + controls) -->
-        <div class="hud-small" id="hud">
-          <div>
-            <div class="label" id="hudName">Guest</div>
-            <div class="muted" id="hudSlug">@guest</div>
-          </div>
-          <div style="width:6px"></div>
-          <div style="text-align:right">
-            <div class="label" id="hudCollected">0</div>
-            <div class="muted" id="hudHigh">High: 0</div>
-          </div>
-          <div style="width:12px"></div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <button class="btn" id="btnSpawn">Spawn</button>
-            <button class="btn" id="btnClear">Clear</button>
-            <button class="btn" id="btnSave">Save</button>
-            <button class="btn" id="btnDownload">Download</button>
-          </div>
-        </div>
-
-        <!-- center Earth element -->
-        <div class="orbit-center" aria-hidden="false">
-          <div class="earth-game" id="earthEl" title="Double-click to sign in (or use Sign In button)">🌎</div>
-        </div>
-
-        <!-- Play Full Game button will be injected by JS (keeps separation with game logic below) -->
-      </div>
-    </div>
-
-    <!-- PART 2: ABOUT / CONTENT SECTIONS -->
-    <div class="about-main" id="aboutMain">
-
-      <div class="about-section">
-        <div class="about-flex-row">
-          <div class="about-img-container about-img-left" aria-hidden="true">
-            <img src="https://dl.dropboxusercontent.com/scl/fi/4r0o3ymhfol2ndauy5bwb/IMG_20251108_205841.png?rlkey=hagnr2tms6hzf36vc0qgldu4e&st=czyyqfdb&dl=0" alt="Team Galaxy">
-          </div>
-
-          <div class="about-flex-text">
-            <h2>What is Team Galaxy?</h2>
-            <div style="margin-top:6px; color:var(--muted); font-weight:600;">Est. May 2025</div>
-            <p style="margin-top:12px; line-height:1.7;">
-              Team Galaxy shines brightly on the competitive stage of World of Tanks Blitz. Our mission is to showcase our skills, push our limits, and aim for the top.
-              With a strong and united roster, we make our mark not only in tournaments but in every battle we fight.
-            </p>
-            <p style="line-height:1.7;">
-              But Team Galaxy isn't just about victory — it's about having fun, too! Our custom ranking system makes clan missions more exciting and creates a sense of friendly competition among members. Whether you want to fight at the highest level or just relax and enjoy the game with friends, you'll always find your place here.
-            </p>
-            <p style="line-height:1.7;">In Galaxy, every member is a star. 🌌</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="about-section">
-        <div class="about-flex-row">
-          <div class="about-flex-text">
-            <h2>Clan Events & Activities</h2>
-            <p style="margin-top:10px; line-height:1.7;">
-              At Team Galaxy, we believe that a clan should be more than just a tag next to your name — it should be an experience.
-              We host exclusive member-only events designed to bring our community closer and keep the game exciting.
-            </p>
-            <p style="line-height:1.7;">
-              One of our biggest traditions is turning weekly clan missions into a fun competition. Members earn stars by completing missions, and these stars contribute to a long-term leaderboard. The higher you climb, the more rewards you can win — from in-game gifts to special Galaxy merchandise.
-            </p>
-            <p style="line-height:1.7;">
-              These events are perfect for both competitive warriors and laid-back tankers who just want to enjoy the ride while working toward something rewarding.
-            </p>
-          </div>
-
-          <div class="about-img-container about-img-right" aria-hidden="true">
-            <img src="https://dl.dropboxusercontent.com/scl/fi/g4wq4m8pkzd32dc7g79dt/1762616781.png?rlkey=m4ctngnu14zl6lffhbw5lvexz&st=bbrct8s5&dl=0" alt="Clan Event">
-          </div>
-        </div>
-      </div>
-
-      <div class="about-section">
-        <h2>How to Apply</h2>
-        <div class="about-img-container about-img-inline" aria-hidden="true" style="margin-top:12px;">
-          <img src="https://dl.dropboxusercontent.com/scl/fi/extuxsxwz66h4kxz8apek/IMG_20251108_212726.jpg?rlkey=xw6xxxqtx62ahy9bikj0em3i3&st=34gxu7oj&dl=0" alt="Apply Clan">
-        </div>
-
-        <div style="margin-top:12px; line-height:1.7; font-size:1rem;">
-          Currently, we operate one main clan that welcomes both competitive and casual players.
-          <br><br>
-          <strong>Competitive Player Requirements:</strong>
-          <ul>
-            <li>2400+ WN8 (last 30 days)</li>
-            <li>5,000+ total battles</li>
-            <li>60%+ overall win rate</li>
-          </ul>
-
-          <strong>Casual Player Requirements:</strong>
-          <ul>
-            <li>10,000+ total battles</li>
-            <li>60%+ overall win rate</li>
-          </ul>
-
-          <p style="margin-top:8px;">
-            If you meet the requirements, simply reach out to us through our official Discord or in-game contact. Our recruitment officers will review your stats and chat with you before inviting you to join.
-          </p>
-
-          <p style="margin-top:6px; color:var(--muted);">
-            💡 Coming Soon: We are planning to launch our second clan to welcome even more players into the Galaxy family. Stay tuned for updates!
-          </p>
-        </div>
-      </div>
-
-      <div class="about-section">
-        <div class="about-flex-row">
-          <div class="about-img-container about-img-left" aria-hidden="true">
-            <img src="https://dl.dropboxusercontent.com/scl/fi/2o26yjla61had31bwpcqh/IMG_20251108_213648.jpg?rlkey=dh5e6uqjquk7bb8jnaofxixt5&st=mt7scwa4&dl=0" alt="Team Philosophy">
-          </div>
-
-          <div class="about-flex-text">
-            <h2>Our Playstyle & Philosophy</h2>
-            <p style="margin-top:10px; line-height:1.7;">
-              At Team Galaxy, we believe that victory is built on teamwork, strategy, and trust. We don't just play — we play smart, fast, and as one. Every battle is a chance to learn, improve, and grow stronger together.
-            </p>
-            <p style="line-height:1.7;">
-              Our philosophy is simple: push your limits, respect your team, and enjoy the game. Whether we're fighting for the top spot in a tournament or just having a relaxed evening in platoon, we bring the same passion and dedication to every match.
-            </p>
-            <p style="line-height:1.7;">We value communication, adaptability, and the drive to become better — because in the Galaxy, every star shines brighter when united. 🌌</p>
-          </div>
-        </div>
-      </div>
-
-       <div class="about-section">
-        <h2>Achievements & Journey</h2>
-        <div class="about-flex-row" style="align-items:flex-start;">
-          <div class="about-flex-text">
-            <p style="margin-top:8px; line-height:1.7;">
-              Since our formation in May 2025, Team Galaxy has quickly built a name for itself in the Blitz community. While our sights are set on the biggest stages, we've already dominated numerous smaller-scale tournaments and community events — proving that our teamwork and skill can consistently bring home the win.
-            </p>
-
-            <strong>Highlights so far:</strong>
-            <ul style="margin-top:8px;">
-              <li>Multiple weekly and community tournament victories.</li>
-              <li>Strong performance in clan mission challenges and internal competitions.</li>
-              <li>Established a solid and active roster of both competitive and casual players.</li>
-              <li>Launched our Galaxy Mission Challenge, turning weekly clan missions into a fun, rewarding contest.</li>
-            </ul>
-
-            <p style="margin-top:8px; line-height:1.7;">
-              Our journey is just beginning — and each win, no matter the size, brings us closer to our ultimate goal: competing and triumphing at the highest levels.
-            </p>
-          </div>
-
-          <div class="about-img-container about-img-right" aria-hidden="true">
-            <img src="https://dl.dropboxusercontent.com/scl/fi/athrvawp9mjtjc6psfxhv/1762616303.png?rlkey=4wwayymq6wn1632tquut9fn55&st=f10ldv4f&dl=0" alt="Galaxy Journey">
-          </div>
-        </div>
-      </div>
-
-    </div>
-    <!-- END PART 2 -->
-  </div>
-
-  <!-- Footer -->
-  <footer class="footer">
-    <!-- Left -->
-    <div class="footer-col footer-left">
-      <div>
-        <div class="footer-about-title">About TeamGalaxy</div>
-        <div class="footer-about-text">
-          TeamGalaxy is an innovative gaming and creative community, united by passion and the spirit of collaboration.
-          We host tournaments, share design ideas, and grow talents together — join now to explore the Galaxy!
-        </div>
-      </div>
-
-      <div class="footer-social">
-        <a href="https://x.com/teamgalaxy_wotb" title="Twitter"><i class="fab fa-twitter"></i></a>
-        <a href="https://discord.gg/26pSCyMRPM" title="Discord"><i class="fab fa-discord"></i></a>
-      </div>
-    </div>
-
-    <!-- Right -->
-    <div class="footer-col footer-right">
-      <div class="footer-links">
-        <a href="legal/privacy_policy.html">Privacy Policy</a>
-        <a href="legal/terms_and_conditions.html">Terms & Conditions</a>
-        <a href="about_us.html">About</a>
-      </div>
-
-      <div>
-        <div class="footer-contact-row">
-          <span class="footer-contact-label">
-            <i class="fa-solid fa-envelope footer-contact-icon"></i>Email:
-          </span>
-          info@teamgalaxy.net
-        </div>
-
-        <div class="footer-contact">
-          <span class="footer-contact-label">
-            <i class="fa-regular fa-clock footer-contact-icon"></i>Working Hours:
-          </span>
-          Mon–Sat 10am–10pm
-        </div>
-      </div>
-    </div>
-  </footer>
-
-  <!-- ReCAPTCHA (unchanged) -->
-  <script src="https://www.google.com/recaptcha/api.js?render=6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx"></script>
-
-<script type="module">
-/* ----------------------------
-   Firebase + AppCheck imports
-   (same as before; keep them to ensure save/download works)
----------------------------- */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
-import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app-check.js";
-import { getFirestore, doc, setDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
-
-/* ----------------------------
-   Firebase config (unchanged)
----------------------------- */
-const firebaseConfig = {
-  apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-  authDomain: "teamgalaxy-77344.firebaseapp.com",
-  projectId: "teamgalaxy-77344",
-  storageBucket: "teamgalaxy-77344.firebasestorage.app",
-  messagingSenderId: "770256225320",
-  appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-  measurementId: "G-6C2W9NSNCH"
-};
-const app = initializeApp(firebaseConfig);
-try {
-  initializeAppCheck(app, { provider: new ReCaptchaV3Provider('6Ld395IrAAAAAIvG4gyf0vUJeI_jKOsI9XVn0jUx'), isTokenAutoRefreshEnabled: true });
-} catch(e) { console.warn('AppCheck init failed', e); }
-
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
-const db = getFirestore(app);
-
-/* ----------------------------
-   Inject footer CSS (restore missing styles)
-   This keeps original look; injected only once.
----------------------------- */
-(function injectFooterCSS(){
-  const id = 'tg-footer-styles';
-  if (document.getElementById(id)) return;
-  const css = `
-  /* Restored footer styles */
-  footer.footer {
-    min-height: 300px;
-    background: linear-gradient(90deg, #181f2b 60%, #232e44 100%);
-    color: #fff;
-    display: flex;
-    flex-direction: row;
-    gap: 30px;
-    align-items: stretch;
-    justify-content: space-between;
-    padding: 30px 50px 20px 50px;
-    border-top: 2px solid #163053;
-    box-sizing: border-box;
-    flex-wrap: wrap;
-  }
-  .footer-col {
-    display:flex;
-    flex-direction:column;
-    justify-content:space-between;
-    flex:1 1 45%;
-  }
-  .footer-about-title { font-size:1.46rem; font-weight:bold; margin-bottom:8px; color:#fab84f; }
-  .footer-about-text { font-size:1rem; color:#e5e5e5; margin-bottom:18px; line-height:1.5; }
-  .footer-links a { font-size:1.13rem; color:#aaa; text-decoration:none; margin-bottom:12px; font-weight:600; display:block; transition: color .2s; }
-  .footer-links a:hover { color:#fab84f; }
-  .footer-social { margin-top:auto; display:flex; gap:21px; }
-  .footer-social a { color:#fff; font-size:2rem; text-decoration:none; transition:color .22s; }
-  .footer-contact-row { margin-bottom:8px; font-size:1rem; display:flex; align-items:center; gap:8px; }
-  .footer-contact-label { color:#fab84f; margin-right:4px; font-weight:500; font-size:1rem; }
-  .footer-contact { margin-top:12px; font-size:1.02rem; color:#fff; }
-  @media (max-width:900px){
-    footer.footer { padding:30px 20px; gap:20px; flex-direction:column; }
-    .footer-col { flex:1 1 100%; }
-  }`;
-  const s = document.createElement('style');
-  s.id = id;
-  s.textContent = css;
-  document.head.appendChild(s);
-})();
-
-/* ----------------------------
-   DOM refs (same IDs expected in page)
----------------------------- */
-const playCard = document.getElementById('playCard');
-const playCanvas = document.getElementById('playCanvas');
-const earthEl = document.getElementById('earthEl');
-
-const hudNameRight = document.getElementById('hudName');
-const hudSlugRight = document.getElementById('hudSlug');
-const hudCollected = document.getElementById('hudCollected');
-const hudHigh = document.getElementById('hudHigh');
-
-const btnSpawn = document.getElementById('btnSpawn');
-const btnClear = document.getElementById('btnClear');
-const btnSave = document.getElementById('btnSave');
-const btnDownload = document.getElementById('btnDownload');
-
-const profileBtn = document.getElementById('profileBtn');
-const profileMenu = document.getElementById('profileMenu');
-const logoutLink = document.getElementById('logoutLink');
-const profileLink = document.getElementById('profileLink');
-
-/* ----------------------------
-   Local game state (kept minimal)
----------------------------- */
-let DPR = Math.max(1, window.devicePixelRatio || 1);
-let W = 0, H = 0;
-let orbs = [], pops = [];
-let nextId = 1;
-const MAX_ORBS = 28;
-let collected = 0; // session resets to 0
-let high = parseInt(localStorage.getItem('galaxy_high')) || 0;
-let currentUser = null;
-let currentProfile = null;
-let userPrivUnsub = null;
-
-/* ----------------------------
-   canvas contexts
----------------------------- */
-const ctx = playCanvas.getContext('2d');
-let nebulaCanvas = document.querySelector('.nebula-canvas');
-if (!nebulaCanvas && playCard) {
-  nebulaCanvas = document.createElement('canvas');
-  nebulaCanvas.className = 'nebula-canvas';
-  nebulaCanvas.setAttribute('aria-hidden','true');
-  playCard.appendChild(nebulaCanvas);
-}
-const nebCtx = nebulaCanvas ? nebulaCanvas.getContext('2d') : null;
-
-/* ----------------------------
-   Utility helpers
----------------------------- */
-function rand(a,b){ return a + Math.random()*(b-a); }
-function pickType(){ const r=Math.random(); let s=0; const ORB_TYPES = [{chance:0.75,size:18,score:1},{chance:0.18,size:26,score:3},{chance:0.06,size:34,score:6},{chance:0.01,size:44,score:12}]; for(const t of ORB_TYPES){ s+=t.chance; if(r <= s) return t; } return ORB_TYPES[0]; }
-function hexToRgb(hex){ const s = hex.replace('#',''); return { r:parseInt(s.slice(0,2),16), g:parseInt(s.slice(2,4),16), b:parseInt(s.slice(4,6),16) }; }
-
-/* ----------------------------
-   resize logic (keeps previous behaviour)
----------------------------- */
-function resizeGame(){
-  const rect = playCard.getBoundingClientRect();
-  W = Math.max(200, Math.floor(rect.width || window.innerWidth-80));
-  H = Math.max(220, Math.floor(rect.height || 520));
-  playCanvas.style.width = W + 'px'; playCanvas.style.height = H + 'px';
-  playCanvas.width = Math.floor(W * DPR); playCanvas.height = Math.floor(H * DPR);
-  ctx.setTransform(DPR,0,0,DPR,0,0);
-  if(nebulaCanvas){
-    nebulaCanvas.style.width = W + 'px'; nebulaCanvas.style.height = H + 'px';
-    nebulaCanvas.width = Math.floor(W * DPR); nebulaCanvas.height = Math.floor(H * DPR);
-    nebulaCanvas.getContext('2d').setTransform(DPR,0,0,DPR,0,0);
-    initNebula();
-  }
-}
-window.addEventListener('resize', resizeGame);
-
-/* ----------------------------
-   Nebula helpers (kept)
----------------------------- */
-let nebulaBlobs = [];
-function initNebula(){
-  nebulaBlobs = [];
-  const blobCount = Math.max(2, Math.round(W/420));
-  for(let i=0;i<blobCount;i++){
-    nebulaBlobs.push({ x:Math.random()*W, y:Math.random()*H, r: Math.max(80, Math.random()*220), vx:(Math.random()-0.5)*0.14, vy:(Math.random()-0.5)*0.14, hue: Math.floor(180 + Math.random()*120), alpha: 0.06 + Math.random()*0.12 });
-  }
-}
-function drawNebula(){
-  if(!nebCtx) return;
-  nebCtx.clearRect(0,0,W,H);
-  for(const b of nebulaBlobs){
-    b.x += b.vx; b.y += b.vy;
-    if(b.x < -b.r) b.x = W + b.r;
-    if(b.x > W + b.r) b.x = -b.r;
-    if(b.y < -b.r) b.y = H + b.r;
-    if(b.y > H + b.r) b.y = -b.r;
-    const g = nebCtx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);
-    g.addColorStop(0, `hsla(${b.hue},75%,60%,${b.alpha*1.6})`);
-    g.addColorStop(0.5, `hsla(${b.hue},65%,40%,${b.alpha})`);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    nebCtx.fillStyle = g; nebCtx.beginPath(); nebCtx.arc(b.x,b.y,b.r,0,Math.PI*2); nebCtx.fill();
-  }
-}
-
-/* ----------------------------
-   spawn / hit / collect
----------------------------- */
-function spawnOrbAt(clientX, clientY){
-  if (orbs.length >= MAX_ORBS) return;
-  const rect = playCard.getBoundingClientRect();
-  const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
-  const px = clientX || (cx + rand(-140,140));
-  const py = clientY || (cy + rand(-90,90));
-  const dx = px - cx, dy = py - cy;
-  const radius = Math.max(72, Math.min(Math.hypot(dx,dy), Math.min(rect.width, rect.height)/2 - 36));
-  const angle = Math.atan2(dy, dx);
-  const baseSpeed = 1.1 / Math.sqrt(Math.max(1, radius/90));
-  const speed = (Math.random() < 0.5 ? 1 : -1) * baseSpeed * (0.7 + Math.random()*1.0);
-  const t = pickType();
-  orbs.push({ id: nextId++, angle, radius, speed, size: t.size * (0.92 + Math.random()*0.18), color: '#8EE7FF', score: t.score, rotation: Math.random()*Math.PI*2, rotSpeed: (Math.random()*0.9-0.45)*0.02 });
-}
-function toLocalCoords(clientX, clientY){ const rect = playCard.getBoundingClientRect(); return { x: clientX - rect.left, y: clientY - rect.top }; }
-function hitTest(x,y){
-  let best=null, bestD=Infinity;
-  const rect = playCard.getBoundingClientRect();
-  const cx = rect.width/2, cy = rect.height/2;
-  for(const o of orbs){
-    const ox = cx + o.radius * Math.cos(o.angle), oy = cy + o.radius * Math.sin(o.angle);
-    const d = Math.hypot(x-ox, y-oy);
-    const hitR = Math.max(18, o.size*1.6);
-    if (d <= hitR && d < bestD){ best = o; bestD = d; }
-  }
-  return best;
-}
-function spawnPopForOrb(o){
-  const rect = playCard.getBoundingClientRect(); const cx = rect.width/2, cy = rect.height/2;
-  const x = cx + o.radius * Math.cos(o.angle); const y = cy + o.radius * Math.sin(o.angle);
-  const rgb = hexToRgb(o.color || '#8EE7FF');
-  const parts = []; const count = Math.min(34, Math.round(8 + o.size*1.4));
-  for(let i=0;i<count;i++){
-    const ang = Math.random()*Math.PI*2;
-    parts.push({ vx: Math.cos(ang)*(0.6 + Math.random()*3.2), vy: Math.sin(ang)*(0.6 + Math.random()*3.2), size: Math.random()*(o.size*0.8)+0.6, color: `rgba(${rgb.r},${rgb.g},${rgb.b},` });
-  }
-  pops.push({ x,y, parts, life:1, lifeMax:1, speed: 42 + o.size*6 });
-}
-function collectOrb(o){
-  if(!o) return;
-  spawnPopForOrb(o);
-  collected += o.score;
-  if (collected > high) {
-    high = collected;
-    localStorage.setItem('galaxy_high', high);
-  }
-  orbs = orbs.filter(x=>x.id !== o.id);
-  updateHUD();
-}
-
-/* ----------------------------
-   drawing loop (keeps minimal)
----------------------------- */
-let last = performance.now();
-function draw(now){
-  requestAnimationFrame(draw);
-  const dt = Math.max(8, now - last);
-  last = now;
-  ctx.clearRect(0,0,W,H);
-
-  // background
-  const grad = ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0,'rgba(6,10,18,0.20)'); grad.addColorStop(1,'rgba(3,6,12,0.32)');
-  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
-
-  // subtle star dust
-  for(let i=0;i<Math.max(8, Math.round((W*H)/200000)); i++){
-    const x = (i*37*13) % W + ((now/1200) % 7);
-    const y = ((i*17*7) % H) + Math.sin((now/12000)+i)*6;
-    ctx.fillStyle = 'rgba(200,230,255,0.02)';
-    ctx.beginPath(); ctx.ellipse(x,y,1.2,1.2,0,0,Math.PI*2); ctx.fill();
-  }
-
-  // orbs
-  const rect = playCard.getBoundingClientRect();
-  const cx = rect.width/2, cy = rect.height/2;
-  for(const o of orbs){
-    o.angle += o.speed * (dt/1000);
-    o.rotation += o.rotSpeed;
-    const x = cx + o.radius * Math.cos(o.angle), y = cy + o.radius * Math.sin(o.angle);
-    ctx.save();
-    ctx.translate(x,y);
-    ctx.rotate(o.rotation * 0.12);
-    const glow = ctx.createRadialGradient(0,0,0,0,0,o.size*2.6);
-    glow.addColorStop(0,'rgba(255,255,255,0.08)'); glow.addColorStop(0.6,'rgba(255,255,255,0.02)'); glow.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0,0,o.size*2.6,0,Math.PI*2); ctx.fill();
-    ctx.font = `${Math.max(16,Math.min(56,o.size))}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🛰️',0,0);
-    ctx.restore();
-    o.screenX = x; o.screenY = y;
-  }
-
-  // pops
-  for(let i=pops.length-1;i>=0;i--){
-    const p = pops[i];
-    p.life -= dt / 420;
-    const alpha = Math.max(0, p.life / p.lifeMax);
-    for(const part of p.parts){
-      const px = p.x + part.vx * (1 - alpha) * p.speed;
-      const py = p.y + part.vy * (1 - alpha) * p.speed;
-      const s = Math.max(0.6, part.size * alpha);
-      ctx.fillStyle = part.color + (0.88 * alpha) + ')';
-      ctx.beginPath(); ctx.ellipse(px,py,s,s,0,0,Math.PI*2); ctx.fill();
-    }
-    if (p.life <= 0) pops.splice(i,1);
-  }
-
-  // nebula layer
-  drawNebula();
-}
-
-/* ----------------------------
-   pointer events
----------------------------- */
-playCard.addEventListener('pointerdown', (e) => {
-  if(e.pointerType === 'mouse' && e.button !== 0) return;
-  const p = toLocalCoords(e.clientX, e.clientY);
-  const found = hitTest(p.x,p.y);
-  if(found){ collectOrb(found); return; }
-  spawnOrbAt(e.clientX, e.clientY);
-});
-
-/* ----------------------------
-   button handlers (keep download wired)
----------------------------- */
-if(btnSpawn) btnSpawn.addEventListener('click', ()=> { for(let i=0;i<3;i++) spawnOrbAt(); });
-if(btnClear) btnClear.addEventListener('click', ()=> { orbs=[]; pops=[]; collected=0; updateHUD(); ctx.clearRect(0,0,W,H); });
-if(btnSave) btnSave.addEventListener('click', saveScoreToCloud);
-
-/* ----------------------------
-   downloadScoreImage - FULL implementation
-   Creates a nice PNG card and triggers download.
----------------------------- */
-function downloadScoreImage(){
-  try {
-    const w = 1400, h = 760;
-    const c = document.createElement('canvas'); c.width = w; c.height = h;
-    const g = c.getContext('2d');
-
-    // background gradient
-    const grad = g.createLinearGradient(0,0,0,h);
-    grad.addColorStop(0, '#021224'); grad.addColorStop(1, '#061224');
-    g.fillStyle = grad; g.fillRect(0,0,w,h);
-
-    // star field
-    for(let i=0;i<200;i++){
-      g.fillStyle = 'rgba(200,230,255,' + (0.02 + Math.random()*0.07) + ')';
-      const x = Math.random()*w, y = Math.random()*h, s = Math.random()*2.4;
-      g.beginPath(); g.ellipse(x,y,s,s,0,0,Math.PI*2); g.fill();
-    }
-
-    // glass panel
-    g.fillStyle = 'rgba(8,14,22,0.62)'; roundRect(g,64,84,w-128,h-188,20); g.fill();
-
-    // planet badge
-    const cx = 150, cy = 300, cr = 120;
-    const pg = g.createRadialGradient(cx-30,cy-30,10,cx,cy,cr);
-    pg.addColorStop(0,'#9ee6ff'); pg.addColorStop(0.5,'#6abcf1'); pg.addColorStop(1,'#1b3d66');
-    g.fillStyle = pg; g.beginPath(); g.arc(cx,cy,cr,0,Math.PI*2); g.fill();
-
-    // rings
-    g.strokeStyle = 'rgba(255,255,255,0.08)'; g.lineWidth = 8;
-    g.beginPath(); g.ellipse(cx,cy+8,cr+28,cr-18,-0.35,0,Math.PI*2); g.stroke();
-
-    // emoji planet
-    g.font = '92px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('🌎', cx, cy);
-
-    // title
-    g.font = '700 44px Poppins, Arial'; g.fillStyle = '#fff';
-    g.fillText('Team Galaxy — Orbit Score Card', 380, 140);
-
-    // display name + slug
-    const displayName = currentProfile?.name || (currentUser?.displayName || 'Guest');
-    const slug = currentProfile?.slug ? ('@' + currentProfile.slug) : (currentUser ? ('@' + currentUser.uid.slice(0,8)) : '@guest');
-    g.font = '600 28px Poppins, Arial'; g.fillStyle = '#bfeaff'; g.fillText(displayName, 380, 210);
-    g.font = '500 20px Poppins, Arial'; g.fillStyle = '#9fd8ff'; g.fillText(slug, 380, 246);
-
-    // big high
-    g.font = '700 88px Poppins, Arial'; g.fillStyle = '#fff'; g.fillText(String(high), 380, 380);
-    g.font = '500 20px Poppins, Arial'; g.fillStyle = '#9fd8ff'; g.fillText('High Score', 380, 420);
-
-    // collected
-    g.font = '700 38px Poppins, Arial'; g.fillStyle = '#fff'; g.fillText('Collected: ' + collected, 380, 520);
-
-    // photo (if available) - small circle on the right
-    const photoUrl = currentProfile?.profilePhotoUrl || currentUser?.photoURL || null;
-    if (photoUrl) {
-      // draw remote image onto canvas (async). We fallback to immediate download if loading fails.
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = function(){
-        // draw circular photo at right column
-        const px = w - 190, py = 220, pr = 72;
-        g.save();
-        g.beginPath(); g.arc(px, py, pr, 0, Math.PI*2); g.closePath(); g.clip();
-        g.drawImage(img, px-pr, py-pr, pr*2, pr*2);
-        g.restore();
-
-        // final footer text
-        g.font = '400 16px Poppins, Arial'; g.fillStyle = 'rgba(255,255,255,0.8)';
-        g.fillText('Generated: ' + new Date().toLocaleString(), 380, 600);
-        g.font = '400 14px Poppins, Arial'; g.fillStyle = 'rgba(255,255,255,0.65)'; g.fillText('Public game stats only — no personal PII included.', w-300, h-56);
-
-        // small satellites and download
-        g.font = '28px serif'; g.fillStyle = '#d7f6ff';
-        [[w-240,220],[w-160,340],[w-220,420]].forEach(p=> g.fillText('🛰️', p[0], p[1]));
-
-        c.toBlob(function(blob){
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a'); a.href = url;
-          a.download = 'galaxy-score-' + Date.now() + '.png';
-          document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-        }, 'image/png');
-      };
-      img.onerror = function(){
-        // fallback: no photo draw
-        g.font = '400 16px Poppins, Arial'; g.fillStyle = 'rgba(255,255,255,0.8)';
-        g.fillText('Generated: ' + new Date().toLocaleString(), 380, 600);
-        g.font = '400 14px Poppins, Arial'; g.fillStyle = 'rgba(255,255,255,0.65)'; g.fillText('Public game stats only — no personal PII included.', w-300, h-56);
-        g.font = '28px serif'; g.fillStyle = '#d7f6ff';
-        [[w-240,220],[w-160,340],[w-220,420]].forEach(p=> g.fillText('🛰️', p[0], p[1]));
-        c.toBlob(function(blob){
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a'); a.href = url;
-          a.download = 'galaxy-score-' + Date.now() + '.png';
-          document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-        }, 'image/png');
-      };
-      img.src = photoUrl;
-    } else {
-      // no photo path
-      g.font = '400 16px Poppins, Arial'; g.fillStyle = 'rgba(255,255,255,0.8)';
-      g.fillText('Generated: ' + new Date().toLocaleString(), 380, 600);
-      g.font = '400 14px Poppins, Arial'; g.fillStyle = 'rgba(255,255,255,0.65)'; g.fillText('Public game stats only — no personal PII included.', w-300, h-56);
-      g.font = '28px serif'; g.fillStyle = '#d7f6ff';
-      [[w-240,220],[w-160,340],[w-220,420]].forEach(p=> g.fillText('🛰️', p[0], p[1]));
-      c.toBlob(function(blob){
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url;
-        a.download = 'galaxy-score-' + Date.now() + '.png';
-        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      }, 'image/png');
-    }
-  } catch (err) {
-    console.error('downloadScoreImage failed', err);
-    alert('Failed to generate image.');
-  }
-}
-function roundRect(g, x, y, w, h, r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
-
-/* Wire download button to this function */
-if(btnDownload){
-  btnDownload.removeEventListener && btnDownload.removeEventListener('click', ()=>{}); // best-effort removal
-  btnDownload.addEventListener('click', downloadScoreImage);
-}
-
-/* ----------------------------
-   Save to cloud (keeps photoUrl field)
----------------------------- */
-async function saveScoreToCloud(){
-  if (!currentUser){ alert('Sign in to save to cloud (click Sign In or double-click the Earth).'); return; }
-  try{
-    const uid = currentUser.uid;
-    const ref = doc(db, 'gameScores', uid);
-    const payload = {
-      collected,
-      high,
-      name: currentProfile?.name || currentUser?.displayName || null,
-      slug: currentProfile?.slug || null,
-      photoUrl: currentProfile?.profilePhotoUrl || currentUser?.photoURL || null,
-      lastUpdated: serverTimestamp(),
-      clientTs: new Date().toISOString()
-    };
-    await setDoc(ref, payload, { merge: true });
-    alert('Saved to cloud.');
-  }catch(e){ console.error('save fail', e); alert('Save failed.'); }
-}
-
-/* ----------------------------
-   Auth state: subscribe to usersPrivate
----------------------------- */
-onAuthStateChanged(auth, async (user) => {
-  if (userPrivUnsub) { try { userPrivUnsub(); } catch(_){} userPrivUnsub = null; }
-  currentUser = user;
-  if (user) {
-    try {
-      const privRef = doc(db, 'usersPrivate', user.uid);
-      userPrivUnsub = onSnapshot(privRef, (snap) => {
-        if (snap.exists()) currentProfile = snap.data();
-        else currentProfile = { name: user.displayName || null, slug: null, profilePhotoUrl: user.photoURL || null };
-        updateHUD();
-      }, (err) => {
-        console.warn('usersPrivate snapshot error', err);
-        currentProfile = { name: user.displayName || null, slug: null, profilePhotoUrl: user.photoURL || null };
-        updateHUD();
-      });
-    } catch(e){
-      console.warn('usersPrivate subscription failed', e);
-      currentProfile = { name: user.displayName || null, slug: null, profilePhotoUrl: user.photoURL || null };
-      updateHUD();
-    }
-  } else {
-    currentProfile = null;
-    updateHUD();
-  }
-});
-
-/* ----------------------------
-   Update Profile Button (photo)
----------------------------- */
-function updateProfileButton(){
-  try {
-    const u = currentUser;
-    if (!profileBtn) return;
-    if (u) {
-      if (u.photoURL) {
-        profileBtn.innerHTML = `<img src="${u.photoURL}" alt="Profile" style="width:36px;height:36px;border-radius:50%;">`;
-      } else {
-        profileBtn.innerHTML = `<i class="fa-solid fa-user"></i>`;
-      }
-      profileBtn.title = currentProfile?.name || u.displayName || u.email || "Profile";
-    } else {
-      profileBtn.innerHTML = 'Sign In';
-      profileBtn.title = 'Sign In';
-    }
-  } catch(e){ console.warn('updateProfileBtn err', e); }
-}
-
-/* ----------------------------
-   Finish: init + minimal auto spawn + resize + draw
----------------------------- */
-function updateHUD(){
-  if (hudCollected) hudCollected.textContent = collected;
-  if (hudHigh) hudHigh.textContent = 'High: ' + high;
-  if (hudNameRight) hudNameRight.textContent = currentProfile?.name || (currentUser?.displayName || 'Guest');
-  if (hudSlugRight) hudSlugRight.textContent = currentProfile?.slug ? ('@' + currentProfile.slug) : (currentUser ? ('@' + currentUser.uid.slice(0,8)) : '@guest');
-  updateProfileButton();
-}
-
-(function start(){
-  DPR = Math.max(1, window.devicePixelRatio || 1);
-  resizeGame();
-  initNebula();
-  for(let i=0;i<5;i++) spawnOrbAt();
-  updateHUD();
-  requestAnimationFrame(draw);
-  // auto spawn
-  setInterval(()=>{ if (orbs.length < MAX_ORBS){ if(Math.random() < 0.22){ for(let i=0;i<3;i++) spawnOrbAt(); } else spawnOrbAt(); } }, 1200);
-})();
-
-/* cleanup on unload */
-window.addEventListener('beforeunload', ()=> { localStorage.setItem('galaxy_high', high); if (userPrivUnsub) try{ userPrivUnsub(); } catch(_){} });
-
-/* small profile interactions: double click earth to sign in */
-if (earthEl) earthEl.addEventListener('dblclick', async () => {
-  if (currentUser){ alert('Signed in as ' + (currentUser.displayName || currentUser.email)); return; }
-  try{ await signInWithPopup(auth, provider); alert('Signed in'); }catch(e){ console.warn(e); alert('Sign-in failed'); }
-});
-</script>
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+            authDomain: "teamgalaxy-77344.firebaseapp.com",
+            projectId: "teamgalaxy-77344",
+            storageBucket: "teamgalaxy-77344.firebasestorage.app",
+            messagingSenderId: "770256225320",
+            appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+            measurementId: "G-6C2W9NSNCH"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Set today's date as default
+        document.getElementById('invoiceDate').valueAsDate = new Date();
+        
+        function addItem() {
+            const container = document.getElementById('items-container');
+            const itemRow = document.createElement('div');
+            itemRow.className = 'item-row';
+            itemRow.innerHTML = `
+                <input type="text" class="item-desc" placeholder="Description" required>
+                <input type="number" class="item-qty" placeholder="Qty" required min="1">
+                <input type="number" class="item-rate" placeholder="Rate" required min="0" step="0.01">
+                <button class="remove-btn" onclick="removeItem(this)">✕</button>
+            `;
+            container.appendChild(itemRow);
+        }
+
+        function removeItem(button) {
+            button.parentElement.remove();
+        }
+
+        async function generateInvoice() {
+            try {
+                // Get form data
+                const clientName = document.getElementById('clientName').value;
+                const clientEmail = document.getElementById('clientEmail').value;
+                const clientAddress = document.getElementById('clientAddress').value;
+                const invoiceDate = document.getElementById('invoiceDate').value;
+                const dueDate = document.getElementById('dueDate').value || invoiceDate;
+                const currency = document.getElementById('currency').value;
+
+                // Get items
+                const itemsContainer = document.getElementById('items-container');
+                const itemRows = itemsContainer.querySelectorAll('.item-row');
+                const items = [];
+
+                let subtotal = 0;
+                itemRows.forEach(row => {
+                    const desc = row.querySelector('.item-desc').value;
+                    const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+                    const rate = parseFloat(row.querySelector('.item-rate').value) || 0;
+                    const total = qty * rate;
+                    
+                    if (desc && qty > 0 && rate >= 0) {
+                        items.push({
+                            description: desc,
+                            quantity: qty,
+                            rate: rate,
+                            total: total
+                        });
+                        subtotal += total;
+                    }
+                });
+
+                if (items.length === 0) {
+                    alert('Please add at least one item');
+                    return;
+                }
+
+                // Generate invoice number
+                const invoiceNumber = await getNewInvoiceNumber();
+                
+                // Calculate amounts (0% tax for micro-entrepreneur)
+                const tax = 0;
+                const total = subtotal + tax;
+
+                // Create invoice object
+                const invoiceData = {
+                    invoiceNumber: invoiceNumber,
+                    clientInfo: {
+                        name: clientName,
+                        email: clientEmail,
+                        address: clientAddress
+                    },
+                    items: items,
+                    amounts: {
+                        subtotal: subtotal,
+                        tax: tax,
+                        total: total,
+                        currency: currency
+                    },
+                    dates: {
+                        issueDate: invoiceDate,
+                        dueDate: dueDate
+                    },
+                    status: 'pending',
+                    created_at: new Date(),
+                    sent_at: null
+                };
+
+                // Save to Firestore
+                await db.collection('invoices').doc(invoiceNumber).set(invoiceData);
+
+                // Generate preview
+                generateInvoicePreview(invoiceData);
+                
+                alert(`Invoice ${invoiceNumber} created successfully!`);
+                
+            } catch (error) {
+                console.error('Error generating invoice:', error);
+                alert('Error creating invoice: ' + error.message);
+            }
+        }
+
+        async function getNewInvoiceNumber() {
+            const year = new Date().getFullYear();
+            const settingsRef = db.collection('settings').doc('invoiceCounter');
+            
+            const doc = await settingsRef.get();
+            let counter = 1;
+            
+            if (doc.exists) {
+                const data = doc.data();
+                if (data.currentYear === year) {
+                    counter = (data.currentNumber || 0) + 1;
+                } else {
+                    counter = 1; // Reset for new year
+                }
+            }
+            
+            // Update counter in Firestore
+            await settingsRef.set({
+                currentYear: year,
+                currentNumber: counter,
+                updated_at: new Date()
+            }, { merge: true });
+            
+            return `GD-${year}-${String(counter).padStart(3, '0')}`;
+        }
+
+        function generateInvoicePreview(invoiceData) {
+            const { invoiceNumber, clientInfo, items, amounts, dates } = invoiceData;
+            const currencySymbol = amounts.currency === 'EUR' ? '€' : 
+                                 amounts.currency === 'USD' ? '$' : '₹';
+            
+            // Format dates
+            const formatDate = (dateStr) => {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-GB', { 
+                    day: '2-digit', 
+                    month: 'short', 
+                    year: 'numeric' 
+                });
+            };
+
+            let itemsHtml = '';
+            items.forEach(item => {
+                itemsHtml += `
+                    <tr>
+                        <td>${item.description}</td>
+                        <td>${item.quantity}</td>
+                        <td>${currencySymbol}${item.rate.toFixed(2)}</td>
+                        <td class="amount-cell">${currencySymbol}${item.total.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            const invoiceHtml = `
+                <div class="invoice-header">
+                    <div class="company-info">
+                        <div>
+                            <div class="company-name">TeamGalaxy</div>
+                            <div>Freelance Development Services</div>
+                        </div>
+                        <div class="invoice-title">
+                            <h1>INVOICE</h1>
+                            <div>${invoiceNumber}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="invoice-details">
+                    <div class="client-info">
+                        <h3>Billed To:</h3>
+                        <div><strong>${clientInfo.name}</strong></div>
+                        <div>${clientInfo.email}</div>
+                        ${clientInfo.address ? `<div>${clientInfo.address}</div>` : ''}
+                    </div>
+                    
+                    <div class="invoice-meta">
+                        <h3>Invoice Details:</h3>
+                        <div><strong>Date:</strong> ${formatDate(dates.issueDate)}</div>
+                        <div><strong>Due Date:</strong> ${formatDate(dates.dueDate)}</div>
+                        <div><strong>Status:</strong> Pending</div>
+                    </div>
+                </div>
+
+                <table class="invoice-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Quantity</th>
+                            <th>Rate (${currencySymbol})</th>
+                            <th class="amount-cell">Amount (${currencySymbol})</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+
+                <div class="summary">
+                    <div class="summary-row">
+                        <span>Subtotal:</span>
+                        <span>${currencySymbol}${amounts.subtotal.toFixed(2)}</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Tax (0%):</span>
+                        <span>${currencySymbol}0.00</span>
+                    </div>
+                    <div class="summary-row total-row">
+                        <span>Total Amount:</span>
+                        <span>${currencySymbol}${amounts.total.toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <div><strong>Payment Terms:</strong> Net 30 days</div>
+                    <div><strong>Bank Details:</strong> [Your bank details here]</div>
+                    <div class="tax-statement">TVA non applicable, art. 293 B du CGI</div>
+                </div>
+            `;
+
+            document.getElementById('invoice-preview').innerHTML = invoiceHtml;
+            document.getElementById('invoice-preview').style.display = 'block';
+            document.getElementById('invoice-form').style.display = 'none';
+        }
+
+        function printInvoice() {
+            window.print();
+        }
+
+        function goBackToForm() {
+            document.getElementById('invoice-preview').style.display = 'none';
+            document.getElementById('invoice-form').style.display = 'block';
+        }
+    </script>
 </body>
 </html>
