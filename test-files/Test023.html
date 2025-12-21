@@ -1,105 +1,549 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Secure Chat Login</title>
-  <!-- Load Supabase JS library first -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Executive Dashboard - Transactions</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family: Arial, sans-serif; padding: 2rem; }
-    #status { margin-top: 1rem; color: #333; }
-    #debug { margin-top: 2rem; padding: 1rem; background: #f5f5f5; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; font-size: 0.9rem; white-space: pre-wrap; }
-    input, button { padding: 0.5rem; font-size: 1rem; }
+    :root {
+      --primary: #4361ee;
+      --secondary: #3a0ca3;
+      --success: #06d6a0;
+      --warning: #ffd166;
+      --danger: #ef476f;
+      --dark: #1a1a2e;
+      --light: #f8f9fa;
+      --gray: #6c757d;
+      --card-bg: #ffffff;
+      --body-bg: #f5f7fa;
+      --border: #e0e0e0;
+      --shadow: 0 4px 12px rgba(0,0,0,0.05);
+      --progress-low: #ef476f;
+      --progress-mid: #ffd166;
+      --progress-high: #06d6a0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--body-bg);
+      color: var(--dark);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Loading Screen */
+    #loadingScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--body-bg);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: opacity 0.5s, visibility 0.5s;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(67, 97, 238, 0.2);
+      border-top: 5px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 1.2rem;
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    /* Main Layout */
+    .dashboard-container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background: var(--card-bg);
+      padding: 25px 15px;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+      height: 100vh;
+      position: fixed;
+      overflow-y: auto;
+      transition: all 0.3s ease;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      margin-bottom: 30px;
+      padding: 0 10px;
+    }
+
+    .logo-icon {
+      font-size: 28px;
+      color: var(--primary);
+      margin-right: 12px;
+    }
+
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .menu-title {
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      color: var(--gray);
+      margin: 20px 15px 10px;
+      font-weight: 600;
+    }
+
+    .nav-menu {
+      list-style: none;
+    }
+
+    .nav-item {
+      margin-bottom: 5px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      padding: 12px 15px;
+      text-decoration: none;
+      color: var(--dark);
+      border-radius: 8px;
+      transition: all 0.2s;
+      font-weight: 500;
+      margin: 0 5px;
+    }
+
+    .nav-link i {
+      margin-right: 12px;
+      font-size: 1.1rem;
+      width: 24px;
+      text-align: center;
+      color: var(--primary);
+    }
+
+    .nav-link:hover, .nav-link.active {
+      background: rgba(67, 97, 238, 0.1);
+      color: var(--primary);
+      transform: translateX(5px);
+    }
+
+    .nav-link.active {
+      background: rgba(67, 97, 238, 0.15);
+      font-weight: 600;
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      margin-left: 280px;
+      padding: 30px;
+      transition: all 0.3s ease;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .page-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .date-display {
+      font-size: 1rem;
+      color: var(--gray);
+    }
+
+    /* Transactions Section */
+    .transactions-section {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: var(--shadow);
+    }
+
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: var(--dark);
+      display: flex;
+      align-items: center;
+    }
+
+    .section-title i {
+      margin-right: 10px;
+      color: var(--primary);
+    }
+
+    .transactions-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .transactions-table th {
+      text-align: left;
+      padding: 12px 15px;
+      border-bottom: 2px solid var(--border);
+      color: var(--gray);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .transactions-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .transactions-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .amount-col {
+      font-weight: 600;
+      color: var(--success);
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--gray);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      color: #e0e0e0;
+    }
+
+    /* Responsive */
+    @media (max-width: 992px) {
+      .sidebar {
+        width: 80px;
+      }
+      .logo-text, .stat-value, .stat-label, .menu-title, .nav-link span {
+        display: none;
+      }
+      .logo {
+        justify-content: center;
+      }
+      .nav-link {
+        justify-content: center;
+      }
+      .nav-link i {
+        margin-right: 0;
+      }
+      .main-content {
+        margin-left: 80px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+      }
+      .main-content {
+        margin-left: 0;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Secure Chat Login</h1>
-  <div>
-    <input id="email-input" type="email" placeholder="your@gmail.com" />
-    <button id="send-link-btn">Send Magic Link</button>
+  <!-- Loading Screen -->
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading Transactions...</div>
   </div>
-  <div id="status"></div>
-  <div id="debug"></div>  <script>
-    // Initialize Supabase client
-    const SUPA_URL = 'https://dvjihjkyenzkacviywgk.supabase.co';
-    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2amloamt5ZW56a2Fjdml5d2drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzQ0MTgsImV4cCI6MjA2MzgxMDQxOH0.1Hl9Cb-rTbHKDSlnn2tM-6trzOySigUg6Be0xVG2URg';
-    const supaClient = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-    function logDebug(msg) {
-      document.getElementById('debug').textContent += msg + '\n';
-    }
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">
+          <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="logo-text">Executive Dashboard</div>
+      </div>
 
-    // Fingerprint function (unchanged)
-    async function getDeviceFingerprint() {
-      const info = [
-        navigator.userAgent, navigator.language,
-        screen.width, screen.height, screen.colorDepth,
-        new Date().getTimezoneOffset(), window.devicePixelRatio,
-        navigator.hardwareConcurrency, navigator.platform
-      ];
-      logDebug('Fingerprint inputs: ' + info.join(' | '));
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(info.join('::')));
-      const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-      logDebug('Fingerprint hash: ' + hash);
-      return hash;
-    }
+      <div class="menu-title">Navigation</div>
+      <ul class="nav-menu">
+        <li class="nav-item">
+          <a href="dashboard.html" class="nav-link">
+            <i class="fas fa-home"></i>
+            <span>Dashboard</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="cashflow.html" class="nav-link">
+            <i class="fas fa-wallet"></i>
+            <span>Cash Flow</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="analytics.html" class="nav-link">
+            <i class="fas fa-chart-pie"></i>
+            <span>Analytics</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="transactions.html" class="nav-link active">
+            <i class="fas fa-file-invoice-dollar"></i>
+            <span>Transactions</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="settings.html" class="nav-link">
+            <i class="fas fa-cog"></i>
+            <span>Settings</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link" id="logoutBtn">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span>
+          </a>
+        </li>
+      </ul>
+    </div>
 
-    // Send magic link
-    document.getElementById('send-link-btn').onclick = async () => {
-      const email = document.getElementById('email-input').value;
-      logDebug('Sending magic link to: ' + email);
-      document.getElementById('status').textContent = 'Sending magic link...';
-      const { data, error } = await supaClient.auth.signInWithOtp({ email });
-      if (error) {
-        logDebug('signInWithOtp Error: ' + error.message);
-        document.getElementById('status').textContent = 'Error: ' + error.message;
-      } else {
-        logDebug('Magic link sent: ' + JSON.stringify(data));
-        document.getElementById('status').textContent = 'Check your email for the link!';
-      }
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <h1 class="page-title">Transaction History</h1>
+        <div class="date-display">
+          <i class="far fa-calendar-alt"></i>
+          <span id="current-date">December 20, 2025</span>
+        </div>
+      </div>
+
+      <!-- Transactions Section -->
+      <div class="transactions-section">
+        <h2 class="section-title"><i class="fas fa-list"></i> All Transactions</h2>
+        
+        <table class="transactions-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Source</th>
+              <th>Amount</th>
+              <th>Transaction ID</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="allTransactionsBody">
+            <!-- All transactions will be loaded here -->
+          </tbody>
+        </table>
+        
+        <div id="allEmptyState" class="empty-state">
+          <i class="fas fa-file-invoice"></i>
+          <h3>No Transactions Found</h3>
+          <p>Add your first payment to see it here</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
     };
 
-    // Handle callback after magic link
-    window.onload = async () => {
-      const { data: { session }, error } = await supaClient.auth.getSession();
-      if (error) {
-        logDebug('getSession Error: ' + error.message);
-        return;
-      }
-      if (!session) {
-        logDebug('No active session');
-        return;
-      }
-      logDebug('Session active: ' + JSON.stringify(session.user));
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-      const email = session.user.email;
-      const name = session.user.user_metadata.full_name || session.user.email;
-      const deviceHash = await getDeviceFingerprint();
+    // DOM Elements
+    const loadingScreen = document.getElementById('loadingScreen');
+    const allTransactionsBody = document.getElementById('allTransactionsBody');
+    const allEmptyState = document.getElementById('allEmptyState');
+    const logoutBtn = document.getElementById('logoutBtn');
 
-      // Call Edge Function
-      const functionUrl = `https://${SUPA_URL.split('://')[1].split('.co')[0]}.functions.supabase.co/register-user`;
-      logDebug('Calling Edge Function: ' + functionUrl);
-      try {
-        const res = await fetch(functionUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, name, deviceHash })
-        });
-        const data = await res.json();
-        logDebug('Edge Function response: ' + JSON.stringify(data));
-        if (data.status === 'authorized' || data.status === 'registered') {
-          document.getElementById('status').textContent = 'Welcome, ' + name + '! Redirecting...';
-          setTimeout(() => window.location.href = '/chat.html', 1500);
-        } else if (data.status === 'unauthorized') {
-          document.getElementById('status').textContent = 'Access denied: Unauthorized device';
-        } else {
-          document.getElementById('status').textContent = 'Error: ' + (data.error || 'Unknown');
+    // Set current date
+    const today = new Date();
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('current-date').textContent = today.toLocaleDateString('en-US', options);
+
+    // Authentication State Observer
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        // Verify user against admin email from mySpace/credentials
+        try {
+          const credentialsDoc = await db.collection('mySpace').doc('credentials').get();
+          if (credentialsDoc.exists) {
+            const adminEmail = credentialsDoc.data().admin_email;
+            
+            if (user.email === adminEmail) {
+              // Load all transactions
+              loadAllTransactions();
+              
+              // Hide loading screen after a brief delay
+              setTimeout(() => {
+                loadingScreen.style.opacity = '0';
+                loadingScreen.style.visibility = 'hidden';
+              }, 1000);
+            } else {
+              // Unauthorized user
+              alert('Access denied. Unauthorized user.');
+              auth.signOut();
+            }
+          } else {
+            // Credentials document doesn't exist
+            alert('Credentials not found. Contact administrator.');
+            auth.signOut();
+          }
+        } catch (error) {
+          console.error('Error verifying user:', error);
+          alert('Authentication error. Please try again.');
+          auth.signOut();
         }
-      } catch (err) {
-        logDebug('Fetch Error: ' + err);
-        document.getElementById('status').textContent = 'Network or server error.';
+      } else {
+        // Redirect to login if not authenticated
+        window.location.href = 'login.html'; // Adjust path as needed
       }
-    };
-  </script></body>
+    });
+
+    // Function to load all transactions from Firebase
+    async function loadAllTransactions() {
+      try {
+        // Get all transactions from mySpace/2026/subcollection
+        const transactionsRef = db.collection('mySpace').doc('2026').collection('transactions');
+        const snapshot = await transactionsRef.orderBy('date_received', 'desc').get();
+
+        const transactions = [];
+        
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          // Add document ID to transaction data
+          transactions.push({
+            id: doc.id,
+            ...data
+          });
+        });
+
+        // Update UI with loaded data
+        updateAllTransactions(transactions);
+      } catch (error) {
+        console.error('Error loading all transactions:', error);
+      }
+    }
+
+    // Function to update all transactions table
+    function updateAllTransactions(transactions) {
+      // Clear existing rows
+      allTransactionsBody.innerHTML = '';
+      
+      if (transactions.length === 0) {
+        allEmptyState.style.display = 'block';
+        return;
+      }
+      
+      allEmptyState.style.display = 'none';
+      
+      transactions.forEach(transaction => {
+        const row = document.createElement('tr');
+        
+        // Format date properly - handle both Firestore Timestamp and regular Date
+        let formattedDate;
+        if (transaction.date_received && transaction.date_received.toDate) {
+          // Firestore Timestamp
+          formattedDate = transaction.date_received.toDate().toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          });
+        } else if (transaction.date_received instanceof Date) {
+          // Regular JavaScript Date
+          formattedDate = transaction.date_received.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          });
+        } else {
+          // String date
+          formattedDate = new Date(transaction.date_received).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          });
+        }
+        
+        // Format amount with commas
+        const formattedAmount = transaction.amount.toLocaleString();
+        
+        row.innerHTML = `
+          <td>${formattedDate}</td>
+          <td>${transaction.source}</td>
+          <td class="amount-col">₹${formattedAmount}</td>
+          <td>${transaction.id}</td>
+          <td><span style="color: var(--success);">Completed</span></td>
+        `;
+        
+        allTransactionsBody.appendChild(row);
+      });
+    }
+
+    // Logout button event listener
+    logoutBtn.addEventListener('click', () => {
+      auth.signOut()
+        .then(() => {
+          window.location.href = 'login.html'; // Adjust path as needed
+        })
+        .catch((error) => {
+          console.error('Logout error:', error);
+        });
+    });
+  </script>
+</body>
 </html>
