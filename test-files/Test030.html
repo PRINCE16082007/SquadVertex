@@ -894,51 +894,65 @@
     const dateInput = document.getElementById('date');
     dateInput.valueAsDate = today;
 
-    // Authentication State Observer
-    auth.onAuthStateChanged(async (user) => {
-      if (user) {
+    // Check if user is already authenticated
+    const user = auth.currentUser;
+    if (user) {
+      // User is already signed in
+      initializeDashboard();
+    } else {
+      // Show loading screen and wait for authentication
+      auth.onAuthStateChanged(async (user) => {
+        if (user) {
+          initializeDashboard();
+        } else {
+          // Redirect to login if not authenticated
+          window.location.href = 'login.html'; // Adjust path as needed
+        }
+      });
+    }
+
+    // Initialize dashboard after authentication
+    async function initializeDashboard() {
+      try {
         // Verify user against admin email from mySpace/credentials
-        try {
-          const credentialsDoc = await db.collection('mySpace').doc('credentials').get();
-          if (credentialsDoc.exists) {
-            const adminEmail = credentialsDoc.data().admin_email;
+        const credentialsDoc = await db.collection('mySpace').doc('credentials').get();
+        if (credentialsDoc.exists) {
+          const adminEmail = credentialsDoc.data().admin_email;
+          
+          // Check if user email is one of the valid emails
+          const validEmails = ['princegahlot2007@gmail.com', 'princeissuper@gmail.com'];
+          if (validEmails.includes(auth.currentUser.email)) {
+            // Set static profile information
+            profileName.textContent = "Prince Gahlot";
+            profileEmail.textContent = "princegahlot2007@gmail.com, princeissuper@gmail.com";
             
-            if (user.email === adminEmail) {
-              // Set static profile information
-              profileName.textContent = "Prince Gahlot";
-              profileEmail.textContent = "princegahlot2007@gmail.com, princeissuper@gmail.com";
-              
-              // Set profile image
-              profileImage.src = "https://ui-avatars.com/api/?name=Prince+Gahlot&background=4361ee&color=fff";
-              
-              // Load dashboard data
-              loadData();
-              
-              // Hide loading screen after a brief delay
-              setTimeout(() => {
-                loadingScreen.style.opacity = '0';
-                loadingScreen.style.visibility = 'hidden';
-              }, 1000);
-            } else {
-              // Unauthorized user
-              alert('Access denied. Unauthorized user.');
-              auth.signOut();
-            }
+            // Set profile image
+            profileImage.src = "https://ui-avatars.com/api/?name=Prince+Gahlot&background=4361ee&color=fff";
+            
+            // Load dashboard data
+            loadData();
+            
+            // Hide loading screen after a brief delay
+            setTimeout(() => {
+              loadingScreen.style.opacity = '0';
+              loadingScreen.style.visibility = 'hidden';
+            }, 1000);
           } else {
-            // Credentials document doesn't exist
-            alert('Credentials not found. Contact administrator.');
+            // Unauthorized user
+            alert('Access denied. Unauthorized user.');
             auth.signOut();
           }
-        } catch (error) {
-          console.error('Error verifying user:', error);
-          alert('Authentication error. Please try again.');
+        } else {
+          // Credentials document doesn't exist
+          alert('Credentials not found. Contact administrator.');
           auth.signOut();
         }
-      } else {
-        // Redirect to login if not authenticated
-        window.location.href = 'login.html'; // Adjust path as needed
+      } catch (error) {
+        console.error('Error verifying user:', error);
+        alert('Authentication error. Please try again.');
+        auth.signOut();
       }
-    });
+    }
 
     // Function to load dashboard data from Firebase
     async function loadData() {
