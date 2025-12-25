@@ -2,111 +2,26 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Invoice Generator | Galaxy Designs</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamGalaxy Invoice Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Google Font -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 
 <!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
 
-<style>
-/* ===== GLOBAL ===== */
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,Segoe UI,sans-serif;
-  background:#0b0f1a;
-  color:#fff;
-}
-.container{
-  max-width:780px;
-  margin:40px auto;
-  padding:20px;
-}
-h1{
-  text-align:center;
-  margin-bottom:30px;
-}
-.card{
-  background:#131a2a;
-  border-radius:14px;
-  padding:20px;
-  margin-bottom:20px;
-}
-input,textarea,select{
-  width:100%;
-  margin-top:10px;
-  padding:12px;
-  border-radius:8px;
-  border:none;
-  outline:none;
-  font-size:15px;
-}
-textarea{min-height:90px}
-button{
-  width:100%;
-  padding:15px;
-  font-size:17px;
-  border:none;
-  border-radius:14px;
-  cursor:pointer;
-  background:linear-gradient(135deg,#6c5ce7,#00cec9);
-  color:#fff;
-}
-.footer-note{
-  text-align:center;
-  font-size:12px;
-  opacity:.6;
-  margin-top:20px;
-}
-</style>
-</head>
-<body>
-
-<div class="container">
-  <h1>🧾 Invoice Generator</h1>
-
-  <div class="card">
-    <h3>Customer</h3>
-    <input id="c_name" placeholder="Customer Name">
-    <input id="c_email" placeholder="Customer Email">
-    <textarea id="c_address" placeholder="Customer Address (Country mandatory)"></textarea>
-  </div>
-
-  <div class="card">
-    <h3>Product</h3>
-    <input id="item_name" placeholder="Product Description">
-    <input id="item_price" type="number" placeholder="Price (€)">
-  </div>
-
-  <div class="card">
-    <h3>Payment</h3>
-    <select id="payment_method">
-      <option>Wise</option>
-      <option>PayPal</option>
-      <option>Stripe</option>
-      <option>Bank Transfer</option>
-    </select>
-  </div>
-
-  <button id="generate">Generate Invoice (PDF)</button>
-
-  <div class="footer-note">
-    France Micro-Entrepreneur • VAT Exempt • Audit-Safe
-  </div>
-</div>
-
-<!-- ===== FIREBASE + LOGIC ===== -->
+<!-- Firebase v9 Modular -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-import {
-  getFirestore,
-  doc,
-  runTransaction,
-  collection,
-  addDoc,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
-/* 🔐 SAME FIREBASE CREDENTIALS */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, runTransaction, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+
+// =========================
+// 🔥 YOUR EXISTING CREDENTIALS HERE
+// =========================
         const firebaseConfig = {
             apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
             authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -120,132 +35,295 @@ import {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* =========================
-   INVOICE NUMBER (NO GAPS)
-========================= */
-async function generateInvoiceNumber(){
-  const year = new Date().getFullYear();
-  const ref = doc(db,"invoice_counters",String(year));
 
-  return await runTransaction(db,async(tx)=>{
-    const snap = await tx.get(ref);
-    let next = snap.exists() ? snap.data().count + 1 : 1;
-    tx.set(ref,{ count: next });
-    return `GD-${year}-${String(next).padStart(3,"0")}`;
-  });
+// =========================
+// 🧠 Generate Sequential Invoice Number
+// =========================
+async function generateInvoiceNumber() {
+    const year = new Date().getFullYear();
+    const counterRef = doc(db, "meta", "invoice_counters_" + year);
+
+    return await runTransaction(db, async (transaction) => {
+        const counterSnap = await transaction.get(counterRef);
+
+        let newNumber = 1;
+        if (counterSnap.exists()) {
+            newNumber = counterSnap.data().count + 1;
+        }
+
+        transaction.set(counterRef, { count: newNumber }, { merge: true });
+
+        const formatted = String(newNumber).padStart(3, "0");
+        return `GD-${year}-${formatted}`;
+    });
 }
 
-/* =========================
-   PDF GENERATION
-========================= */
-function generatePDF(data){
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF();
-  let y = 15;
 
-  pdf.setFontSize(18);
-  pdf.text("FACTURE",105,y,{align:"center"});
-
-  pdf.setFontSize(10);
-  y+=10;
-  pdf.text(`Invoice No: ${data.invoice_number}`,14,y);
-  pdf.text(`Issue Date: ${data.issue_date}`,150,y);
-
-  y+=10;
-  pdf.text("Seller:",14,y);
-  y+=5;
-  pdf.text("Galaxy Designs",14,y);
-  pdf.text("Entrepreneur Individuel",14,y+=5);
-  pdf.text("SIRET: 123 456 789 00014",14,y+=5);
-  pdf.text("France",14,y+=5);
-
-  y+=10;
-  pdf.text("Bill To:",14,y);
-  y+=5;
-  pdf.text(data.customer_name,14,y);
-  pdf.text(data.customer_address,14,y+=5);
-
-  y+=10;
-  pdf.text("Description",14,y);
-  pdf.text("Amount (€)",160,y);
-  y+=3;
-  pdf.line(14,y,195,y);
-
-  y+=8;
-  pdf.text(data.items[0].name,14,y);
-  pdf.text(`€${data.total_amount}`,160,y);
-
-  y+=15;
-  pdf.text(`TOTAL: €${data.total_amount}`,14,y);
-
-  y+=15;
-  pdf.setFontSize(9);
-  pdf.text("TVA non applicable, art. 293 B du CGI",14,y);
-  y+=5;
-  pdf.text(
-    "Le client renonce expressément à son droit de rétractation pour ce contenu numérique fourni immédiatement après paiement.",
-    14,y,{maxWidth:180}
-  );
-
-  pdf.save(`${data.invoice_number}.pdf`);
+// =========================
+// 💾 Save Invoice To Firestore
+// =========================
+async function saveInvoiceToDB(data) {
+    await addDoc(collection(db, "invoices"), data);
+    alert("Invoice saved to Firebase ✔");
 }
 
-/* =========================
-   MAIN FLOW
-========================= */
-document.getElementById("generate").onclick = async ()=>{
-  if(!c_name.value || !item_price.value){
-    alert("Missing required fields");
-    return;
-  }
 
-  const invoiceNumber = await generateInvoiceNumber();
-  const issueDate = new Date();
+// =========================
+// 🧾 Generate PDF
+// =========================
+async function generatePDF() {
 
-  const invoiceData = {
-    invoice_number: invoiceNumber,
-    issue_date: issueDate.toISOString(),
-    issue_year: issueDate.getFullYear(),
-    customer: {
-      name: c_name.value,
-      email: c_email.value,
-      address: c_address.value
-    },
-    items: [{
-      name: item_name.value,
-      quantity: 1,
-      unit_price: Number(item_price.value)
-    }],
-    totals: {
-      subtotal: Number(item_price.value),
-      vat_rate: 0,
-      vat_amount: 0,
-      total: Number(item_price.value),
-      currency: "EUR"
-    },
-    payment: {
-      method: payment_method.value,
-      status: "paid"
-    },
-    legal: {
-      vat_exemption: "TVA non applicable, art. 293 B du CGI",
-      withdrawal_waiver: true
-    },
-    file_sent_status: false,
-    created_at: serverTimestamp()
-  };
+    const { jsPDF } = window.jspdf;
+    const docPdf = new jsPDF();
 
-  await addDoc(collection(db,"invoices"),invoiceData);
-  generatePDF({
-    invoice_number: invoiceNumber,
-    issue_date: issueDate.toISOString().split("T")[0],
-    customer_name: invoiceData.customer.name,
-    customer_address: invoiceData.customer.address,
-    total_amount: invoiceData.totals.total,
-    items: invoiceData.items
-  });
+    // gather values
+    const invoiceNumber = document.getElementById("invoiceNumber").value;
+    const issueDate = document.getElementById("issueDate").value;
+    const saleDate = document.getElementById("saleDate").value;
+    const clientName = document.getElementById("clientName").value;
+    const clientAddress = document.getElementById("clientAddress").value;
+    const customerEmail = document.getElementById("customerEmail").value;
+    const totalAmount = document.getElementById("totalAmount").value;
+    const paymentMethod = document.getElementById("paymentMethod").value;
+
+    // seller fixed details
+    const seller = {
+        fullName: "Creatine",
+        business: "Galaxy Designs",
+        status: "Entrepreneur Individuel",
+        siret: "12345678912345",
+        address: "Strasbourg, France"
+    };
+
+    // ============ HEADER ============
+    docPdf.setFontSize(22);
+    docPdf.text("FACTURE", 14, 20);
+
+    docPdf.setFontSize(12);
+    docPdf.text(`Invoice Number: ${invoiceNumber}`, 14, 30);
+    docPdf.text(`Issue Date: ${issueDate}`, 14, 37);
+    docPdf.text(`Date of Sale: ${saleDate}`, 14, 44);
+
+    // seller details
+    docPdf.setFontSize(13);
+    docPdf.text("Seller", 14, 58);
+    docPdf.setFontSize(11);
+    docPdf.text(`${seller.fullName}`, 14, 66);
+    docPdf.text(`${seller.business}`, 14, 72);
+    docPdf.text(`${seller.status}`, 14, 78);
+    docPdf.text(`SIRET: ${seller.siret}`, 14, 84);
+    docPdf.text(`${seller.address}`, 14, 90);
+
+    // buyer
+    docPdf.setFontSize(13);
+    docPdf.text("Buyer", 120, 58);
+    docPdf.setFontSize(11);
+    docPdf.text(`${clientName}`, 120, 66);
+    docPdf.text(`${clientAddress}`, 120, 72);
+    docPdf.text(`${customerEmail}`, 120, 78);
+
+    // table
+    const itemDescription = document.getElementById("itemDescription").value;
+    const unitPrice = Number(document.getElementById("unitPrice").value);
+
+    docPdf.autoTable({
+        startY: 105,
+        head: [["Description", "Qty", "Unit Price (€)", "Total (€)"]],
+        body: [
+            [itemDescription, "1", unitPrice.toFixed(2), unitPrice.toFixed(2)]
+        ],
+    });
+
+    // Total
+    docPdf.setFontSize(14);
+    docPdf.text(`Total Amount: €${totalAmount}`, 140, docPdf.lastAutoTable.finalY + 10);
+
+    // LEGAL FOOTER
+    docPdf.setFontSize(10);
+    docPdf.text("TVA non applicable, art. 293 B du CGI", 14, docPdf.lastAutoTable.finalY + 25);
+    docPdf.text("Le client renonce expressément à son droit de rétractation pour ce contenu numérique fourni immédiatement après paiement.", 14, docPdf.lastAutoTable.finalY + 32);
+
+    docPdf.save(`${invoiceNumber}.pdf`);
+
+    return {
+        invoiceNumber,
+        issueDate,
+        saleDate,
+        clientName,
+        clientAddress,
+        totalAmount,
+        paymentMethod,
+        customerEmail,
+        itemDescription,
+        unitPrice
+    };
+}
+
+
+// =========================
+// 🚀 Main Form Logic
+// =========================
+window.onload = async () => {
+    const invoiceNumber = await generateInvoiceNumber();
+    document.getElementById("invoiceNumber").value = invoiceNumber;
+
+    const today = new Date().toISOString().split("T")[0];
+    document.getElementById("issueDate").value = today;
+    document.getElementById("saleDate").value = today;
 };
+
+window.handleGenerate = async () => {
+    const pdfData = await generatePDF();
+
+    // save in DB
+    await saveInvoiceToDB({
+        id: crypto.randomUUID(),
+        invoice_number: pdfData.invoiceNumber,
+        issue_date: new Date(pdfData.issueDate),
+        customer_name: pdfData.clientName,
+        customer_email: pdfData.customerEmail,
+        customer_address: pdfData.clientAddress,
+        total_amount: Number(pdfData.totalAmount),
+        currency: "EUR",
+        items_json: JSON.stringify([{ name: pdfData.itemDescription, price: pdfData.unitPrice }]),
+        file_sent_status: false,
+        payment_method: pdfData.paymentMethod,
+        created_at: new Date()
+    });
+};
+
 </script>
+
+<style>
+body{
+    font-family: Inter, system-ui;
+    margin:0;
+    background:white;
+    color:#111;
+}
+.container{
+    max-width:900px;
+    margin:30px auto;
+    padding:25px;
+    border-radius:14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.08);
+    background:white;
+}
+h1{
+    font-weight:800;
+    letter-spacing:.5px;
+}
+.grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+}
+input,textarea,select{
+    width:100%;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid #ddd;
+    font-size:14px;
+}
+button{
+    padding:12px 16px;
+    border-radius:10px;
+    background:black;
+    color:white;
+    border:none;
+    cursor:pointer;
+    font-weight:600;
+}
+label{
+    font-size:13px;
+    font-weight:600;
+}
+.section{
+    margin-top:20px;
+    padding:18px;
+    border-radius:12px;
+    border:1px solid #eee;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h1>TeamGalaxy – Invoice Generator</h1>
+
+<div class="section">
+<h3>Invoice Meta</h3>
+<div class="grid">
+<div>
+<label>Invoice Number</label>
+<input id="invoiceNumber" readonly>
+</div>
+
+<div>
+<label>Issue Date</label>
+<input id="issueDate" type="date">
+</div>
+
+<div>
+<label>Date of Sale</label>
+<input id="saleDate" type="date">
+</div>
+</div>
+</div>
+
+
+<div class="section">
+<h3>Buyer Details</h3>
+<div class="grid">
+<div>
+<label>Client Name</label>
+<input id="clientName">
+</div>
+
+<div>
+<label>Client Email</label>
+<input id="customerEmail">
+</div>
+
+</div>
+
+<label>Client Address (Country Required)</label>
+<textarea id="clientAddress" rows="3"></textarea>
+</div>
+
+
+<div class="section">
+<h3>Product</h3>
+
+<label>Description</label>
+<input id="itemDescription" placeholder="Digital Design Pack">
+
+<div class="grid">
+<div>
+<label>Unit Price (€)</label>
+<input id="unitPrice" type="number" value="50">
+</div>
+
+<div>
+<label>Total Amount (€)</label>
+<input id="totalAmount" type="number" value="50">
+</div>
+</div>
+
+<label>Payment Method</label>
+<select id="paymentMethod">
+<option value="Wise">Wise</option>
+<option value="PayPal">PayPal</option>
+<option value="Stripe">Stripe</option>
+</select>
+</div>
+
+
+<br>
+<button onclick="handleGenerate()">Generate Invoice & Save</button>
+
+</div>
 
 </body>
 </html>
