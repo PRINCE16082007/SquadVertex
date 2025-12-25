@@ -361,12 +361,8 @@
             margin-top: 10px;
         }
 
-        .pdf-discount-section {
-            background: #fff3cd;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 15px 0;
-            border: 1px solid #ffeaa7;
+        .pdf-discount-row {
+            color: #dc3545;
         }
 
         .pdf-legal-footer {
@@ -486,19 +482,12 @@
                 </tbody>
             </table>
 
-            <div class="pdf-discount-section">
-                <h4>Discount Applied</h4>
-                <p>Type: <span id="pdf-discount-type">None</span></p>
-                <p>Value: <span id="pdf-discount-value">0</span></p>
-                <p><strong>Discount Amount: €<span id="pdf-discount-amount">0.00</span></strong></p>
-            </div>
-
             <div class="pdf-totals-section">
                 <div class="pdf-total-row">
                     <span>Subtotal:</span>
                     <span>€<span id="pdf-subtotal-amount">0.00</span></span>
                 </div>
-                <div class="pdf-total-row">
+                <div class="pdf-total-row pdf-discount-row">
                     <span>Discount:</span>
                     <span>-€<span id="pdf-discount-display">0.00</span></span>
                 </div>
@@ -550,6 +539,13 @@
                         const data = doc.data();
                         data.id = doc.id; // Store the document ID
                         data.year = year; // Store the year
+                        // Fix date issue
+                        if (data.created_at && typeof data.created_at.toDate === 'function') {
+                            data.created_at = data.created_at.toDate();
+                        }
+                        if (data.issue_date && typeof data.issue_date.toDate === 'function') {
+                            data.issue_date = data.issue_date.toDate();
+                        }
                         allInvoices.push(data);
                     });
                 }
@@ -650,8 +646,15 @@
 
                 // Fill PDF template with invoice data
                 document.getElementById('pdf-invoice-number').textContent = invoice.invoice_number;
-                document.getElementById('pdf-issue-date').textContent = new Date(invoice.issue_date).toLocaleDateString('fr-FR');
-                document.getElementById('pdf-sale-date').textContent = new Date(invoice.issue_date).toLocaleDateString('fr-FR');
+                
+                // Fix date issue
+                let issueDate = new Date(invoice.issue_date);
+                if (typeof invoice.issue_date.toDate === 'function') {
+                    issueDate = invoice.issue_date.toDate();
+                }
+                
+                document.getElementById('pdf-issue-date').textContent = issueDate.toLocaleDateString('fr-FR');
+                document.getElementById('pdf-sale-date').textContent = issueDate.toLocaleDateString('fr-FR');
                 document.getElementById('pdf-customer-name').textContent = invoice.customer_name;
                 document.getElementById('pdf-customer-email').textContent = invoice.customer_email;
                 document.getElementById('pdf-customer-address').textContent = invoice.customer_address;
@@ -661,23 +664,24 @@
                 itemsBody.innerHTML = '';
                 invoice.items_json.forEach(item => {
                     const row = document.createElement('tr');
+                    // Fix item description for legal compliance
+                    let description = item.name;
+                    if (description === 'Fcc' || description === 'FCC' || description === 'fcc') {
+                        description = 'Digital Asset - Galaxy Pack Vol 1'; // Default legal description
+                    }
                     row.innerHTML = `
-                        <td>${item.name}</td>
+                        <td>${description}</td>
                         <td>${item.quantity}</td>
-                        <td>${item.price.toFixed(2)}</td>
-                        <td>${item.total.toFixed(2)}</td>
+                        <td>€${item.price.toFixed(2)}</td>
+                        <td>€${item.total.toFixed(2)}</td>
                     `;
                     itemsBody.appendChild(row);
                 });
 
-                // Fill discount info
-                document.getElementById('pdf-discount-type').textContent = invoice.discount_type === 'percentage' ? 'Percentage' : 'Fixed Amount';
-                document.getElementById('pdf-discount-value').textContent = invoice.discount_value;
-                document.getElementById('pdf-discount-amount').textContent = invoice.discount_amount.toFixed(2);
+                // Fill totals with discount as a line item
+                const subtotal = invoice.total_amount + invoice.discount_amount;
+                document.getElementById('pdf-subtotal-amount').textContent = subtotal.toFixed(2);
                 document.getElementById('pdf-discount-display').textContent = invoice.discount_amount.toFixed(2);
-                
-                // Fill totals
-                document.getElementById('pdf-subtotal-amount').textContent = (invoice.total_amount + invoice.discount_amount).toFixed(2);
                 document.getElementById('pdf-final-total-amount').textContent = invoice.total_amount.toFixed(2);
 
                 // Generate PDF using jsPDF
