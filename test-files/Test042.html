@@ -1,659 +1,881 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>TeamGalaxy - Entry Portal (Enhanced)</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-<style>
-  /* Reset + basics */
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',Tahoma, Geneva, Verdana, sans-serif;color:#fff}
-  :root{
-    --gold-1:#ffd700;--gold-2:#ff8c00;--accent:#357abd;
-  }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Designs - Invoice Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  /* Full-screen layers order (back to front) */
-  #canvasStars{position:fixed;inset:0;z-index:0}
-  .nebula{position:fixed;inset:0;z-index:1;pointer-events:none;mix-blend-mode:screen;opacity:0.85}
-  .nebula .layer{position:absolute;inset:0;filter:blur(44px) contrast(1.05) saturate(1.2)}
-  #particles{position:fixed;inset:0;z-index:2;pointer-events:none}
-  /* subtle vignette */
-  .vignette{position:fixed;inset:0;z-index:4;pointer-events:none;background:radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.55) 100%);mix-blend-mode:multiply}
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
 
-  /* Content */
-  .content{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;pointer-events:auto}
-  .logo{font-weight:900;font-size:clamp(2.2rem,7vw,4rem);letter-spacing:3px;position:relative;padding:6px 12px;background:linear-gradient(90deg,var(--gold-1),var(--gold-2));background-clip:text;-webkit-background-clip:text;color:transparent;text-shadow:0 0 22px rgba(255,215,0,0.18)}
-  .tagline{color:#e9f0ff90;margin-top:8px;max-width:820px;line-height:1.4;font-size:clamp(0.95rem,2.5vw,1.15rem);text-shadow:0 0 10px rgba(0,0,0,0.3)}
-  .control-panel{margin-top:28px;background:rgba(12,16,28,0.6);backdrop-filter:blur(8px);border:1px solid rgba(60,120,255,0.08);padding:16px;border-radius:12px;box-shadow:0 8px 40px rgba(20,30,60,0.6);max-width:min(600px,92%);width:100%}
-  .status-indicators{display:flex;justify-content:space-around;gap:12px}
-  .status{display:flex;flex-direction:column;align-items:center}
-  .status-dot{width:12px;height:12px;border-radius:50%;box-shadow:0 0 12px rgba(0,0,0,0.25)}
-  .status.online .status-dot{background:#35ff9b;box-shadow:0 0 12px #35ff9b}
-  .status.ready .status-dot{background:#ffea64;box-shadow:0 0 12px #ffea64}
-  .status.active .status-dot{background:#ff6b4b;box-shadow:0 0 12px #ff6b4b}
-  .status-text{font-size:0.8rem;color:#bfcbe7;opacity:0.9;margin-top:6px}
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
 
-  .progress-container{height:6px;background:rgba(255,255,255,0.06);border-radius:3px;margin-top:12px;overflow:hidden}
-  .progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--gold-1),var(--gold-2));transition:width 0.3s linear}
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
 
-  .enter-btn{margin-top:18px;padding:14px 36px;border-radius:999px;border:none;cursor:pointer;background:linear-gradient(180deg,var(--gold-1),var(--gold-2));color:#000;font-weight:800;box-shadow:0 8px 40px rgba(255,180,30,0.15);transition:transform .18s ease,box-shadow .18s}
-  .enter-btn:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 18px 60px rgba(255,180,30,0.22)}
-  .countdown{margin-top:12px;color:var(--gold-1);font-weight:700;text-shadow:0 0 18px rgba(255,215,0,0.25)}
-  .loading-text,.subtext{margin-top:6px;color:#bfcbe790;font-size:0.9rem}
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
 
-  .footer{position:fixed;bottom:22px;left:0;width:100%;text-align:center;color:#7d8da8;z-index:30;opacity:0;transition:opacity .8s}
-  .footer.show{opacity:1}
+        .header p {
+            opacity: 0.8;
+            font-size: 1.1em;
+        }
 
-  /* Spaceship improved */
-  .spaceship-container{position:fixed;left:50%;bottom:-260px;transform:translateX(-50%);z-index:20;will-change:transform,opacity}
-  .spaceship{width:clamp(80px,20vw,160px);height:clamp(120px,32vw,220px);position:relative;transform-style:preserve-3d;filter:drop-shadow(0 30px 45px rgba(0,0,0,0.6))}
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
 
-  /* body + panels (kept your structure but refined) */
-  .nose-cone{position:absolute;left:50%;transform:translateX(-50%);top:-36px;border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:46px solid #7fb9ff;border-radius:14px;filter:drop-shadow(0 0 14px rgba(123,190,255,0.35))}
-  .nose-highlight{position:absolute;left:50%;top:-18px;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;background:radial-gradient(circle,#fff,#a6d8ff);box-shadow:0 0 20px rgba(166,216,255,0.95)}
-  .ship-body{position:absolute;left:50%;transform:translateX(-50%);top:0;width:60px;height:120px;border-radius:50% 50% 42% 42%;background:linear-gradient(180deg,#4a90e2,#2a6fb3);box-shadow:inset 0 -8px 28px rgba(0,0,0,0.6),0 0 36px rgba(53,122,189,0.22)}
-  .cockpit{position:absolute;left:50%;transform:translateX(-50%);top:28px;width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff,#a8d9ff 24%,#2b5270 90%);box-shadow:0 0 34px rgba(170,220,255,0.9), inset 0 -8px 18px rgba(0,0,0,0.3)}
-  .cockpit-frame{position:absolute;left:50%;transform:translateX(-50%);top:26px;width:40px;height:40px;border-radius:50%;border:3px solid rgba(40,55,72,0.95)}
-  .panel-1,.panel-2,.panel-3{position:absolute;left:50%;transform:translateX(-50%);height:6px;background:linear-gradient(90deg,#2f7dbf,#54a7e5);border-radius:3px;box-shadow:0 0 6px rgba(60,160,230,0.25)}
-  .panel-1{top:18px;width:46px}.panel-2{top:36px;width:52px}.panel-3{top:56px;width:46px}
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
 
-  /* wings + fins */
-  .fin-left,.fin-right{position:absolute;top:70px;width:0;height:0;border-top:30px solid transparent;border-bottom:30px solid transparent;z-index:1}
-  .fin-left{left:-14px;border-left:22px solid #e74c3c;transform:rotate(-12deg);filter:drop-shadow(0 0 8px rgba(231,76,60,0.15))}
-  .fin-right{right:-14px;border-right:22px solid #e74c3c;transform:rotate(12deg);filter:drop-shadow(0 0 8px rgba(231,76,60,0.15))}
-  .fin-detail-left,.fin-detail-right{position:absolute;top:70px;width:12px;height:34px;border-radius:4px;background:linear-gradient(90deg,#c0392b,#e74c3c);z-index:2}
-  .fin-detail-left{left:-8px;transform:rotate(-10deg)}.fin-detail-right{right:-8px;transform:rotate(10deg)}
+        .preview-section {
+            background: white;
+            padding: 25px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            position: relative;
+            min-height: 600px;
+        }
 
-  /* engines and flames (we animate with JS to create layered blur + scale) */
-  .engine-section{position:absolute;left:50%;transform:translateX(-50%);top:94px;width:46px;height:28px;border-radius:0 0 12px 12px;background:linear-gradient(180deg,#3a5166,#273241);box-shadow:inset 0 -6px 10px rgba(0,0,0,0.6)}
-  .engine-left,.engine-right{position:absolute;bottom:-18px;width:14px;height:24px;border-radius:8px;background:linear-gradient(180deg,#3d566e,#2c3e50);z-index:2}
-  .engine-left{left:8px}.engine-right{right:8px}
+        .invoice-preview {
+            max-width: 210mm; /* A4 width */
+            min-height: 297mm; /* A4 height */
+            margin: 0 auto;
+            background: white;
+            position: relative;
+            border: 1px solid #ddd;
+        }
 
-  /* core flame dom element - we'll layer canvas/exhaust behind it for realism */
-  .main-engine{position:absolute;left:50%;transform:translateX(-50%);top:120px;width:26px;height:40px;border-radius:50%;background:linear-gradient(to top,#ff4b2b,#ff9c2b,#fff);filter:blur(6px);opacity:0;mix-blend-mode:screen}
-  .side-engine-left,.side-engine-right{position:absolute;top:122px;width:12px;height:36px;border-radius:50%;filter:blur(4px);opacity:0}
-  .side-engine-left{left:26%}.side-engine-right{right:26%}
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 60px;
+            color: rgba(0,0,0,0.03);
+            z-index: 1;
+            pointer-events: none;
+            font-weight: bold;
+            letter-spacing: 3px;
+            opacity: 0.5;
+        }
 
-  /* exhaust canvas container sits behind spaceship to hold thousands of small particles efficiently */
-  #exhaustCanvas{position:fixed;left:0;bottom:0;width:100%;height:100%;z-index:18;pointer-events:none}
+        .invoice-content {
+            position: relative;
+            z-index: 2;
+            padding: 25mm;
+        }
 
-  /* micro sparks near engines */
-  .spark{position:absolute;width:4px;height:4px;border-radius:50%;background:linear-gradient(90deg,#fff7c9,#ffb36b);filter:blur(.8px);opacity:0;will-change:transform,opacity}
+        .invoice-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #2c3e50;
+        }
 
-  /* lens flare (SVG overlay) */
-  .lensflare{position:fixed;left:50%;top:30%;transform:translateX(-50%);z-index:19;pointer-events:none;mix-blend-mode:screen;opacity:0.55;filter:blur(6px) saturate(1.2)}
-  .lensflare svg{width:520px;height:520px}
+        .invoice-title {
+            font-size: 2.5em;
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
 
-  /* tiny motion blur via transform + opacity */
-  .trail{position:absolute;opacity:0.08;filter:blur(12px);pointer-events:none;mix-blend-mode:screen}
+        .invoice-subtitle {
+            font-size: 1.2em;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
 
-  /* Subtle UI entry animations */
-  .fade-in{animation:fadeInUp .9s cubic-bezier(.2,.9,.1,1) both}
-  @keyframes fadeInUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+        .company-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
 
-  /* small responsive tweaks */
-  @media (max-width:520px){.control-panel{padding:12px}.logo{font-size:2rem}}
-</style>
+        .company-info h3 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+        }
+
+        .info-box h4 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 13px;
+        }
+
+        .items-table th, .items-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .items-table th {
+            background: #2c3e50;
+            color: white;
+            font-weight: 600;
+        }
+
+        .totals-section {
+            margin: 20px 0;
+            text-align: right;
+            font-size: 14px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 4px 0;
+        }
+
+        .grand-total {
+            font-weight: bold;
+            font-size: 16px;
+            border-top: 2px solid #2c3e50;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        .discount-section {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border: 1px solid #ffeaa7;
+        }
+
+        .legal-footer {
+            margin-top: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #2c3e50;
+            font-size: 12px;
+            line-height: 1.5;
+            border-radius: 4px;
+        }
+
+        .legal-footer h4 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .form-group {
+            margin: 15px 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .confirmation-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 500px;
+            margin: 20px;
+        }
+
+        .modal-content h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .modal-content p {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                border: none;
+            }
+            .content {
+                display: none;
+            }
+            .invoice-preview {
+                box-shadow: none;
+                border: none;
+                margin: 0;
+                padding: 0;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-  <!-- fast canvas-based starfield (multiple depth layers) -->
-  <canvas id="canvasStars"></canvas>
+    <div class="container">
+        <div class="header">
+            <h1>Galaxy Designs</h1>
+            <p>Professional Invoice Generator</p>
+        </div>
 
-  <!-- volumetric nebula layers (soft radial gradients) -->
-  <div class="nebula" aria-hidden="true">
-    <div class="layer" style="background:
-        radial-gradient(circle at 20% 80%, rgba(120,119,198,0.22) 0%, transparent 30%),
-        radial-gradient(circle at 80% 20%, rgba(255,100,124,0.12) 0%, transparent 28%),
-        radial-gradient(circle at 40% 40%, rgba(100,200,255,0.16) 0%, transparent 35%);"></div>
-    <div class="layer" style="transform:scale(1.1) rotate(8deg);opacity:0.65;filter:blur(62px) contrast(1.04)">
+        <div class="content">
+            <div class="form-section">
+                <h2 style="color: #2c3e50; margin-bottom: 20px;">Invoice Details</h2>
+                
+                <div class="form-group">
+                    <label for="customer-name">Client Name:</label>
+                    <input type="text" id="customer-name" placeholder="Enter client name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="customer-email">Client Email:</label>
+                    <input type="email" id="customer-email" placeholder="Enter client email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="customer-address">Client Address:</label>
+                    <textarea id="customer-address" rows="3" placeholder="Enter full address including country" required></textarea>
+                </div>
+
+                <h3 style="color: #2c3e50; margin: 20px 0 15px 0;">Items</h3>
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Qty</th>
+                            <th>Price (€)</th>
+                            <th>Total (€)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="items-body">
+                        <tr>
+                            <td><input type="text" class="item-desc" placeholder="Product description"></td>
+                            <td><input type="number" class="item-qty" value="1" min="1"></td>
+                            <td><input type="number" class="item-price" step="0.01" placeholder="0.00"></td>
+                            <td class="item-total">0.00</td>
+                            <td><button type="button" class="btn btn-secondary remove-item">Remove</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button type="button" class="btn" id="add-item">Add Item</button>
+
+                <div class="form-group">
+                    <label for="payment-method">Payment Method:</label>
+                    <select id="payment-method" required>
+                        <option value="">Select Payment Method</option>
+                        <option value="Wise">Wise</option>
+                        <option value="PayPal">PayPal</option>
+                        <option value="Stripe">Stripe</option>
+                    </select>
+                </div>
+
+                <div class="discount-section">
+                    <h4>Discount</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label for="discount-type">Type:</label>
+                            <select id="discount-type">
+                                <option value="percentage">Percentage (%)</option>
+                                <option value="amount">Fixed Amount (€)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="discount-value">Value:</label>
+                            <input type="number" id="discount-value" step="0.01" placeholder="0">
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px; font-weight: bold;">
+                        Discount Amount: €<span id="discount-amount">0.00</span>
+                    </div>
+                </div>
+
+                <button type="button" class="btn" id="generate-invoice" style="width: 100%; margin-top: 20px;">Generate Invoice</button>
+            </div>
+
+            <div class="preview-section">
+                <h2 style="color: #2c3e50; margin-bottom: 20px;">Invoice Preview</h2>
+                <div class="invoice-preview">
+                    <div class="watermark">GALAXY DESIGNS</div>
+                    <div class="invoice-content">
+                        <div class="invoice-header">
+                            <h1 class="invoice-title">FACTURE</h1>
+                            <p class="invoice-subtitle">Invoice No: <span id="invoice-number-display">GD-2025-001</span></p>
+                        </div>
+
+                        <div class="company-info">
+                            <h3>Galaxy Designs</h3>
+                            <p><strong>Full Name:</strong> Creatine</p>
+                            <p><strong>Status:</strong> Entrepreneur Individuel</p>
+                            <p><strong>SIRET:</strong> 12345678912345</p>
+                            <p><strong>Address:</strong> Strasbourg, France</p>
+                        </div>
+
+                        <div class="info-grid">
+                            <div class="info-box">
+                                <h4>Issue Date</h4>
+                                <span id="issue-date-display"></span>
+                            </div>
+                            <div class="info-box">
+                                <h4>Sale Date</h4>
+                                <span id="sale-date-display"></span>
+                            </div>
+                        </div>
+
+                        <div class="info-box">
+                            <h4>Client Information</h4>
+                            <p><strong>Name:</strong> <span id="preview-customer-name">-</span></p>
+                            <p><strong>Address:</strong> <span id="preview-customer-address">-</span></p>
+                        </div>
+
+                        <table class="items-table" id="preview-items-table">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Qty</th>
+                                    <th>Unit Price (€)</th>
+                                    <th>Total (€)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="preview-items-body">
+                                <!-- Items will be populated here -->
+                            </tbody>
+                        </table>
+
+                        <div class="discount-section">
+                            <h4>Discount Applied</h4>
+                            <p>Type: <span id="preview-discount-type">None</span></p>
+                            <p>Value: <span id="preview-discount-value">0</span></p>
+                            <p><strong>Discount Amount: €<span id="preview-discount-amount">0.00</span></strong></p>
+                        </div>
+
+                        <div class="totals-section">
+                            <div class="total-row">
+                                <span>Subtotal:</span>
+                                <span>€<span id="subtotal-amount">0.00</span></span>
+                            </div>
+                            <div class="total-row">
+                                <span>Discount:</span>
+                                <span>-€<span id="discount-display">0.00</span></span>
+                            </div>
+                            <div class="total-row grand-total">
+                                <span><strong>Total Amount:</strong></span>
+                                <span><strong>€<span id="final-total-amount">0.00</span></strong></span>
+                            </div>
+                        </div>
+
+                        <div class="legal-footer">
+                            <h4>Legal Information</h4>
+                            <p><strong>TVA non applicable, art. 293 B du CGI</strong></p>
+                            <p>Le client renonce expressément à son droit de rétractation pour ce contenu numérique fourni immédiatement après paiement.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- exhaust particle canvas sits behind spaceship -->
-  <canvas id="exhaustCanvas"></canvas>
-
-  <!-- DOM layer for small glow/sparks and parallax micro-particles -->
-  <div id="particles"></div>
-
-  <div class="vignette"></div>
-
-  <div class="content">
-    <div class="logo fade-in" style="--delay:0s">TEAMGALAXY</div>
-    <p class="tagline fade-in" style="--delay:.08s">Where Gamers Unite and Communities Thrive</p>
-
-    <div class="control-panel fade-in" style="--delay:.16s">
-      <div class="status-indicators">
-        <div class="status online"><div class="status-dot"></div><div class="status-text">ONLINE</div></div>
-        <div class="status ready"><div class="status-dot"></div><div class="status-text">READY</div></div>
-        <div class="status active"><div class="status-dot"></div><div class="status-text">ACTIVE</div></div>
-      </div>
-      <div class="progress-container"><div id="progressBar" class="progress-bar"></div></div>
+    <div class="confirmation-modal" id="confirmation-modal">
+        <div class="modal-content">
+            <h3>⚠️ Data Loss Warning</h3>
+            <p>Refreshing the page will clear all your invoice data. Are you sure you want to proceed?</p>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="cancel-refresh">Cancel</button>
+                <button class="btn" id="confirm-refresh">Continue</button>
+            </div>
+        </div>
     </div>
 
-    <button id="enterBtn" class="enter-btn fade-in" style="--delay:.28s">INITIATE LAUNCH</button>
-    <div id="countdown" class="countdown fade-in" style="--delay:.40s">AUTO-LAUNCH IN: 5</div>
-    <p class="loading-text">Initializing experience...</p>
-    <p class="subtext">Powered by innovation and collaboration</p>
-  </div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script>
+        // Initialize Firebase
+        const app = firebase.initializeApp({
+            apiKey: "AIzaSyDyour_api_key",
+            authDomain: "teamgalaxy-77344.firebaseapp.com",
+            projectId: "teamgalaxy-77344",
+            storageBucket: "teamgalaxy-77344.appspot.com",
+            messagingSenderId: "your_sender_id",
+            appId: "your_app_id"
+        });
+        const db = firebase.firestore();
 
-  <!-- lens flare SVG -->
-  <div class="lensflare" aria-hidden="true">
-    <svg viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet">
-      <defs>
-        <radialGradient id="flareGrad" cx="50%" cy="50%">
-          <stop offset="0%" stop-color="#fff" stop-opacity="0.95"/>
-          <stop offset="20%" stop-color="#ffd89b" stop-opacity="0.55"/>
-          <stop offset="40%" stop-color="#ff7a7a" stop-opacity="0.18"/>
-          <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
-      <circle cx="300" cy="200" r="120" fill="url(#flareGrad)"/>
-      <circle cx="260" cy="220" r="36" fill="#fff" opacity="0.12"/>
-      <ellipse cx="320" cy="210" rx="220" ry="26" fill="#ffd89b" opacity="0.03"/>
-    </svg>
-  </div>
+        // Set current date
+        const today = new Date();
+        const formattedDate = today.toLocaleDateString('fr-FR');
+        document.getElementById('issue-date-display').textContent = formattedDate;
+        document.getElementById('sale-date-display').textContent = formattedDate;
 
-  <!-- exhaust / spaceship -->
-  <div id="spaceship" class="spaceship-container" role="img" aria-label="Spaceship">
-    <div class="spaceship">
-      <div class="antenna" style="position:absolute;left:50%;top:-10px;width:2px;height:18px;background:#9aa2a9;border-radius:2px;transform:translateX(-50%);z-index:6"></div>
-      <div class="antenna-tip" style="position:absolute;left:50%;top:-20px;width:6px;height:6px;border-radius:50%;background:#ff6b6b;transform:translateX(-50%);z-index:7;box-shadow:0 0 8px rgba(255,107,107,0.7)"></div>
-      <div class="nose-highlight"></div>
-      <div class="nose-cone"></div>
-      <div class="ship-body"></div>
-      <div class="panel-1"></div>
-      <div class="panel-2"></div>
-      <div class="panel-3"></div>
-      <div class="cockpit-frame"></div>
-      <div class="cockpit"></div>
-      <div class="fin-left"></div>
-      <div class="fin-right"></div>
-      <div class="fin-detail-left"></div>
-      <div class="fin-detail-right"></div>
-      <div class="engine-section"></div>
-      <div class="engine-left"></div>
-      <div class="engine-right"></div>
+        // Track if user wants to refresh
+        let allowRefresh = false;
 
-      <!-- soft DOM flames for shimmer that work with the canvas exhaust -->
-      <div class="main-engine"></div>
-      <div class="side-engine-left"></div>
-      <div class="side-engine-right"></div>
-      <!-- sparks container (dom) -->
-      <div id="sparksContainer" style="position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none"></div>
-    </div>
-  </div>
+        // Show confirmation before refresh
+        window.addEventListener('beforeunload', function(e) {
+            if (!allowRefresh) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        });
 
-  <div class="footer" id="footer">Powered by SquadVertex</div>
+        // Handle refresh confirmation
+        document.getElementById('confirm-refresh').addEventListener('click', function() {
+            allowRefresh = true;
+            document.getElementById('confirmation-modal').style.display = 'none';
+        });
 
-  <!-- SVG filter for heat distortion -->
-  <svg width="0" height="0" style="position:absolute">
-    <defs>
-      <filter id="heat">
-        <feTurbulence id="turb" baseFrequency="0.009" numOctaves="2" seed="2" result="turb"/>
-        <feDisplacementMap in="SourceGraphic" in2="turb" scale="6" xChannelSelector="R" yChannelSelector="G"/>
-      </filter>
-    </defs>
-  </svg>
+        document.getElementById('cancel-refresh').addEventListener('click', function() {
+            document.getElementById('confirmation-modal').style.display = 'none';
+        });
 
-<script>
-/* ===============================
-   Utilities + performance guards
-   =============================== */
-const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+        // Prevent accidental refresh
+        window.addEventListener('beforeunload', function(e) {
+            if (!allowRefresh) {
+                document.getElementById('confirmation-modal').style.display = 'flex';
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
 
-/* ===============================
-   Canvas starfield (fast, layered)
-   =============================== */
-const canvas = document.getElementById('canvasStars');
-const ctx = canvas.getContext('2d');
-let cw = canvas.width = innerWidth;
-let ch = canvas.height = innerHeight;
-const starLayers = [
-  {count: 160, speed: 0.03, size: [0.4,1.2], alpha: [0.05,0.45]},
-  {count: 90, speed: 0.09, size: [0.9,2.6], alpha: [0.15,0.9]},
-  {count: 40, speed: 0.22, size: [1.6,3.6], alpha: [0.35,1]}
-];
+        // Generate next invoice number with strict verification
+        async function getNextInvoiceNumber() {
+            try {
+                const year = new Date().getFullYear();
+                const invoicesRef = db.collection(`invoices/${year}/invoices`)
+                    .where('invoice_number', '>=', `GD-${year}-000`)
+                    .where('invoice_number', '<=', `GD-${year}-999`);
+                
+                const snapshot = await invoicesRef.orderBy('invoice_number', 'desc').limit(1).get();
+                
+                let nextNumber = 1;
+                if (!snapshot.empty) {
+                    const lastInvoice = snapshot.docs[0].data();
+                    const lastNum = parseInt(lastInvoice.invoice_number.split('-')[2]);
+                    nextNumber = lastNum + 1;
+                }
+                
+                const formattedNumber = `GD-${year}-${nextNumber.toString().padStart(3, '0')}`;
+                document.getElementById('invoice-number-display').textContent = formattedNumber;
+                
+                // Verify no gaps in numbering
+                await verifySequentialNumbering(year, nextNumber);
+                
+                return formattedNumber;
+            } catch (error) {
+                console.error('Error getting next invoice number:', error);
+                return `GD-${new Date().getFullYear()}-001`;
+            }
+        }
 
-let stars = [];
-function initStars(){
-  stars = [];
-  for(let li=0; li<starLayers.length; li++){
-    const L = starLayers[li];
-    for(let i=0;i<L.count;i++){
-      stars.push({
-        x: Math.random()*cw,
-        y: Math.random()*ch,
-        z: li, // layer index
-        size: (Math.random()*(L.size[1]-L.size[0])+L.size[0]),
-        alpha: (Math.random()*(L.alpha[1]-L.alpha[0])+L.alpha[0]),
-        twinkleOffset: Math.random()*Math.PI*2,
-        vx: (Math.random()-0.5)*0.12
-      });
-    }
-  }
-}
-initStars();
+        // Verify sequential numbering
+        async function verifySequentialNumbering(year, expectedNumber) {
+            // This is a simplified verification
+            // In production, you might want more sophisticated gap detection
+            const startNumber = Math.max(1, expectedNumber - 10); // Check last 10 numbers
+            const invoicesRef = db.collection(`invoices/${year}/invoices`)
+                .where('invoice_number', '>=', `GD-${year}-${startNumber.toString().padStart(3, '0')}`)
+                .where('invoice_number', '<=', `GD-${year}-${expectedNumber.toString().padStart(3, '0')}`);
+            
+            const snapshot = await invoicesRef.get();
+            const existingNumbers = snapshot.docs.map(doc => {
+                const num = parseInt(doc.data().invoice_number.split('-')[2]);
+                return num;
+            }).sort((a, b) => a - b);
+            
+            // Check for gaps (simplified)
+            if (expectedNumber > 1) {
+                const previousNumber = expectedNumber - 1;
+                if (!existingNumbers.includes(previousNumber)) {
+                    console.warn(`Potential gap detected: previous number ${previousNumber} not found`);
+                    // You might want to handle this differently based on your needs
+                }
+            }
+        }
 
-let last = performance.now();
-let pointer = {x: cw/2, y: ch/2};
-window.addEventListener('resize', ()=>{cw = canvas.width = innerWidth; ch = canvas.height = innerHeight; initStars();});
-window.addEventListener('mousemove', (e)=>{pointer.x=e.clientX;pointer.y=e.clientY});
+        // Calculate item total
+        function calculateItemTotal(row) {
+            const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+            const price = parseFloat(row.querySelector('.item-price').value) || 0;
+            const total = qty * price;
+            row.querySelector('.item-total').textContent = total.toFixed(2);
+            updateInvoicePreview();
+        }
 
-/* starfield draw loop */
-function drawStars(t){
-  const now = t || performance.now();
-  const dt = Math.min(40, now - last)/1000;
-  last = now;
-  ctx.clearRect(0,0,cw,ch);
+        // Update invoice preview
+        function updateInvoicePreview() {
+            // Update customer details
+            document.getElementById('preview-customer-name').textContent = document.getElementById('customer-name').value || '-';
+            document.getElementById('preview-customer-address').textContent = document.getElementById('customer-address').value || '-';
 
-  // slight parallax by pointer
-  const px = (pointer.x - cw/2)/cw * 30;
-  const py = (pointer.y - ch/2)/ch * 20;
+            // Update items table
+            const previewBody = document.getElementById('preview-items-body');
+            previewBody.innerHTML = '';
+            
+            let subtotal = 0;
+            document.querySelectorAll('#items-body tr').forEach(row => {
+                const desc = row.querySelector('.item-desc').value;
+                const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+                const price = parseFloat(row.querySelector('.item-price').value) || 0;
+                const total = qty * price;
+                
+                if (desc) {
+                    subtotal += total;
+                    const newRow = document.createElement('tr');
+                    newRow.innerHTML = `
+                        <td>${desc}</td>
+                        <td>${qty}</td>
+                        <td>${price.toFixed(2)}</td>
+                        <td>${total.toFixed(2)}</td>
+                    `;
+                    previewBody.appendChild(newRow);
+                }
+            });
 
-  for(let s of stars){
-    const L = starLayers[s.z];
-    // twinkle
-    const tw = 0.5 + 0.5*Math.sin((t/800)+s.twinkleOffset);
-    const x = (s.x + px*(s.z+1)*0.06 + s.vx * (t/16)) % cw;
-    const y = (s.y + py*(s.z+1)*0.03 + (s.z*0.2)) % ch;
+            // Update totals
+            document.getElementById('subtotal-amount').textContent = subtotal.toFixed(2);
+            
+            // Calculate discount
+            calculateDiscount(subtotal);
+        }
 
-    ctx.beginPath();
-    // subtle radial star glow
-    const grad = ctx.createRadialGradient(x,y,0,x,y,s.size*6);
-    grad.addColorStop(0, `rgba(255,255,255,${s.alpha*tw})`);
-    grad.addColorStop(0.4, `rgba(255,255,255,${s.alpha*tw*0.35})`);
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = grad;
-    ctx.arc(x,y,s.size,0,Math.PI*2);
-    ctx.fill();
-  }
+        // Calculate discount
+        function calculateDiscount(subtotal) {
+            const discountType = document.getElementById('discount-type').value;
+            const discountValue = parseFloat(document.getElementById('discount-value').value) || 0;
+            
+            let discountAmount = 0;
+            if (discountType === 'percentage') {
+                discountAmount = (subtotal * discountValue) / 100;
+            } else if (discountType === 'amount') {
+                discountAmount = discountValue;
+            }
+            
+            // Ensure discount doesn't exceed subtotal
+            discountAmount = Math.min(discountAmount, subtotal);
+            
+            document.getElementById('discount-amount').textContent = discountAmount.toFixed(2);
+            document.getElementById('discount-display').textContent = discountAmount.toFixed(2);
+            
+            // Update preview discount display
+            document.getElementById('preview-discount-type').textContent = discountType === 'percentage' ? 'Percentage' : 'Fixed Amount';
+            document.getElementById('preview-discount-value').textContent = discountValue;
+            document.getElementById('preview-discount-amount').textContent = discountAmount.toFixed(2);
+            
+            const finalTotal = subtotal - discountAmount;
+            document.getElementById('final-total-amount').textContent = finalTotal.toFixed(2);
+        }
 
-  requestAnimationFrame(drawStars);
-}
-requestAnimationFrame(drawStars);
+        // Add item row
+        document.getElementById('add-item').addEventListener('click', function() {
+            const tbody = document.getElementById('items-body');
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td><input type="text" class="item-desc" placeholder="Product description"></td>
+                <td><input type="number" class="item-qty" value="1" min="1"></td>
+                <td><input type="number" class="item-price" step="0.01" placeholder="0.00"></td>
+                <td class="item-total">0.00</td>
+                <td><button type="button" class="btn btn-secondary remove-item">Remove</button></td>
+            `;
+            tbody.appendChild(newRow);
+            
+            // Add event listeners to new inputs
+            newRow.querySelector('.item-qty').addEventListener('input', () => calculateItemTotal(newRow));
+            newRow.querySelector('.item-price').addEventListener('input', () => calculateItemTotal(newRow));
+            newRow.querySelector('.item-desc').addEventListener('input', updateInvoicePreview);
+        });
 
-/* ===============================
-   Exhaust particle system (canvas)
-   efficient particle pool for realism
-   =============================== */
-const exhaustCanvas = document.getElementById('exhaustCanvas');
-const exCtx = exhaustCanvas.getContext('2d');
-exhaustCanvas.width = innerWidth;
-exhaustCanvas.height = innerHeight;
-window.addEventListener('resize', ()=>{exhaustCanvas.width=innerWidth; exhaustCanvas.height=innerHeight;});
+        // Remove item row
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-item')) {
+                if (document.querySelectorAll('#items-body tr').length > 1) {
+                    e.target.closest('tr').remove();
+                    updateInvoicePreview();
+                } else {
+                    alert('At least one item is required');
+                }
+            }
+        });
 
-const exhaustParticles = [];
-const MAX_EXHAUST = 420; // pooled
-for(let i=0;i<MAX_EXHAUST;i++){
-  exhaustParticles.push({alive:false,x:0,y:0,vx:0,vy:0,life:0,maxLife:0,size:0,alpha:0,color:null});
-}
+        // Add event listeners to existing inputs
+        document.querySelectorAll('#items-body input').forEach(input => {
+            if (input.classList.contains('item-qty') || input.classList.contains('item-price')) {
+                input.addEventListener('input', () => calculateItemTotal(input.closest('tr')));
+            } else if (input.classList.contains('item-desc')) {
+                input.addEventListener('input', updateInvoicePreview);
+            }
+        });
 
-/* spawn an exhaust particle near spaceship engines */
-function spawnExhaust(x,y,force=1){
-  // find free particle
-  for(let p of exhaustParticles){
-    if(!p.alive){
-      p.alive = true;
-      p.x = x + (Math.random()-0.5)*24;
-      p.y = y + (Math.random()*6);
-      const spread = 0.6 + Math.random()*1.8;
-      p.vx = (Math.random()-0.5)*10*spread + (Math.random()>0.5? -3:3) * (force*0.2);
-      p.vy = - (6 + Math.random()*14) * (1+force*0.6);
-      p.life = 0; p.maxLife = 300 + Math.random()*700;
-      p.size = (2 + Math.random()*5) * (1+force*0.6);
-      p.alpha = 0.85 + Math.random()*0.2;
-      // color gradient between bright core and orange
-      const r = 220 + Math.floor(Math.random()*35);
-      p.color = `rgba(${r},${80+Math.floor(Math.random()*80)},${20},${p.alpha})`;
-      break;
-    }
-  }
-}
+        // Discount calculation
+        document.getElementById('discount-type').addEventListener('change', () => {
+            const subtotal = parseFloat(document.getElementById('subtotal-amount').textContent) || 0;
+            calculateDiscount(subtotal);
+        });
 
-/* exhaust update/draw */
-function updateExhaust(dt){
-  exCtx.clearRect(0,0,exhaustCanvas.width,exhaustCanvas.height);
-  // warp field behind ship to create sense of heat
-  for(let p of exhaustParticles){
-    if(!p.alive) continue;
-    p.life += dt;
-    if(p.life > p.maxLife){ p.alive=false; continue; }
-    // physics, lighter as life increases
-    p.vy += 0.02 * (p.life/p.maxLife);
-    p.vx *= 0.998;
-    p.x += p.vx * (dt*0.06);
-    p.y += p.vy * (dt*0.06);
-    const t = p.life / p.maxLife;
-    const size = p.size * (1 + t*2.5);
-    const alpha = p.alpha * (1 - t);
-    // draw radial gradient with larger blur to simulate bloom
-    const g = exCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, size*6);
-    g.addColorStop(0, `rgba(255,255,255,${alpha*0.9})`);
-    g.addColorStop(0.2, p.color.replace(/,\d+(\.\d+)?\)$/, `,${alpha*0.75})`));
-    g.addColorStop(0.6, 'rgba(255,120,50,0.08)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    exCtx.globalCompositeOperation = 'lighter';
-    exCtx.fillStyle = g;
-    exCtx.beginPath();
-    exCtx.arc(p.x,p.y,size,0,Math.PI*2);
-    exCtx.fill();
-    // add faint elongated trail
-    exCtx.globalCompositeOperation = 'destination-over';
-    exCtx.fillStyle = `rgba(255,150,50,${alpha*0.03})`;
-    exCtx.fillRect(p.x-1, p.y, 2, size*12 * (1-t));
-  }
-}
+        document.getElementById('discount-value').addEventListener('input', () => {
+            const subtotal = parseFloat(document.getElementById('subtotal-amount').textContent) || 0;
+            calculateDiscount(subtotal);
+        });
 
-/* loop for exhaust using RAF for high frequency */
-let lastEx = performance.now();
-function exhaustLoop(ts){
-  const now = ts || performance.now();
-  const dt = now - lastEx;
-  lastEx = now;
-  // spawn a few particles per frame when engines are active (we toggle from JS during ignition)
-  if(window.__enginesOn){
-    // spawn near bottom center of spaceship (approx relative to viewport)
-    const shipRect = document.getElementById('spaceship').getBoundingClientRect();
-    // spawn at three nozzle positions
-    spawnExhaust(shipRect.left + shipRect.width*0.5, shipRect.top + shipRect.height*0.87, window.__enginePower||1);
-    spawnExhaust(shipRect.left + shipRect.width*0.28, shipRect.top + shipRect.height*0.87, (window.__enginePower||1)*0.6);
-    spawnExhaust(shipRect.left + shipRect.width*0.72, shipRect.top + shipRect.height*0.87, (window.__enginePower||1)*0.6);
-  }
-  updateExhaust(dt);
-  requestAnimationFrame(exhaustLoop);
-}
-requestAnimationFrame(exhaustLoop);
+        // Update preview when customer details change
+        document.getElementById('customer-name').addEventListener('input', updateInvoicePreview);
+        document.getElementById('customer-address').addEventListener('input', updateInvoicePreview);
 
-/* ===============================
-   Micro DOM sparks and glow
-   =============================== */
-const sparksContainer = document.getElementById('sparksContainer');
-function spawnSpark(x,y){
-  const el = document.createElement('div');
-  el.className='spark';
-  el.style.left = `${x}px`; el.style.top=`${y}px`;
-  sparksContainer.appendChild(el);
-  // animate via anime.js then remove
-  anime({
-    targets: el,
-    translateX: ()=> (Math.random()-0.5)*60,
-    translateY: ()=> - (30 + Math.random()*80),
-    opacity: [1,0],
-    scale: [1, 0.2],
-    duration: 700 + Math.random()*600,
-    easing: 'easeOutCubic',
-    complete: ()=> el.remove()
-  });
-}
+        // Generate invoice
+        document.getElementById('generate-invoice').addEventListener('click', async function() {
+            const customerName = document.getElementById('customer-name').value;
+            const customerEmail = document.getElementById('customer-email').value;
+            const customerAddress = document.getElementById('customer-address').value;
+            const paymentMethod = document.getElementById('payment-method').value;
+            const invoiceNumber = document.getElementById('invoice-number-display').textContent;
+            
+            if (!customerName || !customerEmail || !customerAddress || !paymentMethod) {
+                alert('Please fill all required fields');
+                return;
+            }
 
-/* ===============================
-   Mouse parallax for nebula + lens flare + ship
-   =============================== */
-const lens = document.querySelector('.lensflare');
-const nebulaEl = document.querySelector('.nebula');
-const shipContainer = document.getElementById('spaceship');
-document.addEventListener('mousemove', (e)=>{
-  const cx = e.clientX / innerWidth - 0.5;
-  const cy = e.clientY / innerHeight - 0.5;
-  // small transforms
-  lens.style.transform = `translateX(calc(-50% + ${cx*24}px)) translateY(${cy*12}px)`;
-  nebulaEl.style.transform = `translateX(${cx*8}px) translateY(${cy*6}px) scale(1.02)`;
-  shipContainer.style.transform = `translateX(calc(-50% + ${cx*6}px)) translateY(${cy*6}px)`;
-});
+            // Get items
+            const items = [];
+            document.querySelectorAll('#items-body tr').forEach(row => {
+                const desc = row.querySelector('.item-desc').value;
+                const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+                const price = parseFloat(row.querySelector('.item-price').value) || 0;
+                if (desc && qty > 0 && price > 0) {
+                    items.push({
+                        name: desc,
+                        quantity: qty,
+                        price: price,
+                        total: qty * price
+                    });
+                }
+            });
 
-/* ===============================
-   UI: progress bar + auto countdown
-   =============================== */
-const progressBar = document.getElementById('progressBar');
-anime({targets:progressBar,width:['0%','100%'],duration:5200,easing:'linear'});
+            if (items.length === 0) {
+                alert('Please add at least one item');
+                return;
+            }
 
-let countdownValue = 5;
-const countdownEl = document.getElementById('countdown');
-const countdownInterval = setInterval(()=>{
-  countdownValue--;
-  countdownEl.textContent = `AUTO-LAUNCH IN: ${countdownValue}`;
-  if(countdownValue<=0){
-    clearInterval(countdownInterval);
-    triggerLaunch();
-  }
-},1000);
+            // Get discount info
+            const discountType = document.getElementById('discount-type').value;
+            const discountValue = parseFloat(document.getElementById('discount-value').value) || 0;
+            const discountAmount = parseFloat(document.getElementById('discount-amount').textContent) || 0;
+            const totalAmount = parseFloat(document.getElementById('final-total-amount').textContent);
 
-/* ===============================
-   Launch choreography (anime.js + JS-driven visuals)
-   - ignition pulses
-   - heat distortion applied via filter scaling
-   - camera shake
-   - background fades & redirect
-   =============================== */
-let isLaunching = false;
-const footer = document.getElementById('footer');
-const mainEngineEl = document.querySelector('.main-engine');
-const sideEngines = document.querySelectorAll('.side-engine-left, .side-engine-right');
-const contentEl = document.getElementById('content');
-const nebulaLayer = document.querySelector('.nebula');
+            // Check if invoice number already exists (strict verification)
+            try {
+                const year = new Date().getFullYear();
+                const existingInvoice = await db.collection(`invoices/${year}/invoices`).doc(invoiceNumber).get();
+                
+                if (existingInvoice.exists) {
+                    alert('Invoice number already exists! Please refresh to get a new number.');
+                    return;
+                }
+            } catch (error) {
+                console.error('Error checking invoice number:', error);
+            }
 
-function playIgnitionSequence(){
-  // glow pulse for cockpit + nose
-  anime({
-    targets: ['.cockpit','.nose-highlight'],
-    scale: [1,1.06,1],
-    duration: 900,
-    easing: 'easeInOutSine',
-    loop: 3
-  });
+            // Save to Firebase with new structure
+            try {
+                const invoiceData = {
+                    id: Date.now(),
+                    invoice_number: invoiceNumber,
+                    issue_date: new Date(),
+                    customer_name: customerName,
+                    customer_email: customerEmail,
+                    customer_address: customerAddress,
+                    total_amount: totalAmount,
+                    currency: 'EUR',
+                    items_json: items,
+                    discount_type: discountType,
+                    discount_value: discountValue,
+                    discount_amount: discountAmount,
+                    file_sent_status: false,
+                    payment_method: paymentMethod,
+                    created_at: new Date()
+                };
 
-  // short bursts of sparks
-  const shipRect = shipContainer.getBoundingClientRect();
-  for(let i=0;i<6;i++){
-    setTimeout(()=>spawnSpark(shipRect.left + shipRect.width*0.5 + (Math.random()-0.5)*30, shipRect.top + shipRect.height*0.9), i*110);
-  }
+                // Save to sub-collection
+                await db.collection(`invoices/${year}/invoices`).doc(invoiceNumber).set(invoiceData);
+                
+                alert('Invoice generated and saved successfully!');
+                
+                // Print the invoice
+                window.print();
+                
+                // Reset form for next invoice
+                resetForm();
+                
+            } catch (error) {
+                console.error('Error saving invoice:', error);
+                alert('Error saving invoice: ' + error.message);
+            }
+        });
 
-  // breathing side-engine flicker (animating DOM flames)
-  anime({
-    targets: mainEngineEl,
-    opacity: [0,1],
-    scale: [0.9,1],
-    duration: 250,
-    easing: 'easeOutQuad',
-    complete: ()=>{
-      // loop the subtle oscillation
-      anime({
-        targets: mainEngineEl,
-        scale: [1,1.08],
-        duration: 400,
-        direction: 'alternate',
-        easing: 'easeInOutSine',
-        loop: true
-      });
-    }
-  });
-  anime({
-    targets: sideEngines,
-    opacity: [0,1],
-    duration: 350,
-    delay: anime.stagger(60),
-    loop: true,
-    direction: 'alternate',
-    easing: 'easeInOutSine'
-  });
+        // Reset form
+        function resetForm() {
+            document.getElementById('customer-name').value = '';
+            document.getElementById('customer-email').value = '';
+            document.getElementById('customer-address').value = '';
+            document.getElementById('payment-method').value = '';
+            document.getElementById('discount-type').value = 'percentage';
+            document.getElementById('discount-value').value = '';
+            
+            // Clear items except first one
+            const tbody = document.getElementById('items-body');
+            while (tbody.children.length > 1) {
+                tbody.removeChild(tbody.lastChild);
+            }
+            
+            // Reset first item
+            const firstRow = tbody.firstElementChild;
+            firstRow.querySelector('.item-desc').value = '';
+            firstRow.querySelector('.item-qty').value = '1';
+            firstRow.querySelector('.item-price').value = '';
+            firstRow.querySelector('.item-total').textContent = '0.00';
+            
+            // Reset preview
+            document.getElementById('preview-customer-name').textContent = '-';
+            document.getElementById('preview-customer-address').textContent = '-';
+            document.getElementById('preview-items-body').innerHTML = '';
+            document.getElementById('subtotal-amount').textContent = '0.00';
+            document.getElementById('discount-amount').textContent = '0.00';
+            document.getElementById('discount-display').textContent = '0.00';
+            document.getElementById('final-total-amount').textContent = '0.00';
+            document.getElementById('preview-discount-type').textContent = 'None';
+            document.getElementById('preview-discount-value').textContent = '0';
+            document.getElementById('preview-discount-amount').textContent = '0.00';
+            
+            // Generate new invoice number
+            getNextInvoiceNumber();
+        }
 
-  // mark engines on so exhaust loop spawns
-  window.__enginesOn = true; window.__enginePower = 0.8;
-  // ramp engine power up over time while we lift
-  anime({
-    targets: window,
-    __enginePower: [0.8, 1.6],
-    duration: 2600,
-    easing: 'easeOutCubic',
-    update: function(anim){
-      // use property to mod how many particles spawn or their vigor
-    }
-  });
-}
-
-/* simple camera shake helper using Anime on body transform */
-function cameraShake(intensity=1.0, duration=600){
-  anime({
-    targets: document.body,
-    translateX: [0, -6*intensity, 6*intensity, -3*intensity, 3*intensity, 0],
-    translateY: [0, -3*intensity, 3*intensity, -1*intensity, 1*intensity, 0],
-    duration: duration,
-    easing: 'easeInOutQuad'
-  });
-}
-
-/* apply heat filter (animate the displacement scale by adjusting feTurbulence baseFrequency via attr) */
-const turb = document.getElementById('turb');
-function animateHeat(on){
-  if(on){
-    // ramp turbulence frequency up
-    let seed = 1;
-    const t = setInterval(()=>{
-      // tweak baseFrequency randomly for organic effect
-      const bf = 0.006 + Math.random()*0.018;
-      turb.setAttribute('baseFrequency', bf.toFixed(4));
-      seed++;
-      if(!window.__enginesOn) { clearInterval(t); turb.setAttribute('baseFrequency', '0.009'); }
-    }, 80);
-  } else {
-    turb.setAttribute('baseFrequency','0.009');
-  }
-}
-
-/* main launch caller (called by button or auto) */
-function triggerLaunch(){
-  if(isLaunching) return;
-  isLaunching = true;
-  clearInterval(countdownInterval);
-  document.getElementById('enterBtn').style.display='none';
-  countdownEl.style.display='none';
-
-  // show spaceship
-  anime({targets:'#spaceship',opacity:[0,1],duration:460,easing:'easeOutQuad'});
-
-  // ignition
-  setTimeout(()=>{ playIgnitionSequence(); animateHeat(true); cameraShake(1.1,700); }, 220);
-
-  // ramp engine visuals and lift-off sequence
-  setTimeout(()=>{
-    // full thrust visuals
-    window.__enginePower = 2.2;
-    // heavy sparks burst
-    const shipRect = shipContainer.getBoundingClientRect();
-    for(let i=0;i<18;i++){
-      setTimeout(()=>spawnSpark(shipRect.left + shipRect.width*0.5 + (Math.random()-0.5)*60, shipRect.top + shipRect.height*0.9), i*40);
-    }
-    cameraShake(1.6,900);
-
-    // animate DOM flames big and bright
-    anime({
-      targets: mainEngineEl,
-      opacity: [1,0.85,1],
-      scale: [1.08,1.35],
-      duration: 480,
-      easing: 'easeOutSine',
-      direction: 'alternate',
-      loop: 8
-    });
-    anime({
-      targets: ['.side-engine-left','.side-engine-right'],
-      opacity: [1,0.9,1],
-      scale: [1.05,1.4],
-      duration: 420,
-      delay: anime.stagger(60),
-      easing:'easeOutSine',
-      loop:8
-    });
-
-    // push content & backgrounds to fade and ship to climb
-    anime({
-      targets: [contentEl, document.querySelector('.nebula'), document.getElementById('canvasStars')],
-      opacity: [1,0],
-      duration: 1200,
-      easing: 'easeInOutQuad',
-    });
-
-    // actual liftoff: move spaceship bottom off-screen with motion blur trail effect
-    anime({
-      targets: '#spaceship',
-      bottom: ['-260px','120vh'],
-      translateY: [0, -80],
-      duration: 2600,
-      easing: 'cubicBezier(0.22,1,0.35,1)',
-      begin: function(){
-        // create trailing blurred clones to simulate fast motion (quick DOM "ghosts")
-        const trail = document.createElement('div');
-        trail.className='trail';
-        trail.style.width = `${document.querySelector('.spaceship').offsetWidth}px`;
-        trail.style.height = `${document.querySelector('.spaceship').offsetHeight}px`;
-        trail.style.left = `${(innerWidth/2) - (document.querySelector('.spaceship').offsetWidth/2)}px`;
-        trail.style.top = `${innerHeight - 200}px`;
-        trail.style.background = 'radial-gradient(circle, rgba(255,255,255,0.02), rgba(0,0,0,0))';
-        trail.style.borderRadius='12px';
-        trail.style.zIndex = 17;
-        document.body.appendChild(trail);
-        anime({targets:trail, translateY: -480, opacity:[0.12,0], duration:2400, easing:'easeOutCubic', complete: ()=>trail.remove()});
-      },
-      complete: function(){
-        // stop engines spawning
-        window.__enginesOn = false;
-        animateHeat(false);
-        // show footer then redirect (keeps UX)
-        footer.classList.add('show');
-        setTimeout(()=>{ window.location.href = '/teamgalaxy/dashboard'; }, 900);
-      }
-    });
-
-  }, 700);
-}
-
-/* button handler */
-document.getElementById('enterBtn').addEventListener('click', ()=>triggerLaunch());
-
-/* small interactive particle push on mousemove for depth */
-const particlesLayer = document.getElementById('particles');
-const microParticles = [];
-for(let i=0;i<26;i++){
-  const el = document.createElement('div');
-  el.style.position='absolute'; el.style.width='4px'; el.style.height='4px'; el.style.borderRadius='50%';
-  el.style.left = Math.random()*100+'%'; el.style.top = Math.random()*100+'%';
-  el.style.opacity = (Math.random()*0.5+0.08).toString();
-  el.style.background = `rgba(255,255,255,${Math.random()*0.6+0.08})`;
-  el.style.transform = `translate3d(0,0,0)`;
-  el.style.willChange = 'transform,opacity';
-  particlesLayer.appendChild(el);
-  microParticles.push(el);
-}
-let lastMove = 0;
-document.addEventListener('mousemove', (e)=>{
-  const now=Date.now();
-  if(now-lastMove < 14) return; lastMove=now;
-  const cx = (e.clientX/innerWidth-0.5); const cy = (e.clientY/innerHeight-0.5);
-  microParticles.forEach((p,idx)=>{
-    const tx = cx*(idx%5+0.8)*12; const ty = cy*(idx%7+0.8)*10;
-    anime({
-      targets:p,
-      translateX: tx,
-      translateY: ty,
-      duration: 700 + (idx*20),
-      easing:'easeOutQuad'
-    });
-  });
-});
-
-/* safe page unload cleanup */
-window.addEventListener('beforeunload', ()=>{ window.__enginesOn = false; });
-
-/* start button auto hint: gentle entrance */
-anime({targets:'.logo',translateY:[18,0],opacity:[0,1],duration:900,easing:'easeOutCubic',delay:120});
-anime({targets:'.tagline',translateY:[22,0],opacity:[0,1],duration:900,easing:'easeOutCubic',delay:260});
-
-/* exhaust runner: spawn rate controlled in exhaustLoop via window.__enginesOn variable */
-/* we already started the exhaust loop above */
-
-/* attach a small keyboard shortcut for demo: press Space to launch */
-window.addEventListener('keydown',(e)=>{ if(e.code==='Space'){ e.preventDefault(); triggerLaunch(); }});
-</script>
+        // Initialize
+        getNextInvoiceNumber();
+        updateInvoicePreview();
+    </script>
 </body>
 </html>
