@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Galaxy Designs - Invoice Manager</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -237,6 +239,151 @@
             font-size: 14px;
         }
 
+        /* PDF Template Styles */
+        .pdf-template {
+            display: none;
+            max-width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
+            padding: 25mm;
+            background: white;
+            position: relative;
+        }
+
+        .pdf-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 60px;
+            color: rgba(0,0,0,0.03);
+            z-index: 1;
+            pointer-events: none;
+            font-weight: bold;
+            letter-spacing: 3px;
+            opacity: 0.5;
+        }
+
+        .pdf-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .pdf-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #2c3e50;
+        }
+
+        .pdf-title {
+            font-size: 2.5em;
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .pdf-subtitle {
+            font-size: 1.2em;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+        }
+
+        .pdf-company-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        .pdf-company-info h3 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .pdf-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .pdf-info-box {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+        }
+
+        .pdf-info-box h4 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .pdf-items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 13px;
+        }
+
+        .pdf-items-table th, .pdf-items-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .pdf-items-table th {
+            background: #2c3e50;
+            color: white;
+            font-weight: 600;
+        }
+
+        .pdf-totals-section {
+            margin: 20px 0;
+            text-align: right;
+            font-size: 14px;
+        }
+
+        .pdf-total-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 4px 0;
+        }
+
+        .pdf-grand-total {
+            font-weight: bold;
+            font-size: 16px;
+            border-top: 2px solid #2c3e50;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        .pdf-discount-section {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border: 1px solid #ffeaa7;
+        }
+
+        .pdf-legal-footer {
+            margin-top: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #2c3e50;
+            font-size: 12px;
+            line-height: 1.5;
+            border-radius: 4px;
+        }
+
+        .pdf-legal-footer h4 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
         @media (max-width: 768px) {
             .search-controls {
                 grid-template-columns: 1fr;
@@ -290,6 +437,85 @@
         </div>
     </div>
 
+    <!-- Hidden PDF Template -->
+    <div class="pdf-template" id="pdf-template">
+        <div class="pdf-watermark">GALAXY DESIGNS</div>
+        <div class="pdf-content">
+            <div class="pdf-header">
+                <h1 class="pdf-title">FACTURE</h1>
+                <p class="pdf-subtitle">Invoice No: <span id="pdf-invoice-number"></span></p>
+            </div>
+
+            <div class="pdf-company-info">
+                <h3>Galaxy Designs</h3>
+                <p><strong>Full Name:</strong> <span id="pdf-full-name">Creatine</span></p>
+                <p><strong>Status:</strong> <span id="pdf-status">Entrepreneur Individuel</span></p>
+                <p><strong>SIRET:</strong> <span id="pdf-siret">12345678912345</span></p>
+                <p><strong>Address:</strong> <span id="pdf-address">Strasbourg, France</span></p>
+            </div>
+
+            <div class="pdf-info-grid">
+                <div class="pdf-info-box">
+                    <h4>Issue Date</h4>
+                    <span id="pdf-issue-date"></span>
+                </div>
+                <div class="pdf-info-box">
+                    <h4>Sale Date</h4>
+                    <span id="pdf-sale-date"></span>
+                </div>
+            </div>
+
+            <div class="pdf-info-box">
+                <h4>Client Information</h4>
+                <p><strong>Name:</strong> <span id="pdf-customer-name"></span></p>
+                <p><strong>Email:</strong> <span id="pdf-customer-email"></span></p>
+                <p><strong>Address:</strong> <span id="pdf-customer-address"></span></p>
+            </div>
+
+            <table class="pdf-items-table" id="pdf-items-table">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Qty</th>
+                        <th>Unit Price (€)</th>
+                        <th>Total (€)</th>
+                    </tr>
+                </thead>
+                <tbody id="pdf-items-body">
+                    <!-- Items will be populated here -->
+                </tbody>
+            </table>
+
+            <div class="pdf-discount-section">
+                <h4>Discount Applied</h4>
+                <p>Type: <span id="pdf-discount-type">None</span></p>
+                <p>Value: <span id="pdf-discount-value">0</span></p>
+                <p><strong>Discount Amount: €<span id="pdf-discount-amount">0.00</span></strong></p>
+            </div>
+
+            <div class="pdf-totals-section">
+                <div class="pdf-total-row">
+                    <span>Subtotal:</span>
+                    <span>€<span id="pdf-subtotal-amount">0.00</span></span>
+                </div>
+                <div class="pdf-total-row">
+                    <span>Discount:</span>
+                    <span>-€<span id="pdf-discount-display">0.00</span></span>
+                </div>
+                <div class="pdf-total-row pdf-grand-total">
+                    <span><strong>Total Amount:</strong></span>
+                    <span><strong>€<span id="pdf-final-total-amount">0.00</span></strong></span>
+                </div>
+            </div>
+
+            <div class="pdf-legal-footer">
+                <h4>Legal Information</h4>
+                <p><strong>TVA non applicable, art. 293 B du CGI</strong></p>
+                <p>Le client renonce expressément à son droit de rétractation pour ce contenu numérique fourni immédiatement après paiement.</p>
+            </div>
+        </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script>
@@ -312,7 +538,7 @@
             try {
                 // Get current year and previous year for loading
                 const currentYear = new Date().getFullYear();
-                const years = [currentYear, currentYear - 1]; // Load last 2 years
+                const years = [currentYear, currentYear - 1, currentYear - 2]; // Load last 3 years
                 
                 allInvoices = [];
                 
@@ -411,16 +637,109 @@
         }
 
         // Generate PDF
-        function generatePDF(invoiceId, year) {
-            // This would open a new window with the PDF generation logic
-            // For now, we'll just show an alert
-            alert(`PDF generation for invoice ${invoiceId} would start here. This feature will be implemented in the PDF generation page.`);
+        async function generatePDF(invoiceId, year) {
+            try {
+                // Get invoice data from Firebase
+                const invoiceDoc = await db.collection(`invoices/${year}/invoices`).doc(invoiceId).get();
+                const invoice = invoiceDoc.data();
+                
+                if (!invoice) {
+                    alert('Invoice not found');
+                    return;
+                }
+
+                // Fill PDF template with invoice data
+                document.getElementById('pdf-invoice-number').textContent = invoice.invoice_number;
+                document.getElementById('pdf-issue-date').textContent = new Date(invoice.issue_date).toLocaleDateString('fr-FR');
+                document.getElementById('pdf-sale-date').textContent = new Date(invoice.issue_date).toLocaleDateString('fr-FR');
+                document.getElementById('pdf-customer-name').textContent = invoice.customer_name;
+                document.getElementById('pdf-customer-email').textContent = invoice.customer_email;
+                document.getElementById('pdf-customer-address').textContent = invoice.customer_address;
+                
+                // Fill items table
+                const itemsBody = document.getElementById('pdf-items-body');
+                itemsBody.innerHTML = '';
+                invoice.items_json.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${item.name}</td>
+                        <td>${item.quantity}</td>
+                        <td>${item.price.toFixed(2)}</td>
+                        <td>${item.total.toFixed(2)}</td>
+                    `;
+                    itemsBody.appendChild(row);
+                });
+
+                // Fill discount info
+                document.getElementById('pdf-discount-type').textContent = invoice.discount_type === 'percentage' ? 'Percentage' : 'Fixed Amount';
+                document.getElementById('pdf-discount-value').textContent = invoice.discount_value;
+                document.getElementById('pdf-discount-amount').textContent = invoice.discount_amount.toFixed(2);
+                document.getElementById('pdf-discount-display').textContent = invoice.discount_amount.toFixed(2);
+                
+                // Fill totals
+                document.getElementById('pdf-subtotal-amount').textContent = (invoice.total_amount + invoice.discount_amount).toFixed(2);
+                document.getElementById('pdf-final-total-amount').textContent = invoice.total_amount.toFixed(2);
+
+                // Generate PDF using jsPDF
+                const { jsPDF } = window.jspdf;
+                const element = document.getElementById('pdf-template');
+                
+                // Show the template temporarily
+                element.style.display = 'block';
+                
+                // Use html2canvas to capture the PDF template
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true
+                });
+                
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210; // A4 width in mm
+                const pageHeight = 297; // A4 height in mm
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                
+                // Add additional pages if needed
+                heightLeft -= pageHeight;
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                // Save the PDF
+                pdf.save(`invoice_${invoice.invoice_number}.pdf`);
+                
+                // Hide the template again
+                element.style.display = 'none';
+                
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Error generating PDF: ' + error.message);
+            }
         }
 
-        // View invoice details
+        // View invoice details (simple alert for now)
         function viewInvoice(invoiceId, year) {
-            // This would show detailed view of the invoice
-            alert(`Detailed view for invoice ${invoiceId} from year ${year} would be shown here.`);
+            const invoice = allInvoices.find(inv => inv.id === invoiceId && inv.year === year);
+            if (invoice) {
+                let details = `Invoice Details:\n\n`;
+                details += `Invoice Number: ${invoice.invoice_number}\n`;
+                details += `Customer: ${invoice.customer_name}\n`;
+                details += `Email: ${invoice.customer_email}\n`;
+                details += `Address: ${invoice.customer_address}\n`;
+                details += `Amount: €${invoice.total_amount.toFixed(2)}\n`;
+                details += `Payment Method: ${invoice.payment_method}\n`;
+                details += `Items: ${invoice.items_json.length} items\n`;
+                
+                alert(details);
+            }
         }
 
         // Event listeners
