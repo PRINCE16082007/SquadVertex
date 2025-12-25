@@ -5,256 +5,92 @@
 <title>TeamGalaxy Invoice Generator</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- Google Font -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 
-<!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
 
-<!-- Firebase v9 Modular -->
-<script type="module">
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, runTransaction, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
-
-
-// =========================
-// 🔥 YOUR EXISTING CREDENTIALS HERE
-// =========================
-        const firebaseConfig = {
-            apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-            authDomain: "teamgalaxy-77344.firebaseapp.com",
-            projectId: "teamgalaxy-77344",
-            storageBucket: "teamgalaxy-77344.firebasestorage.app",
-            messagingSenderId: "770256225320",
-            appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-            measurementId: "G-6C2W9NSNCH"
-        };
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-
-// =========================
-// 🧠 Generate Sequential Invoice Number
-// =========================
-async function generateInvoiceNumber() {
-    const year = new Date().getFullYear();
-    const counterRef = doc(db, "meta", "invoice_counters_" + year);
-
-    return await runTransaction(db, async (transaction) => {
-        const counterSnap = await transaction.get(counterRef);
-
-        let newNumber = 1;
-        if (counterSnap.exists()) {
-            newNumber = counterSnap.data().count + 1;
-        }
-
-        transaction.set(counterRef, { count: newNumber }, { merge: true });
-
-        const formatted = String(newNumber).padStart(3, "0");
-        return `GD-${year}-${formatted}`;
-    });
-}
-
-
-// =========================
-// 💾 Save Invoice To Firestore
-// =========================
-async function saveInvoiceToDB(data) {
-    await addDoc(collection(db, "invoices"), data);
-    alert("Invoice saved to Firebase ✔");
-}
-
-
-// =========================
-// 🧾 Generate PDF
-// =========================
-async function generatePDF() {
-
-    const { jsPDF } = window.jspdf;
-    const docPdf = new jsPDF();
-
-    // gather values
-    const invoiceNumber = document.getElementById("invoiceNumber").value;
-    const issueDate = document.getElementById("issueDate").value;
-    const saleDate = document.getElementById("saleDate").value;
-    const clientName = document.getElementById("clientName").value;
-    const clientAddress = document.getElementById("clientAddress").value;
-    const customerEmail = document.getElementById("customerEmail").value;
-    const totalAmount = document.getElementById("totalAmount").value;
-    const paymentMethod = document.getElementById("paymentMethod").value;
-
-    // seller fixed details
-    const seller = {
-        fullName: "Creatine",
-        business: "Galaxy Designs",
-        status: "Entrepreneur Individuel",
-        siret: "12345678912345",
-        address: "Strasbourg, France"
-    };
-
-    // ============ HEADER ============
-    docPdf.setFontSize(22);
-    docPdf.text("FACTURE", 14, 20);
-
-    docPdf.setFontSize(12);
-    docPdf.text(`Invoice Number: ${invoiceNumber}`, 14, 30);
-    docPdf.text(`Issue Date: ${issueDate}`, 14, 37);
-    docPdf.text(`Date of Sale: ${saleDate}`, 14, 44);
-
-    // seller details
-    docPdf.setFontSize(13);
-    docPdf.text("Seller", 14, 58);
-    docPdf.setFontSize(11);
-    docPdf.text(`${seller.fullName}`, 14, 66);
-    docPdf.text(`${seller.business}`, 14, 72);
-    docPdf.text(`${seller.status}`, 14, 78);
-    docPdf.text(`SIRET: ${seller.siret}`, 14, 84);
-    docPdf.text(`${seller.address}`, 14, 90);
-
-    // buyer
-    docPdf.setFontSize(13);
-    docPdf.text("Buyer", 120, 58);
-    docPdf.setFontSize(11);
-    docPdf.text(`${clientName}`, 120, 66);
-    docPdf.text(`${clientAddress}`, 120, 72);
-    docPdf.text(`${customerEmail}`, 120, 78);
-
-    // table
-    const itemDescription = document.getElementById("itemDescription").value;
-    const unitPrice = Number(document.getElementById("unitPrice").value);
-
-    docPdf.autoTable({
-        startY: 105,
-        head: [["Description", "Qty", "Unit Price (€)", "Total (€)"]],
-        body: [
-            [itemDescription, "1", unitPrice.toFixed(2), unitPrice.toFixed(2)]
-        ],
-    });
-
-    // Total
-    docPdf.setFontSize(14);
-    docPdf.text(`Total Amount: €${totalAmount}`, 140, docPdf.lastAutoTable.finalY + 10);
-
-    // LEGAL FOOTER
-    docPdf.setFontSize(10);
-    docPdf.text("TVA non applicable, art. 293 B du CGI", 14, docPdf.lastAutoTable.finalY + 25);
-    docPdf.text("Le client renonce expressément à son droit de rétractation pour ce contenu numérique fourni immédiatement après paiement.", 14, docPdf.lastAutoTable.finalY + 32);
-
-    docPdf.save(`${invoiceNumber}.pdf`);
-
-    return {
-        invoiceNumber,
-        issueDate,
-        saleDate,
-        clientName,
-        clientAddress,
-        totalAmount,
-        paymentMethod,
-        customerEmail,
-        itemDescription,
-        unitPrice
-    };
-}
-
-
-// =========================
-// 🚀 Main Form Logic
-// =========================
-window.onload = async () => {
-    const invoiceNumber = await generateInvoiceNumber();
-    document.getElementById("invoiceNumber").value = invoiceNumber;
-
-    const today = new Date().toISOString().split("T")[0];
-    document.getElementById("issueDate").value = today;
-    document.getElementById("saleDate").value = today;
-};
-
-window.handleGenerate = async () => {
-    const pdfData = await generatePDF();
-
-    // save in DB
-    await saveInvoiceToDB({
-        id: crypto.randomUUID(),
-        invoice_number: pdfData.invoiceNumber,
-        issue_date: new Date(pdfData.issueDate),
-        customer_name: pdfData.clientName,
-        customer_email: pdfData.customerEmail,
-        customer_address: pdfData.clientAddress,
-        total_amount: Number(pdfData.totalAmount),
-        currency: "EUR",
-        items_json: JSON.stringify([{ name: pdfData.itemDescription, price: pdfData.unitPrice }]),
-        file_sent_status: false,
-        payment_method: pdfData.paymentMethod,
-        created_at: new Date()
-    });
-};
-
-</script>
-
 <style>
 body{
-    font-family: Inter, system-ui;
-    margin:0;
-    background:white;
-    color:#111;
+  margin:0;
+  font-family: Inter, system-ui;
+  background:#f7f7f7;
+  color:#111;
 }
-.container{
-    max-width:900px;
-    margin:30px auto;
-    padding:25px;
-    border-radius:14px;
-    box-shadow:0 10px 30px rgba(0,0,0,.08);
-    background:white;
+
+.wrapper{
+  max-width:1000px;
+  margin:25px auto 40px;
+  padding:10px;
 }
+
+.card{
+  background:white;
+  border-radius:16px;
+  padding:22px;
+  box-shadow:0 15px 30px rgba(0,0,0,.08);
+  margin-bottom:18px;
+}
+
 h1{
-    font-weight:800;
-    letter-spacing:.5px;
+  margin-top:0;
 }
+
 .grid{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:18px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
 }
+
 input,textarea,select{
-    width:100%;
-    padding:10px 12px;
-    border-radius:8px;
-    border:1px solid #ddd;
-    font-size:14px;
+  width:100%;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid #ddd;
+  font-size:14px;
 }
-button{
-    padding:12px 16px;
-    border-radius:10px;
-    background:black;
-    color:white;
-    border:none;
-    cursor:pointer;
-    font-weight:600;
-}
+
 label{
-    font-size:13px;
-    font-weight:600;
+  font-size:13px;
+  font-weight:600;
 }
-.section{
-    margin-top:20px;
-    padding:18px;
-    border-radius:12px;
-    border:1px solid #eee;
+
+button{
+  padding:12px 16px;
+  border-radius:10px;
+  background:black;
+  color:white;
+  font-weight:600;
+  border:none;
+  cursor:pointer;
+}
+
+.item-row{
+  display:grid;
+  grid-template-columns:3fr 1fr 1fr 1fr auto;
+  gap:10px;
+  margin-top:8px;
+}
+
+.total-box{
+  text-align:right;
+  font-size:18px;
+  font-weight:800;
 }
 </style>
 </head>
 
 <body>
 
-<div class="container">
+<div class="wrapper">
+
 <h1>TeamGalaxy – Invoice Generator</h1>
 
-<div class="section">
-<h3>Invoice Meta</h3>
+<div class="card">
+<h3>Invoice Info</h3>
+
 <div class="grid">
+
 <div>
 <label>Invoice Number</label>
 <input id="invoiceNumber" readonly>
@@ -269,12 +105,13 @@ label{
 <label>Date of Sale</label>
 <input id="saleDate" type="date">
 </div>
+
 </div>
 </div>
 
-
-<div class="section">
+<div class="card">
 <h3>Buyer Details</h3>
+
 <div class="grid">
 <div>
 <label>Client Name</label>
@@ -285,32 +122,32 @@ label{
 <label>Client Email</label>
 <input id="customerEmail">
 </div>
-
 </div>
 
-<label>Client Address (Country Required)</label>
+<label>Client Address (Country required)</label>
 <textarea id="clientAddress" rows="3"></textarea>
+
 </div>
 
+<div class="card">
 
-<div class="section">
-<h3>Product</h3>
+<h3>Items</h3>
 
-<label>Description</label>
-<input id="itemDescription" placeholder="Digital Design Pack">
+<div id="itemsContainer"></div>
+
+<br>
+<button onclick="addItem()">+ Add Item</button>
+
+<hr>
 
 <div class="grid">
+
 <div>
-<label>Unit Price (€)</label>
-<input id="unitPrice" type="number" value="50">
+<label>Discount (€)</label>
+<input id="discount" type="number" value="0" oninput="recalculateTotals()">
 </div>
 
 <div>
-<label>Total Amount (€)</label>
-<input id="totalAmount" type="number" value="50">
-</div>
-</div>
-
 <label>Payment Method</label>
 <select id="paymentMethod">
 <option value="Wise">Wise</option>
@@ -319,11 +156,233 @@ label{
 </select>
 </div>
 
+</div>
 
 <br>
-<button onclick="handleGenerate()">Generate Invoice & Save</button>
+
+<div class="total-box">
+<div>Subtotal: €<span id="subtotalText">0.00</span></div>
+<div>Discount: €<span id="discountText">0.00</span></div>
+<div>Grand Total: €<span id="grandTotalText">0.00</span></div>
+</div>
 
 </div>
+
+<button onclick="handleGenerate()">Generate PDF & Save</button>
+
+</div>
+
+<script type="module">
+
+// =========================
+// 🔥 Firebase
+// =========================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import {
+  getFirestore,
+  doc,
+  runTransaction,
+  collection,
+  addDoc
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+  authDomain: "teamgalaxy-77344.firebaseapp.com",
+  projectId: "teamgalaxy-77344",
+  storageBucket: "teamgalaxy-77344.firebasestorage.app",
+  messagingSenderId: "770256225320",
+  appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
+  measurementId: "G-6C2W9NSNCH"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+
+// =========================
+// 🧠 Auto Invoice Number (fixed)
+// =========================
+async function generateInvoiceNumber(){
+  const year = new Date().getFullYear();
+  const ref = doc(db,"meta","invoice_counter_"+year);
+
+  const number = await runTransaction(db, async (tx)=>{
+    const snap = await tx.get(ref);
+
+    let count = 1;
+    if(snap.exists()) count = snap.data().count + 1;
+
+    tx.set(ref,{count},{merge:true});
+
+    return count;
+  });
+
+  return `GD-${year}-${String(number).padStart(3,"0")}`;
+}
+
+
+// =========================
+// ➕ Dynamic Items
+// =========================
+window.addItem = function(){
+  const container = document.getElementById("itemsContainer");
+
+  const row = document.createElement("div");
+  row.className = "item-row";
+
+  row.innerHTML = `
+    <input placeholder="Description" class="desc">
+    <input type="number" class="qty" value="1" oninput="recalculateTotals()">
+    <input type="number" class="price" value="0" oninput="recalculateTotals()">
+    <input type="number" class="total" value="0" readonly>
+    <button onclick="this.parentElement.remove(); recalculateTotals()">✕</button>
+  `;
+
+  container.appendChild(row);
+};
+
+
+// =========================
+// 🧮 Totals calculation
+// =========================
+window.recalculateTotals = function(){
+
+  let subtotal = 0;
+  document.querySelectorAll(".item-row").forEach(row=>{
+    const qty = Number(row.querySelector(".qty").value);
+    const price = Number(row.querySelector(".price").value);
+    const total = qty * price;
+    row.querySelector(".total").value = total.toFixed(2);
+    subtotal += total;
+  });
+
+  const discount = Number(document.getElementById("discount").value || 0);
+
+  let grand = subtotal - discount;
+  if(grand < 0) grand = 0;
+
+  document.getElementById("subtotalText").innerText = subtotal.toFixed(2);
+  document.getElementById("discountText").innerText = discount.toFixed(2);
+  document.getElementById("grandTotalText").innerText = grand.toFixed(2);
+
+  return {subtotal,discount,grand};
+};
+
+
+// =========================
+// 🧾 PDF + Firestore SAVE
+// =========================
+window.handleGenerate = async function(){
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+
+  const invoiceNumber = document.getElementById("invoiceNumber").value;
+  const issueDate = document.getElementById("issueDate").value;
+  const saleDate = document.getElementById("saleDate").value;
+
+  const clientName = document.getElementById("clientName").value;
+  const clientAddress = document.getElementById("clientAddress").value;
+  const customerEmail = document.getElementById("customerEmail").value;
+
+  const paymentMethod = document.getElementById("paymentMethod").value;
+
+  const totals = recalculateTotals();
+
+  // items JSON
+  const itemData = [];
+  document.querySelectorAll(".item-row").forEach(row=>{
+    itemData.push({
+      name: row.querySelector(".desc").value,
+      qty: Number(row.querySelector(".qty").value),
+      price: Number(row.querySelector(".price").value)
+    });
+  });
+
+  // ---------- PDF ----------
+  pdf.setFontSize(22);
+  pdf.text("FACTURE",14,20);
+
+  pdf.setFontSize(12);
+  pdf.text(`Invoice Number: ${invoiceNumber}`,14,30);
+  pdf.text(`Issue Date: ${issueDate}`,14,37);
+  pdf.text(`Date of Sale: ${saleDate}`,14,44);
+
+  pdf.setFontSize(13);
+  pdf.text("Seller",14,58);
+  pdf.setFontSize(11);
+  pdf.text("Creatine — Galaxy Designs",14,66);
+  pdf.text("Entrepreneur Individuel",14,72);
+  pdf.text("SIRET: 12345678912345",14,78);
+  pdf.text("Strasbourg, France",14,84);
+
+  pdf.setFontSize(13);
+  pdf.text("Buyer",120,58);
+  pdf.setFontSize(11);
+  pdf.text(clientName,120,66);
+  pdf.text(clientAddress,120,72);
+  pdf.text(customerEmail,120,78);
+
+  // Table
+  pdf.autoTable({
+    startY: 100,
+    head:[["Description","Qty","Unit (€)","Total (€)"]],
+    body:itemData.map(i=>[
+      i.name,
+      i.qty,
+      i.price.toFixed(2),
+      (i.qty*i.price).toFixed(2)
+    ])
+  });
+
+  pdf.text(`Subtotal: €${totals.subtotal.toFixed(2)}`,140,pdf.lastAutoTable.finalY + 10);
+  pdf.text(`Discount: €${totals.discount.toFixed(2)}`,140,pdf.lastAutoTable.finalY + 16);
+  pdf.text(`Grand Total: €${totals.grand.toFixed(2)}`,140,pdf.lastAutoTable.finalY + 22);
+
+  // Legal footer
+  pdf.setFontSize(10);
+  pdf.text("TVA non applicable, art. 293 B du CGI",14,pdf.lastAutoTable.finalY + 36);
+  pdf.text("Le client renonce expressément à son droit de rétractation pour ce contenu numérique fourni immédiatement après paiement.",14,pdf.lastAutoTable.finalY + 43);
+
+  pdf.save(`${invoiceNumber}.pdf`);
+
+  // ---------- FIRESTORE SAVE ----------
+  await addDoc(collection(db,"invoices"),{
+    id: crypto.randomUUID(),
+    invoice_number: invoiceNumber,
+    issue_date: new Date(issueDate),
+    customer_name: clientName,
+    customer_email: customerEmail,
+    customer_address: clientAddress,
+    total_amount: totals.grand,
+    currency: "EUR",
+    items_json: JSON.stringify(itemData),
+    file_sent_status:false,
+    payment_method: paymentMethod,
+    discount: totals.discount,
+    created_at: new Date()
+  });
+
+  alert("Saved in Firebase ✔ and PDF downloaded");
+};
+
+
+// =========================
+// 🚀 INIT
+// =========================
+window.onload = async ()=>{
+  addItem(); // default one row
+
+  const inv = await generateInvoiceNumber();
+  document.getElementById("invoiceNumber").value = inv;
+
+  const today = new Date().toISOString().split("T")[0];
+  document.getElementById("issueDate").value = today;
+  document.getElementById("saleDate").value = today;
+};
+
+</script>
 
 </body>
 </html>
