@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Galaxy Designs - Enhanced Invoice Form</title>
+    <title>Galaxy Designs - Data Storage</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Same styling as before */
         * {
             margin: 0;
             padding: 0;
@@ -30,6 +29,7 @@
             position: relative;
         }
 
+        /* Enhanced Header Styles */
         .header {
             background: linear-gradient(135deg, #1e293b, #0f172a);
             color: white;
@@ -37,6 +37,7 @@
             text-align: center;
             position: relative;
             overflow: hidden;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
 
         .header::before {
@@ -64,6 +65,19 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .header h1::after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(to right, #3b82f6, #60a5fa);
+            border-radius: 2px;
         }
 
         .header p {
@@ -72,12 +86,26 @@
             opacity: 0.9;
             max-width: 600px;
             margin: 0 auto;
+            position: relative;
         }
 
         .header-logo {
             font-size: 2.5rem;
             margin-bottom: 16px;
             color: #3b82f6;
+            position: relative;
+        }
+
+        .header-logo::after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(to right, #3b82f6, #60a5fa);
+            border-radius: 2px;
         }
 
         .form-section {
@@ -98,9 +126,9 @@
             letter-spacing: 0.025em;
         }
 
-        .address-grid-three {
+        .address-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: 2fr 1fr;
             gap: 16px;
         }
 
@@ -381,7 +409,7 @@
             .header h1 {
                 font-size: 2rem;
             }
-            .address-grid-three {
+            .address-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -424,35 +452,13 @@
 
             <div class="form-group">
                 <label for="customer-address">Client Address</label>
-                <div class="address-grid-three">
-                    <div>
-                        <label for="customer-country">Country</label>
-                        <select id="customer-country" required>
-                            <option value="">Select Country</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="customer-state">State/Province</label>
-                        <select id="customer-state" required>
-                            <option value="">Select State</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="customer-city">City</label>
-                        <select id="customer-city" required>
-                            <option value="">Select City</option>
-                        </select>
-                    </div>
+                <div class="address-grid">
+                    <input type="text" id="customer-address" placeholder="Street address, city" required>
+                    <input type="text" id="customer-country" placeholder="Country" required>
                 </div>
-                
-                <div style="margin-top: 16px;">
-                    <label for="customer-address-line1">Street Address</label>
-                    <input type="text" id="customer-address-line1" placeholder="Street address, building, etc." required>
-                </div>
-                
-                <div id="address-validation" class="address-validation" style="margin-top: 8px;">
+                <div id="address-validation" class="address-validation">
                     <i class="fas fa-info-circle"></i>
-                    <span>Select country, state, and city</span>
+                    <span>Enter complete address details</span>
                 </div>
             </div>
 
@@ -474,7 +480,7 @@
                             <td><input type="number" class="item-qty" value="1" min="1"></td>
                             <td><input type="number" class="item-price" step="0.01" placeholder="0.00"></td>
                             <td class="item-total">0.00</td>
-                            <td><button type="button" class="btn" style="background: #ef4444; padding: 6px 10px; font-size: 12px; width: auto; margin: 0;"><i class="fas fa-trash"></i> Remove</button></td>
+                            <td><button type="button" class="btn" style="background: #ef4444; padding: 6px 10px; font-size: 12px; width: auto; margin: 0;">Remove</button></td>
                         </tr>
                     </tbody>
                 </table>
@@ -553,9 +559,6 @@
         </div>
     </div>
 
-    <!-- Load global location data -->
-    <script src="https://cdn.jsdelivr.net/gh/dr5hn/countries-states-cities-database@master/countries.min.js"></script>
-    
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script>
@@ -570,412 +573,337 @@
         });
         const db = firebase.firestore();
 
-        // Wait for DOM to load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set current date
-            const today = new Date();
-            const formattedDate = today.toLocaleDateString('fr-FR');
-            document.getElementById('issue-date').value = formattedDate;
+        // Set current date
+        const today = new Date();
+        const formattedDate = today.toLocaleDateString('fr-FR');
+        document.getElementById('issue-date').value = formattedDate;
 
-            // Populate country dropdown from global `countries` array
-            const countrySelect = document.getElementById('customer-country');
-            countries.forEach(country => {
-                const option = document.createElement('option');
-                option.value = country.iso2; // e.g., "FR"
-                option.textContent = country.name; // e.g., "France"
-                countrySelect.appendChild(option);
-            });
-
-            // On country change
-            countrySelect.addEventListener('change', function() {
-                const stateSelect = document.getElementById('customer-state');
-                const citySelect = document.getElementById('customer-city');
-                
-                stateSelect.innerHTML = '<option value="">Select State</option>';
-                citySelect.innerHTML = '<option value="">Select City</option>';
-                
-                const countryCode = this.value;
-                if (!countryCode) return;
-                
-                const country = countries.find(c => c.iso2 === countryCode);
-                if (country && country.states) {
-                    country.states.forEach(state => {
-                        const option = document.createElement('option');
-                        option.value = state.state_code;
-                        option.textContent = state.name;
-                        stateSelect.appendChild(option);
-                    });
-                }
-            });
-
-            // On state change
-            document.getElementById('customer-state').addEventListener('change', function() {
-                const citySelect = document.getElementById('customer-city');
-                citySelect.innerHTML = '<option value="">Select City</option>';
-                
-                const countryCode = document.getElementById('customer-country').value;
-                const stateCode = this.value;
-                
-                if (!countryCode || !stateCode) return;
-                
-                const country = countries.find(c => c.iso2 === countryCode);
-                const state = country?.states?.find(s => s.state_code === stateCode);
-                
-                if (state && state.cities) {
-                    state.cities.forEach(city => {
-                        const option = document.createElement('option');
-                        option.value = city.name;
-                        option.textContent = city.name;
-                        citySelect.appendChild(option);
-                    });
-                }
-            });
-
-            // Address validation function
-            function validateAddress() {
-                const country = document.getElementById('customer-country').value;
-                const state = document.getElementById('customer-state').value;
-                const city = document.getElementById('customer-city').value;
-                const addressLine1 = document.getElementById('customer-address-line1').value;
-                const validationDiv = document.getElementById('address-validation');
-                
-                if (country && state && city && addressLine1) {
-                    validationDiv.innerHTML = '<i class="fas fa-check-circle"></i> <span>Valid address selected</span>';
-                    validationDiv.className = 'address-validation validation-success';
-                    document.getElementById('preview-address-validated').textContent = 'Yes';
-                    return true;
-                } else {
-                    validationDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> <span>Please select all address fields</span>';
-                    validationDiv.className = 'address-validation validation-error';
-                    document.getElementById('preview-address-validated').textContent = 'No';
-                    return false;
-                }
+        // Enhanced address validation (only checks if fields are empty)
+        function validateAddress() {
+            const address = document.getElementById('customer-address').value.trim();
+            const country = document.getElementById('customer-country').value.trim();
+            const validationDiv = document.getElementById('address-validation');
+            
+            if (!address || !country) {
+                validationDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> <span>Please fill in both address and country</span>';
+                validationDiv.className = 'address-validation validation-error';
+                document.getElementById('preview-address-validated').textContent = 'No';
+                return false;
+            } else {
+                validationDiv.innerHTML = '<i class="fas fa-check-circle"></i> <span>Address details complete</span>';
+                validationDiv.className = 'address-validation validation-success';
+                document.getElementById('preview-address-validated').textContent = 'Yes';
+                return true;
             }
+        }
 
-            // Add validation event listeners
-            document.getElementById('customer-country').addEventListener('change', validateAddress);
-            document.getElementById('customer-state').addEventListener('change', validateAddress);
-            document.getElementById('customer-city').addEventListener('change', validateAddress);
-            document.getElementById('customer-address-line1').addEventListener('input', validateAddress);
+        // Add validation event listeners
+        document.getElementById('customer-address').addEventListener('blur', validateAddress);
+        document.getElementById('customer-country').addEventListener('blur', validateAddress);
 
-            // Generate next invoice number
-            async function getNextInvoiceNumber() {
-                try {
-                    const year = new Date().getFullYear();
-                    const invoicesRef = db.collection(`invoices/${year}/invoices`)
-                        .where('invoice_number', '>=', `GD-${year}-000`)
-                        .where('invoice_number', '<=', `GD-${year}-999`);
+        // Generate next invoice number
+        async function getNextInvoiceNumber() {
+            try {
+                const year = new Date().getFullYear();
+                const invoicesRef = db.collection(`invoices/${year}/invoices`)
+                    .where('invoice_number', '>=', `GD-${year}-000`)
+                    .where('invoice_number', '<=', `GD-${year}-999`);
 
-                    const snapshot = await invoicesRef.orderBy('invoice_number', 'desc').limit(1).get();
+                const snapshot = await invoicesRef.orderBy('invoice_number', 'desc').limit(1).get();
 
-                    let nextNumber = 1;
-                    if (!snapshot.empty) {
-                        const lastInvoice = snapshot.docs[0].data();
-                        const lastNum = parseInt(lastInvoice.invoice_number.split('-')[2]);
-                        nextNumber = lastNum + 1;
-                    }
-
-                    const formattedNumber = `GD-${year}-${nextNumber.toString().padStart(3, '0')}`;
-                    document.getElementById('invoice-number').value = formattedNumber;
-                    document.getElementById('preview-invoice-number').textContent = formattedNumber;
-
-                    return formattedNumber;
-                } catch (error) {
-                    console.error('Error getting next invoice number:', error);
-                    return `GD-${new Date().getFullYear()}-001`;
+                let nextNumber = 1;
+                if (!snapshot.empty) {
+                    const lastInvoice = snapshot.docs[0].data();
+                    const lastNum = parseInt(lastInvoice.invoice_number.split('-')[2]);
+                    nextNumber = lastNum + 1;
                 }
-            }
 
-            // Calculate item total
-            function calculateItemTotal(row) {
+                const formattedNumber = `GD-${year}-${nextNumber.toString().padStart(3, '0')}`;
+                document.getElementById('invoice-number').value = formattedNumber;
+                document.getElementById('preview-invoice-number').textContent = formattedNumber;
+
+                return formattedNumber;
+            } catch (error) {
+                console.error('Error getting next invoice number:', error);
+                return `GD-${new Date().getFullYear()}-001`;
+            }
+        }
+
+        // Calculate item total
+        function calculateItemTotal(row) {
+            const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+            const price = parseFloat(row.querySelector('.item-price').value) || 0;
+            const total = qty * price;
+            row.querySelector('.item-total').textContent = total.toFixed(2);
+            updateTotals();
+        }
+
+        // Update totals
+        function updateTotals() {
+            let subtotal = 0;
+            document.querySelectorAll('#items-body tr').forEach(row => {
                 const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
                 const price = parseFloat(row.querySelector('.item-price').value) || 0;
                 const total = qty * price;
-                row.querySelector('.item-total').textContent = total.toFixed(2);
-                updateTotals();
-            }
+                subtotal += total;
+            });
 
-            // Update totals
-            function updateTotals() {
-                let subtotal = 0;
-                document.querySelectorAll('#items-body tr').forEach(row => {
-                    const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
-                    const price = parseFloat(row.querySelector('.item-price').value) || 0;
-                    const total = qty * price;
-                    subtotal += total;
-                });
-
-                document.getElementById('subtotal-amount').textContent = subtotal.toFixed(2);
-
-                // Calculate discount
-                calculateDiscount(subtotal);
-            }
+            document.getElementById('subtotal-amount').textContent = subtotal.toFixed(2);
 
             // Calculate discount
-            function calculateDiscount(subtotal) {
-                const discountType = document.getElementById('discount-type').value;
-                const discountValue = parseFloat(document.getElementById('discount-value').value) || 0;
+            calculateDiscount(subtotal);
+        }
 
-                let discountAmount = 0;
-                if (discountType === 'percentage') {
-                    discountAmount = (subtotal * discountValue) / 100;
-                } else if (discountType === 'amount') {
-                    discountAmount = discountValue;
-                }
+        // Calculate discount
+        function calculateDiscount(subtotal) {
+            const discountType = document.getElementById('discount-type').value;
+            const discountValue = parseFloat(document.getElementById('discount-value').value) || 0;
 
-                // Ensure discount doesn't exceed subtotal
-                discountAmount = Math.min(discountAmount, subtotal);
-
-                document.getElementById('discount-amount').textContent = discountAmount.toFixed(2);
-                document.getElementById('discount-display').textContent = discountAmount.toFixed(2);
-
-                const finalTotal = subtotal - discountAmount;
-                document.getElementById('final-total-amount').textContent = finalTotal.toFixed(2);
+            let discountAmount = 0;
+            if (discountType === 'percentage') {
+                discountAmount = (subtotal * discountValue) / 100;
+            } else if (discountType === 'amount') {
+                discountAmount = discountValue;
             }
 
-            // Add item row
-            document.getElementById('add-item').addEventListener('click', function() {
-                const tbody = document.getElementById('items-body');
-                const newRow = document.createElement('tr');
-                newRow.innerHTML = `
-                    <td><input type="text" class="item-desc" placeholder="Product description"></td>
-                    <td><input type="number" class="item-qty" value="1" min="1"></td>
-                    <td><input type="number" class="item-price" step="0.01" placeholder="0.00"></td>
-                    <td class="item-total">0.00</td>
-                    <td><button type="button" class="btn" style="background: #ef4444; padding: 6px 10px; font-size: 12px; width: auto; margin: 0;"><i class="fas fa-trash"></i> Remove</button></td>
-                `;
-                tbody.appendChild(newRow);
+            // Ensure discount doesn't exceed subtotal
+            discountAmount = Math.min(discountAmount, subtotal);
 
-                // Add event listeners to new inputs
-                newRow.querySelector('.item-qty').addEventListener('input', () => calculateItemTotal(newRow));
-                newRow.querySelector('.item-price').addEventListener('input', () => calculateItemTotal(newRow));
-            });
+            document.getElementById('discount-amount').textContent = discountAmount.toFixed(2);
+            document.getElementById('discount-display').textContent = discountAmount.toFixed(2);
 
-            // Remove item row
-            document.addEventListener('click', function(e) {
-                if (e.target.style.background === 'rgb(239, 68, 68)') { // Red button
-                    if (document.querySelectorAll('#items-body tr').length > 1) {
-                        e.target.closest('tr').remove();
-                        updateTotals();
-                        updatePreview();
-                    } else {
-                        showStatus('At least one item is required', 'error');
-                    }
-                }
-            });
+            const finalTotal = subtotal - discountAmount;
+            document.getElementById('final-total-amount').textContent = finalTotal.toFixed(2);
+        }
 
-            // Add event listeners to existing inputs
-            document.querySelectorAll('#items-body input').forEach(input => {
-                if (input.classList.contains('item-qty') || input.classList.contains('item-price')) {
-                    input.addEventListener('input', () => calculateItemTotal(input.closest('tr')));
-                }
-            });
+        // Add item row
+        document.getElementById('add-item').addEventListener('click', function() {
+            const tbody = document.getElementById('items-body');
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td><input type="text" class="item-desc" placeholder="Product description"></td>
+                <td><input type="number" class="item-qty" value="1" min="1"></td>
+                <td><input type="number" class="item-price" step="0.01" placeholder="0.00"></td>
+                <td class="item-total">0.00</td>
+                <td><button type="button" class="btn" style="background: #ef4444; padding: 6px 10px; font-size: 12px; width: auto; margin: 0;"><i class="fas fa-trash"></i> Remove</button></td>
+            `;
+            tbody.appendChild(newRow);
 
-            // Discount calculation
-            document.getElementById('discount-type').addEventListener('change', () => {
-                const subtotal = parseFloat(document.getElementById('subtotal-amount').textContent) || 0;
-                calculateDiscount(subtotal);
-                updatePreview();
-            });
+            // Add event listeners to new inputs
+            newRow.querySelector('.item-qty').addEventListener('input', () => calculateItemTotal(newRow));
+            newRow.querySelector('.item-price').addEventListener('input', () => calculateItemTotal(newRow));
+        });
 
-            document.getElementById('discount-value').addEventListener('input', () => {
-                const subtotal = parseFloat(document.getElementById('subtotal-amount').textContent) || 0;
-                calculateDiscount(subtotal);
-                updatePreview();
-            });
-
-            // Update preview
-            function updatePreview() {
-                document.getElementById('preview-customer-name').textContent = document.getElementById('customer-name').value || '-';
-                document.getElementById('preview-item-count').textContent = document.querySelectorAll('#items-body tr').length;
-
-                const discountValue = parseFloat(document.getElementById('discount-value').value) || 0;
-                const discountType = document.getElementById('discount-type').value;
-                if (discountValue > 0) {
-                    document.getElementById('preview-discount-applied').textContent = `${discountValue} ${discountType === 'percentage' ? '%' : '€'}`;
+        // Remove item row
+        document.addEventListener('click', function(e) {
+            if (e.target.style.background === 'rgb(239, 68, 68)') { // Red button
+                if (document.querySelectorAll('#items-body tr').length > 1) {
+                    e.target.closest('tr').remove();
+                    updateTotals();
+                    updatePreview();
                 } else {
-                    document.getElementById('preview-discount-applied').textContent = 'None';
+                    showStatus('At least one item is required', 'error');
                 }
             }
+        });
 
-            // Update preview when customer details change
-            document.getElementById('customer-name').addEventListener('input', updatePreview);
-
-            // Save data to database
-            document.getElementById('save-data').addEventListener('click', async function() {
-                const invoiceNumber = document.getElementById('invoice-number').value;
-                const issueDate = document.getElementById('issue-date').value;
-                const customerName = document.getElementById('customer-name').value;
-                const customerEmail = document.getElementById('customer-email').value;
-                const customerCountryCode = document.getElementById('customer-country').value;
-                const customerStateCode = document.getElementById('customer-state').value;
-                const customerCity = document.getElementById('customer-city').value;
-                const customerAddressLine1 = document.getElementById('customer-address-line1').value;
-                const paymentMethod = document.getElementById('payment-method').value;
-
-                if (!customerName || !customerEmail || !customerCountryCode || !customerStateCode || !customerCity || !customerAddressLine1 || !paymentMethod) {
-                    showStatus('Please fill all required fields', 'error');
-                    return;
-                }
-
-                // Validate address
-                if (!validateAddress()) {
-                    showStatus('Please select a valid address', 'error');
-                    return;
-                }
-
-                // Get country and state names from codes
-                const country = countries.find(c => c.iso2 === customerCountryCode);
-                const state = country?.states?.find(s => s.state_code === customerStateCode);
-
-                // Get items
-                const items = [];
-                document.querySelectorAll('#items-body tr').forEach(row => {
-                    const desc = row.querySelector('.item-desc').value;
-                    const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
-                    const price = parseFloat(row.querySelector('.item-price').value) || 0;
-                    if (desc && qty > 0 && price > 0) {
-                        items.push({
-                            name: desc,
-                            quantity: qty,
-                            price: price,
-                            total: qty * price
-                        });
-                    }
-                });
-
-                if (items.length === 0) {
-                    showStatus('Please add at least one item', 'error');
-                    return;
-                }
-
-                // Get discount info
-                const discountType = document.getElementById('discount-type').value;
-                const discountValue = parseFloat(document.getElementById('discount-value').value) || 0;
-                const discountAmount = parseFloat(document.getElementById('discount-amount').textContent) || 0;
-                const totalAmount = parseFloat(document.getElementById('final-total-amount').textContent);
-
-                // Check if invoice number already exists (strict verification)
-                try {
-                    const year = new Date().getFullYear();
-                    const existingInvoice = await db.collection(`invoices/${year}/invoices`).doc(invoiceNumber).get();
-
-                    if (existingInvoice.exists) {
-                        showStatus('Invoice number already exists! Please refresh to get a new number.', 'error');
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Error checking invoice number:', error);
-                }
-
-                // Save to Firebase with new structure
-                try {
-                    const year = new Date().getFullYear();
-                    const invoiceData = {
-                        id: Date.now(),
-                        invoice_number: invoiceNumber,
-                        issue_date: new Date(), // Fixed: Use current date object
-                        customer_name: customerName,
-                        customer_email: customerEmail,
-                        customer_address: {
-                            street: customerAddressLine1,
-                            city: customerCity,
-                            state: state?.name || customerStateCode,
-                            country: country?.name || customerCountryCode,
-                            country_code: customerCountryCode
-                        },
-                        total_amount: totalAmount,
-                        currency: 'EUR',
-                        items_json: items,
-                        discount_type: discountType,
-                        discount_value: discountValue,
-                        discount_amount: discountAmount,
-                        file_sent_status: false,
-                        payment_method: paymentMethod,
-                        created_at: new Date()
-                    };
-
-                    // Save to sub-collection
-                    await db.collection(`invoices/${year}/invoices`).doc(invoiceNumber).set(invoiceData);
-
-                    showStatus('Data saved successfully to database!', 'success');
-
-                    // Reset form for next entry
-                    resetForm();
-
-                } catch (error) {
-                    console.error('Error saving ', error);
-                    showStatus('Error saving  ' + error.message, 'error');
-                }
-            });
-
-            // Show status message
-            function showStatus(message, type) {
-                const statusDiv = document.getElementById('status-message');
-                statusDiv.textContent = message;
-                statusDiv.className = `status-message ${type}`;
-                statusDiv.style.display = 'block';
-
-                setTimeout(() => {
-                    statusDiv.style.display = 'none';
-                }, 5000);
+        // Add event listeners to existing inputs
+        document.querySelectorAll('#items-body input').forEach(input => {
+            if (input.classList.contains('item-qty') || input.classList.contains('item-price')) {
+                input.addEventListener('input', () => calculateItemTotal(input.closest('tr')));
             }
+        });
 
-            // Reset form
-            function resetForm() {
-                document.getElementById('customer-name').value = '';
-                document.getElementById('customer-email').value = '';
-                document.getElementById('customer-country').value = '';
-                document.getElementById('customer-state').value = '';
-                document.getElementById('customer-city').value = '';
-                document.getElementById('customer-address-line1').value = '';
-                document.getElementById('payment-method').value = '';
-                document.getElementById('discount-type').value = 'percentage';
-                document.getElementById('discount-value').value = '';
-
-                // Clear items except first one
-                const tbody = document.getElementById('items-body');
-                while (tbody.children.length > 1) {
-                    tbody.removeChild(tbody.lastChild);
-                }
-
-                // Reset first item
-                const firstRow = tbody.firstElementChild;
-                firstRow.querySelector('.item-desc').value = '';
-                firstRow.querySelector('.item-qty').value = '1';
-                firstRow.querySelector('.item-price').value = '';
-                firstRow.querySelector('.item-total').textContent = '0.00';
-
-                // Reset totals
-                document.getElementById('subtotal-amount').textContent = '0.00';
-                document.getElementById('discount-amount').textContent = '0.00';
-                document.getElementById('discount-display').textContent = '0.00';
-                document.getElementById('final-total-amount').textContent = '0.00';
-
-                // Reset preview
-                document.getElementById('preview-customer-name').textContent = '-';
-                document.getElementById('preview-item-count').textContent = '0';
-                document.getElementById('preview-discount-applied').textContent = 'None';
-                document.getElementById('preview-address-validated').textContent = 'No';
-
-                // Reset validation
-                const validationDiv = document.getElementById('address-validation');
-                validationDiv.innerHTML = '<i class="fas fa-info-circle"></i> <span>Select country, state, and city</span>';
-                validationDiv.className = 'address-validation';
-
-                // Reset dropdowns
-                document.getElementById('customer-state').innerHTML = '<option value="">Select State</option>';
-                document.getElementById('customer-city').innerHTML = '<option value="">Select City</option>';
-
-                // Generate new invoice number
-                getNextInvoiceNumber();
-            }
-
-            // Initialize
-            getNextInvoiceNumber();
-            updateTotals();
+        // Discount calculation
+        document.getElementById('discount-type').addEventListener('change', () => {
+            const subtotal = parseFloat(document.getElementById('subtotal-amount').textContent) || 0;
+            calculateDiscount(subtotal);
             updatePreview();
         });
+
+        document.getElementById('discount-value').addEventListener('input', () => {
+            const subtotal = parseFloat(document.getElementById('subtotal-amount').textContent) || 0;
+            calculateDiscount(subtotal);
+            updatePreview();
+        });
+
+        // Update preview
+        function updatePreview() {
+            document.getElementById('preview-customer-name').textContent = document.getElementById('customer-name').value || '-';
+            document.getElementById('preview-item-count').textContent = document.querySelectorAll('#items-body tr').length;
+
+            const discountValue = parseFloat(document.getElementById('discount-value').value) || 0;
+            const discountType = document.getElementById('discount-type').value;
+            if (discountValue > 0) {
+                document.getElementById('preview-discount-applied').textContent = `${discountValue} ${discountType === 'percentage' ? '%' : '€'}`;
+            } else {
+                document.getElementById('preview-discount-applied').textContent = 'None';
+            }
+        }
+
+        // Update preview when customer details change
+        document.getElementById('customer-name').addEventListener('input', updatePreview);
+
+        // Save data to database
+        document.getElementById('save-data').addEventListener('click', async function() {
+            const invoiceNumber = document.getElementById('invoice-number').value;
+            const issueDate = document.getElementById('issue-date').value;
+            const customerName = document.getElementById('customer-name').value.trim();
+            const customerEmail = document.getElementById('customer-email').value.trim();
+            const customerAddress = document.getElementById('customer-address').value.trim();
+            const customerCountry = document.getElementById('customer-country').value.trim();
+            const paymentMethod = document.getElementById('payment-method').value;
+
+            // Validate required fields
+            if (!customerName || !customerEmail || !customerAddress || !customerCountry || !paymentMethod) {
+                showStatus('Please fill all required fields', 'error');
+                return;
+            }
+
+            // Validate address
+            if (!validateAddress()) {
+                showStatus('Please provide a complete address and country', 'error');
+                return;
+            }
+
+            // Get items
+            const items = [];
+            document.querySelectorAll('#items-body tr').forEach(row => {
+                const desc = row.querySelector('.item-desc').value.trim();
+                const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+                const price = parseFloat(row.querySelector('.item-price').value) || 0;
+                if (desc && qty > 0 && price > 0) {
+                    items.push({
+                        name: desc,
+                        quantity: qty,
+                        price: price,
+                        total: qty * price
+                    });
+                }
+            });
+
+            if (items.length === 0) {
+                showStatus('Please add at least one item', 'error');
+                return;
+            }
+
+            // Get discount info
+            const discountType = document.getElementById('discount-type').value;
+            const discountValue = parseFloat(document.getElementById('discount-value').value) || 0;
+            const discountAmount = parseFloat(document.getElementById('discount-amount').textContent) || 0;
+            const totalAmount = parseFloat(document.getElementById('final-total-amount').textContent);
+
+            // Check if invoice number already exists (strict verification)
+            try {
+                const year = new Date().getFullYear();
+                const existingInvoice = await db.collection(`invoices/${year}/invoices`).doc(invoiceNumber).get();
+
+                if (existingInvoice.exists) {
+                    showStatus('Invoice number already exists! Please refresh to get a new number.', 'error');
+                    return;
+                }
+            } catch (error) {
+                console.error('Error checking invoice number:', error);
+            }
+
+            // Save to Firebase with new structure
+            try {
+                const year = new Date().getFullYear();
+                const invoiceData = {
+                    id: Date.now(),
+                    invoice_number: invoiceNumber,
+                    issue_date: new Date(), // Fixed: Use current date object
+                    customer_name: customerName,
+                    customer_email: customerEmail,
+                    customer_address: {
+                        street: customerAddress,
+                        country: customerCountry
+                    },
+                    total_amount: totalAmount,
+                    currency: 'EUR',
+                    items_json: items,
+                    discount_type: discountType,
+                    discount_value: discountValue,
+                    discount_amount: discountAmount,
+                    file_sent_status: false,
+                    payment_method: paymentMethod,
+                    created_at: new Date()
+                };
+
+                // Save to sub-collection
+                await db.collection(`invoices/${year}/invoices`).doc(invoiceNumber).set(invoiceData);
+
+                showStatus('Data saved successfully to database!', 'success');
+
+                // Reset form for next entry
+                resetForm();
+
+            } catch (error) {
+                console.error('Error saving ', error);
+                showStatus('Error saving  ' + error.message, 'error');
+            }
+        });
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status-message');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message ${type}`;
+            statusDiv.style.display = 'block';
+
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Reset form
+        function resetForm() {
+            document.getElementById('customer-name').value = '';
+            document.getElementById('customer-email').value = '';
+            document.getElementById('customer-address').value = '';
+            document.getElementById('customer-country').value = '';
+            document.getElementById('payment-method').value = '';
+            document.getElementById('discount-type').value = 'percentage';
+            document.getElementById('discount-value').value = '';
+
+            // Clear items except first one
+            const tbody = document.getElementById('items-body');
+            while (tbody.children.length > 1) {
+                tbody.removeChild(tbody.lastChild);
+            }
+
+            // Reset first item
+            const firstRow = tbody.firstElementChild;
+            firstRow.querySelector('.item-desc').value = '';
+            firstRow.querySelector('.item-qty').value = '1';
+            firstRow.querySelector('.item-price').value = '';
+            firstRow.querySelector('.item-total').textContent = '0.00';
+
+            // Reset totals
+            document.getElementById('subtotal-amount').textContent = '0.00';
+            document.getElementById('discount-amount').textContent = '0.00';
+            document.getElementById('discount-display').textContent = '0.00';
+            document.getElementById('final-total-amount').textContent = '0.00';
+
+            // Reset preview
+            document.getElementById('preview-customer-name').textContent = '-';
+            document.getElementById('preview-item-count').textContent = '0';
+            document.getElementById('preview-discount-applied').textContent = 'None';
+            document.getElementById('preview-address-validated').textContent = 'No';
+
+            // Reset validation
+            const validationDiv = document.getElementById('address-validation');
+            validationDiv.innerHTML = '<i class="fas fa-info-circle"></i> <span>Enter complete address details</span>';
+            validationDiv.className = 'address-validation';
+
+            // Generate new invoice number
+            getNextInvoiceNumber();
+        }
+
+        // Initialize
+        getNextInvoiceNumber();
+        updateTotals();
+        updatePreview();
     </script>
 </body>
 </html>
