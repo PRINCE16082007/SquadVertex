@@ -386,16 +386,13 @@
             color: #2d3748;
         }
 
-        .pdf-page-break {
-            page-break-before: always;
-        }
-
         .pdf-header {
             text-align: center;
             margin-bottom: 25px;
             padding-bottom: 15px;
             border-bottom: 4px solid #2c3e50;
             position: relative;
+            height: 120px; /* Fixed height */
         }
 
         .pdf-header::after {
@@ -431,7 +428,7 @@
             font-size: 15px;
             border-left: 5px solid #3b82f6;
             box-shadow: 0 4px 6px rgba(0,0,0,0.03);
-            page-break-inside: avoid;
+            height: 180px; /* Fixed height */
         }
 
         .pdf-company-info h3 {
@@ -446,7 +443,7 @@
             grid-template-columns: 1fr 1fr;
             gap: 22px;
             margin: 18px 0;
-            page-break-inside: avoid;
+            height: 140px; /* Fixed height */
         }
 
         .pdf-info-box {
@@ -454,7 +451,6 @@
             padding: 18px;
             border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-            page-break-inside: avoid;
         }
 
         .pdf-info-box h4 {
@@ -472,7 +468,7 @@
             border-radius: 10px;
             margin: 18px 0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-            page-break-inside: avoid;
+            height: 160px; /* Fixed height */
         }
 
         .pdf-client-info h4 {
@@ -485,13 +481,13 @@
         }
 
         .pdf-items-container {
+            margin: 22px 0;
             page-break-inside: auto;
         }
 
         .pdf-items-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 22px 0;
             font-size: 15px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.03);
             border-radius: 8px;
@@ -525,7 +521,7 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-            page-break-inside: avoid;
+            height: 180px; /* Fixed height */
         }
 
         .pdf-total-row {
@@ -557,7 +553,7 @@
             border-radius: 10px;
             border-left: 5px solid #10b981;
             box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-            page-break-inside: avoid;
+            height: 100px; /* Fixed height */
         }
 
         .pdf-payment-info h4 {
@@ -576,7 +572,7 @@
             line-height: 1.7;
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-            page-break-inside: avoid;
+            height: 180px; /* Fixed height */
         }
 
         .pdf-legal-footer h4 {
@@ -649,7 +645,7 @@
         </div>
     </div>
 
-   <!-- Hidden PDF Template -->
+    <!-- Hidden PDF Template -->
     <div class="pdf-template" id="pdf-template">
         <div class="pdf-header">
             <h1 class="pdf-title">FACTURE</h1>
@@ -912,21 +908,36 @@
                 // Fill items table
                 const itemsBody = document.getElementById('pdf-items-body');
                 itemsBody.innerHTML = '';
-                invoice.items_json.forEach(item => {
-                    const row = document.createElement('tr');
-                    // Fix item description for legal compliance
-                    let description = item.name;
-                    if (description === 'Fcc' || description === 'FCC' || description === 'fcc') {
-                        description = 'Digital Asset - Galaxy Pack Vol 1'; // Default legal description
+                
+                // Calculate max items that can fit in one page
+                const maxItemsPerPage = 12; // Adjust based on your design
+                const items = invoice.items_json;
+                
+                // Split items into pages if needed
+                for (let i = 0; i < items.length; i += maxItemsPerPage) {
+                    const pageItems = items.slice(i, i + maxItemsPerPage);
+                    
+                    pageItems.forEach(item => {
+                        const row = document.createElement('tr');
+                        // Fix item description for legal compliance
+                        let description = item.name;
+                        if (description === 'Fcc' || description === 'FCC' || description === 'fcc') {
+                            description = 'Digital Asset - Galaxy Pack Vol 1'; // Default legal description
+                        }
+                        row.innerHTML = `
+                            <td>${description}</td>
+                            <td>${item.quantity}</td>
+                            <td>€${item.price.toFixed(2)}</td>
+                            <td>€${item.total.toFixed(2)}</td>
+                        `;
+                        itemsBody.appendChild(row);
+                    });
+                    
+                    // Add page break after each set of items if there are more pages
+                    if (i + maxItemsPerPage < items.length) {
+                        // Add page break logic here if needed
                     }
-                    row.innerHTML = `
-                        <td>${description}</td>
-                        <td>${item.quantity}</td>
-                        <td>€${item.price.toFixed(2)}</td>
-                        <td>€${item.total.toFixed(2)}</td>
-                    `;
-                    itemsBody.appendChild(row);
-                });
+                }
 
                 // Fill totals with discount as a line item
                 const subtotal = invoice.total_amount + invoice.discount_amount;
