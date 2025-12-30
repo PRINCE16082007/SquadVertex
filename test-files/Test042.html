@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Galaxy Designs - Data Storage</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css ">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -19,41 +19,49 @@
             padding: 20px;
         }
 
-        /* Loading Screen */
+        /* Loading Screen Styles */
         .loading-screen {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(15, 12, 41, 0.95);
+            background: linear-gradient(135deg, #1e293b, #0f172a);
             display: flex;
             flex-direction: column;
-            align-items: center;
             justify-content: center;
-            z-index: 1000;
+            align-items: center;
+            z-index: 9999;
             transition: opacity 0.5s ease;
         }
 
-        .loading-spinner {
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+
+        .spinner {
             width: 50px;
             height: 50px;
-            border: 4px solid rgba(255,255,255,0.1);
-            border-top: 4px solid #00d4ff;
+            border: 5px solid rgba(255,255,255,0.3);
             border-radius: 50%;
+            border-top-color: #3b82f6;
             animation: spin 1s linear infinite;
-            margin-bottom: 20px;
+            margin: 0 auto 20px;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
         }
 
         .loading-text {
             font-size: 1.2rem;
-            color: #00d4ff;
-            text-align: center;
+            margin-top: 10px;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
         }
 
         .container {
@@ -64,7 +72,6 @@
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
             overflow: hidden;
             position: relative;
-            display: none;
         }
 
         /* Enhanced Header Styles */
@@ -455,12 +462,14 @@
 </head>
 <body>
     <!-- Loading Screen -->
-    <div class="loading-screen" id="loadingScreen">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Verifying admin access...</div>
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="loading-text">Verifying admin access...</div>
+        </div>
     </div>
 
-    <div class="container" id="mainContainer">
+    <div class="container">
         <div class="header">
             <div class="header-content">
                 <div class="header-logo">
@@ -603,66 +612,61 @@
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script>
         // Initialize Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
+        const app = firebase.initializeApp({
+            apiKey: "AIzaSyDyour_api_key",
             authDomain: "teamgalaxy-77344.firebaseapp.com",
             projectId: "teamgalaxy-77344",
-            storageBucket: "teamgalaxy-77344.firebasestorage.app",
-            messagingSenderId: "770256225320",
-            appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-            measurementId: "G-6C2W9NSNCH"
-        };
-
-        firebase.initializeApp(firebaseConfig);
+            storageBucket: "teamgalaxy-77344.appspot.com",
+            messagingSenderId: "your_sender_id",
+            appId: "your_app_id"
+        });
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // Check admin authentication
-        async function checkAdminAccess() {
+        // Admin verification function
+        async function verifyAdminAccess() {
             try {
-                const user = await new Promise((resolve, reject) => {
-                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-                        if (user) {
-                            try {
-                                const adminQuery = await db.collection('admin').where('gmail', '==', user.email).limit(1).get();
-                                if (!adminQuery.empty) {
-                                    unsubscribe();
-                                    resolve(user);
-                                } else {
-                                    unsubscribe();
-                                    throw new Error('Not an admin');
-                                }
-                            } catch (error) {
-                                unsubscribe();
-                                throw error;
-                            }
-                        } else {
-                            unsubscribe();
-                            throw new Error('Not signed in');
-                        }
-                    });
-                });
-
-                // Show main content after admin verification
-                setTimeout(() => {
-                    document.getElementById('loadingScreen').style.opacity = '0';
-                    setTimeout(() => {
-                        document.getElementById('loadingScreen').style.display = 'none';
-                        document.getElementById('mainContainer').style.display = 'block';
-                    }, 500);
-                }, 1500);
-
-            } catch (error) {
-                console.error('Admin access error:', error);
-                document.getElementById('loadingScreen').querySelector('.loading-text').textContent = 'Access denied. Redirecting...';
-                setTimeout(() => {
+                const user = auth.currentUser;
+                if (!user) {
+                    // No user signed in
                     window.location.href = 'index.html';
-                }, 2000);
+                    return false;
+                }
+
+                // Fetch user's UID
+                const uid = user.uid;
+                const email = user.email;
+
+                // Check if user exists in admin collection
+                const adminDoc = await db.collection('admin').doc(uid).get();
+                
+                if (adminDoc.exists) {
+                    const adminData = adminDoc.data();
+                    
+                    // Verify email matches
+                    if (adminData.gmail === email) {
+                        // Admin verified - show content
+                        document.getElementById('loadingScreen').classList.add('hidden');
+                        return true;
+                    } else {
+                        // Email mismatch
+                        window.location.href = 'index.html';
+                        return false;
+                    }
+                } else {
+                    // User not in admin collection
+                    window.location.href = 'index.html';
+                    return false;
+                }
+            } catch (error) {
+                console.error('Admin verification error:', error);
+                window.location.href = 'index.html';
+                return false;
             }
         }
 
@@ -676,7 +680,7 @@
             const address = document.getElementById('customer-address').value.trim();
             const country = document.getElementById('customer-country').value.trim();
             const validationDiv = document.getElementById('address-validation');
-
+            
             if (!address || !country) {
                 validationDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> <span>Please fill in both address and country</span>';
                 validationDiv.className = 'address-validation validation-error';
@@ -993,9 +997,15 @@
             getNextInvoiceNumber();
         }
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            checkAdminAccess();
+        // Initialize admin verification
+        document.addEventListener('DOMContentLoaded', async () => {
+            const isAdmin = await verifyAdminAccess();
+            if (isAdmin) {
+                // Initialize other functions after admin verification
+                getNextInvoiceNumber();
+                updateTotals();
+                updatePreview();
+            }
         });
     </script>
 </body>
