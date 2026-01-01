@@ -393,6 +393,32 @@
             color: #ef4444;
         }
 
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         .auth-status {
             position: fixed;
             top: 10px;
@@ -413,6 +439,12 @@
             background: #fee2e2;
             color: #991b1b;
             border: 1px solid #fecaca;
+        }
+        
+        .auth-loading {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fbbf24;
         }
 
         @media (max-width: 768px) {
@@ -439,7 +471,11 @@
     </style>
 </head>
 <body>
-    <div id="auth-status" class="auth-status auth-logged-out">❌ Logged Out</div>
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+    
+    <div id="auth-status" class="auth-status auth-loading">⏳ Checking Login Status...</div>
     
     <div class="container">
         <div class="header">
@@ -609,24 +645,57 @@
                 console.error('Error setting persistence:', error);
             });
 
-        // Auth state listener
+        // Loading state management
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        // Wait for authentication state to be ready
         auth.onAuthStateChanged((user) => {
             const authStatus = document.getElementById('auth-status');
             if (user) {
                 console.log('✅ USER LOGGED IN:', user.email);
                 authStatus.textContent = `✅ Logged In: ${user.email}`;
                 authStatus.className = 'auth-status auth-logged-in';
+                
+                // Now that user is authenticated, initialize the form
+                initializeForm();
+                
+                // Hide loading overlay after initialization
+                hideLoading();
             } else {
                 console.log('❌ NO USER FOUND. Redirecting to Login...');
                 authStatus.textContent = '❌ Logged Out';
                 authStatus.className = 'auth-status auth-logged-out';
+                
+                // Hide loading overlay
+                hideLoading();
+                
+                // Disable form elements
+                document.querySelectorAll('input, select, textarea, button').forEach(el => {
+                    el.disabled = true;
+                });
+                
+                // Show login message
+                showStatus('❌ Please log in to access this form', 'error');
             }
         });
 
-        // Set current date
-        const today = new Date();
-        const formattedDate = today.toLocaleDateString('fr-FR');
-        document.getElementById('issue-date').value = formattedDate;
+        function initializeForm() {
+            // Set current date
+            const today = new Date();
+            const formattedDate = today.toLocaleDateString('fr-FR');
+            document.getElementById('issue-date').value = formattedDate;
+
+            // Generate next invoice number
+            getNextInvoiceNumber();
+            updateTotals();
+            updatePreview();
+        }
 
         // Enhanced address validation (only checks if fields are empty)
         function validateAddress() {
@@ -796,7 +865,7 @@
 
         // Save data to database
         document.getElementById('save-data').addEventListener('click', async function() {
-            // Check auth state
+            // Check if user is authenticated
             const user = auth.currentUser;
             if (!user) {
                 showStatus('❌ Authentication required. Please log in.', 'error');
@@ -956,11 +1025,6 @@
             // Generate new invoice number
             getNextInvoiceNumber();
         }
-
-        // Initialize
-        getNextInvoiceNumber();
-        updateTotals();
-        updatePreview();
     </script>
 </body>
 </html>
