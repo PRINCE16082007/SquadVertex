@@ -393,6 +393,28 @@
             color: #ef4444;
         }
 
+        .auth-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            z-index: 10000;
+        }
+        
+        .auth-logged-in {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .auth-logged-out {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 10px;
@@ -417,6 +439,8 @@
     </style>
 </head>
 <body>
+    <div id="auth-status" class="auth-status auth-logged-out">❌ Logged Out</div>
+    
     <div class="container">
         <div class="header">
             <div class="header-content">
@@ -561,6 +585,7 @@
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script>
         // Initialize Firebase
@@ -573,6 +598,30 @@
             appId: "your_app_id"
         });
         const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Set up auth persistence
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+            .then(() => {
+                console.log('Auth persistence set to LOCAL');
+            })
+            .catch((error) => {
+                console.error('Error setting persistence:', error);
+            });
+
+        // Auth state listener
+        auth.onAuthStateChanged((user) => {
+            const authStatus = document.getElementById('auth-status');
+            if (user) {
+                console.log('✅ USER LOGGED IN:', user.email);
+                authStatus.textContent = `✅ Logged In: ${user.email}`;
+                authStatus.className = 'auth-status auth-logged-in';
+            } else {
+                console.log('❌ NO USER FOUND. Redirecting to Login...');
+                authStatus.textContent = '❌ Logged Out';
+                authStatus.className = 'auth-status auth-logged-out';
+            }
+        });
 
         // Set current date
         const today = new Date();
@@ -747,6 +796,13 @@
 
         // Save data to database
         document.getElementById('save-data').addEventListener('click', async function() {
+            // Check auth state
+            const user = auth.currentUser;
+            if (!user) {
+                showStatus('❌ Authentication required. Please log in.', 'error');
+                return;
+            }
+
             const invoiceNumber = document.getElementById('invoice-number').value;
             const issueDate = document.getElementById('issue-date').value;
             const customerName = document.getElementById('customer-name').value.trim();
@@ -834,14 +890,14 @@
                 // Save to sub-collection
                 await db.collection(`invoices/${year}/invoices`).doc(invoiceNumber).set(invoiceData);
 
-                showStatus('Data saved successfully to database!', 'success');
+                showStatus('✅ Data saved successfully to database!', 'success');
 
                 // Reset form for next entry
                 resetForm();
 
             } catch (error) {
                 console.error('Error saving ', error);
-                showStatus('Error saving  ' + error.message, 'error');
+                showStatus('❌ Error saving  ' + error.message, 'error');
             }
         });
 
