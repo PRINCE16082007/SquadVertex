@@ -6,6 +6,7 @@
     <title>Galaxy Designs - Data Storage</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* [Keep all your existing CSS styles here] */
         * {
             margin: 0;
             padding: 0;
@@ -17,51 +18,6 @@
             background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
             min-height: 100vh;
             padding: 20px;
-        }
-
-        /* Loading Screen Styles */
-        .loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            transition: opacity 0.5s ease;
-        }
-
-        .loading-content {
-            text-align: center;
-            color: white;
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: #3b82f6;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            font-size: 1.2rem;
-            margin-top: 10px;
-        }
-
-        .hidden {
-            opacity: 0;
-            pointer-events: none;
         }
 
         .container {
@@ -437,6 +393,32 @@
             color: #ef4444;
         }
 
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 10px;
@@ -461,14 +443,10 @@
     </style>
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="loadingScreen" class="loading-screen">
-        <div class="loading-content">
-            <div class="spinner"></div>
-            <div class="loading-text">Verifying admin access...</div>
-        </div>
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
     </div>
-
+    
     <div class="container">
         <div class="header">
             <div class="header-content">
@@ -625,55 +603,52 @@
             messagingSenderId: "your_sender_id",
             appId: "your_app_id"
         });
-        const auth = firebase.auth();
         const db = firebase.firestore();
+        const auth = firebase.auth();
 
-        // Admin verification function
-        async function verifyAdminAccess() {
-            try {
-                const user = auth.currentUser;
-                if (!user) {
-                    // No user signed in
-                    window.location.href = 'index.html';
-                    return false;
-                }
-
-                // Fetch user's UID
-                const uid = user.uid;
-                const email = user.email;
-
-                // Check if user exists in admin collection
-                const adminDoc = await db.collection('admin').doc(uid).get();
-                
-                if (adminDoc.exists) {
-                    const adminData = adminDoc.data();
-                    
-                    // Verify email matches
-                    if (adminData.gmail === email) {
-                        // Admin verified - show content
-                        document.getElementById('loadingScreen').classList.add('hidden');
-                        return true;
-                    } else {
-                        // Email mismatch
-                        window.location.href = 'index.html';
-                        return false;
-                    }
-                } else {
-                    // User not in admin collection
-                    window.location.href = 'index.html';
-                    return false;
-                }
-            } catch (error) {
-                console.error('Admin verification error:', error);
-                window.location.href = 'index.html';
-                return false;
-            }
+        // Loading state management
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
         }
 
-        // Set current date
-        const today = new Date();
-        const formattedDate = today.toLocaleDateString('fr-FR');
-        document.getElementById('issue-date').value = formattedDate;
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        // Wait for authentication state to be ready
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log('User authenticated:', user.email);
+                
+                // Now that user is authenticated, initialize the form
+                await initializeForm();
+                
+                // Hide loading overlay after initialization
+                hideLoading();
+            } else {
+                // Handle unauthenticated user
+                console.log('No user authenticated');
+                showStatus('Please log in to access this form', 'error');
+                hideLoading();
+                
+                // Disable form elements
+                document.querySelectorAll('input, select, textarea, button').forEach(el => {
+                    el.disabled = true;
+                });
+            }
+        });
+
+        async function initializeForm() {
+            // Set current date
+            const today = new Date();
+            const formattedDate = today.toLocaleDateString('fr-FR');
+            document.getElementById('issue-date').value = formattedDate;
+
+            // Generate next invoice number
+            await getNextInvoiceNumber();
+            updateTotals();
+            updatePreview();
+        }
 
         // Enhanced address validation (only checks if fields are empty)
         function validateAddress() {
@@ -843,6 +818,13 @@
 
         // Save data to database
         document.getElementById('save-data').addEventListener('click', async function() {
+            // Check if user is authenticated
+            const user = auth.currentUser;
+            if (!user) {
+                showStatus('Authentication required. Please log in.', 'error');
+                return;
+            }
+
             const invoiceNumber = document.getElementById('invoice-number').value;
             const issueDate = document.getElementById('issue-date').value;
             const customerName = document.getElementById('customer-name').value.trim();
@@ -996,17 +978,6 @@
             // Generate new invoice number
             getNextInvoiceNumber();
         }
-
-        // Initialize admin verification
-        document.addEventListener('DOMContentLoaded', async () => {
-            const isAdmin = await verifyAdminAccess();
-            if (isAdmin) {
-                // Initialize other functions after admin verification
-                getNextInvoiceNumber();
-                updateTotals();
-                updatePreview();
-            }
-        });
     </script>
 </body>
 </html>
