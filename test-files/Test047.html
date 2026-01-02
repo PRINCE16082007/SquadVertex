@@ -1,91 +1,56 @@
 <!DOCTYPE html>
 <html>
 <head>
+<title>Galaxy Secure Decoder</title>
 <meta charset="UTF-8">
-<title>Galaxy Design Protector</title>
 
 <style>
-body{
-  background:#050505;
-  color:white;
-  font-family:Arial;
-}
-.container{
-  max-width:900px;
-  margin:auto;
-}
-.card{
-  background:#0f0f0f;
-  padding:20px;
-  border-radius:15px;
-  box-shadow:0 0 20px #000;
-  margin-top:20px;
-}
-button{
-  padding:10px 15px;
-  border-radius:10px;
-  border:none;
-  cursor:pointer;
-}
-input,textarea{
-  width:100%;
-  padding:8px;
-  border-radius:8px;
-  border:none;
-}
+body{background:#020202;color:white;font-family:Arial}
+.container{max-width:900px;margin:auto}
+.card{background:#0d0d0d;padding:20px;border-radius:15px;margin-top:20px}
+input{width:100%;padding:8px;border-radius:10px;border:none}
 </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+
 </head>
 
 <body>
+
 <div class="container">
 
-<h2>Galaxy Design Protector</h2>
+<h2>Galaxy Secure Decoder</h2>
 
 <div class="card">
-  <h3>Upload Image</h3>
-  <input type="file" id="upload" accept="image/*">
+  <h3>Upload Protected Image</h3>
+  <input type="file" id="upload">
 </div>
 
 <div class="card">
-  <h3>Hidden Watermark Text (Invisible)</h3>
-  <textarea id="secret" rows="3">Copyright Galaxy Designs 2025 - Purchase ID: GD-005</textarea>
+  <h3>Enter Password</h3>
+  <input id="password" value="GalaxySecretKey123">
 </div>
 
 <div class="card">
-  <h3>Metadata</h3>
-  Author:
-  <input id="author" value="Galaxy Designs"><br><br>
-  Copyright:
-  <input id="copyright" value="All Rights Reserved"><br><br>
-  Website:
-  <input id="website" value="galaxy-designs.com">
-</div>
-
-<div class="card">
-  <button onclick="process()">Generate Protected File</button>
+  <button onclick="decode()">Decode Message</button>
 </div>
 
 <canvas id="canvas" style="display:none;"></canvas>
 
 <div class="card">
-  <h3>Output</h3>
-  <img id="output" width="400"><br><br>
-  <a id="download" download="secured.png">
-    <button>Download Protected Image</button>
-  </a>
+  <h3>Decoded Message</h3>
+  <pre id="result"></pre>
 </div>
 
 <script>
 
-let img = new Image();
+let img=new Image();
 
-// load selected image
-document.getElementById("upload").onchange = e=>{
-    img.src = URL.createObjectURL(e.target.files[0]);
+document.getElementById("upload").onchange=e=>{
+    img.src=URL.createObjectURL(e.target.files[0]);
 };
 
-// MAIN FUNCTION
-function process(){
+function decode(){
 
     const canvas=document.getElementById("canvas");
     const ctx=canvas.getContext("2d");
@@ -93,42 +58,29 @@ function process(){
     canvas.width=img.width;
     canvas.height=img.height;
 
-    // --------- FLATTEN IMAGE ---------
     ctx.drawImage(img,0,0);
 
-    // --------- GET PIXELS ---------
-    let imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
-    let data = imageData.data;
+    let imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+    let data=imageData.data;
 
-    // --------- INVISIBLE TEXT ---------
-    const msg = document.getElementById("secret").value + "|END";
-    let bin = "";
-
-    for(let i=0;i<msg.length;i++){
-        bin += msg[i].charCodeAt(0).toString(2).padStart(8,'0');
+    let bits="";
+    for(let i=0;i<800000;i++){
+        bits+= (data[i]&1);
     }
 
-    for(let i=0;i<bin.length;i++){
-        data[i] = (data[i] & 254) | parseInt(bin[i]); // change LSB
+    let chars="";
+    for(let i=0;i<bits.length;i+=8){
+        chars+=String.fromCharCode(parseInt(bits.substr(i,8),2));
+        if(chars.includes("|END")) break;
     }
 
-    ctx.putImageData(imageData,0,0);
+    chars=chars.replace("|END","");
 
-    // --------- METADATA SAVE ---------
-    const author=document.getElementById("author").value;
-    const copyright=document.getElementById("copyright").value;
-    const website=document.getElementById("website").value;
+    let pass=document.getElementById("password").value;
 
-    canvas.toBlob(async blob=>{
-        // Browser PNG metadata modification is restricted
-        // But blob preserves EXIF/text in most modern viewers
+    let decrypted = CryptoJS.AES.decrypt(chars,pass).toString(CryptoJS.enc.Utf8);
 
-        const url = URL.createObjectURL(blob);
-
-        document.getElementById("output").src = url;
-        document.getElementById("download").href = url;
-    });
-
+    document.getElementById("result").textContent = decrypted || "Wrong password or no hidden data.";
 }
 
 </script>
