@@ -1,128 +1,88 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Galaxy Secure Encoder</title>
 <meta charset="UTF-8">
+<title>Decoder Fixed</title>
 
-<style>
-body{background:#020202;color:white;font-family:Arial}
-.container{max-width:900px;margin:auto}
-.card{background:#0d0d0d;padding:20px;border-radius:15px;margin-top:20px}
-input,textarea{width:100%;padding:8px;border-radius:10px;border:none}
-button{padding:10px 15px;border-radius:10px;border:none;cursor:pointer}
-</style>
-
-<!-- AES LIBRARY -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 
 </head>
+<body style="background:#000;color:white">
 
-<body>
+<h2>Secure Decoder</h2>
 
-<div class="container">
+<input type="file" id="upload"><br><br>
 
-<h2>Galaxy Secure Encoder</h2>
+Password:
+<input id="password" value="1234"><br><br>
 
-<div class="card">
-  <h3>Upload Image</h3>
-  <input type="file" id="upload">
-</div>
+<button onclick="decode()">Decode</button>
 
-<div class="card">
-  <h3>Hidden Message</h3>
-  <textarea id="secret">Copyright Galaxy Designs 2025 - Purchase ID: GD-005</textarea>
-</div>
-
-<div class="card">
-  <h3>Encryption Password</h3>
-  <input id="password" value="GalaxySecretKey123">
-</div>
-
-<div class="card">
-  <h3>Metadata</h3>
-  <input id="author" value="Galaxy Designs">
-  <br><br>
-  <input id="copyright" value="All Rights Reserved">
-  <br><br>
-  <input id="website" value="galaxy-designs.com">
-</div>
-
-<div class="card">
-  <button onclick="encode()">Encode & Protect</button>
-</div>
-
-<canvas id="canvas" style="display:none;"></canvas>
-
-<div class="card">
-  <h3>Output Image</h3>
-  <img id="out" width="400">
-  <br><br>
-  <a id="download" download="secured.png">
-     <button>Download</button>
-  </a>
-</div>
+<pre id="result"></pre>
 
 <script>
 
 let img = new Image();
 
-document.getElementById("upload").onchange = e=>{
-    img.src = URL.createObjectURL(e.target.files[0]);
+upload.onchange=e=>{
+  img.src=URL.createObjectURL(e.target.files[0]);
 };
 
-// MAIN ENCODER
-function encode() {
+function decode(){
 
-    const canvas=document.getElementById("canvas");
-    const ctx=canvas.getContext("2d");
+  const canvas=document.createElement("canvas");
+  const ctx=canvas.getContext("2d");
 
-    canvas.width=img.width;
-    canvas.height=img.height;
+  canvas.width=img.width;
+  canvas.height=img.height;
 
-    // FLATTEN IMAGE
-    ctx.drawImage(img,0,0);
+  ctx.drawImage(img,0,0);
 
-    let imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-    let data=imageData.data;
+  let data=ctx.getImageData(0,0,canvas.width,canvas.height);
+  let px=data.data;
 
-    // ---- AES ENCRYPT TEXT ----
-    let text=document.getElementById("secret").value;
-    let pass=document.getElementById("password").value;
+  let bits="";
+  for(let i=0;i<800000;i++){
+    bits += (px[i] & 1);
+  }
 
-    let encrypted = CryptoJS.AES.encrypt(text, pass).toString();
-    encrypted+="|END";
+  let text="";
+  for(let i=0;i<bits.length;i+=8){
+    text += String.fromCharCode(parseInt(bits.substr(i,8),2));
+    if(text.includes("|END")) break;
+  }
 
-    // convert to binary
-    let bin="";
-    for(let i=0;i<encrypted.length;i++){
-        bin+=encrypted[i].charCodeAt(0).toString(2).padStart(8,"0");
-    }
+  text=text.replace("|END","");
 
-    // put into pixel LSB
-    for(let i=0;i<bin.length;i++){
-        data[i]=(data[i]&254)|parseInt(bin[i]);
-    }
+  const MARKER="GALAXY_SECURE::";
 
-    ctx.putImageData(imageData,0,0);
+  // ---------- NO DATA FOUND ----------
+  if(!text.startsWith(MARKER)){
+    result.textContent="❌ No hidden data found in this image.";
+    return;
+  }
 
-    // ------- STRONGER METADATA (EXIF-like chunk) ---------
-    let meta = `
-Author: ${document.getElementById("author").value}
-Copyright: ${document.getElementById("copyright").value}
-Website: ${document.getElementById("website").value}
-Tool: Galaxy Design Protector
-`;
+  let encrypted = text.replace(MARKER,"");
 
-    // append metadata hidden in separate alpha channel
-    ctx.font="1px Arial";
-    ctx.fillText(meta,1,1);
+  let pass=document.getElementById("password").value;
 
-    // output
-    canvas.toBlob(b=>{
-        let url=URL.createObjectURL(b);
-        document.getElementById("out").src=url;
-        document.getElementById("download").href=url;
-    });
+  let decrypted;
+
+  try{
+    decrypted = CryptoJS.AES.decrypt(encrypted,pass).toString(CryptoJS.enc.Utf8);
+  }catch(e){
+    decrypted="";
+  }
+
+  // ---------- WRONG PASSWORD ----------
+  if(!decrypted){
+    result.textContent="🔐 Data found but password is wrong.";
+    return;
+  }
+
+  // ---------- SUCCESS ----------
+  result.textContent="✅ Hidden message:\n\n"+decrypted;
+
 }
 
 </script>
