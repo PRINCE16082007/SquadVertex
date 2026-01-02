@@ -1,86 +1,75 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Galaxy Secure Decoder</title>
 <meta charset="UTF-8">
-
-<style>
-body{background:#020202;color:white;font-family:Arial}
-.container{max-width:900px;margin:auto}
-.card{background:#0d0d0d;padding:20px;border-radius:15px;margin-top:20px}
-input{width:100%;padding:8px;border-radius:10px;border:none}
-</style>
+<title>Encoder Fixed</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 
 </head>
+<body style="background:#000;color:white">
 
-<body>
+<h2>Secure Encoder</h2>
 
-<div class="container">
+<input type="file" id="upload"><br><br>
 
-<h2>Galaxy Secure Decoder</h2>
+<textarea id="secret" rows="3" cols="40">Hello from Galaxy</textarea><br><br>
 
-<div class="card">
-  <h3>Upload Protected Image</h3>
-  <input type="file" id="upload">
-</div>
+Password:
+<input id="password" value="1234"><br><br>
 
-<div class="card">
-  <h3>Enter Password</h3>
-  <input id="password" value="GalaxySecretKey123">
-</div>
+<button onclick="encode()">Encode</button>
 
-<div class="card">
-  <button onclick="decode()">Decode Message</button>
-</div>
+<br><br>
 
-<canvas id="canvas" style="display:none;"></canvas>
-
-<div class="card">
-  <h3>Decoded Message</h3>
-  <pre id="result"></pre>
-</div>
+<img id="out" width="400">
 
 <script>
 
-let img=new Image();
+let img = new Image();
 
-document.getElementById("upload").onchange=e=>{
-    img.src=URL.createObjectURL(e.target.files[0]);
+upload.onchange = e=>{
+  img.src = URL.createObjectURL(e.target.files[0]);
 };
 
-function decode(){
+// ========== ENCODE ==========
+function encode(){
 
-    const canvas=document.getElementById("canvas");
-    const ctx=canvas.getContext("2d");
+  const canvas=document.createElement("canvas");
+  const ctx=canvas.getContext("2d");
 
-    canvas.width=img.width;
-    canvas.height=img.height;
+  canvas.width=img.width;
+  canvas.height=img.height;
 
-    ctx.drawImage(img,0,0);
+  ctx.drawImage(img,0,0);
 
-    let imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-    let data=imageData.data;
+  let data = ctx.getImageData(0,0,canvas.width,canvas.height);
+  let px=data.data;
 
-    let bits="";
-    for(let i=0;i<800000;i++){
-        bits+= (data[i]&1);
-    }
+  // marker to detect existence
+  const MARKER = "GALAXY_SECURE::";
 
-    let chars="";
-    for(let i=0;i<bits.length;i+=8){
-        chars+=String.fromCharCode(parseInt(bits.substr(i,8),2));
-        if(chars.includes("|END")) break;
-    }
+  let secret = document.getElementById("secret").value;
+  let pass = document.getElementById("password").value;
 
-    chars=chars.replace("|END","");
+  let encrypted = CryptoJS.AES.encrypt(secret,pass).toString();
 
-    let pass=document.getElementById("password").value;
+  let final = MARKER + encrypted + "|END";
 
-    let decrypted = CryptoJS.AES.decrypt(chars,pass).toString(CryptoJS.enc.Utf8);
+  let bin="";
 
-    document.getElementById("result").textContent = decrypted || "Wrong password or no hidden data.";
+  for(let i=0;i<final.length;i++){
+    bin += final[i].charCodeAt(0).toString(2).padStart(8,"0");
+  }
+
+  for(let i=0;i<bin.length;i++){
+    px[i]=(px[i]&254)|parseInt(bin[i]);
+  }
+
+  ctx.putImageData(data,0,0);
+
+  document.getElementById("out").src = canvas.toDataURL();
+
 }
 
 </script>
