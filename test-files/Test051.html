@@ -1,222 +1,451 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Repository Analyzer - TeamGalaxy</title>
-    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root {
-            --primary: #00d4ff;
-            --dark-bg: #0f0c29;
-            --darker-bg: #1a1a2e;
-            --card-bg: rgba(25, 25, 35, 0.9);
-            --border: rgba(255, 255, 255, 0.1);
-            --muted: #a0aec0;
-            --success: #4ade80;
-            --warning: #fbbf24;
-            --error: #f87171;
-        }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Logs - TeamGalaxy Admin</title>
 
-        * { margin:0; padding:0; box-sizing:border-box; }
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, var(--dark-bg), #302b63, #24243e);
-            color: white;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
             min-height: 100vh;
+            color: #fff;
             overflow-x: hidden;
             position: relative;
         }
 
+        .stars {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .star {
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+            animation: twinkle var(--duration, 3s) infinite ease-in-out;
+        }
+        @keyframes twinkle { 0%,100% { opacity: 0.2; } 50% { opacity: 1; } }
+
         .loading-screen {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            background: rgba(15, 12, 41, 0.95);
-            display:flex; flex-direction:column; align-items:center; justify-content:center;
-            z-index:1000; transition: opacity 0.5s ease;
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(15,12,41,0.95);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000; transition: opacity 0.5s ease;
         }
         .loading-spinner {
-            width:50px; height:50px; border:4px solid rgba(255,255,255,0.1);
-            border-top:4px solid var(--primary); border-radius:50%; animation: spin 1s linear infinite;
-            margin-bottom:20px;
+            width: 50px; height: 50px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
         }
-        @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
-        .loading-text { font-size:1.2rem; color:var(--primary); text-align:center; }
+        @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+        .loading-text { font-size: 1.2rem; color: #00d4ff; text-align: center; }
 
-        .stars { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }
-        .star { position:absolute; background-color: white; border-radius:50%; animation: twinkle var(--duration,3s) infinite ease-in-out; }
-        @keyframes twinkle { 0%,100%{opacity:0.2} 50%{opacity:1} }
+        .container { 
+            padding: 20px; 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            position: relative; 
+            z-index: 2; 
+            min-height: 100vh;
+        }
 
-        .container { max-width:1400px; margin:0 auto; padding:20px; position:relative; z-index:10; display:none; }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 20px 0; 
+            margin-bottom: 30px; 
+            border-bottom: 1px solid rgba(255,255,255,0.08); 
+        }
 
-        .header { display:flex; justify-content:space-between; align-items:center; padding:20px 0; margin-bottom:30px; border-bottom:1px solid var(--border); }
-        .back-btn { background: rgba(255,255,255,0.1); border:none; color:white; padding:10px 20px; border-radius:25px; cursor:pointer; }
-        .card { background:var(--card-bg); border-radius:15px; padding:25px; margin-bottom:20px; border:1px solid var(--border); backdrop-filter: blur(10px); }
-        .controls { display:flex; flex-direction:column; gap:20px; }
-        .input { width:100%; padding:10px 15px; background: rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:8px; color:white; margin-bottom:10px; }
-        .btn { background: linear-gradient(45deg, var(--primary), #0077ff); color:white; border:none; padding:12px 20px; border-radius:8px; cursor:pointer; font-size:1rem; transition:all .3s; margin-right:8px; margin-bottom:8px; }
-        .btn.small { padding:8px 12px; font-size:0.9rem; }
-        .btn:hover { transform:translateY(-2px); box-shadow:0 4px 15px rgba(0,212,255,0.3); }
+        .admin-info { 
+            display:flex; 
+            align-items:center; 
+            gap:15px; 
+        }
+        .admin-avatar { 
+            width:50px; 
+            height:50px; 
+            border-radius:50%; 
+            background: linear-gradient(45deg,#00d4ff,#0077ff); 
+            display:flex; 
+            align-items:center; 
+            justify-content:center; 
+            font-size:1.5rem; 
+        }
+        .admin-details h2 { 
+            font-size:1.5rem; 
+            margin-bottom:5px; 
+        }
+        .admin-details p { 
+            color:#a0aec0; 
+            font-size:0.9rem; 
+        }
 
-        .stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:15px; margin-bottom:15px; }
-        .stat { text-align:center }
-        .v { font-size:1.5rem; font-weight:bold; color:var(--primary); margin-bottom:5px; }
-        .label { color:var(--muted); font-size:0.8rem; }
+        .header-actions .btn { 
+            background:#ff4757;
+            border:none;
+            padding:10px 20px;
+            border-radius:25px;
+            color:white;
+            cursor:pointer; 
+        }
 
-        .footer-note { margin-top:15px; padding:10px; background: rgba(255,165,0,0.1); border:1px solid rgba(255,165,0,0.3); border-radius:8px; font-size:0.8rem; }
-        .tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:20px; }
-        .tab { padding:10px 20px; cursor:pointer; border-bottom:2px solid transparent; }
-        .tab.active { border-bottom:2px solid var(--primary); color:var(--primary); }
-        .tab-content { display:none; }
-        .tab-content.active { display:block; }
-        .table { overflow-x:auto; }
-        table { width:100%; border-collapse:collapse; }
-        th, td { padding:12px; text-align:left; border-bottom:1px solid var(--border); }
-        th { background: rgba(255,255,255,0.05); }
-        .file-type { background: rgba(0,212,255,0.2); padding:2px 8px; border-radius:12px; font-size:0.8rem; }
-        .tree-view { background: rgba(0,0,0,0.2); padding:15px; border-radius:8px; max-height:400px; overflow-y:auto; }
-        .tree-item { margin-left:20px; margin-bottom:5px; }
-        .tree-folder { cursor:pointer; font-weight:bold; color:var(--primary); }
-        .tree-file { color:#a0aec0; }
-        .loading, .error { padding:20px; text-align:center; border-radius:8px; }
-        .loading { background: rgba(0,212,255,0.1); color:var(--primary); }
-        .error { background: rgba(248,113,113,0.1); color:var(--error); }
-        .hidden { display:none !important; }
+        .controls {
+            background: rgba(25,25,35,0.85);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
 
-        .code-display { background: rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:8px; padding:15px; font-family:'Courier New', monospace; font-size:14px; line-height:1.5; color:#e0e0e0; white-space:pre-wrap; overflow-x:auto; max-height:500px; overflow-y:auto; margin-top:10px; }
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        .control-group input, 
+        .control-group select {
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: rgba(40,40,50,0.6);
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .control-group input:focus, 
+        .control-group select:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: #00d4ff;
+            color: #05202b;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #cfefff;
+        }
+
+        .stats-section { 
+            display:grid; 
+            grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); 
+            gap:15px; 
+            margin-bottom:30px; 
+        }
+        .stat-card { 
+            background: rgba(25,25,35,0.85); 
+            padding:18px; 
+            border-radius:10px; 
+            text-align:center; 
+            border:1px solid rgba(255,255,255,0.06); 
+        }
+        .stat-number { 
+            font-size:2rem; 
+            font-weight:bold; 
+            color:#00d4ff; 
+            margin-bottom:6px; 
+        }
+        .stat-label { 
+            color:#a0aec0; 
+            font-size:0.9rem; 
+        }
+
+        .logs-container {
+            background: rgba(25,25,35,0.85);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .logs-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .logs-count {
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        .logs-table-container {
+            overflow-x: auto;
+        }
+
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #fff;
+        }
+
+        .logs-table th {
+            background: rgba(40,40,50,0.6);
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #00d4ff;
+            border-bottom: 2px solid rgba(255,255,255,0.06);
+        }
+
+        .logs-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .logs-table tr:hover {
+            background: rgba(40,40,50,0.4);
+        }
+
+        .log-module {
+            color: #00d4ff;
+            font-weight: 500;
+        }
+
+        .log-user {
+            color: #ffd19a;
+        }
+
+        .log-time {
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        .log-ip {
+            color: #9ae6b4;
+        }
+
+        .log-browser {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(0,212,255,0.1);
+            color: #00d4ff;
+            font-size: 0.8rem;
+        }
+
+        .log-platform {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(255,165,0,0.1);
+            color: #ffd19a;
+            font-size: 0.8rem;
+        }
+
+        .no-logs {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+            font-style: italic;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 10px;
+        }
+
+        .page-btn {
+            padding: 8px 15px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: #cfefff;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .page-btn.active {
+            background: #00d4ff;
+            color: #05202b;
+        }
+
+        .page-btn:hover:not(.active) {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .hidden { 
+            display:none !important; 
+        }
+
+        @media (max-width:768px) {
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .logs-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="loading-screen" id="loadingScreen">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Verifying admin access...</div>
-    </div>
-
     <div class="stars" id="stars"></div>
 
-    <div class="container" id="mainContainer">
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading Audit Logs...</div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container" id="container">
         <div class="header">
-            <button class="back-btn" onclick="goBack()">
-                <i class="fas fa-arrow-left"></i> Back to Dashboard
-            </button>
+            <div class="admin-info">
+                <div class="admin-avatar">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <div class="admin-details">
+                    <h2 id="adminName">Loading...</h2>
+                    <p>System Administrator</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="btn" onclick="logout()" style="background: #ff4757; border: none; padding: 10px 20px; border-radius: 25px; color: white; cursor: pointer;">Logout</button>
+            </div>
         </div>
 
-        <div class="card">
-            <h1>🚀 GitHub Repository Analyzer</h1>
-            <div style="color:var(--muted);margin-top:6px">Analyze GitHub repositories with detailed insights</div>
+        <div class="stats-section">
+            <div class="stat-card">
+                <div class="stat-number" id="totalLogs">0</div>
+                <div class="stat-label">Total Logs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="todayLogs">0</div>
+                <div class="stat-label">Today's Logs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="uniqueUsers">0</div>
+                <div class="stat-label">Unique Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="uniqueModules">0</div>
+                <div class="stat-label">Modules Accessed</div>
+            </div>
         </div>
 
         <div class="controls">
-            <div class="card">
-                <div style="margin-bottom:10px"><strong>Repository</strong></div>
-                <input id="owner" class="input" placeholder="owner" value="teamgalaxyinteractive-cmd">
-                <input id="repo" class="input" placeholder="repo" value="teamgalaxy">
-                <input id="branch" class="input" placeholder="branch" value="main">
-                <input id="root" class="input" placeholder="root path (optional)" value="">
-
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <input id="extensions" class="input" style="flex:1" placeholder=".js,.py" value=".js,.ts,.py,.html,.css,.json,.md">
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label for="startDate">Start Date</label>
+                    <input type="date" id="startDate">
                 </div>
-
-                <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-                    <input id="minSize" class="input" style="width:120px" type="number" placeholder="min size bytes" value="0">
-                    <input id="maxContentFetch" class="input" style="width:120px" type="number" placeholder="content fetch N" value="10" title="Max files to fetch content for (0 = none)">
+                <div class="control-group">
+                    <label for="endDate">End Date</label>
+                    <input type="date" id="endDate">
                 </div>
-
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <input id="ghToken" class="input" placeholder="GitHub token (optional)" title="Use a personal token to increase rate limit">
+                <div class="control-group">
+                    <label for="userFilter">Filter by User</label>
+                    <input type="text" id="userFilter" placeholder="Enter email or name...">
                 </div>
-
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <button id="analyzeBtn" class="btn">🔄 Analyze</button>
-                    <button id="fetchTopContentBtn" class="btn small" style="background:linear-gradient(45deg,#60a5fa,#3b82f6)">📄 Fetch top N</button>
-                    <button id="exportBtn" class="btn small" style="background:linear-gradient(45deg,#4ade80,#22c55e)">📥 Export</button>
-                </div>
-
-                <div class="footer-note">
-                    Tip: By default we do NOT fetch each file’s content (lazy). Use "Fetch top N" or click a file to load content. This saves API tokens & bandwidth.
+                <div class="control-group">
+                    <label for="moduleFilter">Filter by Module</label>
+                    <input type="text" id="moduleFilter" placeholder="Enter module name...">
                 </div>
             </div>
-
-            <div class="card">
-                <div style="margin-bottom:6px"><strong>Quick stats</strong></div>
-                <div class="stats-grid" id="quickStats">
-                    <div class="stat"><div class="v" id="totalFiles">0</div><div class="label" style="color:var(--muted)">Files</div></div>
-                    <div class="stat"><div class="v" id="totalSize">0 Bytes</div><div class="label" style="color:var(--muted)">Total size</div></div>
-                    <div class="stat"><div class="v" id="largestFile">—</div><div class="label" style="color:var(--muted)">Largest</div></div>
-                    <div class="stat"><div class="v" id="avgSize">—</div><div class="label" style="color:var(--muted)">Average</div></div>
-                </div>
-
-                <div style="margin-top:6px"><strong>Search / Filter</strong></div>
-                <input id="searchFilter" class="input" placeholder="Filter by filename or path">
-
-                <div style="margin-top:6px"><strong>Charts</strong></div>
-                <div style="display:flex;gap:8px">
-                    <button id="showChartsBtn" class="btn small">Show charts</button>
-                    <button id="loadCacheBtn" class="btn small" style="background:linear-gradient(45deg,#f59e0b,#f97316)">Load cache</button>
-                </div>
-
-                <div id="rateInfo" class="footer-note" style="margin-top:8px;color:var(--muted)"></div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
             </div>
         </div>
 
-        <div class="card">
-            <div class="tabs">
-                <div class="tab active" data-tab="overview">📈 Overview</div>
-                <div class="tab" data-tab="files">📁 Files</div>
-                <div class="tab" data-tab="charts">📊 Charts</div>
-                <div class="tab" data-tab="tree">🌳 Tree View</div>
-                <div class="tab" data-tab="details">📋 Details</div>
+        <div class="logs-container">
+            <div class="logs-header">
+                <h3 class="logs-title">Audit Logs</h3>
+                <div class="logs-count" id="logsCount">Loading logs...</div>
             </div>
-
-            <div id="overview" class="tab-content active">
-                <div style="display:flex;gap:12px;flex-wrap:wrap">
-                    <div style="flex:1">
-                        <h3 style="margin-bottom:8px">Summary</h3>
-                        <div id="summaryText" style="color:var(--muted)">No analysis run yet.</div>
-                    </div>
-                    <div style="width:360px">
-                        <h3 style="margin-bottom:8px">Top files</h3>
-                        <div id="topFilesList" style="color:var(--muted)">—</div>
-                    </div>
-                </div>
+            <div class="logs-table-container">
+                <table class="logs-table">
+                    <thead>
+                        <tr>
+                            <th>Module</th>
+                            <th>User</th>
+                            <th>Time</th>
+                            <th>IP Address</th>
+                            <th>Browser</th>
+                            <th>Platform</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTableBody">
+                        <tr>
+                            <td colspan="7" class="no-logs">Loading audit logs...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-
-            <div id="files" class="tab-content">
-                <div class="table">
-                    <table>
-                        <thead><tr><th>Name</th><th>Path</th><th>Size</th><th>Type</th><th>Lines</th><th>Actions</th></tr></thead>
-                        <tbody id="filesTableBody"></tbody>
-                    </table>
-                </div>
-                <div id="filesNote" style="color:var(--muted);margin-top:8px">Click 🔍 to load file content (this will perform a single request for that file).</div>
-            </div>
-
-            <div id="charts" class="tab-content">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                    <div style="background:rgba(0,0,0,0.25);padding:10px;border-radius:8px"><canvas id="typeChart"></canvas></div>
-                    <div style="background:rgba(0,0,0,0.25);padding:10px;border-radius:8px"><canvas id="sizeChart"></canvas></div>
-                </div>
-            </div>
-
-            <div id="tree" class="tab-content">
-                <div class="tree-view" id="treeView"></div>
-            </div>
-
-            <div id="details" class="tab-content">
-                <div id="fileDetailsInner" style="color:var(--muted)">Select a file to view details.</div>
-            </div>
+            <div class="pagination" id="pagination"></div>
         </div>
-
-        <div id="loading" class="loading hidden"></div>
-        <div id="error" class="error hidden"></div>
     </div>
 
     <script>
-        // Initialize Firebase
+        // Initialize Firebase with your credentials
         const firebaseConfig = {
           apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
           authDomain: "teamgalaxy-77344.firebaseapp.com",
@@ -231,12 +460,7 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // Globals
-        window.analysisData = window.analysisData || [];
-        window.currentFile = window.currentFile || null;
-        window.charts = window.charts || { typeChart: null, sizeChart: null };
-
-        // Stars
+        // Create star background
         function createStars() {
             const starsContainer = document.getElementById('stars');
             const starCount = 150;
@@ -245,394 +469,236 @@
                 star.classList.add('star');
                 const x = Math.random() * 100;
                 const y = Math.random() * 100;
-                star.style.left = `${x}%`;
-                star.style.top = `${y}%`;
+                star.style.left = `${x}%`; star.style.top = `${y}%`;
                 const size = Math.random() * 3 + 1;
-                star.style.width = `${size}px`;
-                star.style.height = `${size}px`;
+                star.style.width = `${size}px`; star.style.height = `${size}px`;
                 const duration = Math.random() * 5 + 2;
                 star.style.setProperty('--duration', `${duration}s`);
                 starsContainer.appendChild(star);
             }
         }
 
-        // Auth check
-        async function checkAuth() {
+        // Format date as DD/MM/YYYY HH:MM:SS
+        function formatDate(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+        }
+
+        // Format date for input field (YYYY-MM-DD)
+        function formatInputDate(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${year}-${month}-${year}`;
+        }
+
+        // Set today as default date range
+        function setDefaultDateRange() {
+            const today = new Date();
+            const formattedToday = formatInputDate(today);
+            document.getElementById('startDate').value = formattedToday;
+            document.getElementById('endDate').value = formattedToday;
+        }
+
+        // Load audit logs from Firestore
+        async function loadAuditLogs(filters = {}) {
             try {
-                const user = await new Promise((resolve, reject) => {
-                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-                        if (user) {
-                            try {
-                                const adminQuery = await db.collection('admin').where('gmail', '==', user.email).limit(1).get();
-                                if (!adminQuery.empty) {
-                                    unsubscribe();
-                                    resolve(user);
-                                } else {
-                                    unsubscribe();
-                                    reject(new Error('Not an admin'));
-                                }
-                            } catch (error) {
-                                unsubscribe();
-                                reject(error);
-                            }
-                        } else {
-                            unsubscribe();
-                            reject(new Error('Not signed in'));
-                        }
+                let query = db.collection('module_access_logs');
+                
+                // Apply date filters if provided
+                if (filters.startDate) {
+                    const start = new Date(filters.startDate);
+                    start.setHours(0, 0, 0, 0);
+                    query = query.where('accessedAt', '>=', start);
+                }
+                
+                if (filters.endDate) {
+                    const end = new Date(filters.endDate);
+                    end.setHours(23, 59, 59, 999);
+                    query = query.where('accessedAt', '<=', end);
+                }
+                
+                // Apply user filter if provided
+                if (filters.userFilter) {
+                    query = query.where('email', '>=', filters.userFilter).where('email', '<=', filters.userFilter + '\uf8ff');
+                }
+                
+                // Apply module filter if provided
+                if (filters.moduleFilter) {
+                    query = query.where('moduleKey', '>=', filters.moduleFilter).where('moduleKey', '<=', filters.moduleFilter + '\uf8ff');
+                }
+                
+                // Order by timestamp descending
+                query = query.orderBy('accessedAt', 'desc');
+                
+                const snapshot = await query.get();
+                const logs = [];
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    logs.push({
+                        id: doc.id,
+                        ...data,
+                        accessedAt: data.accessedAt ? data.accessedAt.toDate() : null
                     });
                 });
+                
+                renderLogsTable(logs);
+                updateStats(logs);
+                return logs;
+            } catch (error) {
+                console.error('Error loading audit logs:', error);
+                document.getElementById('logsTableBody').innerHTML = '<tr><td colspan="7" class="no-logs">Error loading logs. Please try again.</td></tr>';
+                return [];
+            }
+        }
 
-                setTimeout(() => {
-                    document.getElementById('loadingScreen').style.opacity = '0';
-                    setTimeout(() => {
-                        document.getElementById('loadingScreen').classList.add('hidden');
-                        document.getElementById('mainContainer').style.display = 'block';
-                    }, 500);
-                }, 1500);
+        // Render logs in the table
+        function renderLogsTable(logs) {
+            const tbody = document.getElementById('logsTableBody');
+            
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="no-logs">No audit logs found for the selected criteria.</td></tr>';
+                document.getElementById('logsCount').textContent = 'No logs found';
+                return;
+            }
+            
+            let html = '';
+            logs.forEach(log => {
+                const module = log.moduleKey || 'Unknown';
+                const user = log.name || log.email || 'Unknown';
+                const time = log.accessedAt ? formatDate(log.accessedAt) : 'N/A';
+                const ip = log.clientIp || 'N/A';
+                const browser = log.userAgentParsed?.browser || 'Unknown';
+                const platform = log.platform || 'Unknown';
+                
+                html += `
+                    <tr>
+                        <td class="log-module">${module}</td>
+                        <td class="log-user">${user}</td>
+                        <td class="log-time">${time}</td>
+                        <td class="log-ip">${ip}</td>
+                        <td><span class="log-browser">${browser}</span></td>
+                        <td><span class="log-platform">${platform}</span></td>
+                        <td><button class="btn btn-secondary" onclick="showLogDetails('${log.id}')">Details</button></td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+            document.getElementById('logsCount').textContent = `Showing ${logs.length} logs`;
+        }
 
+        // Show log details in an alert (for now)
+        function showLogDetails(logId) {
+            // In a real implementation, you might show a modal with full details
+            alert(`Log ID: ${logId}\n\nThis would show detailed information about this specific log entry.`);
+        }
+
+        // Update statistics
+        function updateStats(logs) {
+            document.getElementById('totalLogs').textContent = logs.length;
+            
+            // Calculate today's logs
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayLogs = logs.filter(log => {
+                if (!log.accessedAt) return false;
+                const logDate = new Date(log.accessedAt);
+                logDate.setHours(0, 0, 0, 0);
+                return logDate.getTime() === today.getTime();
+            });
+            document.getElementById('todayLogs').textContent = todayLogs.length;
+            
+            // Calculate unique users
+            const uniqueUsers = [...new Set(logs.map(log => log.email))].length;
+            document.getElementById('uniqueUsers').textContent = uniqueUsers;
+            
+            // Calculate unique modules
+            const uniqueModules = [...new Set(logs.map(log => log.moduleKey))].length;
+            document.getElementById('uniqueModules').textContent = uniqueModules;
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const filters = {
+                startDate: document.getElementById('startDate').value,
+                endDate: document.getElementById('endDate').value,
+                userFilter: document.getElementById('userFilter').value.trim(),
+                moduleFilter: document.getElementById('moduleFilter').value.trim()
+            };
+            
+            loadAuditLogs(filters);
+        }
+
+        // Reset filters
+        function resetFilters() {
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            document.getElementById('userFilter').value = '';
+            document.getElementById('moduleFilter').value = '';
+            loadAuditLogs();
+        }
+
+        // Logout function
+        function logout() {
+            auth.signOut()
+                .then(() => { window.location.href = 'index.html'; })
+                .catch(error => {
+                    console.error('Logout error:', error);
+                    window.location.href = 'index.html';
+                });
+        }
+
+        // Check authentication
+        async function checkAuth() {
+            try {
+                auth.onAuthStateChanged(async (user) => {
+                    if (user) {
+                        // Check if user is admin
+                        const adminQuery = await db.collection('admin').where('gmail', '==', user.email).limit(1).get();
+
+                        if (!adminQuery.empty) {
+                            const adminDoc = adminQuery.docs[0];
+                            const adminData = adminDoc.data();
+
+                            // Show container and hide loading
+                            setTimeout(() => {
+                                document.getElementById('loadingScreen').style.opacity = '0';
+                                setTimeout(() => {
+                                    document.getElementById('loadingScreen').classList.add('hidden');
+                                    document.getElementById('container').style.display = 'block';
+
+                                    // Set admin name
+                                    document.getElementById('adminName').textContent = adminData.name || user.email;
+
+                                    // Set default date range and load logs
+                                    setDefaultDateRange();
+                                    loadAuditLogs();
+                                }, 500);
+                            }, 2000); // Simulate setup time
+                        } else {
+                            // Not an admin - redirect to login
+                            window.location.href = 'index.html';
+                        }
+                    } else {
+                        // Not signed in - redirect to security barrier
+                        window.location.href = '../security_barrier.html';
+                    }
+                });
             } catch (error) {
                 console.error('Auth check error:', error);
-                const loadingText = document.getElementById('loadingScreen').querySelector('.loading-text');
-                if (loadingText) loadingText.textContent = 'Access denied. Redirecting...';
-                setTimeout(() => { window.location.href = 'index.html'; }, 2000);
+                // Redirect to security barrier on error (safer)
+                window.location.href = '../security_barrier.html';
             }
         }
 
-        // Helpers
-        function el(id){ return document.getElementById(id); }
-        function showLoading(txt){ el('loading').classList.remove('hidden'); el('loading').textContent = txt || 'Working...'; }
-        function hideLoading(){ el('loading').classList.add('hidden'); }
-        function showError(msg){ el('error').classList.remove('hidden'); el('error').textContent = msg; }
-        function hideError(){ el('error').classList.add('hidden'); el('error').textContent = ''; }
-        function formatBytes(bytes){ if(bytes == null) return '0 Bytes'; const k=1024; const sizes=['Bytes','KB','MB','GB']; const i = bytes===0?0:Math.floor(Math.log(bytes)/Math.log(k)); return (bytes/Math.pow(k,i)).toFixed(2)+' '+sizes[i] || 'Bytes'; }
-        function getFileType(name){ const ext = (name.split('.').pop()||'').toLowerCase(); const map={'js':'JavaScript','ts':'TypeScript','py':'Python','html':'HTML','css':'CSS','json':'JSON','md':'Markdown'}; return map[ext]||(ext?ext.toUpperCase():'Unknown'); }
-        function safeDecodeURIPath(p){ try{ return decodeURIComponent(p); }catch(e){ return p; } }
-        function escapeForAttr(s){ return (s||'').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
-        function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-        // Tabs
-        document.querySelectorAll('.tab').forEach(t=>{
-          t.addEventListener('click', () => {
-            const tab = t.dataset.tab;
-            document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x===t));
-            document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id===tab));
-          });
-        });
-
-        // GitHub fetch wrapper
-        async function ghFetch(url, token){
-          const headers = { 'Accept': 'application/vnd.github.v3+json' };
-          if(token) headers['Authorization'] = 'token ' + token;
-          const res = await fetch(url, { headers });
-          const remaining = parseInt(res.headers.get('x-ratelimit-remaining') || '0', 10);
-          const resetEpoch = parseInt(res.headers.get('x-ratelimit-reset') || '0', 10);
-          return { res, remaining, resetEpoch };
-        }
-
-        // Analyze
-        async function analyzeRepo(){
-          hideError();
-          showLoading('Fetching repo tree from GitHub...');
-          try{
-            const owner = el('owner').value.trim(), repo = el('repo').value.trim(), branch = el('branch').value.trim() || 'main';
-            if(!owner || !repo) throw new Error('Owner & repo required');
-            const root = (el('root').value || '').trim();
-            const extensions = (el('extensions').value || '').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-            const minSize = parseInt(el('minSize').value) || 0;
-            const token = (el('ghToken').value || '').trim();
-
-            const treeUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
-            const { res, remaining, resetEpoch } = await ghFetch(treeUrl, token);
-            el('rateInfo').textContent = `GitHub rate remaining: ${remaining} — reset ${ new Date(resetEpoch*1000).toLocaleString() }`;
-
-            if(!res.ok){
-              const txt = await res.text();
-              throw new Error(`GitHub API error ${res.status}: ${txt.substring(0,200)}`);
-            }
-            const data = await res.json();
-            if(!data.tree) throw new Error('Invalid tree response');
-
-            let files = data.tree.filter(i => i.type === 'blob');
-            if(root){
-              const rootNorm = root.replace(/^\/*/,'').replace(/\/*$/,'') + '/';
-              files = files.filter(f => f.path.startsWith(rootNorm));
-            }
-            files = files.filter(item => {
-              const pathLower = item.path.toLowerCase();
-              const extMatch = extensions.length ? extensions.some(ext => pathLower.endsWith(ext)) : true;
-              const sizeOk = (typeof item.size === 'number') ? item.size > minSize : true;
-              return extMatch && sizeOk;
-            });
-
-            const built = files.map(f => ({
-              path: f.path,
-              name: f.path.split('/').pop(),
-              size: f.size || 0,
-              url: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encodeURI(f.path)}`,
-              type: getFileType(f.path),
-              lines: null,
-              columns: null
-            }));
-
-            window.analysisData = built;
-            updateUIAfterAnalysis(built);
-            buildTreeStructure(built);
-            hideLoading();
-
-            if(remaining < 5){
-              showError(`Warning: GitHub rate limit low (${remaining} remaining). Avoid fetching many files now or provide a personal token.`);
-            }
-
-          }catch(err){
-            hideLoading();
-            showError('Analysis error: ' + (err.message || err));
-            console.error(err);
-          }
-        }
-
-        // Build tree
-        function buildTreeStructure(files) {
-            const treeView = el('treeView');
-            const tree = {};
-
-            files.forEach(file => {
-                const parts = file.path.split('/');
-                let current = tree;
-                for (let i = 0; i < parts.length - 1; i++) {
-                    const part = parts[i];
-                    if (!current[part]) current[part] = {};
-                    current = current[part];
-                }
-                current[parts[parts.length - 1]] = file;
-            });
-
-            function renderTree(obj, depth = 0) {
-                let html = '';
-                for (const key in obj) {
-                    const item = obj[key];
-                    const indent = '&nbsp;'.repeat(depth * 4);
-                    if (item && item.path) {
-                        html += `<div class="tree-item">${indent}<span class="tree-file">📄 ${key}</span></div>`;
-                    } else {
-                        html += `<div class="tree-item">${indent}<span class="tree-folder">📁 ${key}</span></div>`;
-                        html += renderTree(item, depth + 1);
-                    }
-                }
-                return html;
-            }
-
-            treeView.innerHTML = renderTree(tree);
-        }
-
-        // Update UI
-        function updateUIAfterAnalysis(files){
-          const totalFiles = files.length;
-          const totalSize = files.reduce((s,f)=>s + (f.size||0), 0);
-          const largest = files.reduce((best,f)=> (!best || (f.size||0) > (best.size||0)) ? f : best, null);
-          const avg = totalFiles ? Math.round(totalSize/totalFiles) : 0;
-
-          el('totalFiles').textContent = totalFiles;
-          el('totalSize').textContent = formatBytes(totalSize);
-          el('largestFile').textContent = largest ? `${largest.name} — ${formatBytes(largest.size)}` : '—';
-          el('avgSize').textContent = avg ? formatBytes(avg) : '—';
-
-          el('summaryText').textContent = `Found ${totalFiles} files (${formatBytes(totalSize)}. Largest: ${largest ? largest.name : '—'}. Average size: ${avg ? formatBytes(avg) : '—'}. Content NOT fetched by default to save rate tokens. Click a file to load content on-demand.`;
-
-          const top = [...files].sort((a,b)=> (b.size||0) - (a.size||0)).slice(0,8);
-          el('topFilesList').innerHTML = top.map(t=> `<div style="margin-bottom:6px">${t.name} — <span style="color:var(--muted)">${formatBytes(t.size)}</span></div>`).join('') || '—';
-
-          renderFilesTable(files);
-          renderCharts(files);
-        }
-
-        // Files table
-        function renderFilesTable(files){
-          const search = (el('searchFilter').value || '').toLowerCase();
-          const filtered = files.filter(f=> (f.name + ' ' + f.path).toLowerCase().includes(search));
-          const tbody = el('filesTableBody');
-          tbody.innerHTML = '';
-
-          filtered.forEach(f=>{
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-              <td>${f.name}</td>
-              <td style="max-width:420px;word-break:break-all">${f.path}</td>
-              <td>${formatBytes(f.size)}</td>
-              <td><span class="file-type">${f.type}</span></td>
-              <td>${f.lines === null ? '—' : f.lines}</td>
-              <td style="white-space:nowrap">
-                <button class="btn small" onclick="loadSingleFile('${escapeForAttr(f.url)}','${escapeForAttr(f.path)}')">🔍 Load</button>
-                <button class="btn small" style="background:linear-gradient(45deg,#3b82f6,#2563eb)" onclick="downloadDirect('${escapeForAttr(f.url)}','${escapeForAttr(f.name)}')">📥</button>
-              </td>
-            `;
-            tbody.appendChild(tr);
-          });
-        }
-
-        // Charts
-        function renderCharts(files){
-          try{
-            const counts = {};
-            files.forEach(f=> counts[f.type] = (counts[f.type]||0) + 1 );
-            const labels = Object.keys(counts).slice(0,20);
-            const data = labels.map(l=> counts[l]);
-
-            if(window.charts.typeChart) window.charts.typeChart.destroy();
-            const ctx1 = el('typeChart').getContext('2d');
-            window.charts.typeChart = new Chart(ctx1, {
-              type: 'doughnut',
-              data: { labels, datasets: [{ data }] },
-              options: {
-                responsive: true,
-                plugins: {
-                  legend: { position: 'bottom', labels: { color: '#fff' } }
-                }
-              }
-            });
-
-            const top = [...files].sort((a,b)=> (b.size||0)-(a.size||0)).slice(0,10);
-            const sizeLabels = top.map(t=> t.name);
-            const sizeValues = top.map(t=> Math.round((t.size||0)/1024));
-            if(window.charts.sizeChart) window.charts.sizeChart.destroy();
-            const ctx2 = el('sizeChart').getContext('2d');
-            window.charts.sizeChart = new Chart(ctx2, {
-              type:'bar',
-              data: { labels: sizeLabels, datasets: [{ label: 'Size (KB)', data: sizeValues, backgroundColor: 'rgba(0,212,255,0.8)' }] },
-              options: {
-                indexAxis: 'y',
-                plugins:{ legend: { display: false } },
-                scales: {
-                  x: { ticks: { color: '#a0aec0' } },
-                  y: { ticks: { color: '#a0aec0' } }
-                }
-              }
-            });
-          }catch(e){
-            console.warn('charts err', e);
-          }
-        }
-
-        // Load file
-        async function loadSingleFile(rawUrl, path){
-          hideError();
-          showLoading('Fetching file content (on-demand)...');
-          try{
-            const token = (el('ghToken').value || '').trim();
-            const r = await fetch(rawUrl);
-            if(!r.ok) throw new Error(`HTTP ${r.status}`);
-            const text = await r.text();
-            showFileContent(path, text);
-            const fileObj = window.analysisData.find(f => f.path === path);
-            if(fileObj){
-              fileObj.lines = text.split(/\r\n|\n/).length;
-              fileObj.columns = Math.max(...text.split(/\r\n|\n/).map(l=>l.length), 0);
-            }
-            renderFilesTable(window.analysisData);
-            hideLoading();
-            switchToDetails(path);
-          }catch(err){
-            hideLoading();
-            showError('File load error: ' + (err.message || err));
-            console.error(err);
-          }
-        }
-
-        function showFileContent(path, content){
-          const target = el('fileDetailsInner');
-          const safePath = safeDecodeURIPath(path);
-          target.innerHTML = `
-            <h3 style="margin-top:0">${safePath}</h3>
-            <div style="color:var(--muted);margin-bottom:8px">Size: ${content.length} bytes — Loaded on demand</div>
-            <div class="code-display">${escapeHtml(content)}</div>
-          `;
-        }
-
-        // Fetch top N files content
-        async function fetchTopNContent(){
-          hideError();
-          const maxN = parseInt(el('maxContentFetch').value) || 0;
-          if(maxN <= 0){ alert('Set a positive number in "content fetch N" to use this feature.'); return; }
-          if(!window.analysisData || window.analysisData.length === 0){ alert('Run analysis first.'); return; }
-
-          const token = (el('ghToken').value || '').trim();
-          const top = [...window.analysisData].sort((a,b)=> (b.size||0)-(a.size||0)).slice(0,maxN);
-          showLoading(`Fetching content for top ${top.length} files... (this uses ${top.length} requests)`);
-          let counter = 0;
-          for(const f of top){
-            try{
-              await loadSingleFile(f.url, f.path);
-              counter++;
-              showLoading(`Fetched ${counter}/${top.length}...`);
-              await new Promise(r=>setTimeout(r, 250));
-            }catch(e){
-              console.warn('top fetch err', e);
-            }
-          }
-          hideLoading();
-          alert(`Done fetching content for ${counter}/${top.length} files.`);
-        }
-
-        // Download direct
-        function downloadDirect(url, name){
-          fetch(url).then(r=>r.blob()).then(b=>{
-            const a=document.createElement('a');
-            a.href=URL.createObjectURL(b);
-            a.download = name || 'file';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(()=>URL.revokeObjectURL(a.href),3000);
-          }).catch(e=>alert('Download failed: '+e));
-        }
-
-        function switchToDetails(path){
-          document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab==='details'));
-          document.querySelectorAll('.tab-content').forEach(c=> c.classList.toggle('active', c.id==='details'));
-        }
-
-        // Event binds (elements exist because script is placed after DOM)
-        el('analyzeBtn').addEventListener('click', analyzeRepo);
-        el('fetchTopContentBtn').addEventListener('click', fetchTopNContent);
-        el('exportBtn').addEventListener('click', ()=> {
-          if(!window.analysisData || window.analysisData.length===0){ alert('No data'); return; }
-          const blob = new Blob([JSON.stringify(window.analysisData,null,2)], {type:'application/json'});
-          const url=URL.createObjectURL(blob);
-          const a=document.createElement('a');
-          a.href=url;
-          a.download = 'analysis.json';
-          a.click();
-          a.remove();
-          setTimeout(()=>URL.revokeObjectURL(url),4000);
-        });
-
-        el('searchFilter').addEventListener('input', ()=> renderFilesTable(window.analysisData || []));
-
-        el('loadCacheBtn').addEventListener('click', ()=>{
-          try{
-            const raw = localStorage.getItem('lastAnalysis');
-            if(!raw) return alert('No cached analysis found');
-            const obj = JSON.parse(raw);
-            if(!obj.data) return alert('Invalid cache');
-            window.analysisData = obj.data;
-            updateUIAfterAnalysis(window.analysisData);
-            buildTreeStructure(window.analysisData);
-            alert('Loaded cached analysis from ' + (obj.timestamp||'unknown'));
-          }catch(e){ alert('Load cache failed: '+e) }
-        });
-
-        // Auto-cache hook - wraps analyze and saves properly
-        (function autoCacheHook(){
-          const origAnalyze = analyzeRepo;
-          analyzeRepo = async function(){
-            await origAnalyze();
-            try{
-              if(window.analysisData) localStorage.setItem('lastAnalysis', JSON.stringify({ timestamp: new Date().toISOString(), data: window.analysisData }));
-            }catch(e){ console.warn('cache fail', e); }
-          };
-        })();
-
-        function goBack() { window.location.href = 'admin.html'; }
-
+        // Initialize on load
         document.addEventListener('DOMContentLoaded', () => {
             createStars();
             checkAuth();
