@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>GitHub Repo Analyzer — SquadVertex (Updated)</title>
+<title>GitHub Repo Analyzer — SquadVertex (Enhanced)</title>
 
 <!-- Firebase compat (kept) -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js "></script>
@@ -131,22 +131,6 @@ pre[class*="language-"] {
   margin-top: 6px;
 }
 
-/* Tech stack badges */
-.tech-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-.tech-badge {
-  background: rgba(255,215,0,0.1);
-  color: var(--gold);
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
 /* Spaghetti meter */
 .spaghetti-meter {
   background: linear-gradient(180deg, rgba(0,0,0,0.2), rgba(255,255,255,0.01));
@@ -221,47 +205,13 @@ pre[class*="language-"] {
   margin-top: 10px;
   width: 100%;
 }
-
-/* Tree view */
-.tree-view {
-  background: rgba(0,0,0,0.2);
-  border-radius: 8px;
-  padding: 12px;
-  margin-top: 12px;
-  max-height: 400px;
-  overflow: auto;
-}
-.tree-item {
-  margin-left: 20px;
-  padding: 4px 0;
-}
-.tree-file {
-  color: #60a5fa;
-  font-size: 13px;
-}
-.tree-folder {
-  color: #fbbf24;
-  font-weight: 500;
-  margin-top: 6px;
-}
-.tree-expand {
-  cursor: pointer;
-  display: inline-block;
-  margin-right: 4px;
-}
-.tree-expand::before {
-  content: '▶ ';
-}
-.tree-expanded > .tree-expand::before {
-  content: '▼ ';
-}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header card">
-    <h1>🚀 GitHub Repo Analyzer — SquadVertex (Updated)</h1>
-    <div style="color:var(--muted);margin-top:6px">Overview & Details fixed • Lazy content fetch • Rate-limit aware • Token support • Syntax highlighting • Copy code • Comment extraction • Advanced stats • Tech stack • Spaghetti meter • Bus factor • Tree view</div>
+    <h1>🚀 GitHub Repo Analyzer — SquadVertex (Enhanced)</h1>
+    <div style="color:var(--muted);margin-top:6px">Overview & Details fixed • Lazy content fetch • Rate-limit aware • Token support • Syntax highlighting • Copy code • Comment extraction • Advanced stats • Spaghetti meter • Bus factor</div>
   </div>
 
   <div class="controls">
@@ -302,18 +252,15 @@ pre[class*="language-"] {
         <div class="stat"><div class="v" id="totalFiles">0</div><div class="label" style="color:var(--muted)">Files</div></div>
         <div class="stat"><div class="v" id="totalSize">0 Bytes</div><div class="label" style="color:var(--muted)">Total size</div></div>
         <div class="stat"><div class="v" id="repoAge">—</div><div class="label" style="color:var(--muted)">Age</div></div>
-        <div class="stat"><div class="v" id="lastUpdate">—</div><div class="label" style="color:var(--muted)">Last update</div></div>
+        <div class="stat"><div class="v" id="lastUpdate">—</div><div class="label" style="color:var(--muted)">Last Update</div></div>
       </div>
 
       <div style="margin-top:6px"><strong>Deep Insights</strong></div>
       <div id="deepInsights" style="color:var(--muted);font-size:13px">
         <div>Language distribution: —</div>
         <div>Avg file size: —</div>
-      </div>
-
-      <div style="margin-top:6px"><strong>Tech Stack</strong></div>
-      <div id="techStack" class="tech-stack">
-        <span class="tech-badge">No data</span>
+        <div>Spaghetti level: —</div>
+        <div>Bus factor: —</div>
       </div>
 
       <div style="margin-top:6px"><strong>Search / Filter</strong></div>
@@ -333,8 +280,8 @@ pre[class*="language-"] {
     <div class="tabs">
       <div class="tab active" data-tab="overview">📈 Overview</div>
       <div class="tab" data-tab="files">📁 Files</div>
+      <div class="tab" data-tab="charts">📊 Charts</div>
       <div class="tab" data-tab="details">📋 Details</div>
-      <div class="tab" data-tab="tree">🌳 Tree View</div>
       <div class="tab" data-tab="fun">🎯 Advanced</div>
     </div>
 
@@ -363,10 +310,11 @@ pre[class*="language-"] {
       <div id="filesNote" style="color:var(--muted);margin-top:8px">Click 🔍 to load file content (this will perform a single request for that file).</div>
     </div>
 
-    <!-- Tree View -->
-    <div id="tree" class="tab-content">
-      <div id="treeView" class="tree-view">
-        <div style="color:var(--muted);text-align:center;">Run analysis to see tree view</div>
+    <!-- Charts -->
+    <div id="charts" class="tab-content">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:rgba(0,0,0,0.25);padding:10px;border-radius:8px"><canvas id="typeChart"></canvas></div>
+        <div style="background:rgba(0,0,0,0.25);padding:10px;border-radius:8px"><canvas id="sizeChart"></canvas></div>
       </div>
     </div>
 
@@ -560,69 +508,6 @@ function extractComments(content, language) {
   return comments;
 }
 
-/* ========= Extract tech stack from dependency files ========= */
-async function extractTechStack(files, owner, repo, token) {
-  const techStack = [];
-  const stackMap = {
-    'package.json': ['react', 'vue', 'angular', 'svelte', 'next', 'nuxt', 'express', 'fastify', 'nestjs', 'tailwindcss', 'bootstrap', 'jquery', 'redux', 'mobx', 'axios', 'lodash', 'moment', 'typescript'],
-    'requirements.txt': ['django', 'flask', 'fastapi', 'requests', 'numpy', 'pandas', 'matplotlib', 'tensorflow', 'pytorch', 'scipy', 'sqlalchemy'],
-    'composer.json': ['laravel', 'symfony', 'zend', 'yii', 'drupal'],
-    'Gemfile': ['rails', 'sinatra', 'jekyll'],
-    'go.mod': ['gin', 'echo', 'fiber', 'gorilla/mux'],
-    'Cargo.toml': ['tokio', 'actix-web', 'rocket'],
-    'pom.xml': ['spring', 'hibernate', 'mybatis'],
-    'build.gradle': ['spring', 'hibernate']
-  };
-  
-  // First, try to find dependency files in the root
-  for (const fileName in stackMap) {
-    try {
-      const fileUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${fileName}`;
-      const response = await fetch(fileUrl);
-      if (response.ok) {
-        const content = await response.text();
-        
-        // Process based on file type
-        if (fileName === 'package.json') {
-          try {
-            const pkg = JSON.parse(content);
-            const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-            
-            for (const [dep, version] of Object.entries(deps)) {
-              const lowerDep = dep.toLowerCase();
-              if (stackMap['package.json'].some(tech => lowerDep.includes(tech))) {
-                if (!techStack.includes(dep)) {
-                  techStack.push(dep);
-                }
-              }
-            }
-          } catch (e) {
-            console.error('Error parsing package.json:', e);
-          }
-        } else if (fileName === 'requirements.txt') {
-          const lines = content.split('\n');
-          for (const line of lines) {
-            const trimmed = line.trim().toLowerCase();
-            if (trimmed && !trimmed.startsWith('#')) {
-              const depName = trimmed.split(/[>=<~!]/)[0];
-              if (stackMap['requirements.txt'].some(tech => depName.includes(tech))) {
-                if (!techStack.includes(depName)) {
-                  techStack.push(depName);
-                }
-              }
-            }
-          }
-        }
-        // Additional files can be processed similarly...
-      }
-    } catch (e) {
-      console.error(`Error fetching ${fileName}:`, e);
-    }
-  }
-  
-  return techStack;
-}
-
 /* ========= Calculate spaghetti meter (code complexity) ========= */
 function calculateSpaghettiMeter(content) {
   const lines = content.split('\n');
@@ -742,8 +627,7 @@ async function computeRepoStats(files, owner, repo, token) {
     totalImportantComments: 0,
     lastUpdate: null,
     spaghettiLevel: 0,
-    busFactor: 1,
-    techStack: []
+    busFactor: 1
   };
   
   // Calculate totals
@@ -773,9 +657,6 @@ async function computeRepoStats(files, owner, repo, token) {
   if (files.length > 0) {
     stats.avgFileSize = stats.totalSize / files.length;
   }
-  
-  // Extract tech stack
-  stats.techStack = await extractTechStack(files, owner, repo, token);
   
   // Calculate spaghetti level based on files with content
   let maxSpaghetti = 0;
@@ -944,20 +825,6 @@ function renderViralStats(viralStats) {
     `;
   }
   
-  // Add tech stack
-  if (window.repoStats.techStack && window.repoStats.techStack.length > 0) {
-    const techStack = window.repoStats.techStack;
-    let techHTML = '<div class="viral-card"><div class="title">Tech Stack</div><div class="tech-stack">';
-    techStack.slice(0, 10).forEach(tech => {
-      techHTML += `<span class="tech-badge">${tech}</span>`;
-    });
-    if (techStack.length > 10) {
-      techHTML += `<span class="tech-badge">+${techStack.length - 10} more</span>`;
-    }
-    techHTML += '</div></div>';
-    html += techHTML;
-  }
-  
   // Add share button
   html += '<button class="share-btn" onclick="shareStats()">Share These Stats</button>';
   
@@ -976,89 +843,6 @@ function shareStats() {
   navigator.clipboard.writeText(text)
     .then(() => alert("Stats copied to clipboard!"))
     .catch(err => console.error('Failed to copy: ', err));
-}
-
-/* ========= Build tree view from file paths ========= */
-function buildTreeView(files) {
-  const tree = {};
-  
-  // Build tree structure
-  for (const file of files) {
-    const pathParts = file.path.split('/');
-    let current = tree;
-    
-    for (let i = 0; i < pathParts.length - 1; i++) {
-      const folder = pathParts[i];
-      if (!current[folder]) {
-        current[folder] = { _type: 'folder', _files: [], _folders: [] };
-      }
-      current = current[folder];
-    }
-    
-    // Add file to current folder
-    current._files.push({
-      name: pathParts[pathParts.length - 1],
-      size: file.size,
-      type: file.type
-    });
-  }
-  
-  // Render tree
-  function renderTree(obj, level = 0) {
-    let html = '';
-    
-    for (const key in obj) {
-      if (key.startsWith('_')) continue;
-      
-      const item = obj[key];
-      const indent = '&nbsp;'.repeat(level * 4);
-      
-      if (item._type === 'folder') {
-        html += `
-          <div class="tree-item tree-folder tree-expandable">
-            <span class="tree-expand" onclick="toggleTreeItem(this)"></span>
-            <span>${key}/</span>
-            <div class="tree-children" style="display:none;">
-              ${renderTree(item, level + 1)}
-              ${item._files.map(f => `
-                <div class="tree-item tree-file">
-                  <span>📄 ${f.name}</span> <span style="color:var(--muted);font-size:11px;">(${formatBytes(f.size)})</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `;
-      }
-    }
-    
-    // Add files at current level
-    html += obj._files.map(f => `
-      <div class="tree-item tree-file">
-        <span>📄 ${f.name}</span> <span style="color:var(--muted);font-size:11px;">(${formatBytes(f.size)})</span>
-      </div>
-    `).join('');
-    
-    return html;
-  }
-  
-  const container = el('treeView');
-  if (Object.keys(tree).length > 0) {
-    container.innerHTML = renderTree(tree);
-  } else {
-    container.innerHTML = '<div style="color:var(--muted);text-align:center;">No files to display</div>';
-  }
-}
-
-/* ========= Toggle tree item ========= */
-function toggleTreeItem(element) {
-  const parent = element.parentElement;
-  parent.classList.toggle('tree-expanded');
-  const children = parent.querySelector('.tree-children');
-  if (children.style.display === 'none' || !children.style.display) {
-    children.style.display = 'block';
-  } else {
-    children.style.display = 'none';
-  }
 }
 
 /* ========= Main analyze function (NO bulk content fetching by default) ========= */
@@ -1157,8 +941,8 @@ async function updateUIAfterAnalysis(files, repoDetails, owner, repo, token){
   
   // Last update
   if (repoDetails && repoDetails.updated_at) {
-    const lastUpdate = new Date(repoDetails.updated_at);
-    el('lastUpdate').textContent = lastUpdate.toLocaleDateString();
+    const updateDate = new Date(repoDetails.updated_at);
+    el('lastUpdate').textContent = updateDate.toLocaleDateString();
   } else {
     el('lastUpdate').textContent = '—';
   }
@@ -1169,26 +953,8 @@ async function updateUIAfterAnalysis(files, repoDetails, owner, repo, token){
     .join(', ');
   document.querySelector('#deepInsights div:first-child').textContent = `Language distribution: ${langDist || '—'}`;
   document.querySelector('#deepInsights div:nth-child(2)').textContent = `Avg file size: ${formatBytes(stats.avgFileSize)}`;
-
-  // Tech stack
-  const techStackEl = el('techStack');
-  if (stats.techStack.length > 0) {
-    techStackEl.innerHTML = '';
-    stats.techStack.slice(0, 8).forEach(tech => {
-      const badge = document.createElement('span');
-      badge.className = 'tech-badge';
-      badge.textContent = tech;
-      techStackEl.appendChild(badge);
-    });
-    if (stats.techStack.length > 8) {
-      const moreBadge = document.createElement('span');
-      moreBadge.className = 'tech-badge';
-      moreBadge.textContent = `+${stats.techStack.length - 8} more`;
-      techStackEl.appendChild(moreBadge);
-    }
-  } else {
-    techStackEl.innerHTML = '<span class="tech-badge">No data</span>';
-  }
+  document.querySelector('#deepInsights div:nth-child(3)').textContent = `Spaghetti level: ${stats.spaghettiLevel || '—'}`;
+  document.querySelector('#deepInsights div:nth-child(4)').textContent = `Bus factor: ${stats.busFactor || '—'}`;
 
   // Summary text
   el('summaryText').textContent = `Found ${files.length} files (${formatBytes(stats.totalSize)}). Largest: ${stats.largestFile.path || '—'}. Average size: ${formatBytes(stats.avgFileSize)}. Content NOT fetched by default to save rate tokens.`;
@@ -1200,8 +966,8 @@ async function updateUIAfterAnalysis(files, repoDetails, owner, repo, token){
   // Files table (apply current search filter)
   renderFilesTable(files);
 
-  // Build tree view
-  buildTreeView(files);
+  // populate charts (but do not fetch content)
+  renderCharts(files);
   
   // Generate and render viral stats
   const viralStats = generateViralStats(files);
@@ -1230,6 +996,39 @@ function renderFilesTable(files){
     `;
     tbody.appendChild(tr);
   });
+}
+
+/* ========= Charts ========= */
+function renderCharts(files){
+  try{
+    // type distribution
+    const counts = {};
+    files.forEach(f=> counts[f.type] = (counts[f.type]||0) + 1 );
+    const labels = Object.keys(counts).slice(0,20);
+    const data = labels.map(l=> counts[l]);
+
+    if(window.charts.typeChart) window.charts.typeChart.destroy();
+    const ctx1 = el('typeChart').getContext('2d');
+    window.charts.typeChart = new Chart(ctx1, {
+      type: 'doughnut',
+       { labels, datasets: [{ data }] },
+      options: { plugins:{legend:{position:'bottom'}}}
+    });
+
+    // top sizes
+    const top = [...files].sort((a,b)=> (b.size||0)-(a.size||0)).slice(0,10);
+    const sizeLabels = top.map(t=> t.name);
+    const sizeValues = top.map(t=> Math.round((t.size||0)/1024)); // KB
+    if(window.charts.sizeChart) window.charts.sizeChart.destroy();
+    const ctx2 = el('sizeChart').getContext('2d');
+    window.charts.sizeChart = new Chart(ctx2, {
+      type:'bar',
+       { labels: sizeLabels, datasets: [{ label: 'Size (KB)', data: sizeValues }] },
+      options: { indexAxis: 'y', plugins:{legend:{display:false}} }
+    });
+  }catch(e){
+    console.warn('charts err', e);
+  }
 }
 
 /* ========= On-demand single file load (safe: checks rate limit, size) ========= */
@@ -1485,38 +1284,35 @@ async function fetchTopNContent(){
   alert(`Done fetching content for ${counter}/${top.length} files.`);
 }
 
-/* ========= Export repo structure ========= */
-function exportRepoStructure() {
-  if(!window.analysisData || window.analysisData.length === 0) {
-    alert('No data to export. Run analysis first.');
-    return;
+/* ========= Export functionality ========= */
+function exportRepoStructure(){
+  if(!window.analysisData || window.analysisData.length===0){ 
+    alert('No data to export. Run analysis first.'); 
+    return; 
   }
   
-  // Create structured data for export
-  const exportData = {
-    metadata: {
-      timestamp: new Date().toISOString(),
-      totalFiles: window.analysisData.length,
-      totalSize: window.analysisData.reduce((sum, f) => sum + (f.size || 0), 0)
-    },
+  // Create a simplified structure representation
+  const repoStructure = {
+    owner: el('owner').value.trim(),
+    repo: el('repo').value.trim(),
+    branch: el('branch').value.trim() || 'main',
+    totalFiles: window.analysisData.length,
+    totalSize: window.analysisData.reduce((sum, f) => sum + (f.size || 0), 0),
     files: window.analysisData.map(f => ({
       path: f.path,
       name: f.name,
       size: f.size,
-      type: f.type,
-      url: f.url
+      type: f.type
     }))
   };
   
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `repo-structure-${el('owner').value.trim()}-${el('repo').value.trim()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const blob = new Blob([JSON.stringify(repoStructure, null, 2)], {type:'application/json'}); 
+  const url = URL.createObjectURL(blob); 
+  const a = document.createElement('a'); 
+  a.href = url; 
+  a.download = `${repoStructure.owner}-${repoStructure.repo}-structure.json`; 
+  a.click(); 
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 /* ========= Utilities ========= */
@@ -1557,7 +1353,7 @@ el('loadCacheBtn').addEventListener('click', ()=>{
 })();
 
 /* ========= Initial console note ========= */
-console.log('Updated analyzer loaded — Overview & Details fixed. Analysis is lazy by default. Use token to raise rate limits.');
+console.log('Enhanced analyzer loaded — Overview & Details fixed. Analysis is lazy by default. Use token to raise rate limits.');
 </script>
 </body>
 </html>
