@@ -9,7 +9,7 @@
     const kofiWidget = document.createElement('div');
     kofiWidget.className = 'kofi-floating-widget';
     kofiWidget.innerHTML = `
-        <a href="https://ko-fi.com/YOUR_KOFI_USERNAME" target="_blank" rel="noopener noreferrer" class="kofi-button">
+        <a href="https://ko-fi.com/princegahlot" target="_blank" rel="noopener noreferrer" class="kofi-button">
             <img src="https://storage.ko-fi.com/cdn/kofi_button_dark.png?v=1" alt="Buy Me a Coffee at ko-fi.com" class="kofi-icon">
             <span class="kofi-text">Support me on Ko-fi</span>
         </a>
