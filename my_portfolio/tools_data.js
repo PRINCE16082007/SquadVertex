@@ -6,7 +6,7 @@ const toolsData = [
         "description": "Get deep insights into any GitHub repository. Visual stats, spaghetti code meter, and health checks for developers.",
         "stars": 5,
         "tag": "For Developers",
-        "link": "/saas_tools/repo_analyzer.html" 
+        "link": "../saas_tools/repo_analyzer.html" 
     },
     {
         "id": 2,
@@ -15,7 +15,7 @@ const toolsData = [
         "description": "Securely merge, split, and organize PDF files directly in your browser. No server uploads, 100% private.",
         "stars": 4.5,
         "tag": "Productivity",
-        "link": "/saas_tools/pdf_editor.html"
+        "link": "../saas_tools/pdf_editor.html"
     },
     {
         "id": 3,
@@ -24,6 +24,6 @@ const toolsData = [
         "description": "Instantly preview typography scales and font sizes. Essential for UI/UX designers to fix spacing and readability.",
         "stars": 4,
         "tag": "Design Tool",
-        "link": "/saas_tools/font_size_visualizer.html"
+        "link": "../saas_tools/font_size_visualizer.html"
     }
 ];
