@@ -1,5 +1,6 @@
-// Enhanced Ko-fi Widget for Prince Gahlot
+// Enhanced Ko-fi Widget for Prince Gahlot (Fixed Icon)
 (function() {
+    // Check if widget already exists to prevent duplicates
     if (document.querySelector('.kofi-floating-widget')) return;
 
     const kofiWidget = document.createElement('div');
@@ -7,8 +8,8 @@
     kofiWidget.innerHTML = `
         <a href="https://ko-fi.com/princegahlot" target="_blank" rel="noopener noreferrer" class="kofi-button">
             <div class="kofi-content">
-                <svg class="kofi-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13.5v9l6-4.5-6-4.5z" fill="white"/>
+                <svg class="kofi-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 8V20C2 21.6569 3.34315 23 5 23H17C18.6569 23 20 21.6569 20 20V8H2ZM18 19C18 19.5523 17.5523 20 17 20H5C4.44772 20 4 19.5523 4 19V10H18V19ZM16 4H8C7.44772 4 7 4.44772 7 5V7H5V5C5 3.34315 6.34315 2 8 2H16C17.6569 2 19 3.34315 19 5V7H17V5C17 4.44772 16.5523 4 16 4Z" fill="white"/>
                 </svg>
                 <span class="kofi-text">Support me</span>
             </div>
@@ -21,8 +22,7 @@
             position: fixed !important;
             bottom: 30px !important;
             right: 30px !important;
-            z-index: 9999 !important;
-            opacity: 1 !important;
+            z-index: 99999 !important; /* Increased z-index to be on top of everything */
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
@@ -33,7 +33,7 @@
             width: 60px;
             height: 60px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #00B9FE 0%, #0085FF 100%);
+            background: linear-gradient(135deg, #29abe0 0%, #0085FF 100%); /* Ko-fi Blue Brand Colors */
             box-shadow: 0 6px 20px rgba(0, 133, 255, 0.4);
             text-decoration: none;
             overflow: hidden;
@@ -45,10 +45,7 @@
         .kofi-button::before {
             content: '';
             position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: linear-gradient(45deg, #00B9FE, #0085FF, #00B9FE);
             border-radius: 50%;
             z-index: -1;
@@ -58,86 +55,69 @@
 
         .kofi-button:hover::before {
             opacity: 1;
-            animation: borderGlow 2s linear infinite;
-        }
-
-        @keyframes borderGlow {
-            0% { background-position: 0% 50%; }
-            100% { background-position: 200% 50%; }
         }
 
         .kofi-content {
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: opacity 0.3s ease;
         }
 
         .kofi-button:hover {
             width: 160px;
             border-radius: 50px;
             box-shadow: 0 10px 30px rgba(0, 133, 255, 0.6);
-            transform: translateY(-5px) scale(1.05);
+            transform: translateY(-5px);
         }
 
         .kofi-icon {
             width: 28px;
             height: 28px;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            min-width: 28px; /* Ensures icon doesn't shrink */
             transition: transform 0.3s ease;
         }
 
         .kofi-button:hover .kofi-icon {
-            transform: scale(1.2) rotate(5deg);
+            transform: rotate(-10deg) scale(1.1);
         }
 
         .kofi-text {
             color: white;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 15px;
             white-space: nowrap;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
             opacity: 0;
             transform: translateX(-10px);
-            transition: all 0.3s ease 0.1s;
+            transition: all 0.3s ease;
+            position: absolute; /* Fix for smooth text appearance */
+            left: 50px;
         }
 
         .kofi-button:hover .kofi-text {
             opacity: 1;
             transform: translateX(0);
+            position: relative; /* Returns to relative flow on hover */
+            left: auto;
         }
 
-        /* Responsive Design */
+        /* Mobile Responsive */
         @media (max-width: 768px) {
             .kofi-floating-widget {
                 bottom: 20px !important;
                 right: 20px !important;
             }
             .kofi-button {
-                width: 52px;
-                height: 52px;
+                width: 50px;
+                height: 50px;
             }
             .kofi-button:hover {
                 width: 140px;
-                border-radius: 50px;
             }
             .kofi-icon {
                 width: 24px;
                 height: 24px;
+                min-width: 24px;
             }
-            .kofi-text {
-                font-size: 14px;
-            }
-        }
-
-        /* Glow effect on hover */
-        .kofi-button:hover {
-            animation: glowPulse 1.5s infinite alternate;
-        }
-
-        @keyframes glowPulse {
-            from { box-shadow: 0 6px 20px rgba(0, 133, 255, 0.4); }
-            to { box-shadow: 0 10px 30px rgba(0, 133, 255, 0.8); }
         }
     `;
     
