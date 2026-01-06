@@ -1,140 +1,137 @@
-// Stunning Ko-fi Support Widget for Prince Gahlot
+// Enhanced Ko-fi Support Widget with Animations and Responsive Design
 (function() {
-    // Avoid duplicate widgets
-    if (document.querySelector('.prince-kofi-widget')) return;
+    if (document.querySelector('.kofi-floating-widget')) return;
 
-    // Create widget container
-    const widget = document.createElement('div');
-    widget.className = 'prince-kofi-widget';
-    widget.innerHTML = `
-        <a href="https://ko-fi.com/princegahlot" target="_blank" rel="noopener noreferrer" class="kofi-support-link">
+    const kofiWidget = document.createElement('div');
+    kofiWidget.className = 'kofi-floating-widget';
+    kofiWidget.innerHTML = `
+        <a href="https://ko-fi.com/YOUR_KOFI_USERNAME" target="_blank" rel="noopener noreferrer" class="kofi-button">
             <div class="kofi-content">
-                <svg class="kofi-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor"/>
-                    <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" fill="none"/>
-                </svg>
-                <div class="kofi-text-container">
-                    <span class="kofi-main-text">Support Prince</span>
-                    <span class="kofi-sub-text">Buy me a coffee</span>
-                </div>
+                <img src="https://storage.ko-fi.com/cdn/kofi_button_dark.png?v=1" alt="Support me on Ko-fi" class="kofi-icon">
+                <span class="kofi-text">Buy me a coffee</span>
             </div>
+            <div class="pulse-ring"></div>
         </a>
     `;
 
-    // Inject styles
     const style = document.createElement('style');
     style.textContent = `
-        .prince-kofi-widget {
+        .kofi-floating-widget {
             position: fixed;
             bottom: 30px;
             right: 30px;
             z-index: 9999;
-            opacity: 1;
-            transform: translateY(0);
-            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            opacity: 0;
+            transform: translateY(20px) scale(0.9);
+            animation: fadeInUp 0.6s ease-out forwards;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        .kofi-support-link {
-            display: block;
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .kofi-button {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00B9FE 0%, #0085FF 100%);
+            box-shadow: 0 6px 20px rgba(0, 133, 255, 0.4);
             text-decoration: none;
-            outline: none;
-            border: none;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
         }
 
         .kofi-content {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 16px 24px;
-            background: linear-gradient(135deg, #FF5E5B 0%, #FF9D5C 100%);
-            border-radius: 18px;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: 
-                0 10px 30px rgba(255, 94, 91, 0.3),
-                0 4px 6px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            cursor: pointer;
-            overflow: hidden;
-            position: relative;
+            gap: 8px;
+            transition: opacity 0.3s ease;
         }
 
-        .kofi-content::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.8s;
+        .kofi-button:hover {
+            width: 180px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0, 133, 255, 0.6);
+            transform: translateY(-5px);
         }
 
-        .kofi-content:hover::before {
-            left: 100%;
+        .kofi-button:hover .kofi-content {
+            opacity: 1;
         }
 
         .kofi-icon {
             width: 28px;
             height: 28px;
-            min-width: 28px;
-            color: white;
-            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            transition: transform 0.3s ease;
         }
 
-        .kofi-text-container {
-            display: flex;
-            flex-direction: column;
+        .kofi-button:hover .kofi-icon {
+            transform: scale(1.1);
         }
 
-        .kofi-main-text {
+        .kofi-text {
             color: white;
-            font-weight: 700;
+            font-weight: 600;
             font-size: 15px;
-            letter-spacing: -0.2px;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transform: translateX(-10px);
+            transition: all 0.3s ease 0.1s;
         }
 
-        .kofi-sub-text {
-            color: rgba(255, 255, 255, 0.9);
-            font-weight: 500;
-            font-size: 12px;
-            margin-top: 2px;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        .kofi-button:hover .kofi-text {
+            opacity: 1;
+            transform: translateX(0);
         }
 
-        .kofi-content:hover {
-            transform: translateY(-4px) scale(1.02);
-            box-shadow: 
-                0 15px 40px rgba(255, 94, 91, 0.4),
-                0 6px 12px rgba(0, 0, 0, 0.15);
+        .pulse-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: inherit;
+            opacity: 0.6;
+            animation: pulse 2s infinite;
+            z-index: -1;
         }
 
-        .kofi-content:active {
-            transform: translateY(-2px) scale(0.99);
-        }
-
-        /* Pulse animation for attention */
         @keyframes pulse {
-            0% { box-shadow: 0 10px 30px rgba(255, 94, 91, 0.3); }
-            50% { box-shadow: 0 10px 40px rgba(255, 94, 91, 0.5); }
-            100% { box-shadow: 0 10px 30px rgba(255, 94, 91, 0.3); }
+            0% {
+                transform: scale(0.8);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1.4);
+                opacity: 0;
+            }
         }
 
-        .kofi-content {
-            animation: pulse 3s infinite;
-        }
-
+        /* Responsive Design */
         @media (max-width: 768px) {
-            .prince-kofi-widget {
+            .kofi-floating-widget {
                 bottom: 20px;
                 right: 20px;
             }
             
-            .kofi-content {
-                padding: 14px 20px;
-                gap: 10px;
+            .kofi-button {
+                width: 52px;
+                height: 52px;
+            }
+            
+            .kofi-button:hover {
+                width: 160px;
+                border-radius: 50px;
             }
             
             .kofi-icon {
@@ -142,31 +139,80 @@
                 height: 24px;
             }
             
-            .kofi-main-text {
+            .kofi-text {
                 font-size: 14px;
             }
+        }
+
+        @media (max-width: 480px) {
+            .kofi-button {
+                width: 48px;
+                height: 48px;
+            }
             
-            .kofi-sub-text {
-                font-size: 11px;
+            .kofi-button:hover {
+                width: 150px;
+            }
+            
+            .kofi-icon {
+                width: 22px;
+                height: 22px;
             }
         }
 
-        /* Smooth entrance */
-        .prince-kofi-widget {
-            animation: slideUp 0.8s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px) scale(0.9);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
+        /* Reduced motion for accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            .kofi-button,
+            .kofi-text,
+            .kofi-icon,
+            .kofi-floating-widget {
+                transition: none;
+                animation: none;
             }
         }
     `;
     document.head.appendChild(style);
-    document.body.appendChild(widget);
+    document.body.appendChild(kofiWidget);
+
+    // Close button functionality
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = `
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #ff4757;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        z-index: 10000;
+        transition: all 0.2s ease;
+    `;
+    closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        kofiWidget.style.animation = 'fadeOut 0.4s ease forwards';
+        setTimeout(() => {
+            kofiWidget.style.display = 'none';
+            localStorage.setItem('kofiWidgetHidden', 'true');
+        }, 400);
+    });
+
+    @keyframes fadeOut {
+        to { opacity: 0; transform: translateY(20px) scale(0.9); }
+    }
+
+    if (!localStorage.getItem('kofiWidgetHidden')) {
+        kofiWidget.appendChild(closeBtn);
+    } else {
+        kofiWidget.style.display = 'none';
+    }
 })();
