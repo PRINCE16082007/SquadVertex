@@ -1,977 +1,1202 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Executive Dashboard - Cash Flow</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    :root {
-      --primary: #4361ee;
-      --secondary: #3a0ca3;
-      --success: #06d6a0;
-      --warning: #ffd166;
-      --danger: #ef476f;
-      --dark: #1a1a2e;
-      --light: #f8f9fa;
-      --gray: #6c757d;
-      --card-bg: #ffffff;
-      --body-bg: #f5f7fa;
-      --border: #e0e0e0;
-      --shadow: 0 4px 12px rgba(0,0,0,0.05);
-      --progress-low: #ef476f;
-      --progress-mid: #ffd166;
-      --progress-high: #06d6a0;
-      --danger-zone: #ff6b6b;
-      --sweet-spot: #06d6a0;
-      --monk-mode: #4cc9f0;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: var(--body-bg);
-      color: var(--dark);
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
-
-    /* Loading Screen */
-    #loadingScreen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: var(--body-bg);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      transition: opacity 0.5s, visibility 0.5s;
-    }
-
-    .spinner {
-      width: 50px;
-      height: 50px;
-      border: 5px solid rgba(67, 97, 238, 0.2);
-      border-top: 5px solid var(--primary);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-bottom: 20px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .loading-text {
-      font-size: 1.2rem;
-      color: var(--primary);
-      font-weight: 500;
-    }
-
-    /* Main Layout */
-    .dashboard-container {
-      display: flex;
-      min-height: 100vh;
-    }
-
-    /* Sidebar */
-    .sidebar {
-      width: 280px;
-      background: var(--card-bg);
-      padding: 25px 15px;
-      box-shadow: 2px 0 10px rgba(0,0,0,0.05);
-      height: 100vh;
-      position: fixed;
-      overflow-y: auto;
-      transition: all 0.3s ease;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      margin-bottom: 30px;
-      padding: 0 10px;
-    }
-
-    .logo-icon {
-      font-size: 28px;
-      color: var(--primary);
-      margin-right: 12px;
-    }
-
-    .logo-text {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--dark);
-    }
-
-    .menu-title {
-      text-transform: uppercase;
-      font-size: 0.75rem;
-      letter-spacing: 1px;
-      color: var(--gray);
-      margin: 20px 15px 10px;
-      font-weight: 600;
-    }
-
-    .nav-menu {
-      list-style: none;
-    }
-
-    .nav-item {
-      margin-bottom: 5px;
-    }
-
-    .nav-link {
-      display: flex;
-      align-items: center;
-      padding: 12px 15px;
-      text-decoration: none;
-      color: var(--dark);
-      border-radius: 8px;
-      transition: all 0.2s;
-      font-weight: 500;
-      margin: 0 5px;
-    }
-
-    .nav-link i {
-      margin-right: 12px;
-      font-size: 1.1rem;
-      width: 24px;
-      text-align: center;
-      color: var(--primary);
-    }
-
-    .nav-link:hover, .nav-link.active {
-      background: rgba(67, 97, 238, 0.1);
-      color: var(--primary);
-      transform: translateX(5px);
-    }
-
-    .nav-link.active {
-      background: rgba(67, 97, 238, 0.15);
-      font-weight: 600;
-    }
-
-    /* Main Content */
-    .main-content {
-      flex: 1;
-      margin-left: 280px;
-      padding: 30px;
-      transition: all 0.3s ease;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-    }
-
-    .page-title {
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--dark);
-    }
-
-    .date-display {
-      font-size: 1rem;
-      color: var(--gray);
-    }
-
-    /* Dashboard Cards */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
-      margin-bottom: 30px;
-    }
-
-    .stat-card {
-      background: var(--card-bg);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.3s;
-    }
-
-    .stat-card:hover {
-      transform: translateY(-5px);
-    }
-
-    .stat-label {
-      font-size: 0.9rem;
-      color: var(--gray);
-      margin-bottom: 8px;
-    }
-
-    .stat-value {
-      font-size: 1.8rem;
-      font-weight: 700;
-      font-family: 'Roboto Mono', monospace;
-      color: var(--dark);
-    }
-
-    .stat-change {
-      display: flex;
-      align-items: center;
-      margin-top: 8px;
-      font-size: 0.9rem;
-    }
-
-    .change-up {
-      color: var(--success);
-    }
-
-    .change-down {
-      color: var(--danger);
-    }
-
-    /* Investment Section */
-    .investment-section {
-      background: var(--card-bg);
-      border-radius: 12px;
-      padding: 25px;
-      margin-bottom: 30px;
-      box-shadow: var(--shadow);
-    }
-
-    .section-title {
-      font-size: 1.3rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-      color: var(--dark);
-      display: flex;
-      align-items: center;
-    }
-
-    .section-title i {
-      margin-right: 10px;
-      color: var(--primary);
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-    }
-
-    .form-group {
-      margin-bottom: 15px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 500;
-      color: var(--dark);
-    }
-
-    .form-control {
-      width: 100%;
-      padding: 12px 15px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-family: 'Inter', sans-serif;
-      font-size: 1rem;
-      transition: border 0.3s;
-    }
-
-    .form-control:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-    }
-
-    .btn {
-      padding: 12px 25px;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 1rem;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: var(--secondary);
-      transform: translateY(-2px);
-    }
-
-    .btn-block {
-      width: 100%;
-    }
-
-    /* Investment Details */
-    .investment-details {
-      background: var(--card-bg);
-      border-radius: 12px;
-      padding: 25px;
-      box-shadow: var(--shadow);
-      margin-bottom: 30px;
-    }
-
-    .details-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-
-    .details-title {
-      font-size: 1.3rem;
-      font-weight: 600;
-      color: var(--dark);
-      display: flex;
-      align-items: center;
-    }
-
-    .details-title i {
-      margin-right: 10px;
-      color: var(--primary);
-    }
-
-    .view-all {
-      color: var(--primary);
-      text-decoration: none;
-      font-weight: 500;
-    }
-
-    .view-all:hover {
-      text-decoration: underline;
-    }
-
-    .investments-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .investments-table th {
-      text-align: left;
-      padding: 12px 15px;
-      border-bottom: 2px solid var(--border);
-      color: var(--gray);
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-
-    .investments-table td {
-      padding: 12px 15px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .investments-table tr:last-child td {
-      border-bottom: none;
-    }
-
-    .amount-col {
-      font-weight: 600;
-      color: var(--success);
-      font-family: 'Roboto Mono', monospace;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--gray);
-    }
-
-    .empty-state i {
-      font-size: 3rem;
-      margin-bottom: 15px;
-      color: #e0e0e0;
-    }
-
-    /* Retained Assets Card */
-    .retained-assets {
-      background: var(--card-bg);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: var(--shadow);
-      margin-top: 20px;
-      border: 2px solid var(--sweet-spot);
-    }
-
-    .retained-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-
-    .retained-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: var(--dark);
-    }
-
-    .retained-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      font-family: 'Roboto Mono', monospace;
-      color: var(--success);
-    }
-
-    .reinvestment-ratio {
-      font-size: 0.9rem;
-      margin-top: 10px;
-      padding: 8px 12px;
-      border-radius: 20px;
-      display: inline-block;
-      font-weight: 600;
-    }
-
-    .danger-zone {
-      background: rgba(255, 107, 107, 0.2);
-      color: var(--danger-zone);
-      border: 1px solid var(--danger-zone);
-    }
-
-    .sweet-spot {
-      background: rgba(6, 214, 160, 0.2);
-      color: var(--sweet-spot);
-      border: 1px solid var(--sweet-spot);
-    }
-
-    .monk-mode {
-      background: rgba(76, 201, 240, 0.2);
-      color: var(--monk-mode);
-      border: 1px solid var(--monk-mode);
-    }
-
-    /* Responsive */
-    @media (max-width: 992px) {
-      .sidebar {
-        width: 80px;
-      }
-      .logo-text, .stat-value, .stat-label, .menu-title, .nav-link span {
-        display: none;
-      }
-      .logo {
-        justify-content: center;
-      }
-      .nav-link {
-        justify-content: center;
-      }
-      .nav-link i {
-        margin-right: 0;
-      }
-      .main-content {
-        margin-left: 80px;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .dashboard-container {
-        flex-direction: column;
-      }
-      .sidebar {
-        width: 100%;
-        height: auto;
-        position: relative;
-      }
-      .main-content {
-        margin-left: 0;
-      }
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
-      .form-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-</head>
-<body>
-  <!-- Loading Screen -->
-  <div id="loadingScreen">
-    <div class="spinner"></div>
-    <div class="loading-text">Loading Cash Flow Data...</div>
-  </div>
-
-  <div class="dashboard-container">
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="logo">
-        <div class="logo-icon">
-          <i class="fas fa-chart-line"></i>
-        </div>
-        <div class="logo-text">Executive Dashboard</div>
-      </div>
-
-      <div class="menu-title">Navigation</div>
-      <ul class="nav-menu">
-        <li class="nav-item">
-          <a href="dashboard.html" class="nav-link">
-            <i class="fas fa-home"></i>
-            <span>Dashboard</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="cashflow.html" class="nav-link active">
-            <i class="fas fa-wallet"></i>
-            <span>Cash Flow</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="analytics.html" class="nav-link">
-            <i class="fas fa-chart-pie"></i>
-            <span>Analytics</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="transactions.html" class="nav-link">
-            <i class="fas fa-file-invoice-dollar"></i>
-            <span>Transactions</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="settings.html" class="nav-link">
-            <i class="fas fa-cog"></i>
-            <span>Settings</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="#" class="nav-link" id="logoutBtn">
-            <i class="fas fa-sign-out-alt"></i>
-            <span>Logout</span>
-          </a>
-        </li>
-      </ul>
-    </div>
-
-    <!-- Main Content -->
-    <div class="main-content">
-      <div class="header">
-        <h1 class="page-title">Cash Flow Management</h1>
-        <div class="date-display">
-          <i class="far fa-calendar-alt"></i>
-          <span id="current-date">December 20, 2025</span>
-        </div>
-      </div>
-
-      <!-- Stats Cards -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Total Earned (2025)</div>
-          <div class="stat-value" id="totalEarned">₹0</div>
-          <div class="stat-change change-up" id="earningsChange">
-            <i class="fas fa-arrow-up"></i>
-            <span>0% from last month</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Total Invested</div>
-          <div class="stat-value" id="totalInvested">₹0</div>
-          <div class="stat-change change-up" id="investmentChange">
-            <i class="fas fa-chart-line"></i>
-            <span>0% from last month</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Reinvestment Ratio</div>
-          <div class="stat-value" id="reinvestmentRatio">0%</div>
-          <div class="stat-change change-up" id="ratioStatus">
-            <i class="fas fa-balance-scale"></i>
-            <span>Not Calculated</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Investment Section -->
-      <div class="investment-section">
-        <h2 class="section-title"><i class="fas fa-piggy-bank"></i> Add New Investment</h2>
-        
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="investmentAmount">Amount (₹)</label>
-            <input type="number" id="investmentAmount" class="form-control" placeholder="Enter investment amount" min="1">
-          </div>
-          
-          <div class="form-group">
-            <label for="investmentSource">Investment Type</label>
-            <select id="investmentSource" class="form-control">
-              <option value="">Select Investment Type</option>
-              <option value="stocks">Stocks</option>
-              <option value="mutual-funds">Mutual Funds</option>
-              <option value="real-estate">Real Estate</option>
-              <option value="bonds">Bonds</option>
-              <option value="crypto">Cryptocurrency</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="investmentDate">Date Invested</label>
-            <input type="date" id="investmentDate" class="form-control" value="2025-12-20">
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <label for="investmentDescription">Description (Optional)</label>
-          <textarea id="investmentDescription" class="form-control" placeholder="Add details about this investment"></textarea>
-        </div>
-        
-        <button id="addInvestmentBtn" class="btn btn-primary btn-block">
-          <i class="fas fa-plus"></i> ADD INVESTMENT
-        </button>
-      </div>
-
-      <!-- Investment Details -->
-      <div class="investment-details">
-        <div class="details-header">
-          <h2 class="details-title"><i class="fas fa-list"></i> Recent Investments</h2>
-          <a href="investments.html" class="view-all">View All</a>
-        </div>
-        
-        <table class="investments-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Amount</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody id="investmentsBody">
-            <!-- Investment details will be loaded here -->
-          </tbody>
-        </table>
-        
-        <div id="investmentsEmptyState" class="empty-state">
-          <i class="fas fa-piggy-bank"></i>
-          <h3>No Investments Yet</h3>
-          <p>Add your first investment to see it here</p>
-        </div>
-      </div>
-
-      <!-- Retained Assets Card -->
-      <div class="retained-assets">
-        <div class="retained-header">
-          <div class="retained-title">Retained Assets</div>
-          <i class="fas fa-coins"></i>
-        </div>
-        <div class="retained-value" id="retainedValue">₹0</div>
-        <div class="reinvestment-ratio" id="ratioBadge">0% Reinvested</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
-
-  <script>
-    // Firebase Configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-      authDomain: "squadvertex2007.firebaseapp.com",
-      projectId: "squadvertex2007",
-      storageBucket: "squadvertex2007.appspot.com",
-      messagingSenderId: "168905083514",
-      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-    };
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-
-    // DOM Elements
-    const loadingScreen = document.getElementById('loadingScreen');
-    const totalEarned = document.getElementById('totalEarned');
-    const totalInvested = document.getElementById('totalInvested');
-    const reinvestmentRatio = document.getElementById('reinvestmentRatio');
-    const reinvestmentRatioElement = document.getElementById('ratioBadge');
-    const earningsChange = document.getElementById('earningsChange');
-    const investmentChange = document.getElementById('investmentChange');
-    const ratioStatus = document.getElementById('ratioStatus');
-    const retainedValue = document.getElementById('retainedValue');
-    const investmentAmount = document.getElementById('investmentAmount');
-    const investmentSource = document.getElementById('investmentSource');
-    const investmentDate = document.getElementById('investmentDate');
-    const investmentDescription = document.getElementById('investmentDescription');
-    const addInvestmentBtn = document.getElementById('addInvestmentBtn');
-    const investmentsBody = document.getElementById('investmentsBody');
-    const investmentsEmptyState = document.getElementById('investmentsEmptyState');
-    const logoutBtn = document.getElementById('logoutBtn');
-
-    // Set current date
-    const today = new Date();
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    document.getElementById('current-date').textContent = today.toLocaleDateString('en-US', options);
-    
-    // Set default date to today
-    investmentDate.valueAsDate = today;
-
-    // Authentication State Observer
-    auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        // Verify user against admin email from mySpace/credentials
-        try {
-          const credentialsDoc = await db.collection('mySpace').doc('credentials').get();
-          if (credentialsDoc.exists) {
-            const adminEmail = credentialsDoc.data().admin_email;
-            
-            if (user.email === adminEmail) {
-              // Load dashboard data
-              loadData();
-            } else {
-              // Unauthorized user
-              alert('Access denied. Unauthorized user.');
-              auth.signOut();
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Designs | Premium Design Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ff6b6b',
+                        secondary: '#4ecdc4',
+                        accent: '#ff9e64',
+                        dark: '#0a0f1d',
+                        dark2: '#111827',
+                        dark3: '#1e293b',
+                        gradientStart: '#0c4a6e',
+                        gradientEnd: '#0284c7'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif']
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-glow': 'pulseGlow 3s ease-in-out infinite',
+                        'orbit': 'orbit 20s linear infinite',
+                        'morph': 'morph 15s ease-in-out infinite',
+                        'wave': 'wave 8s ease-in-out infinite'
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-15px)' }
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { 'box-shadow': '0 0 20px rgba(255, 107, 107, 0.5)' },
+                            '50%': { 'box-shadow': '0 0 40px rgba(255, 107, 107, 0.9)' }
+                        },
+                        orbit: {
+                            '0%': { transform: 'rotate(0deg) translateX(100px) rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg) translateX(100px) rotate(-360deg)' }
+                        },
+                        morph: {                            '0%, 100%': { borderRadius: '63% 37% 54% 46% / 55% 48% 52% 45%' },
+                            '14%': { borderRadius: '40% 60% 54% 46% / 49% 60% 40% 51%' },
+                            '28%': { borderRadius: '54% 46% 38% 62% / 49% 70% 30% 51%' },
+                            '42%': { borderRadius: '61% 39% 54% 46% / 61% 38% 62% 39%' },
+                            '56%': { borderRadius: '61% 39% 67% 33% / 70% 50% 50% 30%' },
+                            '70%': { borderRadius: '50% 50% 34% 66% / 56% 68% 32% 44%' },
+                            '84%': { borderRadius: '46% 54% 50% 50% / 35% 61% 39% 65%' }
+                        },
+                        wave: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '25%': { transform: 'translateY(-10px)' },
+                            '50%': { transform: 'translateY(0)' },
+                            '75%': { transform: 'translateY(10px)' }
+                        }
+                    }
+                }
             }
-          } else {
-            // Credentials document doesn't exist
-            alert('Credentials not found. Contact administrator.');
-            auth.signOut();
-          }
-        } catch (error) {
-          console.error('Error verifying user:', error);
-          alert('Authentication error. Please try again.');
-          auth.signOut();
         }
-      } else {
-        // Redirect to login if not authenticated
-        window.location.href = 'login.html'; // Adjust path as needed
-      }
-    });
-
-    // Function to load dashboard data from Firebase
-    async function loadData() {
-      try {
-        // Get all transactions from mySpace/2026/subcollection
-        const transactionsRef = db.collection('mySpace').doc('2026').collection('transactions');
-        const transactionsSnapshot = await transactionsRef.get();
-
-        let totalEarnedValue = 0;
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
         
-        transactionsSnapshot.forEach(doc => {
-          const data = doc.data();
-          totalEarnedValue += data.amount;
-        });
-
-        // Get all investments from mySpace/2026/investments subcollection
-        const investmentsRef = db.collection('mySpace').doc('2026').collection('investments');
-        const investmentsSnapshot = await investmentsRef.orderBy('date_invested', 'desc').get();
-
-        let totalInvestedValue = 0;
-        const investments = [];
-        
-        investmentsSnapshot.forEach(doc => {
-          const data = doc.data();
-          totalInvestedValue += data.amount;
-          investments.push({
-            id: doc.id,
-            ...data
-          });
-        });
-
-        // Update UI with loaded data
-        updateDashboardUI(totalEarnedValue, totalInvestedValue);
-        updateInvestmentsTable(investments);
-        
-        // Hide loading screen after a brief delay
-        setTimeout(() => {
-          loadingScreen.style.opacity = '0';
-          loadingScreen.style.visibility = 'hidden';
-        }, 800);
-      } catch (error) {
-        console.error('Error loading data:', error);
-        loadingScreen.style.opacity = '0';
-        loadingScreen.style.visibility = 'hidden';
-      }
-    }
-
-    // Function to update dashboard UI
-    function updateDashboardUI(earned, invested) {
-      // Update total earned
-      totalEarned.textContent = `₹${earned.toLocaleString()}`;
-      
-      // Update total invested
-      totalInvested.textContent = `₹${invested.toLocaleString()}`;
-      retainedValue.textContent = `₹${invested.toLocaleString()}`;
-      
-      // Calculate reinvestment ratio
-      const ratio = earned > 0 ? (invested / earned) * 100 : 0;
-      reinvestmentRatio.textContent = `${ratio.toFixed(1)}%`;
-      
-      // Update ratio badge based on zone
-      if (ratio < 10) {
-        reinvestmentRatioElement.className = 'reinvestment-ratio danger-zone';
-        reinvestmentRatioElement.textContent = `${ratio.toFixed(1)}% - Danger Zone`;
-        ratioStatus.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Low Asset Building</span>';
-        ratioStatus.className = 'stat-change change-down';
-      } else if (ratio >= 10 && ratio <= 30) {
-        reinvestmentRatioElement.className = 'reinvestment-ratio sweet-spot';
-        reinvestmentRatioElement.textContent = `${ratio.toFixed(1)}% - Sweet Spot`;
-        ratioStatus.innerHTML = '<i class="fas fa-check-circle"></i> <span>Healthy Growth</span>';
-        ratioStatus.className = 'stat-change change-up';
-      } else if (ratio > 30) {
-        reinvestmentRatioElement.className = 'reinvestment-ratio monk-mode';
-        reinvestmentRatioElement.textContent = `${ratio.toFixed(1)}% - Monk Mode`;
-        ratioStatus.innerHTML = '<i class="fas fa-crown"></i> <span>Empire Building</span>';
-        ratioStatus.className = 'stat-change change-up';
-      }
-      
-      // Calculate changes (placeholder values)
-      const lastMonthEarned = earned * 0.95; // Placeholder
-      const earningsChangePercent = earned > 0 ? 
-        Math.round(((earned - lastMonthEarned) / lastMonthEarned) * 100) : 0;
-      earningsChange.innerHTML = `
-        <i class="fas fa-arrow-${earningsChangePercent >= 0 ? 'up' : 'down'}"></i>
-        <span>${earningsChangePercent >= 0 ? '+' : ''}${earningsChangePercent}% from last month</span>
-      `;
-      earningsChange.className = `stat-change ${earningsChangePercent >= 0 ? 'change-up' : 'change-down'}`;
-      
-      const lastMonthInvested = invested * 0.8; // Placeholder
-      const investmentChangePercent = invested > 0 ? 
-        Math.round(((invested - lastMonthInvested) / lastMonthInvested) * 100) : 0;
-      investmentChange.innerHTML = `
-        <i class="fas fa-arrow-${investmentChangePercent >= 0 ? 'up' : 'down'}"></i>
-        <span>${investmentChangePercent >= 0 ? '+' : ''}${investmentChangePercent}% from last month</span>
-      `;
-      investmentChange.className = `stat-change ${investmentChangePercent >= 0 ? 'change-up' : 'change-down'}`;
-    }
-
-    // Function to update investments table
-    function updateInvestmentsTable(investments) {
-      // Clear existing rows
-      investmentsBody.innerHTML = '';
-      
-      if (investments.length === 0) {
-        investmentsEmptyState.style.display = 'block';
-        return;
-      }
-      
-      investmentsEmptyState.style.display = 'none';
-      
-      // Show only the last 7 investments
-      const recentInvestments = investments.slice(0, 7);
-      
-      recentInvestments.forEach(investment => {
-        const row = document.createElement('tr');
-        
-        // Format date
-        const formattedDate = investment.date_invested.toDate ? 
-          investment.date_invested.toDate().toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          }) : 
-          new Date(investment.date_invested).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          });
-        
-        row.innerHTML = `
-          <td>${formattedDate}</td>
-          <td>${investment.source}</td>
-          <td class="amount-col">₹${investment.amount.toLocaleString()}</td>
-          <td>${investment.description || '-'}</td>
-        `;
-        
-        investmentsBody.appendChild(row);
-      });
-    }
-
-    // Add investment button event listener
-    addInvestmentBtn.addEventListener('click', async () => {
-      const amount = parseInt(investmentAmount.value);
-      const source = investmentSource.value;
-      const date = investmentDate.value;
-      const description = investmentDescription.value;
-      
-      if (!amount || !source || !date) {
-        alert('Please fill in all required fields');
-        return;
-      }
-      
-      try {
-        // Get current totals to validate investment
-        const transactionsRef = db.collection('mySpace').doc('2026').collection('transactions');
-        const transactionsSnapshot = await transactionsRef.get();
-        
-        let totalEarnedValue = 0;
-        transactionsSnapshot.forEach(doc => {
-          const data = doc.data();
-          totalEarnedValue += data.amount;
-        });
-        
-        // Get current investments to validate investment
-        const investmentsRef = db.collection('mySpace').doc('2026').collection('investments');
-        const investmentsSnapshot = await investmentsRef.get();
-        
-        let totalInvestedValue = 0;
-        investmentsSnapshot.forEach(doc => {
-          const data = doc.data();
-          totalInvestedValue += data.amount;
-        });
-        
-        // Validation: Total Invested cannot be greater than Total Earned
-        if ((totalInvestedValue + amount) > totalEarnedValue) {
-          alert("Error: You cannot invest more than you have earned in 2026!");
-          return;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
-        // Add investment to Firebase
-        await db.collection('mySpace').doc('2026').collection('investments').add({
-          amount: amount,
-          source: source,
-          date_invested: new Date(date),
-          description: description,
-          created_at: new Date()
-        });
+        body {
+            background: linear-gradient(135deg, #0a0f1d 0%, #111827 100%);
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            position: relative;
+        }
         
-        // Clear form
-        investmentAmount.value = '';
-        investmentSource.value = '';
-        investmentDate.valueAsDate = today;
-        investmentDescription.value = '';
+        /* Particle Background */
+        #particles-js {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: -2;
+        }
         
-        // Reload data to reflect new investment
-        loadData();
+        .hero-gradient {
+            background: linear-gradient(135deg, #0c4a6e 0%, #0284c7 100%);
+            position: relative;
+            overflow: hidden;        }
         
-        alert('Investment added successfully!');
-      } catch (error) {
-        console.error('Error adding investment:', error);
-        alert('Error adding investment. Please try again.');
-      }
-    });
+        .section-gradient {
+            background: linear-gradient(135deg, #111827 0%, #0a0f1d 100%);
+            position: relative;
+        }
+        
+        /* Glassmorphism Card */
+        .card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.2),
+                        0 0 30px rgba(30, 144, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 107, 107, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            z-index: -1;
+        }
+        
+        .card:hover::before {
+            opacity: 1;
+        }
+        
+        .card:hover {
+            transform: translateY(-15px) scale(1.02);
+            box-shadow: 0 25px 50px -10px rgba(0, 0, 0, 0.3),
+                        0 15px 20px -10px rgba(0, 0, 0, 0.2),
+                        0 0 50px rgba(255, 107, 107, 0.2);
+            border-color: rgba(255, 107, 107, 0.3);
+        }
+        
+        /* Feature Card */
+        .feature-card {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(79, 70, 229, 0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);            position: relative;
+            overflow: hidden;
+        }
+        
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: -1;
+        }
+        
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.3),
+                        0 0 30px rgba(79, 70, 229, 0.2);
+            border-color: rgba(79, 70, 229, 0.3);
+        }
+        
+        /* Stat Card */
+        .stat-card {
+            background: linear-gradient(135deg, rgba(12, 74, 110, 0.9) 0%, rgba(2, 132, 199, 0.9) 100%);
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 30px -10px rgba(2, 132, 199, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: orbit 20s linear infinite;
+            z-index: -1;
+        }
+                .stat-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px -10px rgba(2, 132, 199, 0.6);
+        }
+        
+        /* Designer Card */
+        .designer-card {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 107, 107, 0.1);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .designer-card::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #ff6b6b 0%, #4ecdc4 100%);
+            transform: scaleX(0);
+            transition: transform 0.5s ease;
+            transform-origin: left;
+        }
+        
+        .designer-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .designer-card:hover {
+            transform: translateY(-12px);
+            box-shadow: 0 25px 40px -15px rgba(0, 0, 0, 0.4),
+                        0 0 40px rgba(255, 107, 107, 0.25);
+            border-color: rgba(255, 107, 107, 0.3);
+        }
+        
+        /* Sponsor Card */
+        .sponsor-card {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(79, 70, 229, 0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 2.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+                .sponsor-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: -1;
+        }
+        
+        .sponsor-card:hover::before {
+            opacity: 1;
+        }
+        
+        .sponsor-card:hover {
+            transform: scale(1.08);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4),
+                        0 0 30px rgba(79, 70, 229, 0.3);
+            border-color: rgba(79, 70, 229, 0.4);
+        }
+        
+        /* Floating Design Elements */
+        .design-element {
+            position: absolute;
+            z-index: -1;
+            filter: blur(60px);
+            opacity: 0.6;
+            animation: float 15s ease-in-out infinite;
+        }
+        
+        .design-element-1 {
+            top: 15%;
+            right: 5%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, #ff6b6b 0%, transparent 70%);
+        }
+        
+        .design-element-2 {
+            bottom: 10%;
+            left: 5%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, #4ecdc4 0%, transparent 70%);
+        }
+        
+        .design-element-3 {            top: 50%;
+            left: 15%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, #ff9e64 0%, transparent 70%);
+            animation-delay: -5s;
+        }
+        
+        /* Morphing Shape */
+        .morph-shape {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
+            border-radius: 50%;
+            animation: morph 15s ease-in-out infinite;
+            filter: blur(40px);
+            opacity: 0.4;
+            z-index: -1;
+        }
+        
+        /* Glowing Text */
+        .glowing-text {
+            text-shadow: 0 0 20px rgba(255, 107, 107, 0.8),
+                         0 0 40px rgba(255, 107, 107, 0.6);
+            animation: pulseGlow 3s ease-in-out infinite;
+        }
+        
+        /* Glowing Button */
+        .glowing-button {
+            box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
+            animation: pulseGlow 3s ease-in-out infinite;
+        }
+        
+        .glowing-button:hover {
+            box-shadow: 0 0 50px rgba(255, 107, 107, 0.8);
+        }
+        
+        /* Floating Animation */
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        /* Navigation Glass Effect */
+        .nav-glass {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+            position: relative;            overflow: hidden;
+        }
+        
+        .nav-glass::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent 0%, rgba(255, 107, 107, 0.05) 50%, transparent 100%);
+            transform: translateX(-100%);
+            transition: transform 0.5s ease;
+            z-index: -1;
+        }
+        
+        .nav-glass:hover::before {
+            transform: translateX(100%);
+        }
+        
+        /* Section Title */
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-weight: 800;
+            font-size: 4rem;
+            line-height: 1.1;
+            background: linear-gradient(90deg, #ffffff 0%, #cbd5e1 50%, #e2e8f0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            position: relative;
+            display: inline-block;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #ff6b6b 0%, #4ecdc4 100%);
+            border-radius: 2px;
+            opacity: 0.7;
+        }
+        
+        /* Cursor Effect */
+        .cursor-fx {
+            position: fixed;
+            width: 30px;            height: 30px;
+            border: 2px solid #ff6b6b;
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            mix-blend-mode: difference;
+            opacity: 0.7;
+            transition: transform 0.1s ease;
+        }
+        
+        .cursor-dot {
+            position: fixed;
+            width: 8px;
+            height: 8px;
+            background: #ff6b6b;
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            opacity: 0.9;
+        }
+        
+        /* Scroll Progress Bar */
+        .scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ff6b6b 0%, #4ecdc4 100%);
+            z-index: 9999;
+            transition: width 0.1s ease;
+        }
+        
+        /* Animated Counter */
+        .counter {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #ff6b6b 0%, #4ecdc4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+        }
+        
+        /* Gradient Border */
+        .gradient-border {
+            position: relative;
+            overflow: hidden;
+        }
+                .gradient-border::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #ff9e64, #ff6b6b);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            z-index: -1;
+            opacity: 0.2;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* Wave Animation */
+        .wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%230c4a6e' fill-opacity='0.3' d='M0,128L48,144C96,160,192,192,288,186.7C384,181,480,139,576,133.3C672,128,768,160,864,176C960,192,1056,192,1152,192C1248,192,1344,160,1392,144L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+            background-size: cover;
+            animation: wave 15s linear infinite;
+        }
+        
+        @media (max-width: 768px) {
+            .section-title {
+                font-size: 2.5rem;
+            }
+            .counter {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+    <!-- Custom Cursor -->
+    <div class="cursor-fx" id="cursor"></div>
+    <div class="cursor-dot" id="cursorDot"></div>
+    
+    <!-- Scroll Progress Bar -->
+    <div class="scroll-progress" id="scrollProgress"></div>
+    
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 nav-glass border-b border-gray-800/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center relative overflow-hidden group">
+                        <span class="text-white font-bold text-xl relative z-10">G</span>
+                        <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity rounded-xl"></div>
+                    </div>
+                    <span class="text-2xl font-serif font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                        Galaxy<span class="text-white">Designs</span>
+                    </span>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#" class="font-medium hover:text-primary transition-colors relative group">
+                        Home
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
+                    </a>
+                    <a href="#designs" class="font-medium hover:text-primary transition-colors relative group">
+                        Our Work
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
+                    </a>
+                    <a href="#services" class="font-medium hover:text-primary transition-colors relative group">
+                        Services
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
+                    </a>
+                    <a href="#designers" class="font-medium hover:text-primary transition-colors relative group">
+                        Team
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
+                    </a>
+                    <a href="#contact" class="font-medium hover:text-primary transition-colors relative group">
+                        Contact
+                        <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
+                    </a>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <!-- Profile Image (when signed in) -->
+                    <div class="hidden md:block" id="profileImage">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity relative group overflow-hidden">
+                            <span class="text-white font-bold text-lg relative z-10">PG</span>
+                            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sign In Button (when not signed in) -->
+                    <button class="hidden md:block px-4 py-2 border border-gray-700 rounded-lg font-medium hover:bg-gray-800 transition-colors hover:border-primary relative overflow-hidden group" id="signInButton">
+                        <span class="relative z-10">Sign In</span>
+                        <div class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                    </button>
+                    
+                    <button class="px-6 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-medium hover:opacity-90 transition-opacity shadow-lg shadow-pink-500/30 glowing-button relative overflow-hidden group">
+                        <span class="relative z-10">Get in Touch</span>
+                        <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity rounded-lg"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-    // Logout button event listener
-    logoutBtn.addEventListener('click', () => {
-      auth.signOut()
-        .then(() => {
-          window.location.href = 'login.html'; // Adjust path as needed
-        })
-        .catch((error) => {
-          console.error('Logout error:', error);
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-4 sm:px-6 lg:px-8 hero-gradient relative overflow-hidden">
+        <div class="design-element design-element-1"></div>
+        <div class="design-element design-element-2"></div>
+        <div class="design-element design-element-3"></div>
+        
+        <div class="morph-shape" style="top: 20%; right: 10%;"></div>
+        <div class="morph-shape" style="bottom: 15%; left: 5%; width: 200px; height: 200px; animation-delay: -7s;"></div>
+        
+        <div class="max-w-7xl mx-auto">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div class="space-y-8">
+                    <div class="inline-flex items-center px-4 py-2 bg-blue-900/40 backdrop-blur-sm text-blue-300 rounded-full text-sm font-medium border border-blue-800/50 relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-600 opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                        <i class="fas fa-rocket mr-2"></i>
+                        <span class="relative z-10">Official Design Studio</span>
+                    </div>
+                    <h1 class="section-title leading-tight">
+                        Design <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary glowing-text">Flow</span>
+                    </h1>
+                    <p class="text-xl text-gray-300 leading-relaxed max-w-2xl">
+                        Galaxy Designs is a premier design studio creating exceptional visual experiences. Our talented team crafts stunning designs that captivate and inspire.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4 pt-4">
+                        <a href="#designs" class="px-8 py-4 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-medium text-lg hover:opacity-90 transition-opacity shadow-lg shadow-pink-500/30 glowing-button relative overflow-hidden group">
+                            <span class="relative z-10">View Our Work</span>
+                            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity rounded-lg"></div>
+                        </a>
+                        <a href="#contact" class="px-8 py-4 bg-transparent border-2 border-primary text-primary rounded-lg font-medium text-lg hover:bg-primary/10 transition-all relative overflow-hidden group">
+                            <span class="relative z-10">Contact Us</span>
+                            <div class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-5 transition-opacity rounded-lg"></div>
+                        </a>
+                    </div>
+                </div>
+                <div class="relative">
+                    <div class="relative h-96 w-full rounded-2xl overflow-hidden bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border border-blue-800/40 shadow-2xl">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-64 h-64 rounded-full bg-gradient-to-br from-primary to-secondary transform rotate-12 floating" style="filter: blur(10px);"></div>
+                            <div class="w-72 h-72 rounded-full bg-gradient-to-br from-secondary to-primary transform -rotate-12 floating" style="filter: blur(15px);"></div>
+                            <div class="w-48 h-48 rounded-full bg-gradient-to-br from-primary to-secondary transform rotate-3" style="filter: blur(8px);"></div>
+                            <div class="w-96 h-96 rounded-full bg-gradient-to-br from-secondary to-primary transform -rotate-6" style="filter: blur(12px);"></div>
+                        </div>
+                        <div class="absolute inset-0 bg-gradient-to-t from-dark2/80 to-transparent"></div>
+                        <div class="absolute bottom-6 left-6 text-white">
+                            <div class="text-5xl font-bold mb-2">Creative</div>
+                            <div class="text-2xl font-medium text-primary">Solutions</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="py-20 px-4 sm:px-6 lg:px-8 section-gradient relative overflow-hidden">
+        <div class="wave" style="opacity: 0.5;"></div>
+        
+        <div class="max-w-7xl mx-auto">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div class="stat-card p-8 rounded-2xl text-center">
+                    <div class="counter mb-2" data-count="50">0</div>
+                    <div class="text-gray-300">Projects Delivered</div>
+                </div>
+                <div class="stat-card p-8 rounded-2xl text-center">
+                    <div class="counter mb-2" data-count="15">0</div>
+                    <div class="text-gray-300">Team Members</div>
+                </div>
+                <div class="stat-card p-8 rounded-2xl text-center">
+                    <div class="counter mb-2" data-count="8">0</div>
+                    <div class="text-gray-300">Years Experience</div>
+                </div>
+                <div class="stat-card p-8 rounded-2xl text-center">
+                    <div class="counter mb-2" data-count="100">0</div>
+                    <div class="text-gray-300">Client Satisfaction</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section id="services" class="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div class="design-element" style="top: 20%; right: 15%; width: 300px; height: 300px; background: radial-gradient(circle, #ff9e64 0%, transparent 70%); opacity: 0.4;"></div>
+        
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="section-title mb-4 text-4xl">Our Services</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    We offer comprehensive design solutions tailored to your brand's unique needs
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Service 1 -->
+                <div class="feature-card p-8 rounded-2xl gradient-border">
+                    <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mb-6 mx-auto relative overflow-hidden">
+                        <i class="fas fa-palette text-2xl text-white relative z-10"></i>
+                        <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity rounded-xl"></div>
+                    </div>
+                    <h3 class="text-xl font-semibold text-center mb-3">Brand Identity</h3>
+                    <p class="text-gray-400 text-center">
+                        Logo design, color palettes, typography, and brand guidelines
+                    </p>
+                </div>
+                
+                <!-- Service 2 -->
+                <div class="feature-card p-8 rounded-2xl gradient-border">
+                    <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mb-6 mx-auto relative overflow-hidden">
+                        <i class="fas fa-mobile-alt text-2xl text-white relative z-10"></i>
+                        <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity rounded-xl"></div>
+                    </div>
+                    <h3 class="text-xl font-semibold text-center mb-3">UI/UX Design</h3>
+                    <p class="text-gray-400 text-center">
+                        Intuitive interfaces and seamless user experiences for web & mobile
+                    </p>
+                </div>
+                
+                <!-- Service 3 -->
+                <div class="feature-card p-8 rounded-2xl gradient-border">
+                    <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mb-6 mx-auto relative overflow-hidden">
+                        <i class="fas fa-image text-2xl text-white relative z-10"></i>
+                        <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity rounded-xl"></div>
+                    </div>
+                    <h3 class="text-xl font-semibold text-center mb-3">Illustration</h3>
+                    <p class="text-gray-400 text-center">
+                        Custom illustrations and artwork that tell your brand's story
+                    </p>
+                </div>
+                
+                <!-- Service 4 -->
+                <div class="feature-card p-8 rounded-2xl gradient-border">
+                    <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mb-6 mx-auto relative overflow-hidden">
+                        <i class="fas fa-video text-2xl text-white relative z-10"></i>
+                        <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity rounded-xl"></div>
+                    </div>
+                    <h3 class="text-xl font-semibold text-center mb-3">Motion Graphics</h3>
+                    <p class="text-gray-400 text-center">
+                        Animated visuals that bring your brand to life
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Design Showcase -->
+    <section id="designs" class="py-20 px-4 sm:px-6 lg:px-8 section-gradient relative overflow-hidden">
+        <div class="design-element" style="bottom: 10%; left: 10%; width: 350px; height: 350px; background: radial-gradient(circle, #4ecdc4 0%, transparent 70%); opacity: 0.4; animation-delay: -3s;"></div>
+        
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="section-title mb-4 text-4xl">Featured Designs</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    Explore our latest creative projects and design excellence
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Design 1 -->
+                <div class="card rounded-2xl overflow-hidden">
+                    <div class="h-64 bg-gradient-to-br from-purple-900/50 to-pink-900/50 relative overflow-hidden">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-48 h-48 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 transform rotate-12"></div>
+                            <div class="w-64 h-64 rounded-full bg-gradient-to-br from-pink-600 to-purple-600 transform -rotate-12"></div>
+                        </div>
+                        <div class="absolute top-4 right-4 bg-purple-600/20 backdrop-blur-sm text-purple-300 px-3 py-1 rounded-full text-sm font-medium">
+                            UI/UX Design
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full"></div>
+                                <div>
+                                    <h3 class="font-medium text-white">Sarah Johnson</h3>
+                                    <p class="text-sm text-gray-400">Lead UI/UX Designer</p>
+                                </div>
+                            </div>
+                        </div>
+                        <h4 class="text-xl font-semibold mb-2 text-white">Minimalist Dashboard UI</h4>
+                        <p class="text-gray-400 mb-4">Clean and modern dashboard design for enterprise SaaS platform</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                <span><i class="fas fa-heart mr-1 text-pink-400"></i> 234</span>
+                                <span><i class="fas fa-eye mr-1 text-blue-400"></i> 1.2K</span>
+                            </div>
+                            <button class="text-primary font-medium hover:text-secondary transition-colors flex items-center">
+                                View Details <i class="fas fa-arrow-right ml-2 text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Design 2 -->
+                <div class="card rounded-2xl overflow-hidden">
+                    <div class="h-64 bg-gradient-to-br from-blue-900/50 to-cyan-900/50 relative overflow-hidden">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-48 h-48 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 transform rotate-12"></div>
+                            <div class="w-64 h-64 rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 transform -rotate-12"></div>
+                        </div>
+                        <div class="absolute top-4 right-4 bg-blue-600/20 backdrop-blur-sm text-blue-300 px-3 py-1 rounded-full text-sm font-medium">
+                            Brand Identity
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-full"></div>
+                                <div>
+                                    <h3 class="font-medium text-white">Michael Chen</h3>
+                                    <p class="text-sm text-gray-400">Brand Designer</p>
+                                </div>
+                            </div>
+                        </div>
+                        <h4 class="text-xl font-semibold mb-2 text-white">Brand Identity Kit</h4>
+                        <p class="text-gray-400 mb-4">Complete branding package with logo suite and guidelines</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                <span><i class="fas fa-heart mr-1 text-pink-400"></i> 189</span>
+                                <span><i class="fas fa-eye mr-1 text-blue-400"></i> 890</span>
+                            </div>
+                            <button class="text-primary font-medium hover:text-secondary transition-colors flex items-center">
+                                View Details <i class="fas fa-arrow-right ml-2 text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Design 3 -->
+                <div class="card rounded-2xl overflow-hidden">
+                    <div class="h-64 bg-gradient-to-br from-green-900/50 to-emerald-900/50 relative overflow-hidden">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-48 h-48 rounded-full bg-gradient-to-br from-green-600 to-emerald-600 transform rotate-12"></div>
+                            <div class="w-64 h-64 rounded-full bg-gradient-to-br from-emerald-600 to-green-600 transform -rotate-12"></div>
+                        </div>
+                        <div class="absolute top-4 right-4 bg-green-600/20 backdrop-blur-sm text-green-300 px-3 py-1 rounded-full text-sm font-medium">
+                            Illustration
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full"></div>
+                                <div>
+                                    <h3 class="font-medium text-white">Emily Rodriguez</h3>
+                                    <p class="text-sm text-gray-400">Illustrator</p>
+                                </div>
+                            </div>
+                        </div>
+                        <h4 class="text-xl font-semibold mb-2 text-white">Nature Illustrations</h4>
+                        <p class="text-gray-400 mb-4">Beautiful hand-drawn illustrations for eco-friendly brand</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                <span><i class="fas fa-heart mr-1 text-pink-400"></i> 312</span>
+                                <span><i class="fas fa-eye mr-1 text-blue-400"></i> 2.1K</span>
+                            </div>
+                            <button class="text-primary font-medium hover:text-secondary transition-colors flex items-center">
+                                View Details <i class="fas fa-arrow-right ml-2 text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-12">
+                <a href="#" class="inline-flex items-center px-8 py-3 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-medium hover:opacity-90 transition-opacity shadow-lg shadow-pink-500/30 glowing-button relative overflow-hidden group">
+                    <span class="relative z-10">View All Projects</span>
+                    <i class="fas fa-arrow-right ml-2 relative z-10"></i>
+                    <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity rounded-lg"></div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Designers Section -->
+    <section id="designers" class="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div class="design-element" style="top: 15%; left: 5%; width: 250px; height: 250px; background: radial-gradient(circle, #ff6b6b 0%, transparent 70%); opacity: 0.3;"></div>
+        
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="section-title mb-4 text-4xl">Our Creative Team</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    Meet the talented designers behind Galaxy Designs
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Designer 1 -->
+                <div class="designer-card rounded-2xl overflow-hidden text-center">
+                    <div class="h-64 relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-purple-900/40 to-pink-900/40 flex items-center justify-center">
+                            <div class="w-40 h-40 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 group-hover:scale-110 transition-transform"></div>
+                        </div>
+                        <div class="absolute bottom-4 left-0 right-0 flex justify-center space-x-3">
+                            <a href="#" class="w-10 h-10 rounded-full bg-purple-600/20 backdrop-blur-sm text-purple-300 flex items-center justify-center hover:bg-purple-600/40 transition-colors"><i class="fab fa-dribbble"></i></a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-purple-600/20 backdrop-blur-sm text-purple-300 flex items-center justify-center hover:bg-purple-600/40 transition-colors"><i class="fab fa-behance"></i></a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-purple-600/20 backdrop-blur-sm text-purple-300 flex items-center justify-center hover:bg-purple-600/40 transition-colors"><i class="fab fa-linkedin"></i></a>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-1 text-white">Sarah Johnson</h3>
+                        <p class="text-primary font-medium mb-3">Lead UI/UX Designer</p>
+                        <p class="text-gray-400 mb-4 text-sm">
+                            Crafting intuitive digital experiences with a passion for user-centered design
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Designer 2 -->
+                <div class="designer-card rounded-2xl overflow-hidden text-center">
+                    <div class="h-64 relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-blue-900/40 to-cyan-900/40 flex items-center justify-center">
+                            <div class="w-40 h-40 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 group-hover:scale-110 transition-transform"></div>
+                        </div>
+                        <div class="absolute bottom-4 left-0 right-0 flex justify-center space-x-3">
+                            <a href="#" class="w-10 h-10 rounded-full bg-blue-600/20 backdrop-blur-sm text-blue-300 flex items-center justify-center hover:bg-blue-600/40 transition-colors"><i class="fab fa-dribbble"></i></a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-blue-600/20 backdrop-blur-sm text-blue-300 flex items-center justify-center hover:bg-blue-600/40 transition-colors"><i class="fab fa-behance"></i></a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-blue-600/20 backdrop-blur-sm text-blue-300 flex items-center justify-center hover:bg-blue-600/40 transition-colors"><i class="fab fa-linkedin"></i></a>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-1 text-white">Michael Chen</h3>
+                        <p class="text-primary font-medium mb-3">Brand Designer</p>
+                        <p class="text-gray-400 mb-4 text-sm">
+                            Building memorable brands through strategic design and storytelling
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Designer 3 -->
+                <div class="designer-card rounded-2xl overflow-hidden text-center">
+                    <div class="h-64 relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-green-900/40 to-emerald-900/40 flex items-center justify-center">
+                            <div class="w-40 h-40 rounded-full bg-gradient-to-br from-green-600 to-emerald-600 group-hover:scale-110 transition-transform"></div>
+                        </div>
+                        <div class="absolute bottom-4 left-0 right-0 flex justify-center space-x-3">
+                            <a href="#" class="w-10 h-10 rounded-full bg-green-600/20 backdrop-blur-sm text-green-300 flex items-center justify-center hover:bg-green-600/40 transition-colors"><i class="fab fa-dribbble"></i></a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-green-600/20 backdrop-blur-sm text-green-300 flex items-center justify-center hover:bg-green-600/40 transition-colors"><i class="fab fa-behance"></i></a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-green-600/20 backdrop-blur-sm text-green-300 flex items-center justify-center hover:bg-green-600/40 transition-colors"><i class="fab fa-instagram"></i></a>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-1 text-white">Emily Rodriguez</h3>
+                        <p class="text-primary font-medium mb-3">Illustrator</p>
+                        <p class="text-gray-400 mb-4 text-sm">
+                            Bringing stories to life through vibrant illustrations and character design
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Designer 4 -->
+                <div class="designer-card rounded-2xl overflow-hidden text-center">
+                    <div class="h-64 relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-orange-900/40 to-red-900/40 flex items-center justify-center">
+                            <div class="w-40 h-40 rounded-full bg-gradient-to-br from-orange-600 to-red-600 group-hover:scale-110 transition-transform"></div>
+                        </div>
+                        <div class="absolute bottom-4 left-0 right-0 flex justify-center space-x-3">
+                            <a href="#" class="w-10 h-10 rounded-full bg-orange-600/20 backdrop-blur-sm text-orange-300 flex items-center justify-center hover:bg-orange-600/40 transition-colors"><i class="fab fa-dribbble"></i></a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-orange-600/20 backdrop-blur-sm text-orange-300 flex items-center justify-center hover:bg-orange-600/40 transition-colors"><i class="fab fa-behance"></i></a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-orange-600/20 backdrop-blur-sm text-orange-300 flex items-center justify-center hover:bg-orange-600/40 transition-colors"><i class="fab fa-artstation"></i></a>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-1 text-white">James Wilson</h3>
+                        <p class="text-primary font-medium mb-3">3D Artist</p>
+                        <p class="text-gray-400 mb-4 text-sm">
+                            Creating immersive 3D experiences and product visualizations
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-12">
+                <a href="#contact" class="inline-flex items-center px-8 py-3 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-medium hover:opacity-90 transition-opacity shadow-lg shadow-pink-500/30 glowing-button relative overflow-hidden group">
+                    <span class="relative z-10">Join Our Team</span>
+                    <i class="fas fa-arrow-right ml-2 relative z-10"></i>
+                    <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity rounded-lg"></div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sponsors Section -->
+    <section class="py-20 px-4 sm:px-6 lg:px-8 section-gradient relative overflow-hidden">
+        <div class="design-element" style="top: 20%; right: 10%; width: 200px; height: 200px; background: radial-gradient(circle, #4ecdc4 0%, transparent 70%); opacity: 0.3; animation-delay: -2s;"></div>
+        
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="section-title mb-4 text-4xl">Our Partners</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    Communities and organizations that support and collaborate with us
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 items-center">
+                <!-- Sponsor 1 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center group">
+                    <div class="text-4xl font-bold text-primary group-hover:scale-110 transition-transform">A</div>
+                </div>
+                
+                <!-- Sponsor 2 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center group">
+                    <div class="text-4xl font-bold text-secondary group-hover:scale-110 transition-transform">B</div>
+                </div>
+                
+                <!-- Sponsor 3 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center group">
+                    <div class="text-4xl font-bold text-blue-400 group-hover:scale-110 transition-transform">C</div>
+                </div>
+                
+                <!-- Sponsor 4 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center group">
+                    <div class="text-4xl font-bold text-purple-400 group-hover:scale-110 transition-transform">D</div>
+                </div>
+                
+                <!-- Sponsor 5 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center group">
+                    <div class="text-4xl font-bold text-green-400 group-hover:scale-110 transition-transform">E</div>
+                </div>
+                
+                <!-- Sponsor 6 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center group">
+                    <div class="text-4xl font-bold text-yellow-400 group-hover:scale-110 transition-transform">F</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section id="contact" class="py-20 px-4 sm:px-6 lg:px-8 hero-gradient relative overflow-hidden">
+        <div class="morph-shape" style="top: 30%; left: 20%; width: 250px; height: 250px; animation-delay: -5s;"></div>
+        <div class="morph-shape" style="bottom: 20%; right: 15%; width: 200px; height: 200px; animation-delay: -10s;"></div>
+        
+        <div class="max-w-4xl mx-auto text-center text-white relative z-10">
+            <h2 class="text-4xl md:text-5xl font-serif font-bold mb-6">
+                Ready to Create Something Amazing?
+            </h2>
+            <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+                Let's collaborate and bring your vision to life with exceptional design
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="mailto:hello@galaxydesigns.com" class="px-8 py-4 bg-white text-primary rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors shadow-lg relative overflow-hidden group">
+                    <span class="relative z-10">hello@galaxydesigns.com</span>
+                    <div class="absolute inset-0 bg-primary opacity-0 group-hover:opacity-10 transition-opacity rounded-lg"></div>
+                </a>
+                <a href="tel:+1234567890" class="px-8 py-4 bg-transparent border-2 border-white text-white rounded-lg font-bold text-lg hover:bg-white/10 transition-colors relative overflow-hidden group">
+                    <span class="relative z-10">+1 (234) 567-890</span>
+                    <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-5 transition-opacity rounded-lg"></div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-dark py-12 px-4 sm:px-6 lg:px-8 border-t border-gray-800/50">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center">
+                            <span class="text-white font-bold text-xl">G</span>
+                        </div>
+                        <span class="text-2xl font-serif font-bold">Galaxy<span class="text-primary">Designs</span></span>
+                    </div>
+                    <p class="text-gray-400 mb-4">
+                        A premier design studio creating exceptional visual experiences for brands worldwide.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-primary transition-colors w-10 h-10 rounded-full bg-gray-800/50 flex items-center justify-center hover:bg-primary/20"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-primary transition-colors w-10 h-10 rounded-full bg-gray-800/50 flex items-center justify-center hover:bg-primary/20"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-primary transition-colors w-10 h-10 rounded-full bg-gray-800/50 flex items-center justify-center hover:bg-primary/20"><i class="fab fa-instagram"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-primary transition-colors w-10 h-10 rounded-full bg-gray-800/50 flex items-center justify-center hover:bg-primary/20"><i class="fab fa-dribbble"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-primary transition-colors w-10 h-10 rounded-full bg-gray-800/50 flex items-center justify-center hover:bg-primary/20"><i class="fab fa-behance"></i></a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-4 text-lg text-white">Quick Links</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition-colors hover:pl-2">Home</a></li>
+                        <li><a href="#designs" class="hover:text-white transition-colors hover:pl-2">Our Work</a></li>
+                        <li><a href="#services" class="hover:text-white transition-colors hover:pl-2">Services</a></li>
+                        <li><a href="#designers" class="hover:text-white transition-colors hover:pl-2">Team</a></li>
+                        <li><a href="#contact" class="hover:text-white transition-colors hover:pl-2">Contact</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-4 text-lg text-white">Services</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition-colors hover:pl-2">Brand Identity</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors hover:pl-2">UI/UX Design</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors hover:pl-2">Illustration</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors hover:pl-2">Motion Graphics</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors hover:pl-2">Print Design</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-4 text-lg text-white">Contact</h3>
+                    <ul class="space-y-3 text-gray-400">
+                        <li class="flex items-start">
+                            <i class="fas fa-envelope mr-3 text-primary mt-1"></i>
+                            <span>hello@galaxydesigns.com</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-phone mr-3 text-primary mt-1"></i>
+                            <span>+1 (234) 567-890</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-map-marker-alt mr-3 text-primary mt-1"></i>
+                            <span>New York, USA</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 mt-12 pt-8 text-center text-gray-500 text-sm">
+                <p>© 2026 Galaxy Designs. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Custom Cursor
+        const cursor = document.getElementById('cursor');
+        const cursorDot = document.getElementById('cursorDot');
+        
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+            cursorDot.style.left = e.clientX + 'px';
+            cursorDot.style.top = e.clientY + 'px';
         });
-    });
-  </script>
+        
+        // Links interaction
+        const links = document.querySelectorAll('a, button, .card, .feature-card, .designer-card, .sponsor-card');
+        links.forEach(link => {
+            link.addEventListener('mouseenter', () => {
+                cursor.style.transform = 'translate(-50%, -50%) scale(1.5)';
+                cursorDot.style.transform = 'translate(-50%, -50%) scale(0.5)';
+            });
+            link.addEventListener('mouseleave', () => {
+                cursor.style.transform = 'translate(-50%, -50%) scale(1)';
+                cursorDot.style.transform = 'translate(-50%, -50%) scale(1)';
+            });
+        });
+        
+        // Scroll Progress Bar
+        window.addEventListener('scroll', () => {
+            const scrollTop = document.documentElement.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = (scrollTop / scrollHeight) * 100;
+            document.getElementById('scrollProgress').style.width = scrolled + '%';
+        });
+        
+        // Animated Counter
+        const counters = document.querySelectorAll('.counter');
+        const speed = 200;
+        
+        const animateCounters = () => {
+            counters.forEach(counter => {
+                const updateCount = () => {
+                    const target = +counter.getAttribute('data-count');
+                    const count = +counter.innerText;
+                    const inc = target / speed;
+                    
+                    if (count < target) {
+                        counter.innerText = Math.ceil(count + inc);
+                        setTimeout(updateCount, 1);
+                    } else {
+                        counter.innerText = target;
+                    }
+                };
+                
+                updateCount();
+            });
+        };
+        
+        // Intersection Observer for counters
+        const counterObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    animateCounters();
+                    counterObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+        
+        counterObserver.observe(document.querySelector('.stat-card'));
+        
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    window.scrollTo({
+                        top: target.offsetTop - 80,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Header scroll effect
+        window.addEventListener('scroll', function() {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('shadow-lg');
+                nav.classList.add('bg-dark');
+            } else {
+                nav.classList.remove('shadow-lg');
+                nav.classList.add('nav-glass');
+            }
+        });
+
+        // GSAP Animations (if loaded)
+        if (typeof gsap !== 'undefined') {
+            gsap.registerPlugin(ScrollTrigger);
+            
+            // Fade in on scroll
+            gsap.utils.toArray('.card, .feature-card, .designer-card').forEach(el => {
+                gsap.from(el, {
+                    scrollTrigger: {
+                        trigger: el,
+                        start: 'top 90%',
+                        toggleActions: 'play none none none'
+                    },
+                    y: 50,
+                    opacity: 0,
+                    duration: 0.8,
+                    ease: 'power3.out'
+                });
+            });
+            
+            // Stagger animation for designers
+            gsap.from('.designer-card', {
+                scrollTrigger: {
+                    trigger: '#designers',
+                    start: 'top 80%'
+                },
+                y: 30,
+                opacity: 0,
+                duration: 0.6,
+                stagger: 0.2,
+                ease: 'power3.out'
+            });
+        }
+    </script>
 </body>
 </html>
