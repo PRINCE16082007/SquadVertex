@@ -1,1086 +1,773 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Executive Dashboard - Analytics</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    :root {
-      --primary: #4361ee;
-      --secondary: #3a0ca3;
-      --success: #06d6a0;
-      --warning: #ffd166;
-      --danger: #ef476f;
-      --dark: #1a1a2e;
-      --light: #f8f9fa;
-      --gray: #6c757d;
-      --card-bg: #ffffff;
-      --body-bg: #f5f7fa;
-      --border: #e0e0e0;
-      --shadow: 0 4px 12px rgba(0,0,0,0.05);
-      --progress-low: #ef476f;
-      --progress-mid: #ffd166;
-      --progress-high: #06d6a0;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: var(--body-bg);
-      color: var(--dark);
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
-
-    /* Loading Screen */
-    #loadingScreen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: var(--body-bg);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      transition: opacity 0.5s, visibility 0.5s;
-    }
-
-    .spinner {
-      width: 50px;
-      height: 50px;
-      border: 5px solid rgba(67, 97, 238, 0.2);
-      border-top: 5px solid var(--primary);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-bottom: 20px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .loading-text {
-      font-size: 1.2rem;
-      color: var(--primary);
-      font-weight: 500;
-    }
-
-    /* Main Layout */
-    .dashboard-container {
-      display: flex;
-      min-height: 100vh;
-    }
-
-    /* Sidebar */
-    .sidebar {
-      width: 280px;
-      background: var(--card-bg);
-      padding: 25px 15px;
-      box-shadow: 2px 0 10px rgba(0,0,0,0.05);
-      height: 100vh;
-      position: fixed;
-      overflow-y: auto;
-      transition: all 0.3s ease;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      margin-bottom: 30px;
-      padding: 0 10px;
-    }
-
-    .logo-icon {
-      font-size: 28px;
-      color: var(--primary);
-      margin-right: 12px;
-    }
-
-    .logo-text {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--dark);
-    }
-
-    .menu-title {
-      text-transform: uppercase;
-      font-size: 0.75rem;
-      letter-spacing: 1px;
-      color: var(--gray);
-      margin: 20px 15px 10px;
-      font-weight: 600;
-    }
-
-    .nav-menu {
-      list-style: none;
-    }
-
-    .nav-item {
-      margin-bottom: 5px;
-    }
-
-    .nav-link {
-      display: flex;
-      align-items: center;
-      padding: 12px 15px;
-      text-decoration: none;
-      color: var(--dark);
-      border-radius: 8px;
-      transition: all 0.2s;
-      font-weight: 500;
-      margin: 0 5px;
-    }
-
-    .nav-link i {
-      margin-right: 12px;
-      font-size: 1.1rem;
-      width: 24px;
-      text-align: center;
-      color: var(--primary);
-    }
-
-    .nav-link:hover, .nav-link.active {
-      background: rgba(67, 97, 238, 0.1);
-      color: var(--primary);
-      transform: translateX(5px);
-    }
-
-    .nav-link.active {
-      background: rgba(67, 97, 238, 0.15);
-      font-weight: 600;
-    }
-
-    /* Main Content */
-    .main-content {
-      flex: 1;
-      margin-left: 280px;
-      padding: 30px;
-      transition: all 0.3s ease;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-    }
-
-    .page-title {
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--dark);
-    }
-
-    .date-display {
-      font-size: 1rem;
-      color: var(--gray);
-    }
-
-    /* Analytics Grid */
-    .analytics-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 25px;
-      margin-bottom: 30px;
-    }
-
-    .chart-card {
-      background: var(--card-bg);
-      border-radius: 12px;
-      padding: 25px;
-      box-shadow: var(--shadow);
-    }
-
-    .chart-title {
-      font-size: 1.2rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-      color: var(--dark);
-      display: flex;
-      align-items: center;
-    }
-
-    .chart-title i {
-      margin-right: 10px;
-      color: var(--primary);
-    }
-
-    .chart-container {
-      height: 400px;
-      position: relative;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
-      margin-top: 30px;
-    }
-
-    .stat-card {
-      background: var(--card-bg);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-
-    .stat-label {
-      font-size: 0.9rem;
-      color: var(--gray);
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-    }
-
-    .stat-label .info-icon {
-      margin-left: 8px;
-      color: var(--gray);
-      cursor: help;
-      font-size: 0.8rem;
-    }
-
-    .stat-value {
-      font-size: 1.8rem;
-      font-weight: 700;
-      font-family: 'Roboto Mono', monospace;
-      color: var(--dark);
-    }
-
-    .stat-change {
-      display: flex;
-      align-items: center;
-      margin-top: 8px;
-      font-size: 0.9rem;
-    }
-
-    .change-up {
-      color: var(--success);
-    }
-
-    .change-down {
-      color: var(--danger);
-    }
-
-    /* Comparison Section */
-    .comparison-section {
-      background: var(--card-bg);
-      border-radius: 12px;
-      padding: 25px;
-      box-shadow: var(--shadow);
-      margin-top: 30px;
-    }
-
-    .comparison-title {
-      font-size: 1.3rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-      color: var(--dark);
-      display: flex;
-      align-items: center;
-    }
-
-    .comparison-title i {
-      margin-right: 10px;
-      color: var(--primary);
-    }
-
-    .comparison-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
-    }
-
-    /* Info Tooltip */
-    .info-tooltip {
-      position: absolute;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 15px;
-      box-shadow: var(--shadow);
-      z-index: 1000;
-      max-width: 300px;
-      font-size: 0.9rem;
-      display: none;
-    }
-
-    .info-tooltip.show {
-      display: block;
-    }
-
-    .info-tooltip h4 {
-      margin: 0 0 10px 0;
-      color: var(--primary);
-      font-size: 1rem;
-    }
-
-    .info-tooltip p {
-      margin: 0;
-      color: var(--gray);
-      line-height: 1.5;
-    }
-
-    /* Responsive */
-    @media (max-width: 992px) {
-      .sidebar {
-        width: 80px;
-      }
-      .logo-text, .stat-value, .stat-label, .menu-title, .nav-link span {
-        display: none;
-      }
-      .logo {
-        justify-content: center;
-      }
-      .nav-link {
-        justify-content: center;
-      }
-      .nav-link i {
-        margin-right: 0;
-      }
-      .main-content {
-        margin-left: 80px;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .dashboard-container {
-        flex-direction: column;
-      }
-      .sidebar {
-        width: 100%;
-        height: auto;
-        position: relative;
-      }
-      .main-content {
-        margin-left: 0;
-      }
-      .analytics-grid {
-        grid-template-columns: 1fr;
-      }
-      .chart-container {
-        height: 300px;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Designs | Official Design Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ff6b6b',
+                        secondary: '#4ecdc4',
+                        dark: '#0f172a',
+                        dark2: '#1e293b',
+                        dark3: '#334155',
+                        gradientStart: '#0c4a6e',
+                        gradientEnd: '#0284c7'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif']
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'glow': 'glow 2s ease-in-out infinite',
+                        'stagger': 'stagger 0.1s ease-out forwards'
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-15px)' }
+                        },
+                        glow: {
+                            '0%, 100%': { 'box-shadow': '0 0 20px rgba(255, 107, 107, 0.7)' },
+                            '50%': { 'box-shadow': '0 0 30px rgba(255, 107, 107, 0.9)' }
+                        },
+                        stagger: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
+        
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        
+        .hero-gradient {
+            background: linear-gradient(135deg, #0c4a6e 0%, #0284c7 100%);
+        }
+        
+        .section-gradient {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+        
+        .card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(56, 189, 248, 0.1);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 
+                        0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2),
+                        0 10px 10px -6px rgba(0, 0, 0, 0.1),
+                        0 0 30px rgba(30, 144, 255, 0.15);
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+        
+        .feature-card {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(79, 70, 229, 0.1);
+            transition: all 0.4s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.2),
+                        0 8px 10px -6px rgba(0, 0, 0, 0.1),
+                        0 0 25px rgba(79, 70, 229, 0.2);
+            border-color: rgba(79, 70, 229, 0.3);
+        }
+        
+        .stat-card {            background: linear-gradient(135deg, #0c4a6e 0%, #0284c7 100%);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px -10px rgba(2, 132, 199, 0.3);
+        }
+        
+        .stat-card:hover {
+            transform: scale(1.03);
+            box-shadow: 0 15px 35px -10px rgba(2, 132, 199, 0.4);
+        }
+        
+        .designer-card {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 107, 107, 0.1);
+            transition: all 0.4s ease;
+        }
+        
+        .designer-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.3),
+                        0 0 30px rgba(255, 107, 107, 0.2);
+            border-color: rgba(255, 107, 107, 0.3);
+        }
+        
+        .sponsor-card {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(79, 70, 229, 0.1);
+            transition: all 0.3s ease;
+            padding: 2rem;
+        }
+        
+        .sponsor-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.3),
+                        0 0 20px rgba(79, 70, 229, 0.2);
+            border-color: rgba(79, 70, 229, 0.3);
+        }
+        
+        .design-element {
+            position: absolute;
+            z-index: -1;
+            filter: blur(80px);
+            opacity: 0.7;
+            animation: float 15s ease-in-out infinite;
+        }
+        
+        .design-element-1 {
+            top: 20%;
+            right: 10%;            width: 400px;
+            height: 400px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
+        }
+        
+        .design-element-2 {
+            bottom: 15%;
+            left: 10%;
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(135deg, #4ecdc4 0%, #66d9d1 100%);
+        }
+        
+        .glowing-text {
+            text-shadow: 0 0 15px rgba(255, 107, 107, 0.7);
+        }
+        
+        .glowing-button {
+            box-shadow: 0 0 25px rgba(255, 107, 107, 0.5);
+        }
+        
+        .glowing-button:hover {
+            box-shadow: 0 0 35px rgba(255, 107, 107, 0.7);
+        }
+        
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .nav-glass {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(56, 189, 248, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-size: 3.5rem;
+            line-height: 1.1;
+            background: linear-gradient(90deg, #e2e8f0 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        @media (max-width: 768px) {
+            .section-title {
+                font-size: 2.5rem;            }
+        }
+    </style>
 </head>
-<body>
-  <!-- Loading Screen -->
-  <div id="loadingScreen">
-    <div class="spinner"></div>
-    <div class="loading-text">Loading Analytics...</div>
-  </div>
-
-  <div class="dashboard-container">
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <div class="logo">
-        <div class="logo-icon">
-          <i class="fas fa-chart-line"></i>
-        </div>
-        <div class="logo-text">Executive Dashboard</div>
-      </div>
-
-      <div class="menu-title">Navigation</div>
-      <ul class="nav-menu">
-        <li class="nav-item">
-          <a href="personal_portal.html" class="nav-link">
-            <i class="fas fa-home"></i>
-            <span>Dashboard</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="investment.html" class="nav-link">
-            <i class="fas fa-wallet"></i>
-            <span>Cash Flow</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="analytics.html" class="nav-link active">
-            <i class="fas fa-chart-pie"></i>
-            <span>Analytics</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="transactions.html" class="nav-link">
-            <i class="fas fa-file-invoice-dollar"></i>
-            <span>Transactions</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="settings.html" class="nav-link">
-            <i class="fas fa-cog"></i>
-            <span>Settings</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="#" class="nav-link" id="logoutBtn">
-            <i class="fas fa-sign-out-alt"></i>
-            <span>Logout</span>
-          </a>
-        </li>
-      </ul>
-    </div>
-
-    <!-- Main Content -->
-    <div class="main-content">
-      <div class="header">
-        <h1 class="page-title">Analytics Dashboard</h1>
-        <div class="date-display">
-          <i class="far fa-calendar-alt"></i>
-          <span id="current-date">December 20, 2025</span>
-        </div>
-      </div>
-
-      <!-- Analytics Grid -->
-      <div class="analytics-grid">
-        <!-- Monthly Earnings Chart -->
-        <div class="chart-card">
-          <h2 class="chart-title"><i class="fas fa-chart-line"></i> Monthly Earnings vs Investment</h2>
-          <div class="chart-container">
-            <canvas id="monthlyEarningsChart"></canvas>
-          </div>
-        </div>
-
-        <!-- Additional Analytics -->
-        <div class="chart-card">
-          <h2 class="chart-title"><i class="fas fa-chart-pie"></i> Revenue by Source</h2>
-          <div class="chart-container">
-            <canvas id="revenueBySourceChart"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card">
-          <h2 class="chart-title"><i class="fas fa-chart-bar"></i> Transaction Volume</h2>
-          <div class="chart-container">
-            <canvas id="transactionVolumeChart"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stats Cards -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Total Income (2025) <i class="fas fa-info-circle info-icon" data-info="total-income"></i></div>
-          <div class="stat-value" id="totalIncome">₹0</div>
-          <div class="stat-change change-up" id="incomeChange">
-            <i class="fas fa-arrow-up"></i>
-            <span>0% from last year</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Top Revenue Source <i class="fas fa-info-circle info-icon" data-info="top-source"></i></div>
-          <div class="stat-value" id="topSource">-</div>
-          <div class="stat-change change-up" id="topSourceValue">
-            <i class="fas fa-chart-line"></i>
-            <span>₹0 this year</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Avg. Transaction Size <i class="fas fa-info-circle info-icon" data-info="avg-transaction"></i></div>
-          <div class="stat-value" id="avgTransaction">₹0</div>
-          <div class="stat-change change-up" id="avgChange">
-            <i class="fas fa-arrow-up"></i>
-            <span>0% from last quarter</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Monthly Growth Rate <i class="fas fa-info-circle info-icon" data-info="monthly-growth"></i></div>
-          <div class="stat-value" id="growthRate">0%</div>
-          <div class="stat-change change-up" id="growthChange">
-            <i class="fas fa-arrow-up"></i>
-            <span>Consistent growth</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Comparison Section -->
-      <div class="comparison-section">
-        <h2 class="comparison-title"><i class="fas fa-balance-scale"></i> Income vs Investment Comparison</h2>
-        <div class="comparison-grid">
-          <div class="stat-card">
-            <div class="stat-label">Total Invested <i class="fas fa-info-circle info-icon" data-info="total-invested"></i></div>
-            <div class="stat-value" id="totalInvested">₹0</div>
-            <div class="stat-change change-up" id="investmentChange">
-              <i class="fas fa-arrow-up"></i>
-              <span>0% from last year</span>
+<body class="overflow-x-hidden">
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 nav-glass border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center">
+                        <span class="text-white font-bold text-xl">G</span>
+                    </div>
+                    <span class="text-2xl font-serif font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                        Galaxy Designs
+                    </span>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#" class="font-medium hover:text-primary transition-colors">Home</a>
+                    <a href="#designs" class="font-medium hover:text-primary transition-colors">Our Work</a>
+                    <a href="#services" class="font-medium hover:text-primary transition-colors">Services</a>
+                    <a href="#designers" class="font-medium hover:text-primary transition-colors">Team</a>
+                    <a href="#contact" class="font-medium hover:text-primary transition-colors">Contact</a>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <!-- Profile Image (when signed in) -->
+                    <div class="hidden md:block" id="profileImage">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
+                            <span class="text-white font-bold text-lg">PG</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Sign In Button (when not signed in) -->
+                    <button class="hidden md:block px-4 py-2 border border-gray-700 rounded-lg font-medium hover:bg-gray-800 transition-colors" id="signInButton">
+                        Sign In
+                    </button>
+                    
+                    <button class="px-6 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-medium hover:opacity-90 transition-opacity shadow-lg shadow-pink-500/30 glowing-button">
+                        Get in Touch
+                    </button>
+                </div>
             </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Investment ROI <i class="fas fa-info-circle info-icon" data-info="investment-roi"></i></div>
-            <div class="stat-value" id="investmentROI">0%</div>
-            <div class="stat-change change-up" id="roiChange">
-              <i class="fas fa-arrow-up"></i>
-              <span>0% from last quarter</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Investment Growth Rate <i class="fas fa-info-circle info-icon" data-info="investment-growth"></i></div>
-            <div class="stat-value" id="investmentGrowth">0%</div>
-            <div class="stat-change change-up" id="investmentGrowthChange">
-              <i class="fas fa-arrow-up"></i>
-              <span>Consistent growth</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Investment Efficiency <i class="fas fa-info-circle info-icon" data-info="investment-efficiency"></i></div>
-            <div class="stat-value" id="investmentEfficiency">0%</div>
-            <div class="stat-change change-up" id="efficiencyChange">
-              <i class="fas fa-arrow-up"></i>
-              <span>Optimal allocation</span>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
+    </nav>
 
-    <!-- Info Tooltips -->
-    <div id="totalIncomeTooltip" class="info-tooltip">
-      <h4>Total Income (2025)</h4>
-      <p>The total amount of money earned in the current year. This includes all revenue sources and transactions recorded in the system.</p>
-    </div>
-    <div id="topSourceTooltip" class="info-tooltip">
-      <h4>Top Revenue Source</h4>
-      <p>The primary source contributing the most to your income. This helps identify which business area is most profitable.</p>
-    </div>
-    <div id="avgTransactionTooltip" class="info-tooltip">
-      <h4>Average Transaction Size</h4>
-      <p>The average amount per transaction. Calculated by dividing total income by the number of transactions.</p>
-    </div>
-    <div id="monthlyGrowthTooltip" class="info-tooltip">
-      <h4>Monthly Growth Rate</h4>
-      <p>The percentage increase in income compared to the previous month. Helps track business growth trends.</p>
-    </div>
-    <div id="totalInvestedTooltip" class="info-tooltip">
-      <h4>Total Invested</h4>
-      <p>The total amount of money invested across all investment types in the current year.</p>
-    </div>
-    <div id="investmentROITooltip" class="info-tooltip">
-      <h4>Investment ROI</h4>
-      <p>Return on Investment percentage. Measures the profitability of your investments relative to the cost.</p>
-    </div>
-    <div id="investmentGrowthTooltip" class="info-tooltip">
-      <h4>Investment Growth Rate</h4>
-      <p>The percentage increase in your investment portfolio value over time.</p>
-    </div>
-    <div id="investmentEfficiencyTooltip" class="info-tooltip">
-      <h4>Investment Efficiency</h4>
-      <p>A measure of how effectively your investments are generating returns. Higher percentage indicates better performance.</p>
-    </div>
-  </div>
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div class="design-element design-element-1"></div>        <div class="design-element design-element-2"></div>
+        
+        <div class="max-w-7xl mx-auto">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div class="space-y-8 animate-stagger">
+                    <div class="inline-flex items-center px-4 py-2 bg-blue-900/30 backdrop-blur-sm text-blue-300 rounded-full text-sm font-medium border border-blue-800/50">
+                        <i class="fas fa-rocket mr-2"></i>
+                        Official Design Studio
+                    </div>
+                    <h1 class="section-title leading-tight">
+                        Design <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary glowing-text">Flow</span>
+                    </h1>
+                    <p class="text-xl text-gray-300 leading-relaxed max-w-2xl">
+                        Galaxy Designs is a premier design studio creating exceptional visual experiences. Our talented team crafts stunning designs that captivate and inspire.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4 pt-4">
+                        <a href="#designs" class="px-8 py-4 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-medium text-lg hover:opacity-90 transition-opacity shadow-lg shadow-pink-500/30 glowing-button">
+                            View Our Work
+                        </a>
+                        <a href="#contact" class="px-8 py-4 bg-transparent border-2 border-primary text-primary rounded-lg font-medium text-lg hover:bg-primary/10 transition-all">
+                            Contact Us
+                        </a>
+                    </div>
+                </div>
+                <div class="relative">
+                    <div class="relative h-96 w-full rounded-2xl overflow-hidden bg-gradient-to-br from-blue-900/20 to-cyan-900/20 border border-blue-800/30">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-64 h-64 rounded-full bg-gradient-to-br from-primary to-secondary transform rotate-12 floating" style="filter: blur(10px);"></div>
+                            <div class="w-72 h-72 rounded-full bg-gradient-to-br from-secondary to-primary transform -rotate-12 floating" style="filter: blur(15px);"></div>
+                            <div class="w-48 h-48 rounded-full bg-gradient-to-br from-primary to-secondary transform rotate-3" style="filter: blur(8px);"></div>
+                            <div class="w-96 h-96 rounded-full bg-gradient-to-br from-secondary to-primary transform -rotate-6" style="filter: blur(12px);"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
+    <!-- Stats Section -->
+    <section class="py-20 px-4 sm:px-6 lg:px-8 section-gradient">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div class="stat-card p-8 rounded-2xl text-center">
+                    <div class="text-5xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                        +50
+                    </div>
+                    <div class="text-gray-300">Projects Delivered</div>
+                </div>
+                <div class="stat-card p-8 rounded-2xl text-center">
+                    <div class="text-5xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">                        15+
+                    </div>
+                    <div class="text-gray-300">Team Members</div>
+                </div>
+                <div class="stat-card p-8 rounded-2xl text-center">
+                    <div class="text-5xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                        8+
+                    </div>
+                    <div class="text-gray-300">Years Experience</div>
+                </div>
+                <div class="stat-card p-8 rounded-2xl text-center">
+                    <div class="text-5xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                        100%
+                    </div>
+                    <div class="text-gray-300">Client Satisfaction</div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-  <script>
-  // Firebase Configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
-    authDomain: "squadvertex2007.firebaseapp.com",
-    projectId: "squadvertex2007",
-    storageBucket: "squadvertex2007.appspot.com",
-    messagingSenderId: "168905083514",
-    appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3"
-  };
+    <!-- Services Section -->
+    <section id="services" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="section-title mb-4 text-4xl">Our Services</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    We offer comprehensive design solutions tailored to your brand's unique needs
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Service 1 -->
+                <div class="feature-card p-8 rounded-2xl hover:border-primary/30 transition-all">
+                    <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mb-6 mx-auto">
+                        <i class="fas fa-palette text-2xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-center mb-3">Brand Identity</h3>
+                    <p class="text-gray-400 text-center">
+                        Logo design, color palettes, typography, and brand guidelines
+                    </p>
+                </div>
+                
+                <!-- Service 2 -->
+                <div class="feature-card p-8 rounded-2xl hover:border-primary/30 transition-all">
+                    <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mb-6 mx-auto">
+                        <i class="fas fa-mobile-alt text-2xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-center mb-3">UI/UX Design</h3>
+                    <p class="text-gray-400 text-center">
+                        Intuitive interfaces and seamless user experiences for web & mobile                    </p>
+                </div>
+                
+                <!-- Service 3 -->
+                <div class="feature-card p-8 rounded-2xl hover:border-primary/30 transition-all">
+                    <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mb-6 mx-auto">
+                        <i class="fas fa-image text-2xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-center mb-3">Illustration</h3>
+                    <p class="text-gray-400 text-center">
+                        Custom illustrations and artwork that tell your brand's story
+                    </p>
+                </div>
+                
+                <!-- Service 4 -->
+                <div class="feature-card p-8 rounded-2xl hover:border-primary/30 transition-all">
+                    <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center mb-6 mx-auto">
+                        <i class="fas fa-video text-2xl text-white"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-center mb-3">Motion Graphics</h3>
+                    <p class="text-gray-400 text-center">
+                        Animated visuals that bring your brand to life
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
 
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
+    <!-- Design Showcase -->
+    <section id="designs" class="py-20 px-4 sm:px-6 lg:px-8 section-gradient">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="section-title mb-4 text-4xl">Featured Designs</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    Explore our latest creative projects and design excellence
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Design 1 -->
+                <div class="card rounded-2xl overflow-hidden">
+                    <div class="h-64 bg-gradient-to-br from-purple-900/40 to-pink-900/40 relative">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-48 h-48 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 transform rotate-12"></div>
+                            <div class="w-64 h-64 rounded-full bg-gradient-to-br from-pink-600 to-purple-600 transform -rotate-12"></div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full"></div>
+                                <div>
+                                    <h3 class="font-medium text-white">Sarah Johnson</h3>
+                                    <p class="text-sm text-gray-400">Lead UI/UX Designer</p>
+                                </div>
+                            </div>
+                        </div>
+                        <h4 class="text-xl font-semibold mb-2 text-white">Minimalist Dashboard UI</h4>
+                        <p class="text-gray-400 mb-4">Clean and modern dashboard design for enterprise SaaS platform</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                <span><i class="fas fa-heart mr-1 text-pink-400"></i> 234</span>
+                                <span><i class="fas fa-eye mr-1 text-blue-400"></i> 1.2K</span>
+                            </div>
+                            <button class="text-primary font-medium hover:text-secondary transition-colors">
+                                View Details →
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-  // DOM Elements
-  const loadingScreen = document.getElementById('loadingScreen');
-  const totalIncome = document.getElementById('totalIncome');
-  const incomeChange = document.getElementById('incomeChange');
-  const topSource = document.getElementById('topSource');
-  const topSourceValue = document.getElementById('topSourceValue');
-  const avgTransaction = document.getElementById('avgTransaction');
-  const avgChange = document.getElementById('avgChange');
-  const growthRate = document.getElementById('growthRate');
-  const growthChange = document.getElementById('growthChange');
-  const totalInvested = document.getElementById('totalInvested');
-  const investmentChange = document.getElementById('investmentChange');
-  const investmentROI = document.getElementById('investmentROI');
-  const roiChange = document.getElementById('roiChange');
-  const investmentGrowth = document.getElementById('investmentGrowth');
-  const investmentGrowthChange = document.getElementById('investmentGrowthChange');
-  const investmentEfficiency = document.getElementById('investmentEfficiency');
-  const efficiencyChange = document.getElementById('efficiencyChange');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const infoIcons = document.querySelectorAll('.info-icon');
-  const tooltips = document.querySelectorAll('.info-tooltip');
+                <!-- Design 2 -->
+                <div class="card rounded-2xl overflow-hidden">
+                    <div class="h-64 bg-gradient-to-br from-blue-900/40 to-cyan-900/40 relative">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-48 h-48 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 transform rotate-12"></div>
+                            <div class="w-64 h-64 rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 transform -rotate-12"></div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-full"></div>
+                                <div>
+                                    <h3 class="font-medium text-white">Michael Chen</h3>
+                                    <p class="text-sm text-gray-400">Brand Designer</p>
+                                </div>
+                            </div>
+                        </div>
+                        <h4 class="text-xl font-semibold mb-2 text-white">Brand Identity Kit</h4>
+                        <p class="text-gray-400 mb-4">Complete branding package with logo suite and guidelines</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                <span><i class="fas fa-heart mr-1 text-pink-400"></i> 189</span>
+                                <span><i class="fas fa-eye mr-1 text-blue-400"></i> 890</span>
+                            </div>
+                            <button class="text-primary font-medium hover:text-secondary transition-colors">
+                                View Details →
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-  // Set current date
-  const today = new Date();
-  const options = { year: 'numeric', month: 'long', day: 'numeric' };
-  document.getElementById('current-date').textContent = today.toLocaleDateString('en-US', options);
+                <!-- Design 3 -->
+                <div class="card rounded-2xl overflow-hidden">
+                    <div class="h-64 bg-gradient-to-br from-green-900/40 to-emerald-900/40 relative">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-48 h-48 rounded-full bg-gradient-to-br from-green-600 to-emerald-600 transform rotate-12"></div>
+                            <div class="w-64 h-64 rounded-full bg-gradient-to-br from-emerald-600 to-green-600 transform -rotate-12"></div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full"></div>
+                                <div>
+                                    <h3 class="font-medium text-white">Emily Rodriguez</h3>
+                                    <p class="text-sm text-gray-400">Illustrator</p>
+                                </div>
+                            </div>
+                        </div>
+                        <h4 class="text-xl font-semibold mb-2 text-white">Nature Illustrations</h4>
+                        <p class="text-gray-400 mb-4">Beautiful hand-drawn illustrations for eco-friendly brand</p>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                <span><i class="fas fa-heart mr-1 text-pink-400"></i> 312</span>
+                                <span><i class="fas fa-eye mr-1 text-blue-400"></i> 2.1K</span>
+                            </div>
+                            <button class="text-primary font-medium hover:text-secondary transition-colors">
+                                View Details →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-12">
+                <a href="#" class="inline-flex items-center px-8 py-3 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-medium hover:opacity-90 transition-opacity shadow-lg shadow-pink-500/30">
+                    View All Projects <i class="fas fa-arrow-right ml-2"></i>
+                </a>
+            </div>
+        </div>
+    </section>
 
-  // Authentication State Observer
-  auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      // Verify user against admin email from mySpace/credentials
-      try {
-        const credentialsDoc = await db.collection('mySpace').doc('credentials').get();
-        if (credentialsDoc.exists) {
-          const adminEmail = credentialsDoc.data().admin_email;
+    <!-- Designers Section -->
+    <section id="designers" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="section-title mb-4 text-4xl">Our Creative Team</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    Meet the talented designers behind Galaxy Designs
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Designer 1 -->
+                <div class="designer-card rounded-2xl overflow-hidden text-center">
+                    <div class="h-64 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-br from-purple-900/30 to-pink-900/30 flex items-center justify-center">
+                            <div class="w-40 h-40 rounded-full bg-gradient-to-br from-purple-600 to-pink-600"></div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-1 text-white">Sarah Johnson</h3>
+                        <p class="text-primary font-medium mb-3">Lead UI/UX Designer</p>
+                        <p class="text-gray-400 mb-4 text-sm">
+                            Crafting intuitive digital experiences with a passion for user-centered design
+                        </p>
+                        <div class="flex justify-center space-x-4">
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-dribbble"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-behance"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-linkedin"></i></a>
+                        </div>
+                    </div>
+                </div>
 
-          if (user.email === adminEmail) {
-            // Load analytics data
-            loadAnalyticsData();
+                <!-- Designer 2 -->
+                <div class="designer-card rounded-2xl overflow-hidden text-center">
+                    <div class="h-64 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-br from-blue-900/30 to-cyan-900/30 flex items-center justify-center">
+                            <div class="w-40 h-40 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600"></div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-1 text-white">Michael Chen</h3>
+                        <p class="text-primary font-medium mb-3">Brand Designer</p>
+                        <p class="text-gray-400 mb-4 text-sm">
+                            Building memorable brands through strategic design and storytelling
+                        </p>
+                        <div class="flex justify-center space-x-4">
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-dribbble"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-behance"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-linkedin"></i></a>
+                        </div>
+                    </div>
+                </div>
 
-            // Hide loading screen after a brief delay
-            setTimeout(() => {
-              loadingScreen.style.opacity = '0';
-              loadingScreen.style.visibility = 'hidden';
-            }, 1000);
-          } else {
-            // Unauthorized user
-            alert('Access denied. Unauthorized user.');
-            auth.signOut();
-          }
+                <!-- Designer 3 -->
+                <div class="designer-card rounded-2xl overflow-hidden text-center">
+                    <div class="h-64 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-br from-green-900/30 to-emerald-900/30 flex items-center justify-center">
+                            <div class="w-40 h-40 rounded-full bg-gradient-to-br from-green-600 to-emerald-600"></div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-1 text-white">Emily Rodriguez</h3>
+                        <p class="text-primary font-medium mb-3">Illustrator</p>
+                        <p class="text-gray-400 mb-4 text-sm">
+                            Bringing stories to life through vibrant illustrations and character design
+                        </p>
+                        <div class="flex justify-center space-x-4">
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-dribbble"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-behance"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-instagram"></i></a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Designer 4 -->
+                <div class="designer-card rounded-2xl overflow-hidden text-center">
+                    <div class="h-64 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-br from-orange-900/30 to-red-900/30 flex items-center justify-center">
+                            <div class="w-40 h-40 rounded-full bg-gradient-to-br from-orange-600 to-red-600"></div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold mb-1 text-white">James Wilson</h3>
+                        <p class="text-primary font-medium mb-3">3D Artist</p>
+                        <p class="text-gray-400 mb-4 text-sm">
+                            Creating immersive 3D experiences and product visualizations
+                        </p>
+                        <div class="flex justify-center space-x-4">
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-dribbble"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-behance"></i></a>
+                            <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-artstation"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-12">
+                <a href="#contact" class="inline-flex items-center px-8 py-3 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-medium hover:opacity-90 transition-opacity shadow-lg shadow-pink-500/30">
+                    Join Our Team <i class="fas fa-arrow-right ml-2"></i>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sponsors Section -->
+    <section class="py-20 px-4 sm:px-6 lg:px-8 section-gradient">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="section-title mb-4 text-4xl">Our Partners</h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    Communities and organizations that support and collaborate with us
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 items-center">
+                <!-- Sponsor 1 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center">
+                    <div class="text-4xl font-bold text-primary">A</div>
+                </div>
+                
+                <!-- Sponsor 2 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center">
+                    <div class="text-4xl font-bold text-secondary">B</div>
+                </div>
+                
+                <!-- Sponsor 3 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center">
+                    <div class="text-4xl font-bold text-blue-400">C</div>
+                </div>
+                
+                <!-- Sponsor 4 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center">
+                    <div class="text-4xl font-bold text-purple-400">D</div>
+                </div>
+                
+                <!-- Sponsor 5 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center">
+                    <div class="text-4xl font-bold text-green-400">E</div>
+                </div>
+                
+                <!-- Sponsor 6 -->
+                <div class="sponsor-card rounded-xl flex items-center justify-center">
+                    <div class="text-4xl font-bold text-yellow-400">F</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section id="contact" class="py-20 px-4 sm:px-6 lg:px-8 hero-gradient relative overflow-hidden">
+        <div class="max-w-4xl mx-auto text-center text-white relative z-10">
+            <h2 class="text-4xl md:text-5xl font-serif font-bold mb-6">
+                Ready to Create Something Amazing?
+            </h2>
+            <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+                Let's collaborate and bring your vision to life with exceptional design
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="mailto:hello@galaxydesigns.com" class="px-8 py-4 bg-white text-primary rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors shadow-lg">
+                    hello@galaxydesigns.com
+                </a>
+                <a href="tel:+1234567890" class="px-8 py-4 bg-transparent border-2 border-white text-white rounded-lg font-bold text-lg hover:bg-white/10 transition-colors">
+                    +1 (234) 567-890
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-dark py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center">
+                            <span class="text-white font-bold text-xl">G</span>
+                        </div>
+                        <span class="text-2xl font-serif font-bold">Galaxy<span class="text-primary">Designs</span></span>
+                    </div>
+                    <p class="text-gray-400 mb-4">
+                        A premier design studio creating exceptional visual experiences for brands worldwide.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-instagram"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-dribbble"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-primary transition-colors"><i class="fab fa-behance"></i></a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-4 text-lg text-white">Quick Links</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition-colors">Home</a></li>
+                        <li><a href="#designs" class="hover:text-white transition-colors">Our Work</a></li>
+                        <li><a href="#services" class="hover:text-white transition-colors">Services</a></li>
+                        <li><a href="#designers" class="hover:text-white transition-colors">Team</a></li>
+                        <li><a href="#contact" class="hover:text-white transition-colors">Contact</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-4 text-lg text-white">Services</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition-colors">Brand Identity</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">UI/UX Design</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Illustration</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Motion Graphics</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Print Design</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-4 text-lg text-white">Contact</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><i class="fas fa-envelope mr-2 text-primary"></i> hello@galaxydesigns.com</li>
+                        <li><i class="fas fa-phone mr-2 text-primary"></i> +1 (234) 567-890</li>
+                        <li><i class="fas fa-map-marker-alt mr-2 text-primary"></i> New York, USA</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 mt-12 pt-8 text-center text-gray-500 text-sm">
+                <p>© 2026 Galaxy Designs. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    window.scrollTo({
+                        top: target.offsetTop - 80,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Header scroll effect
+        window.addEventListener('scroll', function() {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('shadow-lg');
+                nav.classList.add('bg-dark');
+            } else {
+                nav.classList.remove('shadow-lg');
+                nav.classList.add('nav-glass');
+            }
+        });
+
+        // Animation on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-stagger');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.animate-stagger').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Toggle between Sign In button and Profile Image
+        // This is a demo - in production, check auth state from Firebase/localStorage
+        const isUserSignedIn = true; // Change to false to see Sign In button
+        
+        const profileImage = document.getElementById('profileImage');
+        const signInButton = document.getElementById('signInButton');
+        
+        if (isUserSignedIn) {
+            signInButton.style.display = 'none';
+            profileImage.style.display = 'block';
         } else {
-          // Credentials document doesn't exist
-          alert('Credentials not found. Contact administrator.');
-          auth.signOut();
+            signInButton.style.display = 'block';
+            profileImage.style.display = 'none';
         }
-      } catch (error) {
-        console.error('Error verifying user:', error);
-        alert('Authentication error. Please try again.');
-        auth.signOut();
-      }
-    } else {
-      // Redirect to login if not authenticated
-      window.location.href = 'login.html'; // Adjust path as needed
-    }
-  });
-
-  // Function to load analytics data
-  async function loadAnalyticsData() {
-    try {
-      // Get all transactions from mySpace/2026/subcollection
-      const transactionsRef = db.collection('mySpace').doc('2026').collection('transactions');
-      const transactionsSnapshot = await transactionsRef.orderBy('date_received', 'desc').get();
-
-      const transactions = [];
-      let totalIncomeValue = 0;
-
-      transactionsSnapshot.forEach(doc => {
-        const data = doc.data();
-        transactions.push(data);
-        totalIncomeValue += data.amount;
-      });
-
-      // Get all investments from mySpace/2026/investments subcollection
-      const investmentsRef = db.collection('mySpace').doc('2026').collection('investments');
-      const investmentsSnapshot = await investmentsRef.orderBy('date_invested', 'desc').get();
-
-      const investments = [];
-      let totalInvestedValue = 0;
-
-      investmentsSnapshot.forEach(doc => {
-        const data = doc.data();
-        investments.push(data);
-        totalInvestedValue += data.amount;
-      });
-
-      // Calculate and update stats
-      updateStats(transactions, investments, totalIncomeValue, totalInvestedValue);
-
-      // Process data and render charts
-      renderCharts(transactions, investments);
-    } catch (error) {
-      console.error('Error loading analytics ', error);
-    }
-  }
-
-  // Function to calculate and update stats
-  function updateStats(transactions, investments, totalIncomeValue, totalInvestedValue) {
-    if (transactions.length === 0 && investments.length === 0) return;
-
-    // Update total income
-    totalIncome.textContent = `₹${totalIncomeValue.toLocaleString()}`;
-
-    // Calculate income change from last year (placeholder calculation)
-    const lastYearIncome = totalIncomeValue * 0.9; // Placeholder
-    const incomeChangePercent = totalIncomeValue > 0 ? 
-      Math.round(((totalIncomeValue - lastYearIncome) / lastYearIncome) * 100) : 0;
-    incomeChange.innerHTML = `
-      <i class="fas fa-arrow-${incomeChangePercent >= 0 ? 'up' : 'down'}"></i>
-      <span>${incomeChangePercent >= 0 ? '+' : ''}${incomeChangePercent}% from last year</span>
-    `;
-    incomeChange.className = `stat-change ${incomeChangePercent >= 0 ? 'change-up' : 'change-down'}`;
-
-    // Calculate top revenue source
-    const sources = {};
-    transactions.forEach(transaction => {
-      if (sources[transaction.source]) {
-        sources[transaction.source] += transaction.amount;
-      } else {
-        sources[transaction.source] = transaction.amount;
-      }
-    });
-
-    let topSourceName = '';
-    let topSourceAmount = 0;
-    for (const [source, amount] of Object.entries(sources)) {
-      if (amount > topSourceAmount) {
-        topSourceAmount = amount;
-        topSourceName = source;
-      }
-    }
-
-    topSource.textContent = topSourceName;
-    topSourceValue.innerHTML = `
-      <i class="fas fa-chart-line"></i>
-      <span>₹${topSourceAmount.toLocaleString()} this year</span>
-    `;
-
-    // Calculate average transaction size
-    const avgTransactionValue = totalIncomeValue / transactions.length;
-    avgTransaction.textContent = `₹${Math.round(avgTransactionValue).toLocaleString()}`;
-
-    // Calculate average change from last quarter (placeholder)
-    const avgChangeValue = 12; // Placeholder
-    avgChange.innerHTML = `
-      <i class="fas fa-arrow-up"></i>
-      <span>+${avgChangeValue}% from last quarter</span>
-    `;
-    avgChange.className = 'stat-change change-up';
-
-    // Calculate monthly growth rate
-    const monthlyGrowth = 7.2; // Placeholder
-    growthRate.textContent = `${monthlyGrowth}%`;
-    growthChange.innerHTML = `
-      <i class="fas fa-arrow-up"></i>
-      <span>Consistent growth</span>
-    `;
-    growthChange.className = 'stat-change change-up';
-
-    // Update investment stats
-    totalInvested.textContent = `₹${totalInvestedValue.toLocaleString()}`;
-
-    // Calculate investment change from last year (placeholder)
-    const lastYearInvested = totalInvestedValue * 0.85; // Placeholder
-    const investmentChangePercent = totalInvestedValue > 0 ? 
-      Math.round(((totalInvestedValue - lastYearInvested) / lastYearInvested) * 100) : 0;
-    investmentChange.innerHTML = `
-      <i class="fas fa-arrow-${investmentChangePercent >= 0 ? 'up' : 'down'}"></i>
-      <span>${investmentChangePercent >= 0 ? '+' : ''}${investmentChangePercent}% from last year</span>
-    `;
-    investmentChange.className = `stat-change ${investmentChangePercent >= 0 ? 'change-up' : 'change-down'}`;
-
-    // Calculate investment ROI (placeholder)
-    const investmentROIValue = 15; // Placeholder
-    investmentROI.textContent = `${investmentROIValue}%`;
-    roiChange.innerHTML = `
-      <i class="fas fa-arrow-up"></i>
-      <span>+${investmentROIValue}% ROI</span>
-    `;
-    roiChange.className = 'stat-change change-up';
-
-    // Calculate investment growth rate (placeholder)
-    const investmentGrowthValue = 8.5; // Placeholder
-    investmentGrowth.textContent = `${investmentGrowthValue}%`;
-    investmentGrowthChange.innerHTML = `
-      <i class="fas fa-arrow-up"></i>
-      <span>Consistent growth</span>
-    `;
-    investmentGrowthChange.className = 'stat-change change-up';
-
-    // Calculate investment efficiency (placeholder)
-    const investmentEfficiencyValue = 82; // Placeholder
-    investmentEfficiency.textContent = `${investmentEfficiencyValue}%`;
-    efficiencyChange.innerHTML = `
-      <i class="fas fa-check-circle"></i>
-      <span>Optimal allocation</span>
-    `;
-    efficiencyChange.className = 'stat-change change-up';
-  }
-
-  // Function to render charts
-  function renderCharts(transactions, investments) {
-    // Prepare data for monthly earnings chart
-    const monthlyIncomeData = {
-      'Jan': 0,
-      'Feb': 0,
-      'Mar': 0,
-      'Apr': 0,
-      'May': 0,
-      'Jun': 0,
-      'Jul': 0,
-      'Aug': 0,
-      'Sep': 0,
-      'Oct': 0,
-      'Nov': 0,
-      'Dec': 0
-    };
-
-    // Aggregate earnings by month
-    transactions.forEach(transaction => {
-      const date = transaction.date_received.toDate ? 
-        transaction.date_received.toDate() : 
-        new Date(transaction.date_received);
-      const month = date.toLocaleString('default', { month: 'short' });
-      monthlyIncomeData[month] += transaction.amount;
-    });
-
-    // Prepare data for monthly investments chart
-    const monthlyInvestmentData = {
-      'Jan': 0,
-      'Feb': 0,
-      'Mar': 0,
-      'Apr': 0,
-      'May': 0,
-      'Jun': 0,
-      'Jul': 0,
-      'Aug': 0,
-      'Sep': 0,
-      'Oct': 0,
-      'Nov': 0,
-      'Dec': 0
-    };
-
-    // Aggregate investments by month
-    investments.forEach(investment => {
-      const date = investment.date_invested.toDate ? 
-        investment.date_invested.toDate() : 
-        new Date(investment.date_invested);
-      const month = date.toLocaleString('default', { month: 'short' });
-      monthlyInvestmentData[month] += investment.amount;
-    });
-
-    // Monthly Earnings vs Investment Line Chart
-    const monthlyCtx = document.getElementById('monthlyEarningsChart').getContext('2d');
-    new Chart(monthlyCtx, {
-      type: 'line',
-      data: {
-        labels: Object.keys(monthlyIncomeData),
-        datasets: [
-          {
-            label: 'Income (₹)',
-            data: Object.values(monthlyIncomeData),
-            borderColor: '#4361ee',
-            backgroundColor: 'rgba(67, 97, 238, 0.1)',
-            borderWidth: 3,
-            pointBackgroundColor: '#4361ee',
-            pointRadius: 5,
-            pointHoverRadius: 7,
-            fill: true,
-            tension: 0.3
-          },
-          {
-            label: 'Investment (₹)',
-            data: Object.values(monthlyInvestmentData),
-            borderColor: '#ef476f',
-            backgroundColor: 'rgba(239, 71, 111, 0.1)',
-            borderWidth: 3,
-            pointBackgroundColor: '#ef476f',
-            pointRadius: 5,
-            pointHoverRadius: 7,
-            fill: true,
-            tension: 0.3
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'top',
-          },
-          tooltip: {
-            mode: 'index',
-            intersect: false,
-            callbacks: {
-              label: function(context) {
-                return `${context.dataset.label}: ₹${context.parsed.y.toLocaleString()}`;
-              }
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return '₹' + value.toLocaleString();
-              }
-            }
-          }
-        }
-      }
-    });
-
-    // Revenue by Source Pie Chart
-    const sources = {};
-    transactions.forEach(transaction => {
-      if (sources[transaction.source]) {
-        sources[transaction.source] += transaction.amount;
-      } else {
-        sources[transaction.source] = transaction.amount;
-      }
-    });
-
-    const sourceCtx = document.getElementById('revenueBySourceChart').getContext('2d');
-    new Chart(sourceCtx, {
-      type: 'doughnut',
-      data: {
-        labels: Object.keys(sources),
-        datasets: [{
-          data: Object.values(sources),
-          backgroundColor: [
-            '#4361ee',
-            '#3a0ca3',
-            '#7209b7',
-            '#f72585',
-            '#4cc9f0',
-            '#4895ef',
-            '#560bad'
-          ],
-          borderWidth: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'right',
-            labels: {
-              padding: 20,
-              usePointStyle: true,
-              pointStyle: 'circle'
-            }
-          },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                const label = context.label || '';
-                const value = context.parsed;
-                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                const percentage = Math.round((value / total) * 100);
-                return `${label}: ₹${value.toLocaleString()} (${percentage}%)`;
-              }
-            }
-          }
-        }
-      }
-    });
-
-    // Transaction Volume Bar Chart
-    const volumeData = {
-      'Jan': 0,
-      'Feb': 0,
-      'Mar': 0,
-      'Apr': 0,
-      'May': 0,
-      'Jun': 0,
-      'Jul': 0,
-      'Aug': 0,
-      'Sep': 0,
-      'Oct': 0,
-      'Nov': 0,
-      'Dec': 0
-    };
-
-    // Count transactions by month
-    transactions.forEach(transaction => {
-      const date = transaction.date_received.toDate ? 
-        transaction.date_received.toDate() : 
-        new Date(transaction.date_received);
-      const month = date.toLocaleString('default', { month: 'short' });
-      volumeData[month] += 1;
-    });
-
-    const volumeCtx = document.getElementById('transactionVolumeChart').getContext('2d');
-    new Chart(volumeCtx, {
-      type: 'bar',
-      data: {
-        labels: Object.keys(volumeData),
-        datasets: [{
-          label: 'Number of Transactions',
-          data: Object.values(volumeData),
-          backgroundColor: 'rgba(67, 97, 238, 0.7)',
-          borderColor: '#4361ee',
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false
-          },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                return `${context.parsed.y} transactions`;
-              }
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true
-          }
-        }
-      }
-    });
-  }
-
-  // Info icon event listeners
-  infoIcons.forEach(icon => {
-    icon.addEventListener('mouseenter', function() {
-      const infoType = this.getAttribute('data-info');
-      const tooltip = document.getElementById(infoType + 'Tooltip');
-      
-      if (tooltip) {
-        // Position tooltip near the icon
-        const rect = this.getBoundingClientRect();
-        tooltip.style.left = rect.left + 'px';
-        tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
-        tooltip.classList.add('show');
-      }
-    });
-
-    icon.addEventListener('mouseleave', function() {
-      const infoType = this.getAttribute('data-info');
-      const tooltip = document.getElementById(infoType + 'Tooltip');
-      
-      if (tooltip) {
-        tooltip.classList.remove('show');
-      }
-    });
-  });
-
-  // Logout button event listener
-  logoutBtn.addEventListener('click', () => {
-    auth.signOut()
-      .then(() => {
-        window.location.href = 'login.html'; // Adjust path as needed
-      })
-      .catch((error) => {
-        console.error('Logout error:', error);
-      });
-  });
-</script>
+    </script>
 </body>
 </html>
