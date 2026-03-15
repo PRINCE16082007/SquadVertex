@@ -3,663 +3,541 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Card Manager - TeamGalaxy Admin</title>
-    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore-compat.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>SquadVertex Tools | URL Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        primaryDark: '#1d4ed8',
+                        secondary: '#0ea5e9',
+                        accent: '#6366f1',
+                        surface: '#ffffff',
+                        surfaceAlt: '#f8fafc',
+                        border: '#e2e8f0',
+                        text: '#0f172a',
+                        textMuted: '#64748b',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        error: '#ef4444'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    boxShadow: {
+                        'soft': '0 1px 2px 0 rgb(0 0 0 / 0.03), 0 1px 5px 0 rgb(0 0 0 / 0.02)',
+                        'elevated': '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.03)',
+                        'focused': '0 0 0 4px rgb(37 99 235 / 0.15), 0 2px 10px -2px rgb(0 0 0 / 0.08)',
+                        'card': '0 8px 30px -8px rgb(0 0 0 / 0.08), 0 2px 12px -4px rgb(0 0 0 / 0.04)'
+                    },
+                    transitionProperty: {
+                        'height': 'height',
+                        'spacing': 'margin, padding'
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        * { -webkit-tap-highlight-color: transparent; }
+        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            min-height: 100vh;
-            color: #fff;
-            overflow-x: hidden;
-            position: relative;
-        }
-
-        /* Loading Screen */
-        .loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 12, 41, 0.95);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            transition: opacity 0.5s ease;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255,255,255,0.1);
-            border-top: 4px solid #00d4ff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Star background animation */
-        .stars {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .star {
-            position: absolute;
-            background-color: white;
-            border-radius: 50%;
-            animation: twinkle var(--duration, 3s) infinite ease-in-out;
-        }
-
-        @keyframes twinkle {
-            0%, 100% { opacity: 0.2; }
-            50% { opacity: 1; }
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            position: relative;
-            z-index: 10;
-            display: none;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 0;
-            margin-bottom: 30px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .back-btn {
-            background: rgba(255,255,255,0.1);            border: none;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .back-btn:hover {
-            background: rgba(0, 212, 255, 0.3);
-        }
-
-        .page-title {
-            font-size: 2rem;
-            color: #00d4ff;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .card-form {
-            background: rgba(25, 25, 35, 0.9);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .form-title {
-            font-size: 1.5rem;
-            color: #00d4ff;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            color: #a0aec0;
-            font-weight: 500;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 12px 15px;            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
-            color: white;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: #00d4ff;
-            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
-        }
-
-        .form-textarea {
-            width: 100%;
-            padding: 12px 15px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
-            color: white;
-            font-size: 1rem;
-            resize: vertical;
-            min-height: 120px;
-            transition: all 0.3s ease;
-        }
-
-        .form-textarea:focus {
-            outline: none;
-            border-color: #00d4ff;
-            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
-        }
-
-        .submit-btn {
-            background: linear-gradient(45deg, #00d4ff, #0077ff);
-            color: white;
-            border: none;
-            padding: 14px 25px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1.1rem;
-            font-weight: 600;
-            width: 100%;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
-        }
-
-        .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);        }
-
-        .message {
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            text-align: center;
-            font-weight: 500;
-        }
-
-        .success {
-            background: rgba(72, 187, 120, 0.2);
-            color: #4ade80;
-            border: 1px solid rgba(72, 187, 120, 0.3);
-        }
-
-        .error {
-            background: rgba(248, 113, 113, 0.2);
-            color: #f87171;
-            border: 1px solid rgba(248, 113, 113, 0.3);
-        }
-
-        .cards-section {
-            background: rgba(25, 25, 35, 0.9);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 25px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .section-title {
-            font-size: 1.5rem;
-            color: #00d4ff;
-            margin-bottom: 20px;
-        }
-
-        .cards-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-        }
-
-        .card-item {
-            background: rgba(40, 40, 50, 0.6);
-            border-radius: 10px;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.05);
-            transition: all 0.3s ease;
-        }
-        .card-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.2);
-            border-color: rgba(0, 212, 255, 0.3);
-        }
-
-        .card-image {
-            width: 100%;
-            height: 180px;
-            object-fit: cover;
-        }
-
-        .card-content {
-            padding: 15px;
-        }
-
-        .card-heading {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #fff;
-        }
-
-        .card-description {
-            color: #a0aec0;
-            font-size: 0.9rem;
-            line-height: 1.5;
-            margin-bottom: 10px;
-        }
-
-        .card-stats {
-            display: flex;
-            justify-content: space-between;
-            color: #a0aec0;
-            font-size: 0.8rem;
-        }
-
-        .hidden {
-            display: none !important;
+            font-family: 'Inter', sans-serif;            background-color: #fafafa;
+            background-image: 
+                radial-gradient(ellipse at top, rgba(37, 99, 235, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom right, rgba(14, 165, 233, 0.04) 0%, transparent 50%);
+            background-attachment: fixed;
+            color: #0f172a;
+            line-height: 1.6;
         }
         
-        /* Edit Button */
-        .edit-btn {
-            background: linear-gradient(45deg, #ff6b6b, #ffa500);
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.9rem;            transition: all 0.3s ease;
-            width: 100%;
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Smooth focus ring */
+        .focus-ring:focus {
+            outline: none;
+            box-shadow: 0 0 0 4px rgb(37 99 235 / 0.15);
         }
-
-        .edit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(255, 107, 107, 0.3);
+        
+        /* Subtle entrance animation */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-
-        /* Modal Styles */
-        .modal {
-            position: fixed;
-            z-index: 2000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .animate-enter { animation: fadeInUp 0.4s ease-out forwards; }
+        .animate-enter-delay { animation: fadeInUp 0.4s 0.1s ease-out forwards; opacity: 0; }
+        
+        /* Button hover lift */
+        .btn-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .btn-hover:hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgb(0 0 0 / 0.12); }
+        
+        /* Subtle border gradient on hover */
+        .border-gradient {
+            position: relative;
+            background: linear-gradient(#fff, #fff) padding-box,
+                        linear-gradient(135deg, #2563eb, #0ea5e9) border-box;
+            border: 1px solid transparent;
         }
-
-        .modal-content {
-            background: rgba(25, 25, 35, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            width: 90%;
-            max-width: 500px;
-            border: 1px solid rgba(255,255,255,0.1);
+        .border-gradient:hover {
+            box-shadow: 0 4px 20px -4px rgb(37 99 235 / 0.25);
         }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+        
+        /* Input validation indicator */
+        .validation-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            transition: all 0.2s ease;
         }
-
-        .close {
-            font-size: 28px;
-            font-weight: bold;
-            color: #aaa;
-            cursor: pointer;
-            transition: color 0.3s;
+        .validation-dot.valid { background: #10b981; box-shadow: 0 0 0 3px rgb(16 185 129 / 0.15); }
+        .validation-dot.invalid { background: #ef4444; box-shadow: 0 0 0 3px rgb(239 68 68 / 0.15); }
+        .validation-dot.idle { background: #cbd5e1; }
+        
+        /* History item hover */        .history-item { transition: all 0.25s ease; }
+        .history-item:hover { 
+            transform: translateX(4px); 
+            border-color: #2563eb;
+            box-shadow: 0 4px 16px -4px rgb(37 99 235 / 0.15);
         }
-
-        .close:hover {
-            color: #fff;        }
-
-        .modal-body {
-            padding: 20px;
+        
+        /* Toast animation */
+        @keyframes slideDown {
+            from { opacity: 0; transform: translate(-50%, -20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .toast-enter { animation: slideDown 0.3s ease-out forwards; }
+        
+        /* Decorative blob */
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.5;
+            z-index: 0;
+            animation: float 18s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -20px) scale(1.05); }
+            66% { transform: translate(-20px, 15px) scale(0.95); }
         }
     </style>
 </head>
-<body>
-    <!-- Loading Screen -->
-    <div class="loading-screen" id="loadingScreen">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Verifying admin access...</div>
-    </div>
+<body class="min-h-screen">
+    <!-- Subtle decorative blobs -->
+    <div class="blob w-72 h-72 bg-primary/20 top-0 left-1/4"></div>
+    <div class="blob w-96 h-96 bg-secondary/15 bottom-0 right-1/4 animation-delay-2000"></div>
 
-    <div class="stars" id="stars"></div>
-
-    <div class="container" id="mainContainer">
-        <div class="header">
-            <button class="back-btn" onclick="goBack()">
-                <i class="fas fa-arrow-left"></i> Back to Dashboard
-            </button>
-        </div>
-
-        <h1 class="page-title">🌌 Card Manager</h1>
-
-        <div class="card-form">
-            <h2 class="form-title">Add New Card</h2>
-            <form id="cardForm">
-                <div class="form-group">
-                    <label class="form-label" for="heading">Heading:</label>
-                    <input type="text" id="heading" class="form-input" name="heading" required maxlength="300" placeholder="Enter card heading" />
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="description">Description:</label>
-                    <textarea id="description" class="form-textarea" name="description" required maxlength="10000" placeholder="Enter card description"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="imageUrl">Image URL:</label>
-                    <input type="text" id="imageUrl" class="form-input" name="imageUrl" required placeholder="Enter image URL (https://...)" />
-                </div>
-
-                <button type="submit" class="submit-btn">Add Card</button>
-            </form>
-
-            <div id="messageBox"></div>
-        </div>
-
-        <div class="cards-section">            <h2 class="section-title">Existing Cards</h2>
-            <div id="cardsGrid" class="cards-grid">
-                <div class="loading">Loading cards...</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Modal -->
-    <div id="editModal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Edit Card</h2>
-                <span class="close" onclick="closeEditModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="editCardForm">
-                    <input type="hidden" id="editCardId">
+    <div class="container mx-auto px-4 py-10 max-w-7xl relative z-10">
+        <div class="flex flex-col lg:flex-row gap-8">
+            
+            <!-- Main Converter Card -->
+            <div class="lg:w-2/3">
+                <div class="bg-white rounded-3xl p-8 md:p-10 border border-border shadow-card relative overflow-hidden animate-enter">
+                    <!-- Subtle corner accent -->
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-bl-3xl pointer-events-none"></div>
                     
-                    <div class="form-group">
-                        <label class="form-label" for="editHeading">Heading:</label>
-                        <input type="text" id="editHeading" class="form-input" name="heading" required maxlength="300" placeholder="Enter card heading" />
+                    <header class="text-center mb-10 relative z-10">
+                        <div class="inline-flex items-center gap-2 px-4 py-2 bg-surfaceAlt rounded-full border border-border mb-6">
+                            <span class="w-2 h-2 bg-success rounded-full animate-pulse"></span>
+                            <span class="text-sm font-medium text-textMuted">All systems operational</span>
+                        </div>
+                        <h1 class="text-4xl md:text-5xl font-bold text-text mb-3 tracking-tight">                            SquadVertex <span class="text-primary">Tools</span>
+                        </h1>
+                        <h2 class="text-2xl font-semibold text-textMuted mb-4">Universal URL Converter</h2>
+                        <p class="text-textMuted max-w-md mx-auto text-base">
+                            Seamlessly convert Dropbox, Google Drive & OneDrive links to direct download URLs
+                        </p>
+                    </header>
+
+                    <!-- Input Section -->
+                    <div class="mb-8 relative">
+                        <label for="fileLink" class="block text-sm font-semibold text-text mb-3 ml-1">
+                            Enter File Link
+                        </label>
+                        <div class="relative group">
+                            <input 
+                                type="text" 
+                                id="fileLink" 
+                                class="w-full px-5 py-4 text-base bg-surfaceAlt border-2 border-border rounded-2xl 
+                                       focus:outline-none focus:border-primary focus:ring-0 focus-ring
+                                       placeholder:text-textMuted/60 transition-all duration-200"
+                                placeholder="https://www.dropbox.com/s/..."
+                                oninput="validateInput()"
+                                autocomplete="off"
+                            >
+                            <span class="absolute right-5 top-1/2 -translate-y-1/2">
+                                <span id="validationIndicator" class="validation-dot idle"></span>
+                            </span>
+                        </div>
+                        <p class="mt-2 text-xs text-textMuted ml-1">
+                            Supports: dropbox.com • drive.google.com • onedrive.live.com
+                        </p>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="editDescription">Description:</label>
-                        <textarea id="editDescription" class="form-textarea" name="description" required maxlength="10000" placeholder="Enter card description"></textarea>
-                    </div>
+                    <!-- Convert Button -->
+                    <button 
+                        onclick="convertURL()" 
+                        class="w-full bg-gradient-to-r from-primary to-secondary text-white font-semibold py-4 px-6 
+                               rounded-2xl hover:opacity-95 transition-all duration-200 shadow-soft btn-hover border-gradient mb-8"
+                    >
+                        <span class="flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                            </svg>
+                            Convert URL Now
+                        </span>
+                    </button>
 
-                    <div class="form-group">
-                        <label class="form-label" for="editImageUrl">Image URL:</label>
-                        <input type="text" id="editImageUrl" class="form-input" name="imageUrl" required placeholder="Enter image URL (https://...)" />
-                    </div>
-
-                    <button type="submit" class="submit-btn">Update Card</button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Initialize Firebase
-        const firebaseConfig = {
-          apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-          authDomain: "teamgalaxy-77344.firebaseapp.com",
-          projectId: "teamgalaxy-77344",
-          storageBucket: "teamgalaxy-77344.firebasestorage.app",
-          messagingSenderId: "770256225320",
-          appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-          measurementId: "G-6C2W9NSNCH"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-
-        // Create star background
-        function createStars() {
-            const starsContainer = document.getElementById('stars');
-            const starCount = 150;
-
-            for (let i = 0; i < starCount; i++) {
-                const star = document.createElement('div');
-                star.classList.add('star');
-
-                const x = Math.random() * 100;
-                const y = Math.random() * 100;
-                star.style.left = `${x}%`;
-                star.style.top = `${y}%`;
-
-                const size = Math.random() * 3 + 1;
-                star.style.width = `${size}px`;
-                star.style.height = `${size}px`;
-
-                const duration = Math.random() * 5 + 2;
-                star.style.setProperty('--duration', `${duration}s`);
-
-                starsContainer.appendChild(star);
-            }
-        }
-
-        // Check admin authentication
-        async function checkAuth() {
-            try {
-                const user = await new Promise((resolve, reject) => {
-                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-                        if (user) {
-                            try {
-                                const adminQuery = await db.collection('admin').where('gmail', '==', user.email).limit(1).get();
-                                if (!adminQuery.empty) {
-                                    unsubscribe();
-                                    resolve(user);
-                                } else {
-                                    unsubscribe();
-                                    throw new Error('Not an admin');
-                                }
-                            } catch (error) {
-                                unsubscribe();
-                                throw error;
-                            }
-                        } else {                            unsubscribe();
-                            throw new Error('Not signed in');
-                        }
-                    });
-                });
-
-                setTimeout(() => {
-                    document.getElementById('loadingScreen').style.opacity = '0';
-                    setTimeout(() => {
-                        document.getElementById('loadingScreen').classList.add('hidden');
-                        document.getElementById('mainContainer').style.display = 'block';
-                        loadCards();
-                    }, 500);
-                }, 1500);
-
-            } catch (error) {
-                console.error('Auth check error:', error);
-                document.getElementById('loadingScreen').querySelector('.loading-text').textContent = 'Access denied. Redirecting...';
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 2000);
-            }
-        }
-
-        // Load cards from Firestore
-        async function loadCards() {
-            try {
-                const cardsSnapshot = await db.collection('cards').orderBy('publishedAt', 'desc').get();
-                const cardsContainer = document.getElementById('cardsGrid');
-
-                if (cardsSnapshot.empty) {
-                    cardsContainer.innerHTML = '<div class="no-cards">No cards found. Add your first card above.</div>';
-                    return;
-                }
-
-                let html = '';
-                cardsSnapshot.forEach(doc => {
-                    const card = doc.data();
-                    const publishedAt = card.publishedAt?.toDate().toLocaleDateString() || 'N/A';
-                    const docId = doc.id; // Get document ID for editing
-
-                    html += `
-                        <div class="card-item">
-                            <img src="${card.imageUrl}" alt="${card.heading}" class="card-image" onerror="this.src='https://via.placeholder.com/300x180'">
-                            <div class="card-content">
-                                <h3 class="card-heading">${card.heading}</h3>
-                                <p class="card-description">${card.description.substring(0, 100)}${card.description.length > 100 ? '...' : ''}</p>
-                                <div class="card-stats">
-                                    <span><i class="fas fa-eye"></i> ${card.views || 0}</span>
-                                    <span><i class="fas fa-heart"></i> ${card.likes || 0}</span>                                    <span><i class="fas fa-calendar"></i> ${publishedAt}</span>
-                                </div>
-                                <div style="margin-top: 10px;">
-                                    <button class="edit-btn" onclick="openEditModal('${docId}', '${card.heading.replace(/'/g, "\\'")}', '${card.description.replace(/'/g, "\\'")}', '${card.imageUrl.replace(/'/g, "\\'")}')">
-                                        <i class="fas fa-edit"></i> Edit
-                                    </button>
-                                </div>
+                    <!-- Result Box (Hidden by default) -->
+                    <div id="resultBox" class="hidden bg-surfaceAlt rounded-2xl p-6 border border-border relative overflow-hidden animate-enter-delay">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-secondary"></div>                        
+                        <div class="flex items-start gap-3 mb-5">
+                            <div class="flex-shrink-0 w-8 h-8 bg-success/10 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-text">Conversion Successful</h3>
+                                <p class="text-sm text-textMuted">Your direct download URL is ready</p>
                             </div>
                         </div>
-                    `;
-                });
+                        
+                        <div class="bg-white p-4 rounded-xl mb-5 border border-border font-mono text-sm text-text break-all max-h-28 overflow-y-auto">
+                            <p id="convertedURL"></p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <button onclick="copyConvertedURL()" 
+                                    class="py-3 px-4 bg-primary text-white rounded-xl font-medium hover:bg-primaryDark transition shadow-soft btn-hover flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                Copy
+                            </button>
+                            <button onclick="shortenURL()" 
+                                    class="py-3 px-4 bg-white text-text border border-border rounded-xl font-medium hover:border-primary hover:text-primary transition shadow-soft btn-hover flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                                </svg>
+                                Shorten
+                            </button>
+                            <button onclick="resetForm()" 
+                                    class="py-3 px-4 bg-surfaceAlt text-textMuted border border-border rounded-xl font-medium hover:bg-white hover:text-text hover:border-primary transition shadow-soft btn-hover flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                Reset
+                            </button>
+                        </div>
+                    </div>
 
-                cardsContainer.innerHTML = html;
-            } catch (error) {
-                console.error('Error loading cards:', error);
-                document.getElementById('cardsGrid').innerHTML = '<div class="error">Error loading cards</div>';
-            }
-        }
+                    <!-- Supported Platforms -->
+                    <div class="mt-10 bg-surfaceAlt rounded-2xl p-6 border border-border">
+                        <h3 class="text-sm font-semibold text-text mb-4 text-center uppercase tracking-wider">Supported Platforms</h3>
+                        <div class="flex flex-wrap justify-center gap-3">
+                            <div class="flex items-center gap-2 px-4 py-2.5 bg-white rounded-full border border-border shadow-soft">
+                                <span class="w-2.5 h-2.5 bg-blue-500 rounded-full"></span>
+                                <span class="text-sm font-medium text-text">Dropbox</span>
+                            </div>                            <div class="flex items-center gap-2 px-4 py-2.5 bg-white rounded-full border border-border shadow-soft">
+                                <span class="w-2.5 h-2.5 bg-green-500 rounded-full"></span>
+                                <span class="text-sm font-medium text-text">Google Drive</span>
+                            </div>
+                            <div class="flex items-center gap-2 px-4 py-2.5 bg-white rounded-full border border-border shadow-soft">
+                                <span class="w-2.5 h-2.5 bg-sky-500 rounded-full"></span>
+                                <span class="text-sm font-medium text-text">OneDrive</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        // Open edit modal with current card data
-        function openEditModal(id, heading, description, imageUrl) {
-            document.getElementById('editCardId').value = id;
-            document.getElementById('editHeading').value = heading;
-            document.getElementById('editDescription').value = description;
-            document.getElementById('editImageUrl').value = imageUrl;
-            
-            document.getElementById('editModal').classList.remove('hidden');
-        }
+            <!-- History Panel -->
+            <div class="lg:w-1/3">
+                <div class="bg-white rounded-3xl p-6 border border-border shadow-card h-full animate-enter-delay">
+                    <div class="flex justify-between items-center mb-5 pb-4 border-b border-border">
+                        <h3 class="text-lg font-semibold text-text">Recent Conversions</h3>
+                        <button 
+                            onclick="clearHistory()" 
+                            class="text-xs font-medium text-error hover:text-red-700 bg-red-50 px-3 py-1.5 rounded-lg transition hover:bg-red-100"
+                        >
+                            Clear All
+                        </button>
+                    </div>
+                    <div id="historyList" class="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+                        <!-- History items render here -->
+                    </div>
+                    <div id="emptyHistory" class="text-center py-10 text-textMuted">
+                        <svg class="w-12 h-12 mx-auto mb-3 text-border" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <p class="text-sm">No conversions yet</p>
+                        <p class="text-xs mt-1">Your recent URL conversions will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        // Close edit modal
-        function closeEditModal() {
-            document.getElementById('editModal').classList.add('hidden');
-        }
+        <!-- Footer -->
+        <footer class="mt-14 text-center">
+            <p class="text-sm text-textMuted">
+                © <span id="year"></span> SquadVertex • Crafted with care by <span class="font-medium text-primary">Prince</span>
+            </p>
+        </footer>
+    </div>
 
-        // Handle edit form submission
-        document.getElementById('editCardForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const messageBox = document.getElementById('messageBox');
+    <!-- Notification Toast -->
+    <div id="notification" class="fixed top-5 left-1/2 -translate-x-1/2 px-5 py-3.5 rounded-2xl shadow-elevated font-medium z-50 hidden backdrop-blur-sm border transition-all duration-300">
+        <span id="notificationText"></span>    </div>
 
-            const id = document.getElementById('editCardId').value;
-            const heading = document.getElementById('editHeading').value.trim();
-            const description = document.getElementById('editDescription').value.trim();
-            const imageUrl = document.getElementById('editImageUrl').value.trim();
-
-            if (!heading || !description || !imageUrl) {
-                messageBox.className = 'message error';
-                messageBox.textContent = "Please fill all fields correctly.";
-                return;
-            }
-
-            try {
-                await db.collection('cards').doc(id).update({
-                    heading,
-                    description,
-                    imageUrl
-                });
-
-                messageBox.className = 'message success';
-                messageBox.textContent = "Card updated successfully!";
-                
-                closeEditModal();
-                loadCards(); // Reload cards to show updated data
-            } catch (error) {
-                messageBox.className = 'message error';
-                messageBox.textContent = "Error updating card: " + error.message;
-            }
-        });
-
-        // Handle form submission
-        document.getElementById('cardForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const messageBox = document.getElementById('messageBox');
-
-            const heading = document.getElementById('heading').value.trim();
-            const description = document.getElementById('description').value.trim();
-            const imageUrl = document.getElementById('imageUrl').value.trim();
-
-            if (!heading || !description || !imageUrl) {
-                messageBox.className = 'message error';
-                messageBox.textContent = "Please fill all fields correctly.";
-                return;
-            }
-
-            try {
-                await db.collection('cards').add({
-                    heading,
-                    description,
-                    imageUrl,
-                    views: 0,
-                    likes: 0,
-                    publishedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                messageBox.className = 'message success';
-                messageBox.textContent = "Card added successfully!";
-                document.getElementById('cardForm').reset();
-
-                // Reload cards
-                loadCards();
-            } catch (error) {
-                messageBox.className = 'message error';
-                messageBox.textContent = "Error adding card: " + error.message;
-            }
-        });
-
-        // Go back function
-        function goBack() {
-            window.location.href = 'admin_panel.html';
-        }
-
-        // Close modal if clicked outside content
-        window.onclick = function(event) {
-            const modal = document.getElementById('editModal');
-            if (event.target === modal) {
-                closeEditModal();
-            }
-        }
-
-        // Initialize
+    <script>
+        // Set current year
+        document.getElementById('year').textContent = new Date().getFullYear();
+        
+        // Load history on page load
         document.addEventListener('DOMContentLoaded', () => {
-            createStars();
-            checkAuth();
+            loadHistory();
+            // Hide empty state if history exists
+            if (getHistoryFromStorage().length > 0) {
+                document.getElementById('emptyHistory').classList.add('hidden');
+            }
         });
+
+        function validateInput() {
+            const input = document.getElementById('fileLink');
+            const indicator = document.getElementById('validationIndicator');
+            const value = input.value.trim();
+            
+            if (value === '') {
+                indicator.className = 'validation-dot idle';
+                return;
+            }
+            
+            const isValid = isValidURL(value);
+            indicator.className = `validation-dot ${isValid ? 'valid' : 'invalid'}`;
+        }
+
+        function isValidURL(url) {
+            try {
+                new URL(url);
+                return (
+                    url.includes('dropbox.com') || 
+                    url.includes('drive.google.com') || 
+                    url.includes('onedrive.live.com')
+                );
+            } catch {
+                return false;
+            }
+        }
+
+        function convertURL() {
+            let inputURL = document.getElementById("fileLink").value.trim();
+            if (!inputURL) {
+                showNotification("Please enter a file link", true);
+                return;
+            }
+
+            if (!isValidURL(inputURL)) {                showNotification("Please enter a valid Dropbox, Google Drive, or OneDrive URL", true);
+                return;
+            }
+
+            let convertedURL = "";
+
+            if (inputURL.includes("dropbox.com")) {
+                convertedURL = inputURL.replace("www.dropbox.com", "dl.dropboxusercontent.com").replace("?dl=0", "");
+            } else if (inputURL.includes("drive.google.com")) {
+                let match = inputURL.match(/[-\w]{25,}/);
+                if (match) {
+                    convertedURL = `https://drive.google.com/uc?export=download&id=${match[0]}`;
+                } else {
+                    showNotification("Invalid Google Drive link format", true);
+                    return;
+                }
+            } else if (inputURL.includes("onedrive.live.com")) {
+                convertedURL = inputURL.replace(/redir\?resid=/, "download.aspx?resid=");
+            }
+
+            document.getElementById("convertedURL").textContent = convertedURL;
+            document.getElementById("resultBox").classList.remove('hidden');
+            
+            addToHistory(inputURL, convertedURL);
+            document.getElementById('emptyHistory').classList.add('hidden');
+        }
+
+        async function copyConvertedURL() {
+            const convertedURL = document.getElementById("convertedURL").textContent;
+            if (!convertedURL) {
+                showNotification("No URL to copy", true);
+                return;
+            }
+            
+            try {
+                await navigator.clipboard.writeText(convertedURL);
+                showNotification("✓ Copied to clipboard!");
+            } catch {
+                showNotification("Copy failed. Please copy manually.", true);
+            }
+        }
+
+        function shortenURL() {
+            const convertedURL = document.getElementById("convertedURL").textContent;
+            if (!convertedURL) {
+                showNotification("No URL to shorten", true);
+                return;
+            }
+            
+            // Simulated shortening
+            const shortId = Math.random().toString(36).substring(2, 8);
+            const shortened = `https://sqv.to/${shortId}`;
+            
+            document.getElementById("convertedURL").textContent = shortened;
+            updateLastHistoryItem(convertedURL, shortened);
+            showNotification("✓ URL shortened!");
+        }
+
+        function resetForm() {
+            document.getElementById("fileLink").value = "";
+            document.getElementById("resultBox").classList.add('hidden');
+            document.getElementById('validationIndicator').className = 'validation-dot idle';
+            document.getElementById('fileLink').focus();
+        }
+
+        function addToHistory(original, converted) {
+            const history = getHistoryFromStorage();
+            const exists = history.some(item => item.original === original);
+            if (exists) return;
+            
+            const newItem = {
+                id: Date.now(),
+                original,
+                converted,
+                timestamp: new Date().toISOString()
+            };
+            
+            history.unshift(newItem);
+            if (history.length > 10) history.splice(10);
+            
+            localStorage.setItem('urlConverterHistory', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function getHistoryFromStorage() {
+            try {
+                const stored = localStorage.getItem('urlConverterHistory');
+                return stored ? JSON.parse(stored) : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function loadHistory() {
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const history = getHistoryFromStorage();
+            const container = document.getElementById('historyList');
+            const emptyState = document.getElementById('emptyHistory');
+            
+            if (history.length === 0) {
+                container.innerHTML = '';
+                emptyState?.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState?.classList.add('hidden');
+            container.innerHTML = '';
+            
+            history.forEach((item, index) => {
+                const date = new Date(item.timestamp).toLocaleDateString('en-GB', {
+                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                });
+                
+                const itemEl = document.createElement('div');
+                itemEl.className = 'history-item bg-surfaceAlt rounded-xl p-4 border border-border cursor-pointer';
+                itemEl.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-mono text-text break-all line-clamp-2">${item.converted}</p>
+                            <p class="text-xs text-textMuted mt-1">${date}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mt-3 pt-3 border-t border-border">
+                        <button class="flex-1 py-2 px-3 bg-white text-text text-xs font-medium rounded-lg border border-border hover:border-primary hover:text-primary transition shadow-soft" 
+                                onclick="event.stopPropagation(); copyToClipboard('${item.converted}')">
+                            Copy
+                        </button>
+                        <button class="flex-1 py-2 px-3 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primaryDark transition shadow-soft"
+                                onclick="event.stopPropagation(); useHistoryItem('${item.original.replace(/'/g, "\\'")}', '${item.converted.replace(/'/g, "\\'")}')">
+                            Use
+                        </button>
+                    </div>
+                `;
+                
+                itemEl.onclick = () => useHistoryItem(item.original, item.converted);
+                container.appendChild(itemEl);
+            });
+        }
+
+        function updateLastHistoryItem(oldUrl, newUrl) {
+            const history = getHistoryFromStorage();
+            if (history.length > 0) {
+                history[0].converted = newUrl;
+                localStorage.setItem('urlConverterHistory', JSON.stringify(history));
+                renderHistory();
+            }
+        }
+
+        function clearHistory() {
+            if (confirm('Clear all conversion history?')) {
+                localStorage.removeItem('urlConverterHistory');
+                renderHistory();
+                showNotification("History cleared");
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification("Copied!");
+            }).catch(() => {
+                showNotification("Copy failed", true);
+            });
+        }
+
+        function useHistoryItem(original, converted) {
+            document.getElementById('fileLink').value = original;
+            document.getElementById('convertedURL').textContent = converted;
+            document.getElementById('resultBox').classList.remove('hidden');
+            validateInput();
+            showNotification("Loaded from history");
+        }
+
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById("notification");
+            const text = document.getElementById("notificationText");
+            
+            text.textContent = message;
+            notification.className = `fixed top-5 left-1/2 -translate-x-1/2 px-5 py-3.5 rounded-2xl shadow-elevated font-medium z-50 backdrop-blur-sm border transition-all duration-300 toast-enter ${
+                isError 
+                    ? 'bg-red-50/90 text-red-700 border-red-200' 
+                    : 'bg-white/90 text-text border-border'
+            }`;
+            
+            notification.classList.remove('hidden');
+            
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 2800);
+        }
     </script>
 </body>
 </html>
