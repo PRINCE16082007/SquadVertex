@@ -2,94 +2,337 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SquadVertex Tools | URL Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        primaryDark: '#1d4ed8',
+                        secondary: '#0ea5e9',
+                        surface: '#ffffff',
+                        surfaceAlt: '#f8fafc',
+                        border: '#e2e8f0',
+                        text: '#0f172a',
+                        textMuted: '#64748b',
+                        success: '#10b981',
+                        error: '#ef4444'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    boxShadow: {
+                        'soft': '0 1px 2px 0 rgb(0 0 0 / 0.03), 0 1px 5px 0 rgb(0 0 0 / 0.02)',
+                        'elevated': '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.03)',
+                        'card': '0 8px 30px -8px rgb(0 0 0 / 0.08)'
+                    }
+                }
+            }
+        }
+    </script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        
         body {
-            font-family: Arial, sans-serif;
-            background-color: #121212;
-            color: white;
-            text-align: center;
-            padding: 20px;
+            font-family: 'Inter', sans-serif;
+            background-color: #fafafa;
+            background-image: 
+                radial-gradient(ellipse at top, rgba(37, 99, 235, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom right, rgba(14, 165, 233, 0.04) 0%, transparent 50%);
+            background-attachment: fixed;
+            color: #0f172a;
+            line-height: 1.6;            -webkit-text-size-adjust: 100%;
         }
-        .container {
-            max-width: 500px;
-            margin: auto;
-            background: #1e1e1e;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.8);
+        
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+        .focus-ring:focus { outline: none; box-shadow: 0 0 0 4px rgb(37 99 235 / 0.15); }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        input, button {
-            width: 100%;
-            padding: 12px;
-            margin-top: 10px;
-            font-size: 16px;
-            border-radius: 5px;
-            border: none;
-            outline: none;
+        .animate-enter { animation: fadeInUp 0.4s ease-out forwards; }
+        .animate-enter-delay { animation: fadeInUp 0.4s 0.1s ease-out forwards; opacity: 0; }
+        
+        .btn-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .btn-hover:active { transform: translateY(0); }
+        
+        .validation-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            transition: all 0.2s ease;
         }
-        input {
-            background: #333;
-            color: white;
-            border: 1px solid #555;
+        .validation-dot.valid { background: #10b981; box-shadow: 0 0 0 3px rgb(16 185 129 / 0.15); }
+        .validation-dot.invalid { background: #ef4444; box-shadow: 0 0 0 3px rgb(239 68 68 / 0.15); }
+        .validation-dot.idle { background: #cbd5e1; }
+        
+        .history-item { transition: all 0.25s ease; }
+        .history-item:active { transform: translateX(2px); }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translate(-50%, -20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
         }
-        button {
-            background: #00ff00;
-            color: black;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.3s;
+        .toast-enter { animation: slideDown 0.3s ease-out forwards; }
+        
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.5;
+            z-index: 0;
+            animation: float 18s ease-in-out infinite;
+            pointer-events: none;
         }
-        button:hover {
-            background: #00cc00;
-            transform: scale(1.05);
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -20px) scale(1.05); }
+            66% { transform: translate(-20px, 15px) scale(0.95); }
         }
-        #resultBox {
+        
+        /* Image thumbnail styles */
+        .img-thumb {            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 0.75rem;
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            transition: opacity 0.2s ease;
+        }
+        .img-thumb.loading { opacity: 0.6; }
+        .img-thumb.error { 
+            display: none; 
+        }
+        .img-fallback {
             display: none;
-            margin-top: 20px;
-            background: #222;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            width: 100%;
+            height: 120px;
+            border-radius: 0.75rem;
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            align-items: center;
+            justify-content: center;
+            color: #3b82f6;
+            font-size: 2rem;
         }
-        .copy-btn {
-            background: #0088ff;
-            color: white;
-            font-size: 14px;
-            margin-top: 10px;
+        .img-thumb.error + .img-fallback { display: flex; }
+        
+        /* Mobile optimizations */
+        @media (max-width: 640px) {
+            .container { padding-left: 1rem; padding-right: 1rem; }
+            .btn-hover:hover { transform: none; }
+            .img-thumb { height: 100px; }
         }
-        .copy-btn:hover {
-            background: #0077dd;
-        }
-        .footer {
-            margin-top: 30px;
-            font-size: 14px;
-            opacity: 0.7;
+        
+        @media screen and (-webkit-min-device-pixel-ratio: 0) {
+            input, select, textarea { font-size: 16px !important; }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h2>SquadVertex Tools – Universal URL Converter</h2>
-        <p>Convert Dropbox, Google Drive, or OneDrive file links into direct URLs.</p>
-        <input type="text" id="fileLink" placeholder="Paste your file link here">
-        <button onclick="convertURL()">Convert URL</button>
+<body class="min-h-screen">
+    <div class="blob w-64 h-64 bg-primary/20 top-0 left-1/4"></div>
+    <div class="blob w-80 h-80 bg-secondary/15 bottom-0 right-1/4"></div>
 
-        <div id="resultBox">
-            <h3>✅ Converted URL:</h3>
-            <p id="convertedURL"></p>
-            <button class="copy-btn" onclick="copyConvertedURL()">📋 Copy URL</button>
+    <div class="container mx-auto px-4 py-6 sm:py-10 max-w-7xl relative z-10">
+        <div class="flex flex-col lg:flex-row gap-6 sm:gap-8">
+            
+            <!-- Main Converter Card -->
+            <div class="lg:w-2/3">
+                <div class="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-border shadow-card relative overflow-hidden animate-enter">
+                    <div class="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-bl-2xl sm:rounded-bl-3xl pointer-events-none"></div>
+                    
+                    <header class="text-center mb-6 sm:mb-10 relative z-10">
+                        <div class="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-surfaceAlt rounded-full border border-border mb-4 sm:mb-6">                            <span class="w-2 h-2 bg-success rounded-full animate-pulse"></span>
+                            <span class="text-xs sm:text-sm font-medium text-textMuted">All systems operational</span>
+                        </div>
+                        <h1 class="text-2xl sm:text-4xl font-bold text-text mb-2 sm:mb-3 tracking-tight">
+                            SquadVertex <span class="text-primary">Tools</span>
+                        </h1>
+                        <h2 class="text-lg sm:text-2xl font-semibold text-textMuted mb-3 sm:mb-4">Universal URL Converter</h2>
+                        <p class="text-textMuted max-w-md mx-auto text-sm sm:text-base px-2">
+                            Convert Dropbox, Google Drive & OneDrive links to direct download URLs
+                        </p>
+                    </header>
+
+                    <div class="mb-6 sm:mb-8 relative">
+                        <label for="fileLink" class="block text-sm font-semibold text-text mb-2 sm:mb-3 ml-1">
+                            Enter File Link
+                        </label>
+                        <div class="relative">
+                            <input 
+                                type="text" 
+                                id="fileLink" 
+                                class="w-full px-4 sm:px-5 py-3.5 sm:py-4 text-sm sm:text-base bg-surfaceAlt border-2 border-border rounded-xl sm:rounded-2xl 
+                                       focus:outline-none focus:border-primary focus:ring-0 focus-ring
+                                       placeholder:text-textMuted/60 transition-all duration-200"
+                                placeholder="https://www.dropbox.com/s/..."
+                                oninput="validateInput()"
+                                autocomplete="off"
+                                inputmode="url"
+                            >
+                            <span class="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2">
+                                <span id="validationIndicator" class="validation-dot idle"></span>
+                            </span>
+                        </div>
+                        <p class="mt-2 text-xs text-textMuted ml-1 px-1">
+                            Supports: dropbox.com • drive.google.com • onedrive.live.com
+                        </p>
+                    </div>
+
+                    <button 
+                        onclick="convertURL()" 
+                        class="w-full bg-gradient-to-r from-primary to-secondary text-white font-semibold py-3.5 sm:py-4 px-6 
+                               rounded-xl sm:rounded-2xl hover:opacity-95 transition-all duration-200 shadow-soft btn-hover border border-transparent mb-6 sm:mb-8"
+                    >
+                        <span class="flex items-center justify-center gap-2 text-sm sm:text-base">
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                            </svg>
+                            Convert URL Now
+                        </span>
+                    </button>
+                    <div id="resultBox" class="hidden bg-surfaceAlt rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-border relative overflow-hidden animate-enter-delay">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-secondary"></div>
+                        
+                        <div class="flex items-start gap-3 mb-4 sm:mb-5">
+                            <div class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-success/10 rounded-full flex items-center justify-center">
+                                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base sm:text-lg font-semibold text-text">Conversion Successful</h3>
+                                <p class="text-xs sm:text-sm text-textMuted">Your direct download URL is ready</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-3 sm:p-4 rounded-lg sm:rounded-xl mb-4 sm:mb-5 border border-border font-mono text-xs sm:text-sm text-text break-all max-h-24 sm:max-h-28 overflow-y-auto">
+                            <p id="convertedURL"></p>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
+                            <button onclick="copyConvertedURL()" 
+                                    class="py-2.5 sm:py-3 px-3 sm:px-4 bg-primary text-white rounded-lg sm:rounded-xl font-medium text-xs sm:text-sm hover:bg-primaryDark transition shadow-soft btn-hover flex items-center justify-center gap-1.5 sm:gap-2">
+                                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                Copy
+                            </button>
+                            <button onclick="resetForm()" 
+                                    class="py-2.5 sm:py-3 px-3 sm:px-4 bg-surfaceAlt text-textMuted border border-border rounded-lg sm:rounded-xl font-medium text-xs sm:text-sm hover:bg-white hover:text-text hover:border-primary transition shadow-soft btn-hover flex items-center justify-center gap-1.5 sm:gap-2">
+                                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 sm:mt-10 bg-surfaceAlt rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-border">
+                        <h3 class="text-xs sm:text-sm font-semibold text-text mb-3 sm:mb-4 text-center uppercase tracking-wider">Supported Platforms</h3>
+                        <div class="flex flex-wrap justify-center gap-2 sm:gap-3">
+                            <div class="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white rounded-full border border-border shadow-soft">
+                                <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-blue-500 rounded-full"></span>
+                                <span class="text-xs sm:text-sm font-medium text-text">Dropbox</span>
+                            </div>
+                            <div class="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white rounded-full border border-border shadow-soft">
+                                <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-green-500 rounded-full"></span>
+                                <span class="text-xs sm:text-sm font-medium text-text">Google Drive</span>
+                            </div>
+                            <div class="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white rounded-full border border-border shadow-soft">
+                                <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-sky-500 rounded-full"></span>                                <span class="text-xs sm:text-sm font-medium text-text">OneDrive</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Panel -->
+            <div class="lg:w-1/3">
+                <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border shadow-card h-full animate-enter-delay">
+                    <div class="flex justify-between items-center mb-4 sm:mb-5 pb-3 sm:pb-4 border-b border-border">
+                        <h3 class="text-base sm:text-lg font-semibold text-text">Recent Conversions</h3>
+                        <button 
+                            onclick="clearHistory()" 
+                            class="text-xs font-medium text-error hover:text-red-700 bg-red-50 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg transition hover:bg-red-100"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                    <div id="historyList" class="space-y-3 sm:space-y-4 max-h-[calc(100vh-220px)] sm:max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+                        <!-- History items render here -->
+                    </div>
+                    <div id="emptyHistory" class="text-center py-8 sm:py-10 text-textMuted">
+                        <svg class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 text-border" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <p class="text-xs sm:text-sm">No conversions yet</p>
+                        <p class="text-xs mt-1 text-textMuted/70">Your recent URLs will appear here</p>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <footer class="mt-10 sm:mt-14 text-center px-2">
+            <p class="text-xs sm:text-sm text-textMuted">
+                © <span id="year"></span> SquadVertex • Crafted with care by <span class="font-medium text-primary">Prince</span>
+            </p>
+        </footer>
     </div>
 
-    <div class="footer">© 2024-2025 SquadVertex | Built by Prince</div>
+    <!-- Notification Toast -->
+    <div id="notification" class="fixed top-4 left-1/2 -translate-x-1/2 px-4 py-3 rounded-xl shadow-elevated font-medium z-50 hidden backdrop-blur-sm border transition-all duration-300 max-w-[90vw] text-center">
+        <span id="notificationText" class="text-sm"></span>
+    </div>
 
-    <script type="module">
+    <script>
+        document.getElementById('year').textContent = new Date().getFullYear();
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            loadHistory();            if (getHistoryFromStorage().length > 0) {
+                document.getElementById('emptyHistory').classList.add('hidden');
+            }
+        });
+
+        function validateInput() {
+            const input = document.getElementById('fileLink');
+            const indicator = document.getElementById('validationIndicator');
+            const value = input.value.trim();
+            
+            if (value === '') {
+                indicator.className = 'validation-dot idle';
+                return;
+            }
+            
+            const isValid = isValidURL(value);
+            indicator.className = `validation-dot ${isValid ? 'valid' : 'invalid'}`;
+        }
+
+        function isValidURL(url) {
+            try {
+                new URL(url);
+                return (
+                    url.includes('dropbox.com') || 
+                    url.includes('drive.google.com') || 
+                    url.includes('onedrive.live.com')
+                );
+            } catch {
+                return false;
+            }
+        }
+
         function convertURL() {
             let inputURL = document.getElementById("fileLink").value.trim();
             if (!inputURL) {
-                alert("❌ Please enter a valid file link!");
+                showNotification("Please enter a file link", true);
+                return;
+            }
+
+            if (!isValidURL(inputURL)) {
+                showNotification("Enter a valid Dropbox, Drive, or OneDrive URL", true);
                 return;
             }
 
@@ -98,31 +341,239 @@
             if (inputURL.includes("dropbox.com")) {
                 convertedURL = inputURL.replace("www.dropbox.com", "dl.dropboxusercontent.com").replace("?dl=0", "");
             } else if (inputURL.includes("drive.google.com")) {
-                let match = inputURL.match(/[-\w]{25,}/);
-                if (match) {
+                let match = inputURL.match(/[-\w]{25,}/);                if (match) {
                     convertedURL = `https://drive.google.com/uc?export=download&id=${match[0]}`;
+                } else {
+                    showNotification("Invalid Google Drive link", true);
+                    return;
                 }
             } else if (inputURL.includes("onedrive.live.com")) {
                 convertedURL = inputURL.replace(/redir\?resid=/, "download.aspx?resid=");
-            } else {
-                alert("❌ Unsupported file link! Please enter a Dropbox, Google Drive, or OneDrive link.");
-                return;
             }
 
             document.getElementById("convertedURL").textContent = convertedURL;
-            document.getElementById("resultBox").style.display = "block";
+            document.getElementById("resultBox").classList.remove('hidden');
+            
+            addToHistory(inputURL, convertedURL);
+            document.getElementById('emptyHistory').classList.add('hidden');
         }
 
-        window.copyConvertedURL = function() {
-            let convertedURL = document.getElementById("convertedURL").textContent;
-            navigator.clipboard.writeText(convertedURL).then(() => {
-                alert("✅ URL copied to clipboard!");
-            }).catch(err => {
-                console.error("Failed to copy:", err);
-            });
-        };
+        async function copyConvertedURL() {
+            const convertedURL = document.getElementById("convertedURL").textContent;
+            if (!convertedURL) {
+                showNotification("No URL to copy", true);
+                return;
+            }
+            
+            try {
+                await navigator.clipboard.writeText(convertedURL);
+                showNotification("✓ Copied to clipboard!");
+            } catch {
+                const textarea = document.createElement('textarea');
+                textarea.value = convertedURL;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showNotification("✓ Copied!");
+            }
+        }
 
-        window.convertURL = convertURL;
+        function resetForm() {
+            document.getElementById("fileLink").value = "";
+            document.getElementById("resultBox").classList.add('hidden');
+            document.getElementById('validationIndicator').className = 'validation-dot idle';
+            document.getElementById('fileLink').focus();
+        }
+
+        function addToHistory(original, converted) {
+            const history = getHistoryFromStorage();
+            const exists = history.some(item => item.original === original);
+            if (exists) return;
+            
+            const newItem = {
+                id: Date.now(),
+                original,
+                converted,
+                timestamp: new Date().toISOString()
+            };
+            
+            history.unshift(newItem);
+            if (history.length > 10) history.splice(10);
+            
+            localStorage.setItem('urlConverterHistory', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function getHistoryFromStorage() {
+            try {
+                const stored = localStorage.getItem('urlConverterHistory');
+                return stored ? JSON.parse(stored) : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function loadHistory() {
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const history = getHistoryFromStorage();
+            const container = document.getElementById('historyList');
+            const emptyState = document.getElementById('emptyHistory');
+            
+            if (history.length === 0) {
+                container.innerHTML = '';
+                emptyState?.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState?.classList.add('hidden');
+            container.innerHTML = '';
+            
+            history.forEach(item => {
+                const date = new Date(item.timestamp).toLocaleDateString('en-GB', {
+                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                });
+                
+                const isImage = isImageUrl(item.converted);
+                
+                const itemEl = document.createElement('div');
+                itemEl.className = 'history-item bg-surfaceAlt rounded-xl p-3 sm:p-4 border border-border cursor-pointer';
+                
+                if (isImage) {
+                    // 🖼️ IMAGE CARD: Big preview, no URL text
+                    itemEl.innerHTML = `
+                        <div class="relative mb-3">
+                            <img 
+                                src="${item.converted}" 
+                                alt="Preview" 
+                                class="img-thumb loading"
+                                loading="lazy"
+                                onload="this.classList.remove('loading'); this.parentElement.querySelector('.img-fallback')?.classList.add('hidden');"
+                                onerror="this.classList.add('error'); this.parentElement.querySelector('.img-fallback')?.classList.remove('hidden');"
+                            >
+                            <div class="img-fallback">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs text-textMuted">${date}</span>
+                            <button class="text-xs text-primary hover:underline font-medium flex items-center gap-1" 
+                                    onclick="event.stopPropagation(); previewImage('${item.converted}')">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                                Preview
+                            </button>
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="flex-1 py-2 px-3 bg-white text-text text-xs font-medium rounded-lg border border-border hover:border-primary hover:text-primary transition shadow-soft" 
+                                    onclick="event.stopPropagation(); copyToClipboard('${item.converted}')">
+                                Copy
+                            </button>
+                            <button class="flex-1 py-2 px-3 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primaryDark transition shadow-soft"
+                                    onclick="event.stopPropagation(); useHistoryItem('${item.original.replace(/'/g, "\\'")}', '${item.converted.replace(/'/g, "\\'")}')">
+                                Use
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    // 📄 TEXT CARD: Show URL as before
+                    itemEl.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg flex items-center justify-center">
+                                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs sm:text-sm font-mono text-text break-all line-clamp-2">${item.converted}</p>
+                                <p class="text-xs text-textMuted mt-1">${date}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 mt-3 pt-3 border-t border-border">
+                            <button class="flex-1 py-2 px-2.5 sm:px-3 bg-white text-text text-xs font-medium rounded-lg border border-border hover:border-primary hover:text-primary transition shadow-soft" 
+                                    onclick="event.stopPropagation(); copyToClipboard('${item.converted}')">
+                                Copy
+                            </button>
+                            <button class="flex-1 py-2 px-2.5 sm:px-3 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primaryDark transition shadow-soft"
+                                    onclick="event.stopPropagation(); useHistoryItem('${item.original.replace(/'/g, "\\'")}', '${item.converted.replace(/'/g, "\\'")}')">
+                                Use
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                itemEl.onclick = () => useHistoryItem(item.original, item.converted);
+                container.appendChild(itemEl);
+            });
+        }
+
+        function previewImage(url) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+            showNotification("Opening image in new tab...");
+        }
+
+        function isImageUrl(url) {
+            return /\.(jpeg|jpg|gif|png|webp|bmp|svg)(\?.*)?$/i.test(url);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification("Copied!");
+            }).catch(() => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showNotification("Copied!");
+            });
+        }
+
+        function useHistoryItem(original, converted) {
+            document.getElementById('fileLink').value = original;
+            document.getElementById('convertedURL').textContent = converted;
+            document.getElementById('resultBox').classList.remove('hidden');
+            validateInput();
+            showNotification("Loaded from history ✓");
+            
+            if (window.innerWidth < 640) {
+                document.getElementById('resultBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function clearHistory() {
+            if (confirm('Clear all conversion history?')) {
+                localStorage.removeItem('urlConverterHistory');
+                renderHistory();
+                showNotification("History cleared");
+            }
+        }
+
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById("notification");
+            const text = document.getElementById("notificationText");
+            
+            text.textContent = message;
+            notification.className = `fixed top-4 left-1/2 -translate-x-1/2 px-4 py-3 rounded-xl shadow-elevated font-medium z-50 backdrop-blur-sm border transition-all duration-300 toast-enter max-w-[90vw] text-center ${
+                isError 
+                    ? 'bg-red-50/90 text-red-700 border-red-200' 
+                    : 'bg-white/90 text-text border-border'
+            }`;
+            
+            notification.classList.remove('hidden');
+            
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 2500);
+        }
     </script>
 </body>
 </html>
