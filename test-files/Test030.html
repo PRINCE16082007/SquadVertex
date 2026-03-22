@@ -157,6 +157,7 @@ position: relative;
 display: inline-block;
 max-width: 100%;
 word-wrap: break-word;
+overflow-wrap: break-word;
 }
 .section-title::after {
 content: '';
@@ -206,7 +207,7 @@ transition: width 0.1s ease;
 width: 0%;
 }
 
-/* Blog Content */
+/* Blog Content - FIXED TEXT OVERFLOW */
 .blog-content-container {
 background: rgba(30, 41, 59, 0.4);
 backdrop-filter: blur(20px);
@@ -214,9 +215,14 @@ border: 1px solid rgba(56, 189, 248, 0.15);
 border-radius: 20px;
 padding: 2rem;
 margin-top: 2rem;
+width: 100%;
+max-width: 100%;
+overflow-wrap: break-word;
+word-wrap: break-word;
 }
 .blog-hero-image {
 width: 100%;
+max-width: 100%;
 height: 400px;
 object-fit: cover;
 border-radius: 15px;
@@ -227,9 +233,16 @@ margin-bottom: 2rem;
 font-size: 1.1rem;
 line-height: 1.8;
 color: #e2e8f0;
+width: 100%;
+max-width: 100%;
+overflow-wrap: break-word;
+word-wrap: break-word;
+word-break: break-word;
 }
 .blog-full-content p {
 margin-bottom: 1.5rem;
+overflow-wrap: break-word;
+word-wrap: break-word;
 }
 .blog-meta-info {
 display: flex;
@@ -241,8 +254,13 @@ margin-bottom: 1.5rem;
 padding-bottom: 1.5rem;
 border-bottom: 1px solid rgba(56, 189, 248, 0.15);
 }
+.blog-title {
+word-wrap: break-word;
+overflow-wrap: break-word;
+hyphens: auto;
+}
 
-/* Comment Section */
+/* Comment Section - FIXED */
 .comment-section {
 background: rgba(15, 23, 42, 0.5);
 backdrop-filter: blur(15px);
@@ -299,6 +317,7 @@ transform: none;
 display: flex;
 flex-direction: column;
 gap: 1rem;
+min-height: 50px;
 }
 .comment-card {
 background: rgba(30, 41, 59, 0.4);
@@ -332,10 +351,13 @@ align-items: center;
 justify-content: center;
 font-weight: 600;
 color: white;
+flex-shrink: 0;
 }
 .comment-author-name {
 font-weight: 600;
 color: #e2e8f0;
+word-break: break-word;
+overflow-wrap: break-word;
 }
 .comment-time {
 color: #94a3b8;
@@ -344,6 +366,8 @@ font-size: 0.85rem;
 .comment-text {
 color: #cbd5e1;
 line-height: 1.6;
+word-break: break-word;
+overflow-wrap: break-word;
 }
 .auth-required-message {
 background: rgba(37, 99, 235, 0.1);
@@ -594,7 +618,7 @@ Sign In
 </div>
 
 <!-- Blog Title -->
-<h1 id="blogTitle" class="text-2xl sm:text-3xl md:text-4xl font-bold font-serif mb-6 text-white"></h1>
+<h1 id="blogTitle" class="text-2xl sm:text-3xl md:text-4xl font-bold font-serif mb-6 text-white blog-title"></h1>
 
 <!-- Blog Full Content -->
 <div id="blogFullContent" class="blog-full-content"></div>
@@ -697,7 +721,7 @@ import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/fi
 import { getFirestore, doc, getDoc, collection, addDoc, query, orderBy, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
 
 // ============================================
-// ⚠️ FIREBASE CONFIG (Same as blogs page)
+// ⚠️ FIREBASE CONFIG
 // ============================================
 const firebaseConfig = {
 apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
@@ -723,13 +747,11 @@ let currentUser = null;
 // ============================================
 function getBlogIdFromURL() {
 const urlParams = new URLSearchParams(window.location.search);
-// Support both ?={blogId} and ?blogId={blogId} formats
 let blogId = urlParams.get('');
 if (!blogId) {
 blogId = urlParams.get('blogId');
 }
 if (!blogId) {
-// Try to get from path like /blog_view/{blogId}
 const pathParts = window.location.pathname.split('/');
 blogId = pathParts[pathParts.length - 1];
 }
@@ -777,41 +799,45 @@ const errorMessage = document.getElementById('errorMessage');
 const blogContentContainer = document.getElementById('blogContentContainer');
 
 if (!blogId) {
-loadingSpinner.style.display = 'none';
-errorMessage.classList.remove('hidden');
+if (loadingSpinner) loadingSpinner.style.display = 'none';
+if (errorMessage) errorMessage.classList.remove('hidden');
 return;
 }
 
 try {
-// Fetch specific blog document
 const blogRef = doc(db, 'blog', blogId);
 const blogSnap = await getDoc(blogRef);
 
-loadingSpinner.style.display = 'none';
+if (loadingSpinner) loadingSpinner.style.display = 'none';
 
 if (!blogSnap.exists()) {
-errorMessage.classList.remove('hidden');
+if (errorMessage) errorMessage.classList.remove('hidden');
 return;
 }
 
 const blogData = blogSnap.data();
 
 // Populate blog content
-document.getElementById('blogImage').src = blogData.imageUrl || 'https://via.placeholder.com/800x400?text=No+Image';
-document.getElementById('blogTitle').textContent = blogData.title || 'Untitled Blog';
-document.getElementById('blogDate').innerHTML = `<i class="fas fa-calendar mr-2"></i>${formatDate(blogData.publishedAt)}`;
-document.getElementById('blogReadTime').innerHTML = `<i class="fas fa-clock mr-2"></i>${blogData.min_read || 5} min read`;
-document.getElementById('blogInsight').innerHTML = `<i class="fas fa-star mr-2 text-yellow-400"></i>${blogData.insight_score || 85}% Insight Score`;
+const blogImage = document.getElementById('blogImage');
+const blogTitle = document.getElementById('blogTitle');
+const blogDate = document.getElementById('blogDate');
+const blogReadTime = document.getElementById('blogReadTime');
+const blogInsight = document.getElementById('blogInsight');
+const blogFullContent = document.getElementById('blogFullContent');
 
-// Full content (description or content field)
+if (blogImage) blogImage.src = blogData.imageUrl || 'https://via.placeholder.com/800x400?text=No+Image';
+if (blogTitle) blogTitle.textContent = blogData.title || 'Untitled Blog';
+if (blogDate) blogDate.innerHTML = `<i class="fas fa-calendar mr-2"></i>${formatDate(blogData.publishedAt)}`;
+if (blogReadTime) blogReadTime.innerHTML = `<i class="fas fa-clock mr-2"></i>${blogData.min_read || 5} min read`;
+if (blogInsight) blogInsight.innerHTML = `<i class="fas fa-star mr-2 text-yellow-400"></i>${blogData.insight_score || 85}% Insight Score`;
+
 const fullContent = blogData.content || blogData.description || 'No content available';
-document.getElementById('blogFullContent').innerHTML = `<p>${fullContent}</p>`;
+if (blogFullContent) blogFullContent.innerHTML = `<p>${fullContent}</p>`;
 
-// Show content container
-blogContentContainer.classList.remove('hidden');
+if (blogContentContainer) blogContentContainer.classList.remove('hidden');
 
 // Load comments
-loadComments();
+await loadComments();
 
 // GSAP animations
 if (typeof gsap !== 'undefined') {
@@ -825,13 +851,13 @@ ease: 'power3.out'
 
 } catch (error) {
 console.error('Error loading blog:', error);
-loadingSpinner.style.display = 'none';
-errorMessage.classList.remove('hidden');
+if (loadingSpinner) loadingSpinner.style.display = 'none';
+if (errorMessage) errorMessage.classList.remove('hidden');
 }
 }
 
 // ============================================
-// LOAD COMMENTS
+// LOAD COMMENTS - FIXED NULL CHECKS
 // ============================================
 async function loadComments() {
 if (!currentBlogId) return;
@@ -840,17 +866,25 @@ const commentsList = document.getElementById('commentsList');
 const commentsLoading = document.getElementById('commentsLoading');
 const commentCount = document.getElementById('commentCount');
 
+// FIXED: Add null checks
+if (!commentsList) {
+console.error('commentsList element not found');
+return;
+}
+
 try {
-// Fetch comments from sub-collection
 const commentsRef = collection(db, 'blog', currentBlogId, 'comments');
 const q = query(commentsRef, orderBy('timestamp', 'desc'));
 const snapshot = await getDocs(q);
 
+// FIXED: Check if commentsLoading exists before modifying
+if (commentsLoading) {
 commentsLoading.style.display = 'none';
+}
 
 if (snapshot.empty) {
 commentsList.innerHTML = '<p class="text-gray-500 text-center py-8">No comments yet. Be the first to comment!</p>';
-commentCount.textContent = '0 comments';
+if (commentCount) commentCount.textContent = '0 comments';
 return;
 }
 
@@ -862,10 +896,11 @@ const commentCard = createCommentCard(comment);
 commentsList.appendChild(commentCard);
 });
 
-commentCount.textContent = `${snapshot.size} comment${snapshot.size !== 1 ? 's' : ''}`;
+if (commentCount) commentCount.textContent = `${snapshot.size} comment${snapshot.size !== 1 ? 's' : ''}`;
 
 } catch (error) {
 console.error('Error loading comments:', error);
+if (commentsLoading) commentsLoading.style.display = 'none';
 commentsList.innerHTML = '<p class="text-red-400 text-center py-8">Failed to load comments</p>';
 }
 }
@@ -890,14 +925,23 @@ card.innerHTML = `
 </div>
 </div>
 </div>
-<div class="comment-text">${comment.text || ''}</div>
+<div class="comment-text">${escapeHtml(comment.text || '')}</div>
 `;
 
 return card;
 }
 
 // ============================================
-// SUBMIT COMMENT
+// ESCAPE HTML TO PREVENT XSS
+// ============================================
+function escapeHtml(text) {
+const div = document.createElement('div');
+div.textContent = text;
+return div.innerHTML;
+}
+
+// ============================================
+// SUBMIT COMMENT - FIXED
 // ============================================
 async function submitComment() {
 if (!currentUser) {
@@ -907,6 +951,13 @@ return;
 
 const commentInput = document.getElementById('commentInput');
 const submitBtn = document.getElementById('submitCommentBtn');
+const commentsList = document.getElementById('commentsList');
+
+if (!commentInput || !submitBtn) {
+alert('Error: Form elements not found');
+return;
+}
+
 const commentText = commentInput.value.trim();
 
 if (!commentText) {
@@ -919,12 +970,16 @@ alert('Blog not found');
 return;
 }
 
+// Show loading state in comments list
+if (commentsList) {
+commentsList.innerHTML = '<div class="loading-spinner" id="commentsLoading"></div>';
+}
+
 // Disable button while submitting
 submitBtn.disabled = true;
 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Posting...';
 
 try {
-// Add comment to sub-collection
 const commentsRef = collection(db, 'blog', currentBlogId, 'comments');
 await addDoc(commentsRef, {
 text: commentText,
@@ -934,16 +989,24 @@ userEmail: currentUser.email,
 timestamp: serverTimestamp()
 });
 
-// Clear input and reload comments
+// Clear input
 commentInput.value = '';
+
+// Reload comments
 await loadComments();
 
 } catch (error) {
 console.error('Error posting comment:', error);
 alert('Failed to post comment. Please try again.');
+
+// Restore comments list on error
+await loadComments();
+
 } finally {
+if (submitBtn) {
 submitBtn.disabled = false;
 submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i> Post Comment';
+}
 }
 }
 
@@ -956,6 +1019,7 @@ currentUser = user;
 const authRequiredMessage = document.getElementById('authRequiredMessage');
 const commentForm = document.getElementById('commentForm');
 
+if (authRequiredMessage && commentForm) {
 if (user) {
 authRequiredMessage.classList.add('hidden');
 commentForm.classList.remove('hidden');
@@ -963,8 +1027,8 @@ commentForm.classList.remove('hidden');
 authRequiredMessage.classList.remove('hidden');
 commentForm.classList.add('hidden');
 }
+}
 
-// Update sign in buttons
 updateSignInButtons(user);
 }
 
@@ -979,7 +1043,8 @@ const buttonText = user ? 'Sign Out' : 'Sign In';
 const buttonHref = user ? '#' : '/sign_in_page';
 
 if (desktopSignInBtn) {
-desktopSignInBtn.querySelector('.relative.z-10').textContent = buttonText;
+const btnText = desktopSignInBtn.querySelector('.relative.z-10');
+if (btnText) btnText.textContent = buttonText;
 desktopSignInBtn.href = buttonHref;
 if (user) {
 desktopSignInBtn.onclick = (e) => {
@@ -1018,7 +1083,7 @@ console.error('Sign out error:', error);
 // ============================================
 const cursor = document.getElementById('cursor');
 const cursorDot = document.getElementById('cursorDot');
-if (window.innerWidth > 900) {
+if (window.innerWidth > 900 && cursor && cursorDot) {
 document.addEventListener('mousemove', (e) => {
 cursor.style.left = e.clientX + 'px';
 cursor.style.top = e.clientY + 'px';
@@ -1041,10 +1106,13 @@ cursorDot.style.transform = 'translate(-50%, -50%) scale(1)';
 // SCROLL PROGRESS BAR
 // ============================================
 window.addEventListener('scroll', () => {
+const scrollProgress = document.getElementById('scrollProgress');
+if (scrollProgress) {
 const scrollTop = document.documentElement.scrollTop;
 const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
 const scrolled = (scrollTop / scrollHeight) * 100;
-document.getElementById('scrollProgress').style.width = scrolled + '%';
+scrollProgress.style.width = scrolled + '%';
+}
 });
 
 // ============================================
@@ -1052,12 +1120,14 @@ document.getElementById('scrollProgress').style.width = scrolled + '%';
 // ============================================
 window.addEventListener('scroll', function() {
 const nav = document.querySelector('nav');
+if (nav) {
 if (window.scrollY > 50) {
 nav.classList.add('shadow-lg', 'bg-dark');
 nav.classList.remove('nav-glass');
 } else {
 nav.classList.remove('shadow-lg', 'bg-dark');
 nav.classList.add('nav-glass');
+}
 }
 });
 
@@ -1090,6 +1160,7 @@ mobileMenu.classList.remove('active');
 // EXPOSE FUNCTIONS FOR INLINE HANDLERS
 // ============================================
 window.submitComment = submitComment;
+window.loadComments = loadComments;
 
 // ============================================
 // INITIALIZE ON PAGE LOAD
@@ -1097,7 +1168,6 @@ window.submitComment = submitComment;
 document.addEventListener('DOMContentLoaded', function() {
 loadBlog();
 
-// Listen for auth state changes
 onAuthStateChanged(auth, (user) => {
 updateAuthUI(user);
 if (user) {
