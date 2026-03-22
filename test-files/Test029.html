@@ -258,6 +258,7 @@
       line-height: 1.1;
       background: linear-gradient(90deg, #ffffff 0%, #cbd5e1 50%, #e2e8f0 100%);
       -webkit-background-clip: text;
+      background-clip: text;
       -webkit-text-fill-color: transparent;
       text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
       position: relative;
@@ -317,6 +318,7 @@
       font-weight: 800;
       background: linear-gradient(90deg, #2563eb 0%, #06b6d4 100%);
       -webkit-background-clip: text;
+      background-clip: text;
       -webkit-text-fill-color: transparent;
       line-height: 1;
     }
@@ -749,9 +751,12 @@
   </footer>
 
   <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script>
+  <script type="module">
+    // Import Firebase SDK v11.9.0
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
+    import { getFirestore, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-firestore.js";
+
     // ============================================
     // ⚠️ REPLACE WITH YOUR FIREBASE CONFIG
     // ============================================
@@ -766,8 +771,9 @@
     };
 
     // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
     // Base URL for blog detail page
     const BLOG_BASE_URL = "/blog/";
@@ -867,7 +873,7 @@
     function formatDate(timestamp) {
       if (!timestamp) return 'Unknown Date';
       const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      const options = { year: 'numeric', month day: 'numeric' };
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
       return date.toLocaleDateString('en-US', options);
     }
 
@@ -896,15 +902,12 @@
             <span><i class="fas fa-calendar mr-2"></i>${formatDate(publishedAt)}</span>
             <span><i class="fas fa-clock mr-2"></i>${min_read || 5} min read</span>
           </div>
-          <div class="flex items-center mb-3">
-            <span class="insight-score">${insight_score || 85}% Insight Score</span>
-          </div>
-          <h3 class="text-lg sm:text-xl font-semibold mb-3 text-white line-clamp-2Untitled Blog'}</h3>
+          <h3 class="text-lg sm:text-xl font-semibold mb-3 text-white line-clamp-2">${title || 'Untitled Blog'}</h3>
           <p class="text-gray-400 text-sm mb-4 line-clamp-3">${description || 'No description available'}</p>
           <div class="flex items-center justify-between">
             <div class="flex items-center text-gray-400 text-sm">
-              <i class="fas fa-heart mr-2 text-red-400"></i>
-              <span>${formatNumber(blogData.likes || 0)}</span>
+              <i class="fas fa-star mr-2 text-yellow-400"></i>
+              <span>${insight_score || 85}% Insight Score</span>
             </div>
             <button onclick="openBlog('${blogId}')" class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg font-medium text-sm hover:opacity-90 transition-opacity flex items-center">Read More <i class="fas fa-arrow-right ml-2"></i></button>
           </div>
@@ -936,7 +939,8 @@
 
       try {
         // Fetch blogs from Firestore
-        const snapshot = await db.collection('blog').orderBy('publishedAt', 'desc').get();
+        const q = query(collection(db, 'blog'), orderBy('publishedAt', 'desc'));
+        const snapshot = await getDocs(q);
 
         // Hide loading spinner
         loadingSpinner.style.display = 'none';
@@ -947,7 +951,7 @@
         }
 
         // Create blog cards
-        snapshot.forEach(doc => {
+        snapshot.docs.forEach(doc => {
           const blogData = doc.data();
           const blogCard = createBlogCard(doc.id, blogData);
           blogsGrid.appendChild(blogCard);
@@ -1002,29 +1006,10 @@
     document.addEventListener('DOMContentLoaded', function() {
       loadBlogs();
     });
-  </script>
 
-  <!-- ============ FIREBASE AUTH INTEGRATION ============ -->
-  <script type="module">
-    // Import Firebase SDK v11.9.0
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.0/firebase-auth.js";
-
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyD0Yv_bQjxi2_kjzPR4XHOlaB7Sb6NRVUc",
-      authDomain: "teamgalaxy-77344.firebaseapp.com",
-      projectId: "teamgalaxy-77344",
-      storageBucket: "teamgalaxy-77344.firebasestorage.app",
-      messagingSenderId: "770256225320",
-      appId: "1:770256225320:web:5a363ebd757de6cde3a11d",
-      measurementId: "G-6C2W9NSNCH"
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-
+    // ============================================
+    // FIREBASE AUTH INTEGRATION
+    // ============================================
     // DOM Elements
     const desktopSignInBtn = document.querySelector('.desktop-signin');
     const mobileSignInBtn = document.querySelector('.mobile-signin');
