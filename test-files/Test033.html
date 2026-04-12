@@ -1,432 +1,1622 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About Us | Galaxy Designs</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            cursor: none; /* Hiding default cursor for our custom one */
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Print Receipt - SchoolMS</title>
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css"/>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <style>
+    :root {
+      --primary-gradient: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+      --nav-bg: #1e40af;
+      --text-white: #ffffff;
+      --bg-body: #f8fafc;
+      --border-color: #e2e8f0;
+      --transition: all 0.2s ease-in-out;
+    }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #030303;
-            color: #ffffff;
-            line-height: 1.5;
-            overflow-x: hidden;
-        }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      overflow-x: hidden;
+      background-color: var(--bg-body);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
 
-        /* --- Global Cinematic Effects --- */
+    /* ============ HEADER (Exact Match) ============ */
+    .navbar {
+      background: var(--primary-gradient) !important;
+      padding: 0.5rem 1.5rem !important;
+      border: none !important;
+    }
+    .navbar-brand {
+      font-weight: 700;
+      color: var(--text-white) !important;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-link {
+      color: rgba(255,255,255,0.9) !important;
+      font-size: 0.9rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0.5rem 0.8rem !important;
+      transition: var(--transition);
+    }
+    .nav-link.active {
+      background: rgba(255,255,255,0.2) !important;
+      border-radius: 10px;
+      color: #fff !important;
+    }
+    .header-logo-right {
+      width: 40px; height: 40px;
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 0.65rem; font-weight: bold; text-align: center;
+    }
 
-        /* Film Grain Noise */
-        .noise-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            pointer-events: none;
-            z-index: 9998;
-            opacity: 0.04;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        }
+    /* ============ FOOTER (Exact Match) ============ */
+    .footer-section {
+      background: var(--primary-gradient) !important;
+      color: #fff;
+      padding: 3rem 0;
+      margin-top: 3rem;
+      width: 100%;
+    }
+    .footer-title { font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; }
+    .social-box {
+      display: flex; gap: 12px; margin-top: 1.5rem;
+    }
+    .social-icon {
+      width: 40px; height: 40px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; text-decoration: none; font-size: 1.2rem;
+    }
+    .quick-links-list { list-style: none; padding: 0; }
+    .quick-links-list li { margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px; opacity: 0.9; }
+    .quick-links-list li i { font-size: 0.8rem; }
+    .btn-view-docs {
+      border: 1px solid rgba(255,255,255,0.5);
+      color: #fff;
+      border-radius: 50px;
+      padding: 8px 25px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: var(--transition);
+    }
+    .btn-view-docs:hover { background: #fff; color: #1e40af; }
 
-        /* Custom Cursor */
-        .custom-cursor {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: #ffffff;
-            pointer-events: none;
-            z-index: 9999;
-            mix-blend-mode: difference;
-            transform: translate(-50%, -50%);
-            transition: width 0.3s ease, height 0.3s ease, background-color 0.3s ease;
-        }
+    /* ============ RECEIPT PRINT PAGE STYLES ============ */
+    .receipt-page-container {
+      min-height: calc(100vh - 200px);
+      padding: 2rem 0;
+    }
+    
+    .loading-state, .error-state, .content-state {
+      transition: opacity 0.3s ease;
+    }
+    .d-none { display: none !important; }
+    
+    .receipt-preview-card {
+      background: #fff;
+      border-radius: 15px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+    }
+    
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .preview-info h5 { margin: 0 0 0.25rem 0; color: #1e40af; }
+    .preview-info p { margin: 0; font-size: 0.9rem; color: #64748b; }
+    .preview-amount {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #16a34a;
+      text-align: right;
+    }
+    
+    .template-selector {
+      background: #fff;
+      border-radius: 15px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+    
+    .template-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    
+    .template-card {
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      background: #f8fafc;
+    }
+    
+    .template-card:hover, .template-card.selected {
+      border-color: #1e40af;
+      background: #eff6ff;
+      transform: translateY(-2px);
+    }
+    
+    .template-card i {
+      font-size: 2rem;
+      color: #1e40af;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    
+    .template-card .template-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #1e293b;
+    }
+    
+    .template-card .template-desc {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 0.25rem;
+    }
+    
+    .print-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+    
+    .btn-print {
+      background: var(--primary-gradient);
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 50px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+    }
+    .btn-print:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(30, 64, 175, 0.3);
+    }
+    .btn-print:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .btn-back {
+      background: #fff;
+      border: 2px solid var(--border-color);
+      color: #1e293b;
+      padding: 0.75rem 2rem;
+      border-radius: 50px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+      text-decoration: none;
+    }
+    .btn-back:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+    
+    .error-alert {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      padding: 1rem;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+    }
+    
+    .loading-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem;
+      color: #64748b;
+    }
+    .loading-spinner .spinner-border {
+      width: 3rem;
+      height: 3rem;
+      color: #1e40af;
+      margin-bottom: 1rem;
+    }
 
-        .custom-cursor.hovering {
-            width: 60px;
-            height: 60px;
-            background-color: rgba(255, 255, 255, 0.8);
-        }
-
-        /* Subtle Studio Grid Background */
-        .studio-grid {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            z-index: -1;
-            pointer-events: none;
-        }
-
-        /* --- Sections --- */
-
-        /* Hero Section */
-        .hero-section {
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-            position: relative;
-        }
-
-        .hero-heading {
-            font-size: clamp(4rem, 12vw, 10rem);
-            font-weight: 900;
-            text-transform: uppercase;
-            line-height: 0.85;
-            text-align: center;
-            letter-spacing: -0.05em;
-            margin-bottom: 2rem;
-            animation: textReveal 1.5s cubic-bezier(0.19, 1, 0.22, 1);
-        }
-
-        .hollow-text {
-            color: transparent;
-            -webkit-text-stroke: 1px rgba(255, 255, 255, 0.4);
-            display: block;
-            transition: all 0.5s ease;
-        }
-
-        .hero-heading:hover .hollow-text {
-            color: #ffffff;
-            -webkit-text-stroke: 1px transparent;
-            text-shadow: 0 0 40px rgba(255,255,255,0.3);
-            transform: scale(1.02);
-        }
-
-        .hero-subtext {
-            font-size: clamp(0.9rem, 1.2vw, 1rem);
-            max-width: 500px;
-            color: #666;
-            font-weight: 400;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-            text-align: center;
-            animation: fadeInUp 1.5s ease-out 0.6s both;
-        }
-
-        /* Infinite Marquee */
-        .marquee-container {
-            width: 100%;
-            overflow: hidden;
-            background: #ffffff;
-            color: #000000;
-            padding: 1.5rem 0;
-            display: flex;
-            white-space: nowrap;
-            transform: rotate(-2deg) scale(1.05);
-            margin: 4rem 0;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-        }
-
-        .marquee-content {
-            font-size: 2.5rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            display: inline-block;
-            animation: marquee 20s linear infinite;
-        }
-
-        .marquee-content span {
-            margin: 0 2rem;
-            -webkit-text-stroke: 1px #000;
-            color: transparent;
-        }
-
-        .marquee-content span.solid {
-            color: #000;
-        }
-
-        /* Section Styling */
-        .section-container {
-            padding: 8rem 2vw;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .section-title {
-            font-size: clamp(2rem, 5vw, 4rem);
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: -0.03em;
-            margin-bottom: 5rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 1rem;
-            color: rgba(255,255,255,0.9);
-        }
-
-        /* Philosophy Text */
-        .philosophy-text {
-            font-size: clamp(1.5rem, 3.5vw, 3rem);
-            font-weight: 300;
-            color: #444;
-            line-height: 1.3;
-            max-width: 1100px;
-            transition: color 0.5s ease;
-        }
-
-        .philosophy-text:hover {
-            color: #888;
-        }
-
-        .philosophy-text span {
-            color: #fff;
-            font-weight: 700;
-        }
-
-        /* Team Grid */
-        .team-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 3rem;
-        }
-
-        .team-card {
-            position: relative;
-        }
-
-        .image-wrapper {
-            width: 100%;
-            aspect-ratio: 3 / 4;
-            overflow: hidden;
-            margin-bottom: 1.5rem;
-            background: #111;
-        }
-
-        .profile-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            filter: grayscale(100%) contrast(1.2);
-            transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1);
-        }
-
-        .team-card:hover .profile-image {
-            filter: grayscale(0%) contrast(1);
-            transform: scale(1.08);
-        }
-
-        .team-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            padding-top: 1rem;
-        }
-
-        .team-name {
-            font-size: 1.8rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: -0.02em;
-        }
-
-        .team-role {
-            font-size: 0.8rem;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            font-weight: 400;
-            margin-top: 0.4rem;
-        }
-
-        .team-description {
-            font-size: 1rem;
-            color: #666;
-            font-weight: 300;
-            line-height: 1.6;
-        }
-
-        /* Footer & Magnetic Button */
-        .footer-section {
-            height: 60vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            margin-top: 4rem;
-        }
-
-        .magnetic-btn-wrapper {
-            padding: 3rem; /* Hit area for the magnet effect */
-            display: inline-block;
-        }
-
-        .cta-button {
-            display: inline-block;
-            background: #fff;
-            color: #000;
-            padding: 1.5rem 4rem;
-            font-size: 1.1rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            text-decoration: none;
-            border-radius: 100px;
-            transition: transform 0.2s cubic-bezier(0.19, 1, 0.22, 1), background-color 0.3s;
-            will-change: transform;
-        }
-
-        .cta-button:hover {
-            background: #ccc;
-        }
-
-        /* --- Animations --- */
-        @keyframes textReveal {
-            from { clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%); transform: translateY(100px); }
-            to { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: translateY(0); }
-        }
-
-        @keyframes fadeInUp {
-            from { transform: translateY(30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        @keyframes marquee {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-        }
-
-        .scroll-reveal {
-            opacity: 0;
-            transform: translateY(60px);
-            transition: all 1s cubic-bezier(0.19, 1, 0.22, 1);
-        }
-
-        .scroll-reveal.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    </style>
+    @media (max-width: 768px) {
+      .template-cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .preview-header {
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .preview-amount {
+        text-align: left;
+      }
+    }
+  </style>
 </head>
 <body>
+  <!-- ============ HEADER (Exact Match) ============ -->
+  <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="../admin_dashboard.html">
+        <i class="bi bi-building-fill"></i> SchoolMS
+      </a>
+      
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-target="#navRes">
+        <span class="navbar-toggler-icon"></span>
+      </button>
 
-    <div class="noise-overlay"></div>
-    <div class="custom-cursor" id="cursor"></div>
-    <div class="studio-grid"></div>
+      <div class="collapse navbar-collapse justify-content-center" id="navRes">
+        <ul class="navbar-nav">
+          <li class="nav-item"><a class="nav-link" href="../admin_dashboard.html"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="../admission/admission.html"><i class="bi bi-people"></i> Students</a></li>
+          <li class="nav-item"><a class="nav-link active" href="fees_module.html"><i class="bi bi-wallet2"></i> Finance</a></li>
+          <li class="nav-item"><a class="nav-link" href="#"><i class="bi bi-building"></i> Institute</a></li>
+          <li class="nav-item"><a class="nav-link disabled" href="#"><i class="bi bi-briefcase"></i> Staff</a></li>
+          <li class="nav-item"><a class="nav-link" href="../admin_panel/admin_panel.html"><i class="bi bi-gear"></i> Settings</a></li>
+        </ul>
+      </div>
 
-    <section class="hero-section">
-        <h1 class="hero-heading">
-            Premium<br>
-            <span class="hollow-text">Visuals</span>
-        </h1>
-        <p class="hero-subtext">A creative studio specializing in high-end aesthetics & visual identities.</p>
-    </section>
+      <div class="header-logo-right">SV<br>Logo</div>
+    </div>
+  </nav>
 
-    <div class="marquee-container">
-        <div class="marquee-content">
-            <span class="solid">GALAXY DESIGNS</span> • <span>CRAFTING PREMIUM VISUALS</span> • 
-            <span class="solid">GALAXY DESIGNS</span> • <span>ENGINEERING AESTHETICS</span> • 
-            <span class="solid">GALAXY DESIGNS</span> • <span>CRAFTING PREMIUM VISUALS</span> • 
-            <span class="solid">GALAXY DESIGNS</span> • <span>ENGINEERING AESTHETICS</span> • 
+  <!-- ============ MAIN CONTENT ============ -->
+  <div class="container receipt-page-container">
+    
+    <!-- Loading State -->
+    <div id="loading-state" class="text-center">
+      <div class="loading-spinner">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
         </div>
+        <p class="mb-0">Loading receipt data...</p>
+        <small class="text-muted">Please wait while we fetch your transaction</small>
+      </div>
     </div>
 
-    <section class="section-container scroll-reveal">
-        <h2 class="section-title">Visuals That Speak</h2>
-        <p class="philosophy-text">
-            We don't just design. We <span>engineer aesthetics</span>. From sleek modern logos to immersive 3D renders, we deliver crisp, high-quality visuals that push boundaries and leave lasting impressions.
-        </p>
-    </section>
-
-    <section class="section-container scroll-reveal">
-        <h2 class="section-title">The Core Team</h2>
-        <div class="team-grid">
-            <div class="team-card hover-target">
-                <div class="image-wrapper">
-                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=800&fit=crop" alt="Ege" class="profile-image">
-                </div>
-                <div class="team-info">
-                    <h3 class="team-name">Ege</h3>
-                    <span class="team-role">Founder / Design</span>
-                </div>
-                <p class="team-description">Crafting top-tier 3D designs and visual assets. Master of pixel-perfect precision and visual storytelling.</p>
-            </div>
-
-            <div class="team-card hover-target">
-                <div class="image-wrapper">
-                    <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=600&h=800&fit=crop" alt="Prince" class="profile-image">
-                </div>
-                <div class="team-info">
-                    <h3 class="team-name">Prince</h3>
-                    <span class="team-role">CTO / Tech</span>
-                </div>
-                <p class="team-description">The technical backbone. Ensuring platforms run flawlessly while bridging the gap between creativity and logic.</p>
-            </div>
+    <!-- Error State -->
+    <div id="error-state" class="d-none">
+      <div class="receipt-preview-card">
+        <div class="error-alert">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <strong>Error:</strong> <span id="error-message">Something went wrong</span>
         </div>
-    </section>
-
-    <footer class="footer-section scroll-reveal">
-        <div class="magnetic-btn-wrapper">
-            <a href="/designers" class="cta-button hover-target">Meet Our Designers</a>
+        <div class="print-actions">
+          <a href="javascript:history.back()" class="btn-back">
+            <i class="bi bi-arrow-left"></i> Go Back
+          </a>
+          <button class="btn btn-outline-primary" onclick="location.reload()">
+            <i class="bi bi-arrow-clockwise"></i> Retry
+          </button>
         </div>
-    </footer>
+      </div>
+    </div>
 
-    <script>
-        // --- 1. Custom Cursor Logic ---
-        const cursor = document.getElementById('cursor');
-        const hoverTargets = document.querySelectorAll('.hover-target, a, .hero-heading');
+    <!-- Content State -->
+    <div id="content-state" class="d-none">
+      
+      <!-- Receipt Preview -->
+      <div class="receipt-preview-card">
+        <div class="preview-header">
+          <div class="preview-info">
+            <h5 id="preview-name">Student Name</h5>
+            <p>Roll: <span id="preview-roll">---</span> | Class: <span id="preview-class">---</span></p>
+            <p class="mb-0"><small>Txn ID: <span id="preview-txnid" class="font-monospace">---</span></small></p>
+          </div>
+          <div class="preview-amount" id="preview-amount">₹0</div>
+        </div>
+        <div class="row g-2 small">
+          <div class="col-6 col-md-3"><strong>Mode:</strong> <span id="preview-mode">---</span></div>
+          <div class="col-6 col-md-4"><strong>Date:</strong> <span id="preview-datetime">---</span></div>
+          <div class="col-12"><strong>Note:</strong> <span id="preview-notes" class="fst-italic">---</span></div>
+        </div>
+      </div>
 
-        document.addEventListener('mousemove', (e) => {
-            cursor.style.left = e.clientX + 'px';
-            cursor.style.top = e.clientY + 'px';
-        });
+      <!-- Template Selection -->
+      <div class="template-selector">
+        <h5 class="fw-bold mb-3"><i class="bi bi-palette me-2"></i>Select Receipt Layout</h5>
+        <p class="text-muted small mb-3">Choose a design style for your printed receipt. Click a card to select, then press Print.</p>
+        
+        <div class="template-cards">
+          <div class="template-card selected" onclick="selectTemplate(1)" data-template="1">
+            <i class="bi bi-file-earmark-text"></i>
+            <div class="template-name">Detailed</div>
+            <div class="template-desc">Full format with signature</div>
+          </div>
+          <div class="template-card" onclick="selectTemplate(2)" data-template="2">
+            <i class="bi bi-files"></i>
+            <div class="template-name">Duplicate</div>
+            <div class="template-desc">Two copies on one page</div>
+          </div>
+          <div class="template-card" onclick="selectTemplate(3)" data-template="3">
+            <i class="bi bi-file-earmark-minimal"></i>
+            <div class="template-name">Minimal</div>
+            <div class="template-desc">Clean & simple design</div>
+          </div>
+          <div class="template-card" onclick="selectTemplate(4)" data-template="4">
+            <i class="bi bi-card-checklist"></i>
+            <div class="template-name">Modern Card</div>
+            <div class="template-desc">Styled card layout</div>
+          </div>
+          <div class="template-card" onclick="selectTemplate(5)" data-template="5">
+            <i class="bi bi-receipt"></i>
+            <div class="template-name">Compact</div>
+            <div class="template-desc">Thermal printer friendly</div>
+          </div>
+          <div class="template-card" onclick="selectTemplate(6)" data-template="6">
+            <i class="bi bi-file-earmark-ruled"></i>
+            <div class="template-name">Elegant</div>
+            <div class="template-desc">Classic formal style</div>
+          </div>
+          <div class="template-card" onclick="selectTemplate(7)" data-template="7">
+            <i class="bi bi-table"></i>
+            <div class="template-name">History</div>
+            <div class="template-desc">All transactions list</div>
+          </div>
+        </div>
 
-        hoverTargets.forEach(target => {
-            target.addEventListener('mouseenter', () => cursor.classList.add('hovering'));
-            target.addEventListener('mouseleave', () => cursor.classList.remove('hovering'));
-        });
+        <div class="print-actions">
+          <a href="fees_module.html" class="btn-back">
+            <i class="bi bi-arrow-left"></i> Back to Fees
+          </a>
+          <button id="print-btn" class="btn-print" onclick="executePrint()">
+            <i class="bi bi-printer-fill"></i> Print Selected Layout
+          </button>
+        </div>
+      </div>
 
-        // --- 2. Magnetic Button Logic ---
-        const magneticWrapper = document.querySelector('.magnetic-btn-wrapper');
-        const magneticBtn = document.querySelector('.cta-button');
+    </div>
+  </div>
 
-        magneticWrapper.addEventListener('mousemove', (e) => {
-            const rect = magneticWrapper.getBoundingClientRect();
-            // Calculate distance from center of the wrapper
-            const x = e.clientX - rect.left - rect.width / 2;
-            const y = e.clientY - rect.top - rect.height / 2;
-            
-            // Move button smoothly towards cursor (x0.3 makes it subtle)
-            magneticBtn.style.transform = `translate(${x * 0.3}px, ${y * 0.3}px)`;
-        });
+  <!-- ============ FOOTER (Exact Match) ============ -->
+  <footer class="footer-section">
+    <div class="container">
+      <div class="row align-items-start g-4">
+        <div class="col-lg-5 col-md-12 text-center text-md-start">
+          <h4 class="footer-title"><i class="bi bi-building-fill"></i> SchoolMS</h4>
+          <p class="opacity-75 mb-4">Empowering schools with intelligent management solutions.</p>
+          <div class="social-box justify-content-center justify-content-md-start">
+            <a href="#" class="social-icon"><i class="bi bi-instagram"></i></a>
+            <a href="#" class="social-icon"><i class="bi bi-facebook"></i></a>
+            <a href="#" class="social-icon"><i class="bi bi-discord"></i></a>
+            <a href="#" class="social-icon"><i class="bi bi-youtube"></i></a>
+          </div>
+        </div>
 
-        magneticWrapper.addEventListener('mouseleave', () => {
-            // Snap back to center
-            magneticBtn.style.transform = `translate(0px, 0px)`;
-        });
+        <div class="col-lg-3 col-md-6">
+          <h5 class="fw-bold mb-4">Quick Links</h5>
+          <ul class="quick-links-list">
+            <li><i class="bi bi-chevron-right"></i> Documentation</li>
+            <li><i class="bi bi-chevron-right"></i> Support Center</li>
+            <li><i class="bi bi-chevron-right"></i> Privacy Policy</li>
+            <li><i class="bi bi-chevron-right"></i> Terms of Service</li>
+          </ul>
+        </div>
 
-        // --- 3. Scroll Reveal Logic ---
-        function handleScroll() {
-            const elements = document.querySelectorAll('.scroll-reveal');
-            elements.forEach(element => {
-                const elementTop = element.getBoundingClientRect().top;
-                if (elementTop < window.innerHeight - 100) {
-                    element.classList.add('visible');
-                }
-            });
+        <div class="col-lg-4 col-md-6 text-center text-lg-end">
+          <a href="#" class="btn-view-docs mb-4 d-inline-block">
+            <i class="bi bi-book me-2"></i> View Docs
+          </a>
+          <p class="small opacity-75 mt-3">&copy; 2025 <strong>SquadVertex</strong>. All rights reserved.</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- jQuery, Popper, Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+  <!-- ============ FIREBASE & APP LOGIC ============ -->
+  <script>
+    // ============ FIREBASE CONFIG ============
+    const firebaseConfig = {
+      apiKey: "AIzaSyBV7Jg0BVzeCNQW9oiIiNItnejUsjj2DhA",
+      authDomain: "squadvertex2007.firebaseapp.com",
+      projectId: "squadvertex2007",
+      storageBucket: "squadvertex2007.appspot.com",
+      messagingSenderId: "168905083514",
+      appId: "1:168905083514:web:c8bbe2ce9f87800a0f09c3",
+    };
+
+    // ============ GLOBAL VARIABLES ============
+    window.db = null;
+    let transaction = null;
+    let schoolDetails = { schoolName: "", address: "", contact: "", email: "" };
+    let selectedTemplate = 1;
+    const logoURL = "https://dl.dropboxusercontent.com/scl/fi/fkq02zrhmtjo8q0j66pj4/Screenshot_20240901-172502.png?rlkey=256r98hep0tclyuznt3yjqdj1&dl=0";
+    let fixedAmountWords = "Rupees Only";
+
+    // ============ FIREBASE INITIALIZATION ============
+    function initFirebase() {
+      return new Promise((resolve, reject) => {
+        try {
+          if (typeof firebase === 'undefined') {
+            throw new Error("Firebase SDK not loaded");
+          }
+          firebase.initializeApp(firebaseConfig);
+          window.db = firebase.firestore();
+          window.db.enablePersistence().catch(err => {
+            console.warn("Persistence:", err.code === 'failed-precondition' ? "Multiple tabs" : "Not supported");
+          });
+          console.log("✅ Firebase initialized");
+          resolve(window.db);
+        } catch (error) {
+          console.error("❌ Firebase init failed:", error);
+          reject(error);
         }
+      });
+    }
 
-        window.addEventListener('scroll', handleScroll);
-        handleScroll(); // Trigger on load
-    </script>
+    // ============ URL PARAMS EXTRACTION ============
+    function getUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      const classId = params.get('class_id');
+      if (classId && !/^class\d+$/.test(classId)) {
+        console.warn("⚠️ Invalid class_id format:", classId);
+      }
+      return {
+        class_id: classId,
+        student_id: params.get('student_id'),
+        txn_doc_id: params.get('txn_doc_id')
+      };
+    }
+
+    // ============ FETCH SCHOOL SETTINGS ============
+    async function fetchSchoolSettings() {
+      try {
+        if (!window.db) throw new Error("db not initialized");
+        const doc = await window.db.doc('001-school/systemSettings').get();
+        if (doc.exists) {
+          const data = doc.data();
+          schoolDetails = {
+            schoolName: data.schoolName || "Default School",
+            address: data.address || "",
+            contact: data.phoneNumber || "",
+            email: data.contactEmail || ""
+          };
+        }
+      } catch (e) {
+        console.warn("⚠️ Could not fetch school settings:", e);
+      }
+    }
+
+    // ============ FETCH TRANSACTION (Nested Path) ============
+    async function fetchTransaction() {
+      const { class_id, student_id, txn_doc_id } = getUrlParams();
+      
+      if (!class_id || !student_id || !txn_doc_id) {
+        throw new Error("Missing URL parameters: class_id, student_id, txn_doc_id");
+      }
+      if (!window.db) throw new Error("Database not connected");
+
+      const ref = window.db.collection('001-school')
+                    .doc('transactions')
+                    .collection(class_id)
+                    .doc(student_id)
+                    .collection('payments')
+                    .doc(txn_doc_id);
+      
+      console.log("🔍 Fetching:", ref.path);
+      const doc = await ref.get();
+      
+      if (!doc.exists) {
+        throw new Error("Transaction not found");
+      }
+
+      const data = doc.data();
+      
+      let studentData = {};
+      try {
+        const studentRef = window.db.doc(`001-school/students/list/${student_id}`);
+        const studentDoc = await studentRef.get();
+        if (studentDoc.exists) studentData = studentDoc.data();
+      } catch (e) { console.warn("⚠️ Student fetch:", e); }
+
+      const txnDate = data.timestamp?.toDate?.() || (data.date ? new Date(data.date) : new Date());
+      
+      const amount = data.amount || 0;
+      fixedAmountWords = numberToWords(amount);
+      
+      return {
+        rollNo: studentData.srNumber || 'N/A',
+        studentName: studentData.studentName || 'Unknown Student',
+        class: class_id.replace('class', 'Class '),
+        transactionId: data.txnId || txn_doc_id,
+        amountPaid: amount,
+        mode: data.mode || 'Cash',
+        dateTime: txnDate.toLocaleString('en-IN'),
+        notes: data.notes || "Thank you for your payment.",
+        status: 'Success',
+        _ids: { class_id, student_id, txn_doc_id }
+      };
+    }
+
+    // ============ NUMBER TO WORDS (Basic INR) ============
+    function numberToWords(num) {
+      if (num === 0) return "Zero Rupees";
+      const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+      const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+      
+      function convert(n) {
+        if (n < 20) return ones[n];
+        if (n < 100) return tens[Math.floor(n/10)] + (n%10 ? " " + ones[n%10] : "");
+        if (n < 1000) return ones[Math.floor(n/100)] + " Hundred" + (n%100 ? " " + convert(n%100) : "");
+        if (n < 100000) return convert(Math.floor(n/1000)) + " Thousand" + (n%1000 ? " " + convert(n%1000) : "");
+        if (n < 10000000) return convert(Math.floor(n/100000)) + " Lakh" + (n%100000 ? " " + convert(n%100000) : "");
+        return convert(Math.floor(n/10000000)) + " Crore" + (n%10000000 ? " " + convert(n%10000000) : "");
+      }
+      return convert(Math.floor(num)) + " Rupees Only";
+    }
+
+    // ============ RENDER PREVIEW ============
+    function renderPreview(txn) {
+      document.getElementById('preview-name').textContent = txn.studentName;
+      document.getElementById('preview-roll').textContent = txn.rollNo;
+      document.getElementById('preview-class').textContent = txn.class;
+      document.getElementById('preview-txnid').textContent = txn.transactionId;
+      document.getElementById('preview-amount').textContent = `₹${txn.amountPaid.toLocaleString('en-IN')}`;
+      document.getElementById('preview-mode').textContent = txn.mode;
+      document.getElementById('preview-datetime').textContent = txn.dateTime;
+      document.getElementById('preview-notes').textContent = txn.notes || "Thank you for your payment.";
+    }
+
+    // ============ UI STATE MANAGEMENT ============
+    function showLoading() {
+      document.getElementById('loading-state').classList.remove('d-none');
+      document.getElementById('error-state').classList.add('d-none');
+      document.getElementById('content-state').classList.add('d-none');
+    }
+
+    function showError(msg) {
+      document.getElementById('loading-state').classList.add('d-none');
+      document.getElementById('error-state').classList.remove('d-none');
+      document.getElementById('content-state').classList.add('d-none');
+      document.getElementById('error-message').textContent = msg;
+    }
+
+    function showContent() {
+      document.getElementById('loading-state').classList.add('d-none');
+      document.getElementById('error-state').classList.add('d-none');
+      document.getElementById('content-state').classList.remove('d-none');
+    }
+
+    // ============ TEMPLATE SELECTION ============
+    function selectTemplate(num) {
+      selectedTemplate = num;
+      document.querySelectorAll('.template-card').forEach(card => card.classList.remove('selected'));
+      document.querySelector(`.template-card[data-template="${num}"]`)?.classList.add('selected');
+    }
+
+    // ============ PRINT EXECUTION ============
+    function executePrint() {
+      if (!transaction) {
+        alert("⚠️ Receipt data not loaded. Please refresh.");
+        return;
+      }
+      const templates = {
+        1: printTemplate1,
+        2: printTemplate2,
+        3: printTemplate3,
+        4: printTemplate4,
+        5: printTemplate5,
+        6: printTemplate6,
+        7: printTemplate7
+      };
+      if (templates[selectedTemplate]) {
+        templates[selectedTemplate]();
+      }
+    }
+
+    function openPrintWindow(html) {
+      const win = window.open("", "_blank", "width=900,height=700");
+      if (!win) {
+        alert("⚠️ Please allow pop-ups to print receipts");
+        return;
+      }
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
+    }
+
+    // ============ BASE RECEIPT HTML HELPER (PROFESSIONAL) ============
+    function getBaseReceiptHTML(tx, content, minimal = false) {
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt - ${tx.studentName}</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+        <style>
+          @page { margin: 0.5cm; size: auto; }
+          body { 
+            padding: 15px; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #fff; 
+            color: #1e293b;
+            font-size: 13px;
+            line-height: 1.5;
+          }
+          .receipt { 
+            max-width: 700px; 
+            margin: auto; 
+            border: 2px solid #1e40af; 
+            padding: 25px; 
+            border-radius: 8px;
+            position: relative;
+          }
+          .receipt::before {
+            content: "";
+            position: absolute;
+            top: 10px; right: 10px;
+            width: 60px; height: 60px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="50" font-size="40" fill="%231e40af20" text-anchor="middle" font-weight="bold">PAID</text></svg>') no-repeat center;
+            opacity: 0.15;
+            pointer-events: none;
+          }
+          .header { 
+            display: flex; 
+            align-items: center; 
+            margin-bottom: 20px; 
+            padding-bottom: 15px;
+            border-bottom: 2px solid #1e40af;
+          }
+          .header img { 
+            width: 70px; 
+            height: 70px; 
+            margin-right: 15px; 
+            object-fit: contain;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 3px;
+            background: #fff;
+          }
+          .header h4 { 
+            margin: 0 0 4px 0; 
+            font-size: 18px; 
+            font-weight: 700; 
+            color: #1e40af;
+          }
+          .header small { 
+            display: block; 
+            color: #64748b; 
+            font-size: 11px;
+            line-height: 1.4;
+          }
+          .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e40af;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 6px;
+            margin: 18px 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+          }
+          .details p { 
+            margin: 5px 0; 
+            font-size: 13px; 
+            display: flex;
+            justify-content: space-between;
+          }
+          .details p strong { 
+            color: #475569; 
+            font-weight: 500;
+          }
+          .amount-highlight {
+            background: linear-gradient(135deg, #1e40af, #1e3a8a);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            text-align: center;
+            margin: 15px 0;
+            font-weight: 700;
+            font-size: 20px;
+            letter-spacing: 0.5px;
+          }
+          .amount-words {
+            text-align: center;
+            font-style: italic;
+            color: #64748b;
+            font-size: 12px;
+            margin: 8px 0 15px 0;
+          }
+          .qr-placeholder {
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 6px;
+            background: #f8fafc;
+          }
+          .qr-placeholder small {
+            display: block;
+            color: #64748b;
+            font-size: 10px;
+            margin-top: 5px;
+          }
+          .signature-block {
+            margin-top: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+          }
+          .signature-line {
+            border-top: 1px solid #1e293b;
+            padding-top: 5px;
+            width: 180px;
+            text-align: center;
+            font-size: 11px;
+            color: #475569;
+          }
+          .signature-line .designation {
+            display: block;
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 2px;
+          }
+          .footer { 
+            text-align: center; 
+            margin-top: 25px; 
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 11px; 
+            color: #64748b;
+          }
+          .footer strong { color: #1e40af; }
+          .timestamp {
+            text-align: center;
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 8px;
+          }
+          @media print {
+            body { padding: 0; background: #fff; }
+            .receipt { border: 2px solid #000; }
+            .no-print { display: none !important; }
+            .amount-highlight { 
+              background: #fff !important; 
+              color: #000 !important; 
+              border: 2px solid #000;
+            }
+          }
+        </style></head><body>
+        <div class="receipt">
+          ${!minimal ? `<div class="header">
+            <img src="${logoURL}" alt="School Logo" onerror="this.style.display='none'">
+            <div>
+              <h4>${schoolDetails.schoolName}</h4>
+              <small>${schoolDetails.address}</small>
+              <small>📞 ${schoolDetails.contact} | ✉️ ${schoolDetails.email}</small>
+            </div>
+          </div>` : ''}
+          ${content}
+          <div class="footer">
+            <p class="mb-1"><strong>✓ Payment Verified & Confirmed</strong></p>
+            <small>Powered by <strong>SquadVertex</strong> & EXELIS • SchoolMS v2.0</small>
+            <div class="timestamp">Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</div>
+          </div>
+        </div>
+        <div class="no-print text-center mt-3">
+          <button class="btn btn-success btn-sm" onclick="window.print()">🖨️ Print Receipt</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="window.close()">✕ Close</button>
+        </div></body></html>`;
+    }
+
+    // ============ ALL 7 PROFESSIONAL PRINT TEMPLATES ============
+    
+    function printTemplate1() {
+      // Detailed - Full format with signature (Industry Standard)
+      const tx = transaction;
+      const printHTML = getBaseReceiptHTML(tx, `
+        <div class="details">
+          <div class="section-title">👤 Student Information</div>
+          <p><strong>Student Name</strong> <span>${tx.studentName}</span></p>
+          <p><strong>Roll Number</strong> <span>${tx.rollNo}</span></p>
+          <p><strong>Class</strong> <span>${tx.class}</span></p>
+        </div>
+        
+        <div class="details">
+          <div class="section-title">💳 Transaction Details</div>
+          <p><strong>Transaction ID</strong> <span style="font-family:monospace">${tx.transactionId}</span></p>
+          <p><strong>Payment Mode</strong> <span>${tx.mode}</span></p>
+          <p><strong>Date & Time</strong> <span>${tx.dateTime}</span></p>
+          <p><strong>Status</strong> <span style="color:#16a34a;font-weight:600">✓ ${tx.status}</span></p>
+        </div>
+        
+        <div class="amount-highlight">₹${tx.amountPaid.toLocaleString('en-IN')}</div>
+        <div class="amount-words">${fixedAmountWords}</div>
+        
+        ${tx.notes ? `<div style="background:#f8fafc;padding:10px;border-radius:6px;margin:15px 0;border-left:3px solid #1e40af">
+          <small style="color:#64748b;display:block;margin-bottom:4px">📝 Note</small>
+          <span style="font-size:12px">${tx.notes}</span>
+        </div>` : ''}
+        
+        <div class="qr-placeholder">
+          <div style="width:80px;height:80px;margin:0 auto;background:#f1f5f9;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#64748b">
+            [QR Code]
+          </div>
+          <small>Scan to verify payment authenticity</small>
+        </div>
+        
+        <div class="signature-block">
+          <div class="signature-line">
+            Student/Parent Signature
+            <span class="designation">(Acknowledgement)</span>
+          </div>
+          <div class="signature-line">
+            Authorized Signatory
+            <span class="designation">Finance Department</span>
+          </div>
+        </div>
+      `);
+      openPrintWindow(printHTML);
+    }
+
+    function printTemplate2() {
+      // Duplicate - Two copies on one page (Original & Duplicate)
+      const tx = transaction;
+      const copyTemplate = (label) => `
+        <div style="border:1px solid #1e40af;padding:12px;margin:8px 0;border-radius:6px;page-break-inside:avoid">
+          <div style="display:flex;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #e2e8f0">
+            <img src="${logoURL}" style="width:45px;height:45px;margin-right:10px;object-fit:contain" onerror="this.style.display='none'">
+            <div>
+              <div style="font-weight:700;font-size:13px;color:#1e40af">${schoolDetails.schoolName}</div>
+              <div style="font-size:9px;color:#64748b">${schoolDetails.address}</div>
+            </div>
+            <div style="margin-left:auto;font-size:10px;font-weight:600;color:#1e40af;background:#eff6ff;padding:3px 8px;border-radius:4px">${label}</div>
+          </div>
+          <div style="font-size:11px;line-height:1.6">
+            <div style="display:flex;justify-content:space-between;margin:2px 0">
+              <span style="color:#64748b">Student:</span>
+              <strong>${tx.studentName}</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin:2px 0">
+              <span style="color:#64748b">Roll/Class:</span>
+              <span>${tx.rollNo} / ${tx.class}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin:2px 0">
+              <span style="color:#64748b">Txn ID:</span>
+              <span style="font-family:monospace;font-size:10px">${tx.transactionId}</span>
+            </div>
+            <div style="text-align:center;margin:8px 0;padding:6px;background:#f8fafc;border-radius:4px">
+              <div style="font-size:16px;font-weight:700;color:#1e40af">₹${tx.amountPaid.toLocaleString('en-IN')}</div>
+              <div style="font-size:9px;color:#64748b;font-style:italic">${fixedAmountWords}</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin:2px 0;font-size:10px">
+              <span style="color:#64748b">Mode:</span><span>${tx.mode}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin:2px 0;font-size:10px">
+              <span style="color:#64748b">Date:</span><span>${tx.dateTime}</span>
+            </div>
+          </div>
+          <div style="margin-top:10px;text-align:center">
+            <div style="border-top:1px solid #1e293b;width:120px;margin:0 auto;padding-top:3px;font-size:9px;color:#475569">
+              Signature
+            </div>
+          </div>
+        </div>`;
+      
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Duplicate Receipt</title>
+        <style>
+          @page { margin: 0.3cm; size: auto; }
+          body { 
+            padding: 8px; 
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            background: #fff; 
+            color: #1e293b;
+            font-size: 11px;
+            line-height: 1.4;
+          }
+          @media print {
+            body { padding: 0; }
+            .no-print { display: none !important; }
+          }
+        </style></head>
+        <body>
+          <div style="max-width:420px;margin:auto">
+            ${copyTemplate('ORIGINAL')}
+            ${copyTemplate('DUPLICATE')}
+          </div>
+          <div class="no-print text-center mt-2" style="font-size:11px">
+            <button onclick="window.print()" style="padding:5px 15px;background:#16a34a;color:white;border:none;border-radius:4px;cursor:pointer;margin-right:8px">🖨️ Print</button>
+            <button onclick="window.close()" style="padding:5px 15px;background:#f1f5f9;color:#1e293b;border:1px solid #cbd5e1;border-radius:4px;cursor:pointer">✕ Close</button>
+          </div>
+        </body></html>`;
+      openPrintWindow(html);
+    }
+
+    function printTemplate3() {
+      // Minimal - Clean & simple design (Modern Minimalist)
+      const tx = transaction;
+      const html = getBaseReceiptHTML(tx, `
+        <div style="text-align:center;margin:20px 0">
+          <img src="${logoURL}" style="width:60px;height:60px;object-fit:contain;margin-bottom:8px" onerror="this.style.display='none'">
+          <h3 style="margin:0 0 4px 0;font-size:16px;font-weight:700;color:#1e40af">${schoolDetails.schoolName}</h3>
+          <small style="color:#64748b">${schoolDetails.contact}</small>
+        </div>
+        
+        <div style="text-align:center;padding:15px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;margin:15px 0">
+          <div style="font-size:14px;color:#64748b;margin-bottom:4px">${tx.studentName}</div>
+          <div style="font-size:12px;color:#94a3b8">Roll: ${tx.rollNo} • Class: ${tx.class}</div>
+        </div>
+        
+        <div style="text-align:center">
+          <div style="font-size:24px;font-weight:700;color:#1e40af;margin:8px 0">₹${tx.amountPaid.toLocaleString('en-IN')}</div>
+          <div style="font-size:11px;color:#64748b;font-style:italic;margin-bottom:12px">${fixedAmountWords}</div>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin:15px 0">
+          <div><span style="color:#64748b">Txn ID:</span><br><strong style="font-family:monospace;font-size:11px">${tx.transactionId}</strong></div>
+          <div><span style="color:#64748b">Mode:</span><br><strong>${tx.mode}</strong></div>
+          <div><span style="color:#64748b">Date:</span><br><strong>${tx.dateTime}</strong></div>
+          <div><span style="color:#64748b">Status:</span><br><strong style="color:#16a34a">✓ ${tx.status}</strong></div>
+        </div>
+        
+        ${tx.notes ? `<div style="background:#f8fafc;padding:8px;border-radius:4px;margin:12px 0;font-size:11px;color:#475569;border-left:2px solid #1e40af">
+          ${tx.notes}
+        </div>` : ''}
+      `, true);
+      openPrintWindow(html);
+    }
+
+    function printTemplate4() {
+      // Modern Card - Styled card layout (Premium Card Design)
+      const tx = transaction;
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Modern Receipt</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+        <style>
+          @page { margin: 0.5cm; }
+          body { 
+            background: #f1f5f9; 
+            padding: 20px; 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            font-size: 13px;
+          }
+          .card { 
+            max-width: 680px; 
+            margin: auto; 
+            border: none; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .card-header { 
+            background: linear-gradient(135deg, #1e40af, #1e3a8a); 
+            color: #fff; 
+            padding: 20px 25px; 
+            display: flex; 
+            align-items: center;
+            gap: 15px;
+          }
+          .card-header img { 
+            width: 65px; 
+            height: 65px; 
+            border-radius: 10px; 
+            background: #fff; 
+            padding: 5px; 
+            object-fit: contain;
+          }
+          .card-header h2 { 
+            margin: 0; 
+            font-size: 17px; 
+            font-weight: 700;
+          }
+          .card-header small { 
+            opacity: 0.95; 
+            font-size: 11px;
+            display: block;
+            line-height: 1.4;
+          }
+          .card-body { 
+            padding: 22px 25px; 
+            background: #fff;
+          }
+          .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px 20px;
+            margin: 15px 0;
+          }
+          .info-item label {
+            display: block;
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 3px;
+          }
+          .info-item strong {
+            font-size: 13px;
+            color: #1e293b;
+            font-weight: 600;
+          }
+          .amount-section {
+            text-align: center;
+            padding: 18px;
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            border-radius: 12px;
+            margin: 18px 0;
+            border: 1px solid #bae6fd;
+          }
+          .amount-section .amount {
+            font-size: 26px;
+            font-weight: 800;
+            color: #1e40af;
+            margin: 0 0 6px 0;
+          }
+          .amount-section .words {
+            font-size: 12px;
+            color: #64748b;
+            font-style: italic;
+          }
+          .note-box {
+            background: #f8fafc;
+            border-left: 3px solid #1e40af;
+            padding: 10px 14px;
+            border-radius: 0 6px 6px 0;
+            margin: 15px 0;
+            font-size: 12px;
+            color: #475569;
+          }
+          .card-footer { 
+            text-align: center; 
+            padding: 15px 25px; 
+            background: #f8fafc; 
+            border-top: 1px solid #e2e8f0;
+            font-size: 11px;
+            color: #64748b;
+          }
+          .card-footer strong { color: #1e40af; }
+          .signature-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+          }
+          .sig-line {
+            text-align: center;
+            width: 160px;
+          }
+          .sig-line .line {
+            border-top: 1px solid #1e293b;
+            margin: 25px 0 4px 0;
+            padding-top: 4px;
+            font-size: 11px;
+            color: #475569;
+          }
+          .sig-line .role {
+            font-size: 10px;
+            color: #94a3b8;
+          }
+          @media print {
+            body { background: #fff; padding: 0; }
+            .card { box-shadow: none; border: 2px solid #1e40af; }
+            .no-print { display: none !important; }
+            .amount-section { background: #fff; border: 1px solid #000; }
+          }
+        </style></head><body>
+        <div class="card">
+          <div class="card-header">
+            <img src="${logoURL}" alt="Logo" onerror="this.style.display='none'">
+            <div>
+              <h2>${schoolDetails.schoolName}</h2>
+              <small>${schoolDetails.address}</small>
+              <small>📞 ${schoolDetails.contact} • ✉️ ${schoolDetails.email}</small>
+            </div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+              <div>
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.3px">Student</div>
+                <div style="font-weight:600;font-size:15px;color:#1e293b">${tx.studentName}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:#64748b">Roll / Class</div>
+                <div style="font-weight:600">${tx.rollNo} / ${tx.class}</div>
+              </div>
+            </div>
+            
+            <div class="info-grid">
+              <div class="info-item"><label>Transaction ID</label><strong style="font-family:monospace;font-size:12px">${tx.transactionId}</strong></div>
+              <div class="info-item"><label>Payment Mode</label><strong>${tx.mode}</strong></div>
+              <div class="info-item"><label>Date & Time</label><strong>${tx.dateTime}</strong></div>
+              <div class="info-item"><label>Status</label><strong style="color:#16a34a">✓ ${tx.status}</strong></div>
+            </div>
+            
+            <div class="amount-section">
+              <div class="amount">₹${tx.amountPaid.toLocaleString('en-IN')}</div>
+              <div class="words">${fixedAmountWords}</div>
+            </div>
+            
+            ${tx.notes ? `<div class="note-box">📝 ${tx.notes}</div>` : ''}
+            
+            <div class="signature-row">
+              <div class="sig-line">
+                <div class="line">Student/Parent</div>
+                <div class="role">Acknowledgement</div>
+              </div>
+              <div class="sig-line">
+                <div class="line">Authorized Signatory</div>
+                <div class="role">Finance Dept.</div>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer">
+            <strong>✓ Payment Successfully Processed</strong><br>
+            Powered by <strong>SquadVertex</strong> & EXELIS • SchoolMS
+            <div style="margin-top:5px;font-size:10px;color:#94a3b8">
+              Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+            </div>
+          </div>
+        </div>
+        <div class="no-print text-center mt-3">
+          <button class="btn btn-success" onclick="window.print()">🖨️ Print Receipt</button>
+          <button class="btn btn-outline-secondary" onclick="window.close()">✕ Close</button>
+        </div></body></html>`;
+      openPrintWindow(html);
+    }
+
+    function printTemplate5() {
+      // Compact - Thermal printer friendly (80mm optimized)
+      const tx = transaction;
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Compact Receipt</title>
+        <style>
+          @page { margin: 0; size: 80mm auto; }
+          body { 
+            padding: 8px; 
+            font-family: 'Courier New', monospace; 
+            font-size: 10px; 
+            background: #fff; 
+            color: #000;
+            line-height: 1.4;
+            width: 76mm;
+            margin: auto;
+          }
+          .receipt { 
+            border: 1px dashed #333; 
+            padding: 10px; 
+            text-align: center;
+          }
+          .logo { 
+            width: 45px; 
+            height: 45px; 
+            margin: 0 auto 6px; 
+            display: block;
+            object-fit: contain;
+          }
+          .school-name { 
+            font-weight: bold; 
+            font-size: 11px; 
+            margin: 4px 0 2px 0;
+          }
+          .school-contact { 
+            font-size: 9px; 
+            color: #333;
+            margin: 1px 0;
+          }
+          .divider { 
+            border-top: 1px dashed #333; 
+            margin: 6px 0; 
+          }
+          .row { 
+            display: flex; 
+            justify-content: space-between; 
+            margin: 2px 0; 
+            font-size: 10px;
+          }
+          .row label { 
+            color: #444;
+          }
+          .amount { 
+            font-size: 14px; 
+            font-weight: bold; 
+            margin: 5px 0; 
+            border-top: 1px dashed #333; 
+            border-bottom: 1px dashed #333; 
+            padding: 4px 0;
+          }
+          .words { 
+            font-size: 9px; 
+            color: #555; 
+            font-style: italic;
+            margin: 3px 0;
+          }
+          .txn-id { 
+            font-size: 9px; 
+            word-break: break-all;
+            color: #333;
+          }
+          .footer { 
+            font-size: 9px; 
+            color: #555; 
+            margin-top: 8px;
+            border-top: 1px dashed #333;
+            padding-top: 6px;
+          }
+          .status { 
+            font-weight: bold; 
+            color: #000;
+          }
+          @media print {
+            body { padding: 0; width: auto; }
+            .no-print { display: none !important; }
+          }
+        </style></head><body>
+        <div class="receipt">
+          <img class="logo" src="${logoURL}" alt="" onerror="this.style.display='none'">
+          <div class="school-name">${schoolDetails.schoolName}</div>
+          <div class="school-contact">${schoolDetails.contact}</div>
+          <div class="school-contact">${schoolDetails.email}</div>
+          
+          <div class="divider"></div>
+          
+          <div class="row"><label>Student:</label><strong>${tx.studentName}</strong></div>
+          <div class="row"><label>Roll:</label><span>${tx.rollNo}</span></div>
+          <div class="row"><label>Class:</label><span>${tx.class}</span></div>
+          
+          <div class="divider"></div>
+          
+          <div class="row"><label>Txn ID:</label><span class="txn-id">${tx.transactionId}</span></div>
+          <div class="row"><label>Mode:</label><span>${tx.mode}</span></div>
+          <div class="row"><label>Date:</label><span>${tx.dateTime}</span></div>
+          
+          <div class="amount">₹${tx.amountPaid.toLocaleString('en-IN')}</div>
+          <div class="words">${fixedAmountWords}</div>
+          
+          ${tx.notes ? `<div style="text-align:left;font-size:9px;margin:4px 0;padding:3px;background:#f9f9f9">📝 ${tx.notes}</div>` : ''}
+          
+          <div class="divider"></div>
+          <div class="footer">
+            <div class="status">✓ PAYMENT CONFIRMED</div>
+            <div style="margin-top:3px">Thank you!</div>
+            <div style="margin-top:2px;font-size:8px">SquadVertex • EXELIS</div>
+          </div>
+        </div>
+        <div class="no-print text-center" style="margin-top:8px;font-size:10px">
+          <button onclick="window.print()" style="padding:4px 12px;font-size:10px">🖨️ Print</button>
+          <button onclick="window.close()" style="padding:4px 12px;font-size:10px;margin-left:5px">✕</button>
+        </div></body></html>`;
+      openPrintWindow(html);
+    }
+
+    function printTemplate6() {
+      // Elegant - Classic formal style (Traditional Formal)
+      const tx = transaction;
+      const html = getBaseReceiptHTML(tx, `
+        <div style="text-align:center;margin-bottom:20px">
+          <img src="${logoURL}" style="width:65px;height:65px;object-fit:contain;margin-bottom:10px" onerror="this.style.display='none'">
+          <h3 style="font-family:Georgia,'Times New Roman',serif;margin:0 0 5px 0;font-size:17px;font-weight:700;color:#1e40af">${schoolDetails.schoolName}</h3>
+          <small style="font-family:Georgia,serif;color:#64748b;font-size:12px">${schoolDetails.address}</small>
+        </div>
+        
+        <div style="background:#fff;border:2px solid #1e40af;border-radius:10px;padding:18px;margin:15px 0">
+          <div style="text-align:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:15px">
+            <div style="font-size:16px;font-weight:600;color:#1e293b;margin-bottom:4px">${tx.studentName}</div>
+            <div style="font-size:13px;color:#64748b">Roll No: <strong>${tx.rollNo}</strong> &nbsp;•&nbsp; Class: <strong>${tx.class}</strong></div>
+          </div>
+          
+          <div style="text-align:center;padding:15px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:8px;margin:15px 0">
+            <div style="font-size:28px;font-weight:800;color:#1e40af;margin:0 0 5px 0">₹${tx.amountPaid.toLocaleString('en-IN')}</div>
+            <div style="font-size:13px;color:#64748b;font-style:italic;font-family:Georgia,serif">${fixedAmountWords}</div>
+          </div>
+          
+          <table style="width:100%;font-size:13px;margin:15px 0">
+            <tr><td style="padding:6px 0;color:#64748b;width:45%">Transaction ID</td><td style="font-family:monospace;font-weight:500">${tx.transactionId}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Payment Mode</td><td><strong>${tx.mode}</strong></td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Date & Time</td><td><strong>${tx.dateTime}</strong></td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Status</td><td><strong style="color:#16a34a">✓ ${tx.status}</strong></td></tr>
+          </table>
+          
+          ${tx.notes ? `<div style="background:#f8fafc;padding:12px;border-radius:6px;margin:15px 0;border-left:3px solid #1e40af;font-family:Georgia,serif;font-style:italic;font-size:12px;color:#475569">
+            "${tx.notes}"
+          </div>` : ''}
+        </div>
+        
+        <div style="display:flex;justify-content:space-between;margin-top:25px;padding-top:15px;border-top:1px solid #e2e8f0">
+          <div style="text-align:center;width:45%">
+            <div style="border-top:1px solid #1e293b;width:160px;margin:30px auto 5px;padding-top:6px;font-size:12px;color:#475569">
+              Student/Parent Signature
+            </div>
+            <small style="color:#94a3b8;font-size:10px">(Acknowledgement)</small>
+          </div>
+          <div style="text-align:center;width:45%">
+            <div style="border-top:1px solid #1e293b;width:160px;margin:30px auto 5px;padding-top:6px;font-size:12px;color:#475569">
+              Authorized Signatory
+            </div>
+            <small style="color:#94a3b8;font-size:10px">Finance Department</small>
+          </div>
+        </div>
+      `);
+      openPrintWindow(html);
+    }
+
+    async function printTemplate7() {
+      // History - All transactions list (Professional Statement)
+      const tx = transaction;
+      
+      let studentTxns = [];
+      try {
+        if (!window.db) throw new Error("db not available");
+        const paymentsRef = window.db.collection('001-school')
+                                  .doc('transactions')
+                                  .collection(tx._ids.class_id)
+                                  .doc(tx._ids.student_id)
+                                  .collection('payments');
+        const snapshot = await paymentsRef.orderBy('timestamp', 'desc').get();
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const txnDate = data.timestamp?.toDate?.() || (data.date ? new Date(data.date) : new Date());
+          studentTxns.push({
+            transactionId: data.txnId || doc.id,
+            amountPaid: data.amount || 0,
+            mode: data.mode || 'Cash',
+            dateTime: txnDate.toLocaleString('en-IN')
+          });
+        });
+      } catch (e) {
+        console.warn("⚠️ History fetch failed:", e);
+        studentTxns = [{ ...tx }];
+      }
+
+      let rows = '', total = 0;
+      studentTxns.forEach((t, i) => {
+        total += t.amountPaid;
+        rows += `<tr>
+          <td style="text-align:center;font-weight:500">${i+1}</td>
+          <td style="font-family:monospace;font-size:11px">${t.transactionId}</td>
+          <td style="text-align:right;font-weight:600">₹${t.amountPaid.toLocaleString('en-IN')}</td>
+          <td style="text-align:center">${t.mode}</td>
+          <td style="font-size:11px;color:#64748b">${t.dateTime}</td>
+        </tr>`;
+      });
+
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Transaction History</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+        <style>
+          @page { margin: 0.5cm; }
+          body { 
+            padding: 20px; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            font-size: 12px; 
+            background: #fff; 
+            color: #1e293b;
+            line-height: 1.5;
+          }
+          .statement { 
+            max-width: 850px; 
+            margin: auto; 
+            border: 2px solid #1e40af; 
+            padding: 25px; 
+            border-radius: 8px;
+          }
+          .header { 
+            text-align: center; 
+            margin-bottom: 20px; 
+            padding-bottom: 15px;
+            border-bottom: 2px solid #1e40af;
+          }
+          .header img { 
+            width: 65px; 
+            height: 65px; 
+            object-fit: contain;
+            margin-bottom: 8px;
+          }
+          .header h3 { 
+            margin: 0 0 4px 0; 
+            font-size: 18px; 
+            font-weight: 700; 
+            color: #1e40af;
+          }
+          .header small { 
+            color: #64748b; 
+            font-size: 11px;
+            display: block;
+          }
+          .student-banner {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            padding: 12px 18px;
+            border-radius: 8px;
+            margin: 15px 0 20px 0;
+            border-left: 4px solid #1e40af;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+          }
+          .student-banner strong {
+            color: #1e40af;
+            font-size: 14px;
+          }
+          .student-banner span {
+            color: #475569;
+            font-size: 13px;
+          }
+          .section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e40af;
+            border-bottom: 2px solid #1e40af;
+            padding-bottom: 8px;
+            margin: 20px 0 12px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 12px;
+            margin: 10px 0;
+          }
+          th { 
+            background: #1e40af; 
+            color: white; 
+            padding: 10px 8px; 
+            text-align: center; 
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+          }
+          td { 
+            padding: 9px 8px; 
+            border-bottom: 1px solid #e2e8f0;
+          }
+          tr:nth-child(even) { background: #f8fafc; }
+          tr:hover { background: #eff6ff; }
+          td:nth-child(3) { 
+            text-align: right; 
+            font-weight: 600; 
+            color: #1e40af;
+          }
+          td:nth-child(4) { text-align: center; }
+          td:nth-child(5) { 
+            font-size: 11px; 
+            color: #64748b;
+            white-space: nowrap;
+          }
+          .total-row { 
+            font-weight: 700; 
+            background: #f1f5f9 !important;
+            border-top: 2px solid #1e40af;
+          }
+          .total-row td { 
+            padding: 12px 8px; 
+            font-size: 14px;
+          }
+          .total-row td:nth-child(3) {
+            font-size: 18px;
+            color: #16a34a;
+          }
+          .footer { 
+            text-align: center; 
+            margin-top: 25px; 
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 11px; 
+            color: #64748b;
+          }
+          .footer strong { color: #1e40af; }
+          .disclaimer {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 8px;
+            font-style: italic;
+          }
+          @media print {
+            body { padding: 0; background: #fff; }
+            .statement { border: 2px solid #000; }
+            .no-print { display: none !important; }
+            th { background: #fff !important; color: #000 !important; border-bottom: 2px solid #000; }
+          }
+        </style></head><body>
+        <div class="statement">
+          <div class="header">
+            <img src="${logoURL}" alt="School Logo" onerror="this.style.display='none'">
+            <h3 class="mb-1">${schoolDetails.schoolName}</h3>
+            <small>${schoolDetails.address}</small>
+            <small>📞 ${schoolDetails.contact} | ✉️ ${schoolDetails.email}</small>
+          </div>
+          
+          <div class="student-banner">
+            <div><strong>Student:</strong> <span>${tx.studentName}</span></div>
+            <div><strong>Roll No:</strong> <span>${tx.rollNo}</span></div>
+            <div><strong>Class:</strong> <span>${tx.class}</span></div>
+          </div>
+          
+          <div class="section-title">📋 Payment Transaction History</div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th width="8%">#</th>
+                <th width="28%">Transaction ID</th>
+                <th width="20%">Amount</th>
+                <th width="15%">Mode</th>
+                <th width="29%">Date & Time</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+            <tr class="total-row">
+              <td colspan="2" style="text-align:right">Grand Total Paid:</td>
+              <td>₹${total.toLocaleString('en-IN')}</td>
+              <td colspan="2"></td>
+            </tr>
+          </table>
+          
+          <div class="footer">
+            <p class="mb-1"><strong>✓ This is a computer-generated statement</strong></p>
+            <small>Powered by <strong>SquadVertex</strong> & EXELIS • SchoolMS v2.0</small>
+            <div class="disclaimer">
+              Generated on: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} • 
+              For verification, scan QR code on individual receipts
+            </div>
+          </div>
+        </div>
+        <div class="no-print text-center mt-3">
+          <button class="btn btn-success" onclick="window.print()">🖨️ Print Statement</button>
+          <button class="btn btn-outline-secondary" onclick="window.close()">✕ Close</button>
+        </div></body></html>`;
+      openPrintWindow(html);
+    }
+
+    // ============ APP INITIALIZATION ============
+    window.addEventListener('load', async () => {
+      console.log("🔄 Page loaded, initializing...");
+      showLoading();
+      
+      try {
+        await initFirebase();
+        await fetchSchoolSettings();
+        transaction = await fetchTransaction();
+        renderPreview(transaction);
+        showContent();
+        console.log("✅ Receipt page ready");
+      } catch (err) {
+        console.error("❌ Init error:", err);
+        showError(err.message || "Failed to load receipt. Check URL parameters.");
+      }
+    });
+  </script>
+  
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
