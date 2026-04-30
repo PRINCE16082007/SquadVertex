@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Penguin Pal - Ultimate</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;700&display=swap');
+
+  :root {
+    --bg-sky: #0f1117;
+    --bg-ground: linear-gradient(180deg, transparent 0%, #1a1d2b 40%, #13151f 100%);
+    --ground-line: linear-gradient(90deg, transparent, #2e3250 30%, #3a4070 50%, #2e3250 70%, transparent);
+    --text: #8a8fa8;
+    --star: #c9cfe8;
+    
+    --body-dark: #1e2029; --body-mid: #2c2f3e; --belly: #e8e6f0;
+    --beak: #f0a96a; --eye-white: #f4f2ff; --eye-pupil: #1a1a2e;
+    --blush: #f4a0b0; --feet: #f0a96a; --accent: #8eb4e3;
+  }
+
+  body.light-theme {
+    --bg-sky: #fff0f5; 
+    --bg-ground: linear-gradient(180deg, transparent 0%, #ffd6e0 40%, #ffb6c1 100%);
+    --ground-line: linear-gradient(90deg, transparent, #ff69b4 30%, #ff1493 50%, #ff69b4 70%, transparent);
+    --text: #d18a9e; --star: #ff69b4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%; background: var(--bg-sky);
+    overflow: hidden; cursor: none; font-family: 'Quicksand', sans-serif;
+    transition: background 0.8s ease;
+    /* Prevent default touch actions like zooming */
+    touch-action: none; 
+  }
+
+  /* ── UI Elements ── */
+  #welcome-screen {
+    position: fixed; inset: 0; background: #050508; z-index: 2000;
+    display: flex; justify-content: center; align-items: center;
+    animation: fadeOutWelcome 3.5s forwards; pointer-events: none;
+  }
+  .welcome-text {
+    color: #ffb6c1; font-weight: 500; font-size: 2.2rem;
+    opacity: 0; text-shadow: 0 0 20px rgba(255, 182, 193, 0.5);
+    animation: fadeInOutText 3s forwards;
+  }
+  @keyframes fadeOutWelcome { 0%, 75% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+  @keyframes fadeInOutText { 0% { opacity: 0; transform: translateY(15px); } 30%, 70% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-15px); } }
+
+  #theme-btn {
+    position: fixed; top: 20px; right: 20px; width: 45px; height: 45px;
+    border-radius: 50%; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    backdrop-filter: blur(5px); color: white; font-size: 22px; cursor: pointer; z-index: 100;
+    transition: 0.3s;
+  }
+  #theme-btn:hover { transform: scale(1.1); background: rgba(255,255,255,0.2); }
+
+  .hint {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    color: var(--text); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    pointer-events: none; z-index: 10; opacity: .6;
+  }
+
+  #cursor {
+    position: fixed; width: 12px; height: 12px; border-radius: 50%; background: var(--accent);
+    pointer-events: none; z-index: 999; transform: translate(-50%,-50%);
+    box-shadow: 0 0 15px var(--accent); mix-blend-mode: screen;
+  }
+
+  /* ── Background ── */
+  .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .star { position: absolute; border-radius: 50%; background: var(--star); animation: twinkle var(--d, 3s) ease-in-out infinite alternate; opacity: 0; }
+  @keyframes twinkle { 0% { opacity: 0; } 50% { opacity: var(--op, .5); } 100% { opacity: 0.1; } }
+  .ground { position: fixed; bottom: 0; left: 0; right: 0; height: 110px; background: var(--bg-ground); pointer-events: none; z-index: 1; }
+
+  /* ── Premium 3D Animations ── */
+  #penguin-wrap {
+    position: fixed; z-index: 5; transform: translate(-50%, -100%);
+    transition: left .6s cubic-bezier(.34,1.56,.64,1), top .6s cubic-bezier(.34,1.56,.64,1);
+  }
+  
+  /* Smooth, breathing idle bob */
+  #penguin-wrap.idle { animation: premiumBob 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+  @keyframes premiumBob {
+    0%, 100% { transform: translate(-50%, -100%) rotate(-1deg) scaleY(1); }
+    50% { transform: translate(-50%, -100%) rotate(1deg) translateY(-4px) scaleY(0.98); }
+  }
+
+  /* Waddle with slight vertical bounce */
+  #penguin-wrap.moving { animation: premiumWaddle 0.28s ease-in-out infinite alternate; }
+  @keyframes premiumWaddle {
+    0% { transform: translate(-50%, -100%) rotate(-7deg) translateY(-2px); }
+    100% { transform: translate(-50%, -100%) rotate(7deg) translateY(0px); }
+  }
+
+  /* Realistic Squash and Stretch Pop */
+  #penguin-wrap.pop { animation: squashPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+  @keyframes squashPop {
+    0% { transform: translate(-50%, -100%) scale(1); }
+    30% { transform: translate(-50%, -95%) scale(1.15, 0.85); } /* Squash down */
+    60% { transform: translate(-50%, -115%) scale(0.9, 1.1) rotate(-5deg); } /* Stretch up */
+    80% { transform: translate(-50%, -98%) scale(1.05, 0.95) rotate(3deg); } /* Settle */
+    100% { transform: translate(-50%, -100%) scale(1) rotate(0); }
+  }
+
+  #penguin-wrap.spin { animation: premiumSpin 0.9s cubic-bezier(0.45, 0, 0.15, 1) forwards; }
+  @keyframes premiumSpin { 
+    0% { transform: translate(-50%, -100%) rotateY(0deg) scale(1); } 
+    50% { transform: translate(-50%, -115%) rotateY(180deg) scale(1.1); } 
+    100% { transform: translate(-50%, -100%) rotateY(360deg) scale(1); } 
+  }
+
+  /* ── Ultra-Realistic 3D Penguin Body ── */
+  .penguin { 
+    position: relative; width: 90px; display: flex; flex-direction: column; align-items: center; 
+    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.6)); /* Deep environmental shadow */
+  }
+  
+  /* 3D Head */
+  .head {
+    position: relative; width: 68px; height: 68px; 
+    background: radial-gradient(circle at 35% 25%, #475569 0%, #1e293b 45%, #020617 100%);
+    border-radius: 50%; z-index: 2; margin-bottom: -14px; 
+    box-shadow: inset -8px -8px 15px rgba(0,0,0,0.8), inset 4px 4px 10px rgba(255,255,255,0.15);
+  }
+  
+  /* 3D Face / Mask */
+  .face {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); width: 46px; height: 38px;
+    background: radial-gradient(circle at 50% 20%, #ffffff 0%, #f1f5f9 60%, #cbd5e1 100%);
+    border-radius: 50% 50% 45% 45%; z-index: 1;
+    box-shadow: inset -3px -5px 8px rgba(0,0,0,0.15), 0 4px 6px rgba(0,0,0,0.2);
+  }
+  
+  /* Glossy Eyes with Double Shine */
+  .eyes { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; z-index: 2; }
+  .eye { width: 14px; height: 14px; background: transparent; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; }
+  .pupil { 
+    width: 14px; height: 14px; background: #0f172a; border-radius: 50%; position: relative; transition: transform 0.1s;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), 0 1px 2px rgba(255,255,255,0.3);
+  }
+  .shine { position: absolute; top: 2px; left: 3px; width: 4px; height: 4px; background: white; border-radius: 50%; filter: blur(0.5px); }
+  .shine::after { content: ''; position: absolute; top: 5px; left: 5px; width: 2px; height: 2px; background: white; border-radius: 50%; }
+
+  /* 3D Cone Beak */
+  .beak { 
+    position: absolute; z-index: 3; top: 34px; left: 50%; transform: translateX(-50%);
+    width: 18px; height: 12px;
+    background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 50%, #b45309 100%);
+    border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset -1px -2px 3px rgba(0,0,0,0.2);
+  }
+
+  /* 3D Body */
+  .body {
+    position: relative; width: 84px; height: 95px; 
+    background: radial-gradient(circle at 35% 30%, #334155 0%, #1e293b 50%, #020617 100%);
+    border-radius: 50% 50% 45% 45% / 40% 40% 60% 60%; z-index: 1; display: flex; flex-direction: column; align-items: center; 
+    box-shadow: inset -10px -10px 20px rgba(0,0,0,0.8), inset 5px 5px 15px rgba(255,255,255,0.1), 0 12px 20px rgba(0,0,0,0.6);
+  }
+  
+  /* 3D Belly */
+  .belly {
+    width: 54px; height: 68px; 
+    background: radial-gradient(circle at 50% 30%, #ffffff 0%, #f8fafc 50%, #94a3b8 100%);
+    border-radius: 50% 50% 45% 45% / 40% 40% 60% 60%; margin-top: 8px; position: relative;
+    box-shadow: inset -5px -8px 15px rgba(0,0,0,0.2), inset 2px 2px 8px rgba(255,255,255,0.9);
+  }
+
+  /* 3D Wings */
+  .wing { 
+    position: absolute; width: 26px; height: 56px; top: 10px; 
+    background: radial-gradient(ellipse at 30% 30%, #334155 0%, #1e293b 60%, #020617 100%);
+    border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; 
+    transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: inset -2px -4px 8px rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.4);
+  }
+  .wing-left { left: -14px; transform-origin: top center; transform: rotate(10deg); }
+  .wing-right { right: -14px; transform-origin: top center; transform: rotate(-10deg) scaleX(-1); }
+
+  /* 3D Feet */
+  .feet { display: flex; gap: 14px; margin-top: -6px; z-index: 0; }
+  .foot { 
+    width: 24px; height: 12px; 
+    background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
+    border-radius: 50% 50% 20% 20% / 60% 60% 20% 20%; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 2px 2px rgba(255,255,255,0.4);
+    animation: premiumStepL 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite; 
+  }
+  .foot:nth-child(2) { animation-name: premiumStepR; }
+  @keyframes premiumStepL { 0%, 100% { transform: rotate(-10deg) translateX(-2px); } 50% { transform: rotate(8deg) translateX(2px); } }
+  @keyframes premiumStepR { 0%, 100% { transform: rotate(10deg) translateX(2px); } 50% { transform: rotate(-8deg) translateX(-2px); } }
+
+  /* ── Interactive Name Tag ── */
+
+
+  /* ── Interactive Name Tag ── */
+  .name-tag-container { position: absolute; top: 38px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; z-index: 10; cursor: pointer; }
+  .name-tag { background: rgba(255,255,255,0.9); color: #444; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 12px; border: 1px solid #f0a96a; white-space: nowrap; }
+  .edit-icon { font-size: 9px; color: white; background: #ff69b4; border-radius: 50%; width: 14px; height: 14px; display: flex; justify-content: center; align-items: center; margin-top: -5px; opacity: 0; transition: 0.3s; }
+  .penguin:hover .edit-icon { opacity: 1; }
+
+  /* ── Special Reactions & States ── */
+  .blush-left, .blush-right { position: absolute; width: 12px; height: 7px; background: var(--blush); border-radius: 50%; opacity: 0; transition: 0.2s; top: 30px; z-index: 4; }
+  .blush-left { left: 6px; } .blush-right { right: 6px; }
+  .mouth { position: absolute; top: 42px; left: 50%; transform: translateX(-50%); z-index: 3; width: 14px; height: 7px; border-bottom: 2px solid rgba(180,160,160,.5); border-radius: 0 0 50% 50%; transition: 0.2s; }
+  
+  /* Shared Happy State */
+  .react-happy .blush-left, .react-happy .blush-right { opacity: 1; }
+  .react-happy .mouth { border-bottom: 2px solid var(--blush); width: 18px; }
+  .react-happy .pupil { transform: translateY(-3px) scaleY(0.5) !important; }
+
+  /* State 1: Bouquet */
+  .bouquet { position: absolute; top: 30px; right: -15px; font-size: 26px; z-index: 6; opacity: 0; transform: scale(0) rotate(-30deg); transition: 0.4s; pointer-events: none; }
+  .react-bouquet .bouquet { opacity: 1; transform: scale(1) rotate(0deg); }
+  .react-bouquet .wing-right { transform: rotate(-60deg) translateY(-8px) scaleX(-1); }
+  .react-bouquet .blush-left, .react-bouquet .blush-right { opacity: 1; }
+
+  /* State 2: Peek-a-boo */
+  .react-peek .wing-left { transform: rotate(130deg) translate(-10px, -20px) !important; z-index: 10;}
+  .react-peek .wing-right { transform: rotate(-130deg) translate(-10px, -20px) scaleX(-1) !important; z-index: 10; }
+  .react-peek .blush-left, .react-peek .blush-right { opacity: 1; }
+
+  /* State 3: Big Heart */
+  .big-heart { position: absolute; top: -10px; left: 50%; transform: translateX(-50%) scale(0); font-size: 35px; opacity: 0; z-index: 20; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  .react-heart .big-heart { transform: translateX(-50%) scale(1) translateY(-30px); opacity: 1; }
+
+  /* ── Sleep Mode ── */
+  .sleepy .pupil { height: 2px; border-radius: 0; transform: translateY(4px) !important; }
+  .sleepy .wing-left { transform: rotate(20deg); }
+  .sleepy .wing-right { transform: rotate(-20deg) scaleX(-1); }
+  #penguin-wrap.sleepy { animation: sleepBob 3s ease-in-out infinite; }
+  @keyframes sleepBob { 0%, 100% { transform: translate(-50%, -100%) scaleY(1); } 50% { transform: translate(-50%, -100%) scaleY(0.95) translateY(2px); } }
+  
+  .zzz { position: absolute; color: #fff; font-weight: bold; opacity: 0; z-index: 10; pointer-events: none; animation: floatZzz 2s linear forwards; }
+  @keyframes floatZzz { 0% { transform: translate(0, 0) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(15px, -40px) scale(1.5); opacity: 0; } }
+
+  /* ── Feeding & Tickle Particles ── */
+  .food-drop { position: fixed; font-size: 24px; z-index: 2; transform: translate(-50%, -50%); animation: dropFood 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards; }
+  @keyframes dropFood { 0% { top: -50px; } 100% { top: var(--targetY); } }
+  
+  .petal, .sparkle-tickle { position: fixed; pointer-events: none; z-index: 20; font-size: 16px; animation: explodeOut .8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+  @keyframes explodeOut { 0% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(1.5) rotate(var(--rot)); opacity: 0; } }
+
+  .bloom-footprint { position: fixed; pointer-events: none; z-index: 3; font-size: 20px; transform: translate(-50%,-50%) scale(0); transition: 0.5s; }
+  .ripple { position: fixed; pointer-events: none; z-index: 2; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent); transform: translate(-50%,-50%) scale(0); animation: rippleOut .6s ease-out forwards; }
+  @keyframes rippleOut { 0% { transform: translate(-50%,-50%) scale(0); opacity: .8; } 100% { transform: translate(-50%,-50%) scale(4); opacity: 0; } }
+
+</style>
+</head>
+<body>
+
+<div id="welcome-screen"><h1 class="welcome-text">Welcome, Avika 🌸</h1></div>
+<button id="theme-btn">☀️</button>
+<div class="stars" id="stars"></div>
+<div class="ground"></div>
+<p class="hint" id="hint-text">tap to walk · tap penguin to play · double tap for food</p>
+<div id="cursor"></div>
+
+<div id="penguin-wrap" class="idle">
+  <div class="penguin" id="penguin">
+    <div class="bouquet">💐</div>
+    <div class="big-heart">❤️</div>
+    
+    <div class="head">
+      <div class="face">
+        <div class="eyes">
+          <div class="eye"><div class="pupil"></div><div class="shine"></div></div>
+          <div class="eye"><div class="pupil"></div><div class="shine"></div></div>
+        </div>
+        <div class="blush-left"></div><div class="blush-right"></div>
+        <div class="mouth"></div>
+      </div>
+      <div class="beak"></div>
+    </div>
+
+    <div class="body">
+      <div class="belly">
+        <div class="name-tag-container" id="nameContainer">
+          <div class="name-tag" id="petName">Panda</div>
+          <div class="edit-icon">✎</div>
+        </div>
+      </div>
+      <div class="wing wing-left"></div>
+      <div class="wing wing-right"></div>
+    </div>
+    
+    <div class="feet"><div class="foot"></div><div class="foot"></div></div>
+  </div>
+</div>
+
+<script>
+  // --- Basic Setup & Theme ---
+  const W = window.innerWidth, H = window.innerHeight, groundH = 68;
+  const wrap = document.getElementById('penguin-wrap'), penguin = document.getElementById('penguin');
+  const pupils = document.querySelectorAll('.pupil');
+  let posX = W / 2, posY = H - groundH;
+  wrap.style.left = posX + 'px'; wrap.style.top = posY + 'px';
+  
+  const themeBtn = document.getElementById('theme-btn');
+  themeBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); document.body.classList.toggle('light-theme');
+    themeBtn.innerText = document.body.classList.contains('light-theme') ? '🌙' : '☀️';
+  });
+
+  document.getElementById('nameContainer').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const newName = prompt("Name your penguin! 🌸", document.getElementById('petName').innerText);
+    if(newName && newName.trim()) document.getElementById('petName').innerText = newName.substring(0, 10);
+  });
+
+  // Stars & Cursor
+  for (let i = 0; i < 80; i++) {
+    let s = document.createElement('div'); s.className = 'star';
+    s.style.cssText = `width:${Math.random()*2+.5}px; height:${Math.random()*2+.5}px; top:${Math.random()*100}%; left:${Math.random()*100}%; --d:${Math.random()*4+2}s; --op:${Math.random()*.5+.1}; animation-delay:${Math.random()*4}s;`;
+    document.getElementById('stars').appendChild(s);
+  }
+  const cursor = document.getElementById('cursor');
+  let mouseX = W/2, mouseY = H/2;
+
+  // --- Core State Flags ---
+  let isMoving = false, isReacting = false, isSleeping = false;
+  let moveTimer = null, sleepTimer = null, zzzInterval = null;
+  let tickleCount = 0, lastTapTime = 0;
+
+  // --- Feature 1: Eye Tracking & Tickle ---
+  function trackMouse(x, y) {
+    mouseX = x; mouseY = y;
+    cursor.style.left = x + 'px'; cursor.style.top = y + 'px';
+    
+    resetSleep(); // Wake up on mouse move
+    
+    // Eye tracking math
+    if(!isSleeping && !isReacting) {
+      const rect = penguin.getBoundingClientRect();
+      const pX = rect.left + rect.width/2, pY = rect.top + rect.height/2 - 20;
+      const angle = Math.atan2(y - pY, x - pX);
+      const dist = Math.min(3, Math.hypot(x - pX, y - pY) / 50); // max 3px movement
+      pupils.forEach(p => p.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`);
+    }
+
+    // Tickle Logic (Rubbing the penguin)
+    const pRect = penguin.getBoundingClientRect();
+    if(x > pRect.left && x < pRect.right && y > pRect.top && y < pRect.bottom && !isMoving && !isReacting) {
+      tickleCount++;
+      if(tickleCount > 15) {
+        triggerHappyState();
+        tickleCount = 0;
+      }
+    } else {
+      tickleCount = 0;
+    }
+  }
+  document.addEventListener('mousemove', e => trackMouse(e.clientX, e.clientY));
+  document.addEventListener('touchmove', e => trackMouse(e.touches[0].clientX, e.touches[0].clientY), {passive: true});
+
+  // --- Feature 2: Sleep Mode ---
+  function resetSleep() {
+    clearTimeout(sleepTimer); clearInterval(zzzInterval);
+    if(isSleeping) {
+      isSleeping = false;
+      wrap.classList.remove('sleepy');
+      penguin.classList.add('react-happy'); // wake up smile
+      setTimeout(() => penguin.classList.remove('react-happy'), 1000);
+    }
+    sleepTimer = setTimeout(fallAsleep, 10000); // 10 seconds of no interaction
+  }
+  function fallAsleep() {
+    if(isMoving || isReacting) return resetSleep();
+    isSleeping = true;
+    wrap.classList.add('sleepy');
+    pupils.forEach(p => p.style.transform = ''); // reset eyes
+    zzzInterval = setInterval(() => {
+      const z = document.createElement('div'); z.className = 'zzz'; z.innerText = 'Zzz';
+      z.style.left = (Math.random()*40 + 20) + 'px'; z.style.top = '-10px';
+      penguin.appendChild(z);
+      setTimeout(() => z.remove(), 2000);
+    }, 1500);
+  }
+  resetSleep(); // Start timer initially
+
+  // --- Feature 3: Movement & Footprints ---
+  function moveTo(x, y, isEating = false, foodElement = null) {
+    if (isReacting) return;
+    const clampX = Math.min(Math.max(x, 50), W - 50);
+    const clampY = Math.min(Math.max(y, 120), H - groundH);
+    posX = clampX; posY = clampY;
+
+    penguin.style.transform = x < parseFloat(wrap.style.left) ? 'scaleX(-1)' : 'scaleX(1)';
+    wrap.className = 'moving';
+    wrap.style.left = posX + 'px'; wrap.style.top = posY + 'px';
+    isMoving = true;
+
+    if(!isEating) { spawnRipple(x, y); spawnFootprint(x, y); }
+
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(() => {
+      wrap.className = 'idle';
+      penguin.style.transform = 'scaleX(1)';
+      isMoving = false;
+      if(isEating && foodElement) {
+        foodElement.remove();
+        triggerHappyState("yum");
+      }
+    }, 700);
+  }
+
+  // BUG FIX: Strict click delegator
+  document.addEventListener('click', e => {
+    resetSleep();
+    // Prevent moving if clicking penguin or UI
+    if(e.target.closest('#penguin') || e.target.closest('#theme-btn')) return;
+    moveTo(e.clientX, e.clientY);
+  });
+  document.addEventListener('touchend', e => {
+    // Check Double Tap for Feeding
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTapTime;
+    if (tapLength < 300 && tapLength > 0) {
+      handleDoubleTap(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+      e.preventDefault();
+    } else {
+      if(!e.target.closest('#penguin') && !e.target.closest('#theme-btn')) {
+        moveTo(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+      }
+    }
+    lastTapTime = currentTime;
+  });
+
+  // Mouse double click
+  document.addEventListener('dblclick', e => {
+    if(e.target.closest('#penguin') || e.target.closest('#theme-btn')) return;
+    handleDoubleTap(e.clientX, e.clientY);
+  });
+
+  // --- Feature 4: Feeding (Double Tap) ---
+  function handleDoubleTap(x, y) {
+    const clampY = Math.min(Math.max(y, 120), H - groundH);
+    const treats = ['🐟', '🍦', '🍩'];
+    const food = document.createElement('div');
+    food.className = 'food-drop';
+    food.innerText = treats[Math.floor(Math.random() * treats.length)];
+    food.style.left = x + 'px';
+    food.style.setProperty('--targetY', clampY + 'px');
+    document.body.appendChild(food);
+    
+    // Make penguin walk to food
+    setTimeout(() => moveTo(x, clampY, true, food), 300);
+  }
+
+  // --- Feature 5: Random Reactions (Tapping Penguin) ---
+  const reactions = ['react-bouquet', 'react-peek', 'spin', 'react-heart'];
+  
+  penguin.addEventListener('click', e => {
+    e.stopPropagation(); resetSleep();
+    if (isReacting || e.target.closest('#nameContainer')) return;
+    isReacting = true;
+    wrap.className = ''; // remove idle/move
+    
+    const randomAction = reactions[Math.floor(Math.random() * reactions.length)];
+    
+    if(randomAction === 'spin') {
+      wrap.classList.add('spin');
+      setTimeout(() => spawnParticles(posX, posY - 40, ['✨','💫']), 400);
+    } else {
+      penguin.classList.add(randomAction);
+      wrap.classList.add('pop'); // little jump
+      if(randomAction === 'react-bouquet') spawnParticles(posX, posY - 40, ['🌸','💖']);
+    }
+
+    // Cleanup
+    setTimeout(() => {
+      penguin.className = 'penguin'; // reset
+      wrap.className = 'idle';
+      isReacting = false;
+    }, randomAction === 'spin' ? 900 : 1500);
+  });
+
+  // Helper: Happy/Tickle State
+  function triggerHappyState(type = "tickle") {
+    if(isReacting) return;
+    isReacting = true;
+    penguin.classList.add('react-happy');
+    spawnParticles(posX, posY - 30, type === "yum" ? ['✨','😋'] : ['✨','💖']);
+    setTimeout(() => { penguin.classList.remove('react-happy'); isReacting = false; }, 1000);
+  }
+
+  // Helpers: Effects
+  function spawnParticles(cx, cy, emojis) {
+    for (let i = 0; i < 6; i++) {
+      const p = document.createElement('div'); p.className = 'sparkle-tickle';
+      p.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      p.style.cssText = `left:${cx}px; top:${cy}px; --dx:${Math.cos(Math.random()*Math.PI*2)*60}px; --dy:${Math.sin(Math.random()*Math.PI*2)*60}px; --rot:${Math.random()*360}deg; animation-delay:${i*0.05}s;`;
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 900);
+    }
+  }
+  function spawnFootprint(x, y) {
+    const f = document.createElement('div'); f.className = 'bloom-footprint'; f.textContent = '🌸';
+    f.style.left = x + 'px'; f.style.top = y + 'px';
+    document.body.appendChild(f);
+    requestAnimationFrame(() => f.style.transform = 'translate(-50%,-50%) scale(1)');
+    setTimeout(() => { f.style.opacity = '0'; f.style.transform = 'translate(-50%,-50%) scale(1.5)'; }, 1500);
+    setTimeout(() => f.remove(), 2100);
+  }
+  function spawnRipple(x, y) {
+    const r = document.createElement('div'); r.className = 'ripple'; r.style.left = x + 'px'; r.style.top = y + 'px';
+    document.body.appendChild(r); setTimeout(() => r.remove(), 700);
+  }
+</script>
+</body>
+</html>
